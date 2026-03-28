@@ -175,7 +175,7 @@ async function load() {
           datasets: [{
             label: 'Plantations',
             data: buckets,
-            backgroundColor: ['#922b21','#c04828','#9a6200','#3d9e6a','#1a6b3a'],
+            backgroundColor: ['#1a6b3a','#3d9e6a','#9a6200','#c04828','#922b21'],
             borderRadius: 6,
             borderSkipped: false,
           }]
@@ -217,7 +217,7 @@ async function load() {
             datasets: [{
               label: 'Score moyen',
               data: avgs,
-              backgroundColor: avgs.map(s => s >= 70 ? '#c04828' : s >= 35 ? '#c8850a' : '#1a6b3a'),
+              backgroundColor: avgs.map(s => s >= 70 ? '#922b21' : s >= 35 ? '#c8850a' : '#1a6b3a'),
               borderRadius: 6,
               borderSkipped: false,
             }]
