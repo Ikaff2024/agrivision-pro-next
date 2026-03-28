@@ -3,7 +3,7 @@
    Refresh token automatique + design system complet
    ============================================================ */
 
-const API_BASE = 'http://localhost:8000';
+ const API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
 
 /* ── Inject shared fonts + design system ───────────────────── */
 (function injectDesignSystem() {
