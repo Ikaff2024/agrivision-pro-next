@@ -64,6 +64,10 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .upload-preview img{width:100%;max-height:240px;object-fit:cover;display:block}
 .upload-preview-bar{padding:10px 14px;border-top:1px solid var(--border);display:flex;
   align-items:center;justify-content:space-between;background:var(--surface-warm);font-size:13px}
+.beta-banner{display:flex;align-items:flex-start;gap:12px;background:#fef8ec;border:1px solid #f0c97a;border-radius:var(--r);padding:14px 16px;margin-bottom:20px}
+.beta-badge{display:inline-flex;align-items:center;padding:2px 10px;background:#9a6200;color:#fff;border-radius:99px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;margin-top:1px}
+.beta-text{font-size:13px;color:#7a4e00;line-height:1.6}
+.beta-text strong{font-weight:600;color:#5a3800}
 </style>
 </head>
 <body>
@@ -202,6 +206,10 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 
       <!-- Tab: Image -->
       <div id="tab-image" style="display:none">
+        <div class="beta-banner">
+          <span class="beta-badge">Beta</span>
+          <div class="beta-text"><strong>Module en développement</strong> — La détection de maladies foliaires repose actuellement sur un modèle de démonstration. Les résultats sont indicatifs et ne remplacent pas un diagnostic terrain. Un modèle ML entraîné sera intégré dans une prochaine version.</div>
+        </div>
         <div class="diag-layout">
           <div>
             <div class="form-section">
