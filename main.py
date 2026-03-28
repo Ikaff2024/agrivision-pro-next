@@ -13,7 +13,6 @@ from app.db import models  # noqa: F401
 
 load_dotenv()
 
-# ── Logging structuré ─────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -21,13 +20,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agrivision")
 
-# ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="AgriVision Pro - CacaoEngine API",
     description="API exposant le moteur agronomique déterministe CacaoEngine",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -42,46 +38,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Middleware : logging des requêtes + timing ─────────────────────────────────
+# ── Middleware timing ─────────────────────────────────────────────────────────
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = round((time.perf_counter() - start) * 1000, 1)
-
     level = logging.WARNING if response.status_code >= 400 else logging.INFO
-    logger.log(
-        level,
-        "%s %s → %d  [%s ms]",
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-    )
+    logger.log(level, "%s %s → %d  [%s ms]", request.method, request.url.path, response.status_code, duration_ms)
     response.headers["X-Process-Time"] = str(duration_ms)
     return response
-
 
 # ── Global exception handler ──────────────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s: %s", request.url.path, exc, exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Erreur interne du serveur. L'équipe a été notifiée."},
-    )
+    return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
 
-
-# ── Startup / Shutdown ────────────────────────────────────────────────────────
+# ── Startup : créer les tables si elles n'existent pas ───────────────────────
 @app.on_event("startup")
 async def startup_event():
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Tables DB vérifiées/créées avec succès.")
+    except Exception as e:
+        logger.error("Erreur création tables : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
-
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("AgriVision Pro API arrêtée.")
-
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
