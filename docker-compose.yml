@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+
+  # ── Base de données PostgreSQL ───────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: agrivision_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agrivision
+      POSTGRES_USER: agrivision_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_en_prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agrivision_user -d agrivision"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API FastAPI ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agrivision_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://agrivision_user:${POSTGRES_PASSWORD:-changeme_en_prod}@db:5432/agrivision
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5500,http://127.0.0.1:5500}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── pgAdmin (interface web DB — dev uniquement) ──────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: agrivision_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@agrivision.ci}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    profiles:
+      - dev   # Démarrer avec : docker compose --profile dev up
+
+volumes:
+  postgres_data:
+  uploads_data:

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Carte</title>
+<script src="auth.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+.map-layout{display:flex;height:100%;flex:1;min-height:0;overflow:hidden}
+.avp-main{overflow:hidden!important}
+
+/* Sidebar panel */
+.map-panel{width:300px;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.map-panel-header{padding:18px 18px 14px;border-bottom:1px solid var(--border)}
+.map-panel-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;margin-bottom:10px}
+
+.risk-filter{display:flex;flex-direction:column;gap:6px}
+.rfb{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+  border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;text-align:left;width:100%}
+.rfb:hover{background:var(--bg)}
+.rfb.active{border-color:var(--accent);background:#f0faf5}
+.rfb-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.rfb-count{margin-left:auto;font-family:'Fraunces',serif;font-size:14px;font-weight:700}
+
+.plantation-list{flex:1;padding:10px 14px;overflow-y:auto}
+.pl-item{padding:12px 10px;border-radius:8px;cursor:pointer;transition:.15s;
+  border:1px solid transparent;margin-bottom:4px}
+.pl-item:hover{background:var(--bg);border-color:var(--border-l)}
+.pl-item.selected{background:#f0faf5;border-color:var(--accent)}
+.pl-name{font-size:13.5px;font-weight:600;margin-bottom:3px}
+.pl-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.pl-score{font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-left:auto;flex-shrink:0}
+
+/* Map container */
+.map-container{flex:1;position:relative}
+#map{width:100%;height:100%}
+
+/* Custom marker */
+.marker-pin{width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+  border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);display:flex;
+  align-items:center;justify-content:center}
+.marker-pin span{transform:rotate(45deg);font-size:13px}
+
+/* Map popup */
+.map-popup .popup-name{font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:6px}
+.map-popup .popup-score{font-size:24px;font-family:'Fraunces',serif;font-weight:700}
+
+.stats-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border-top:1px solid var(--border)}
+.stat-mini{background:var(--bg);border-radius:8px;padding:10px 12px;text-align:center}
+.stat-mini-val{font-family:'Fraunces',serif;font-size:22px;font-weight:700}
+.stat-mini-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+
+.map-legend{position:absolute;bottom:20px;right:20px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;
+  box-shadow:var(--sh);z-index:1000;font-size:12px}
+.legend-title{font-weight:600;margin-bottom:8px;color:var(--muted);font-size:11px;
+  text-transform:uppercase;letter-spacing:.05em}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12.5px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main" style="height:100vh;overflow:hidden;display:flex;flex-direction:column">
+
+    <div class="avp-header" style="flex-shrink:0">
+      <div>
+        <div class="page-title">Carte des plantations</div>
+        <div class="page-sub" id="map-sub">Chargement…</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="resetView()">
+        <span class="material-symbols-outlined" style="font-size:16px">my_location</span>
+        Recentrer
+      </button>
+    </div>
+
+    <div class="map-layout" style="flex:1;min-height:0">
+      <!-- Left panel -->
+      <div class="map-panel">
+        <div class="map-panel-header">
+          <div class="map-panel-title">Filtres</div>
+          <div class="risk-filter">
+            <button class="rfb active" data-risk="all" onclick="setRisk('all',this)">
+              <div class="rfb-dot" style="background:#1a4231"></div>
+              Toutes
+              <span class="rfb-count" id="cnt-all">—</span>
+            </button>
+            <button class="rfb" data-risk="LOW" onclick="setRisk('LOW',this)">
+              <div class="rfb-dot" style="background:var(--low)"></div>
+              Faible
+              <span class="rfb-count" style="color:var(--low)" id="cnt-low">—</span>
+            </button>
+            <button class="rfb" data-risk="MEDIUM" onclick="setRisk('MEDIUM',this)">
+              <div class="rfb-dot" style="background:var(--med)"></div>
+              Moyen
+              <span class="rfb-count" style="color:var(--med)" id="cnt-med">—</span>
+            </button>
+            <button class="rfb" data-risk="HIGH" onclick="setRisk('HIGH',this)">
+              <div class="rfb-dot" style="background:var(--high)"></div>
+              Élevé
+              <span class="rfb-count" style="color:var(--high)" id="cnt-high">—</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="plantation-list" id="plantation-list">
+          <div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Chargement…</div>
+        </div>
+
+        <div class="stats-mini" id="stats-mini">
+          <div class="stat-mini">
+            <div class="stat-mini-val" id="st-total">—</div>
+            <div class="stat-mini-lbl">Total</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val" style="color:var(--high)" id="st-high">—</div>
+            <div class="stat-mini-lbl">Élevé</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="map-legend">
+          <div class="legend-title">Niveau de risque</div>
+          <div class="legend-row"><div class="legend-dot" style="background:var(--low)"></div>Faible</div>
+          <div class="legend-row"><div class="legend-dot" style="background:var(--med)"></div>Moyen</div>
+          <div class="legend-row"><div class="legend-dot" style="background:var(--high)"></div>Élevé</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('map');
+
+let map, allData = [], markers = [], currentRisk = 'all';
+const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
+const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
+
+// Init map centered on Côte d'Ivoire
+map = L.map('map', { zoomControl: true }).setView([6.8, -5.5], 7);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap, © CARTO', maxZoom: 19
+}).addTo(map);
+
+function makeIcon(risk) {
+  const color = RC[risk] || '#888';
+  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 24 16 24s16-12 16-24C32 7.163 24.837 0 16 0z" fill="${color}"/>
+    <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40]
+  });
+}
+
+async function load() {
+  try {
+    const [r1, r2] = await Promise.all([
+      authFetch('/map/plantations'),
+      authFetch('/map/stats')
+    ]);
+    if (!r1?.ok) return;
+    allData = await r1.json();
+
+    if (r2?.ok) {
+      const s = await r2.json();
+      document.getElementById('cnt-all').textContent  = s.total_plantations;
+      document.getElementById('cnt-low').textContent  = s.low_risk_plantations;
+      document.getElementById('cnt-med').textContent  = s.medium_risk_plantations;
+      document.getElementById('cnt-high').textContent = s.high_risk_plantations;
+      document.getElementById('st-total').textContent = s.total_plantations;
+      document.getElementById('st-high').textContent  = s.high_risk_plantations;
+      document.getElementById('map-sub').textContent  =
+        `${s.total_plantations} plantation${s.total_plantations>1?'s':''} · ${s.high_risk_plantations} à risque élevé`;
+    }
+
+    renderList();
+    renderMarkers();
+  } catch {}
+}
+
+function getFiltered() {
+  return currentRisk === 'all' ? allData : allData.filter(p => p.risk_level === currentRisk);
+}
+
+function renderList() {
+  const items = getFiltered();
+  const el = document.getElementById('plantation-list');
+  if (!items.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Aucune plantation</div>';
+    return;
+  }
+  el.innerHTML = items.map(p => `
+    <div class="pl-item" id="li-${p.id}" onclick="focusPlantation(${p.id})">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${RC[p.risk_level]||'#888'};
+          flex-shrink:0;margin-top:4px"></div>
+        <div style="flex:1;min-width:0">
+          <div class="pl-name">${esc(p.name)}</div>
+          <div class="pl-meta">
+            <span>${RL[p.risk_level]||p.risk_level}</span>
+            ${p.score != null ? `<span>·</span><span>${Math.round(p.score)} pts</span>` : ''}
+          </div>
+        </div>
+        ${p.score != null ? `<div class="pl-score" style="color:${RC[p.risk_level]||'#888'}">${Math.round(p.score)}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function renderMarkers() {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  const items = getFiltered().filter(p => p.latitude != null && p.longitude != null);
+
+  items.forEach(p => {
+    const m = L.marker([p.latitude, p.longitude], { icon: makeIcon(p.risk_level) }).addTo(map);
+    m.bindPopup(`
+      <div class="map-popup" style="font-family:'DM Sans',sans-serif;min-width:180px">
+        <div class="popup-name">${esc(p.name)}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span class="popup-score" style="color:${RC[p.risk_level]||'#888'}">${p.score!=null?Math.round(p.score):'—'}</span>
+          <span style="font-size:12px;background:${RC[p.risk_level]||'#888'}20;color:${RC[p.risk_level]||'#888'};
+            padding:2px 8px;border-radius:99px;font-weight:600">${RL[p.risk_level]||p.risk_level}</span>
+        </div>
+        <a href="plantation_detail.html?id=${p.id}"
+          style="font-size:12.5px;color:#1a4231;font-weight:600;text-decoration:none">
+          Voir le détail →
+        </a>
+      </div>`, { maxWidth: 240 });
+    m._plantationId = p.id;
+    markers.push(m);
+  });
+
+  if (items.length) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.15));
+  }
+}
+
+function focusPlantation(id) {
+  document.querySelectorAll('.pl-item').forEach(el => el.classList.remove('selected'));
+  const li = document.getElementById(`li-${id}`);
+  if (li) li.classList.add('selected');
+  const m = markers.find(mk => mk._plantationId === id);
+  if (m) { map.setView(m.getLatLng(), 13); m.openPopup(); }
+}
+
+function setRisk(risk, btn) {
+  currentRisk = risk;
+  document.querySelectorAll('.rfb').forEach(b => b.classList.toggle('active', b.dataset.risk === risk));
+  renderList();
+  renderMarkers();
+}
+
+function resetView() {
+  if (markers.length) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.15));
+  } else {
+    map.setView([6.8, -5.5], 7);
+  }
+}
+
+function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+load();
+</script>
+</body>
+</html>

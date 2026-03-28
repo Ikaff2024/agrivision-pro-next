@@ -1,0 +1,29 @@
+services:
+  # ── API FastAPI ──────────────────────────────────────────────────────────────
+  - type: web
+    name: agrivision-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true          # Render génère automatiquement une valeur sécurisée
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agrivision-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://agrivision-pro.netlify.app
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "120"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+    buildCommand: ""
+    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+
+databases:
+  # ── PostgreSQL managé ────────────────────────────────────────────────────────
+  - name: agrivision-db
+    databaseName: agrivision
+    user: agrivision_user
+    plan: free                       # Gratuit 90 jours, puis ~7$/mois

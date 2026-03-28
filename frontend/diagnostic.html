@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Diagnostic</title>
+<script src="auth.js"></script>
+<style>
+.diag-layout{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+@media(max-width:1100px){.diag-layout{grid-template-columns:1fr}}
+
+.tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;background:var(--surface);margin-bottom:24px;width:fit-content}
+.tab{padding:9px 20px;font-size:13.5px;font-weight:500;cursor:pointer;border:none;
+  background:transparent;font-family:'DM Sans',sans-serif;color:var(--muted);transition:.15s}
+.tab:hover{background:var(--bg)}
+.tab.active{background:var(--primary);color:#fff}
+
+.form-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:22px;box-shadow:var(--sh);margin-bottom:20px}
+.form-section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border-l)}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:700px){.form-row3{grid-template-columns:1fr 1fr}}
+
+.range-group{margin-bottom:16px}
+.range-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.range-label{font-size:13px;font-weight:500;color:var(--muted)}
+.range-val{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--primary)}
+input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:pointer;
+  accent-color:var(--accent);background:var(--border-l)}
+
+/* Results panel */
+.result-panel{position:sticky;top:24px}
+.result-empty{text-align:center;padding:48px 24px;color:var(--muted)}
+.result-icon{font-size:48px;opacity:.15;margin-bottom:12px}
+
+.result-header{background:var(--primary);color:#fff;border-radius:var(--r) var(--r) 0 0;padding:20px 22px}
+.result-tag{display:inline-block;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);
+  font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:99px;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:10px}
+.result-score-row{display:flex;align-items:flex-end;justify-content:space-between}
+.result-score-big{font-family:'Fraunces',serif;font-size:52px;font-weight:700;line-height:1}
+.result-score-label{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:8px}
+.result-body{border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);
+  padding:20px 22px;background:var(--surface)}
+
+.module-list{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+.module-item{background:var(--surface-warm);border:1px solid var(--border-l);border-radius:8px;padding:12px 14px}
+.module-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.module-name{font-size:12.5px;font-weight:600;color:var(--text);text-transform:capitalize}
+.module-score{font-family:'Fraunces',serif;font-size:16px;font-weight:700}
+.module-reasons{font-size:11.5px;color:var(--muted);line-height:1.6}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 20px;
+  text-align:center;cursor:pointer;transition:.2s;background:var(--surface-warm)}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:#f0faf5}
+.upload-zone .uz-icon{font-size:40px;opacity:.25;margin-bottom:12px}
+.upload-zone p{font-size:14px;color:var(--muted);margin-bottom:6px}
+.upload-zone small{font-size:12px;color:var(--faint)}
+.upload-preview{display:none;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;
+  margin-top:16px}
+.upload-preview img{width:100%;max-height:240px;object-fit:cover;display:block}
+.upload-preview-bar{padding:10px 14px;border-top:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between;background:var(--surface-warm);font-size:13px}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Diagnostic</div>
+        <div class="page-sub">Moteur CacaoEngine v1 — 4 modules agronomiques</div>
+      </div>
+    </div>
+
+    <div class="avp-content">
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('agro',this)">Diagnostic agronomique</button>
+        <button class="tab" onclick="showTab('image',this)">Analyse d'image</button>
+      </div>
+
+      <!-- Tab: Agronomique -->
+      <div id="tab-agro">
+        <div class="diag-layout">
+          <!-- Form -->
+          <div>
+            <div class="form-section">
+              <div class="form-section-title">Plantation</div>
+              <div class="form-group">
+                <label class="form-label">Sélectionner une plantation *</label>
+                <select class="form-input" id="plantation-select">
+                  <option value="">— Choisir une plantation —</option>
+                </select>
+              </div>
+              <div class="form-row3">
+                <div class="form-group">
+                  <label class="form-label">Pays</label>
+                  <input class="form-input" id="country" value="Côte d'Ivoire" placeholder="Côte d'Ivoire">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Région</label>
+                  <input class="form-input" id="region" placeholder="Soubré">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title">Conditions climatiques</div>
+              <div class="range-group">
+                <div class="range-header">
+                  <span class="range-label">Humidité relative</span>
+                  <span class="range-val" id="val-humidity">70%</span>
+                </div>
+                <input type="range" id="humidity" min="0" max="100" value="70"
+                  oninput="document.getElementById('val-humidity').textContent=this.value+'%'">
+              </div>
+              <div class="range-group">
+                <div class="range-header">
+                  <span class="range-label">Pluviométrie mensuelle</span>
+                  <span class="range-val" id="val-rain">120 mm</span>
+                </div>
+                <input type="range" id="rain" min="0" max="400" value="120"
+                  oninput="document.getElementById('val-rain').textContent=this.value+' mm'">
+              </div>
+              <div class="range-group">
+                <div class="range-header">
+                  <span class="range-label">Température moyenne</span>
+                  <span class="range-val" id="val-temp">27°C</span>
+                </div>
+                <input type="range" id="temp" min="10" max="45" value="27"
+                  oninput="document.getElementById('val-temp').textContent=this.value+'°C'">
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title">Caractéristiques de la plantation</div>
+              <div class="range-group">
+                <div class="range-header">
+                  <span class="range-label">Âge de la plantation</span>
+                  <span class="range-val" id="val-age">10 ans</span>
+                </div>
+                <input type="range" id="age" min="0" max="60" value="10"
+                  oninput="document.getElementById('val-age').textContent=this.value+' ans'">
+              </div>
+              <div class="range-group">
+                <div class="range-header">
+                  <span class="range-label">Densité d'ombrage</span>
+                  <span class="range-val" id="val-shade">30%</span>
+                </div>
+                <input type="range" id="shade" min="0" max="100" value="30"
+                  oninput="document.getElementById('val-shade').textContent=this.value+'%'">
+              </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px"
+              id="run-btn" onclick="runDiagnostic()">
+              <span class="material-symbols-outlined" style="font-size:18px">biotech</span>
+              <span id="run-txt">Lancer le diagnostic</span>
+              <div class="spinner" id="run-spin" style="display:none"></div>
+            </button>
+          </div>
+
+          <!-- Result panel -->
+          <div class="result-panel">
+            <div class="card" id="result-empty">
+              <div class="result-empty">
+                <div class="result-icon">🔬</div>
+                <div style="font-size:15px;font-weight:600;margin-bottom:6px">Aucun résultat</div>
+                <div style="font-size:13px">Remplissez le formulaire et lancez l'analyse.</div>
+              </div>
+            </div>
+            <div id="result-card" style="display:none;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh)">
+              <div class="result-header" id="r-header">
+                <div class="result-tag">Résultat CacaoEngine</div>
+                <div class="result-score-row">
+                  <div>
+                    <div class="result-score-big" id="r-score">—</div>
+                    <div class="result-score-label">Score global / 100</div>
+                  </div>
+                  <div id="r-badge"></div>
+                </div>
+              </div>
+              <div class="result-body">
+                <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+                  letter-spacing:.06em;margin-bottom:12px">Détail par module</div>
+                <div class="module-list" id="r-modules"></div>
+                <button class="btn btn-outline" style="width:100%;justify-content:center"
+                  onclick="runDiagnostic()">
+                  <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+                  Relancer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Image -->
+      <div id="tab-image" style="display:none">
+        <div class="diag-layout">
+          <div>
+            <div class="form-section">
+              <div class="form-section-title">Plantation associée (optionnel)</div>
+              <div class="form-group">
+                <select class="form-input" id="img-plantation">
+                  <option value="">— Sans association —</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-title">Image foliaire</div>
+              <div class="upload-zone" id="upload-zone"
+                onclick="document.getElementById('file-input').click()"
+                ondragover="event.preventDefault();this.classList.add('over')"
+                ondragleave="this.classList.remove('over')"
+                ondrop="handleDrop(event)">
+                <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+                <div class="uz-icon">🌿</div>
+                <p>Glissez une photo de feuille ici</p>
+                <small>JPG, PNG — max 10 Mo — Feuille bien éclairée, centrée</small>
+              </div>
+              <div class="upload-preview" id="upload-preview">
+                <img id="preview-img" src="" alt="Aperçu">
+                <div class="upload-preview-bar">
+                  <span id="file-name" style="font-weight:500"></span>
+                  <button class="btn btn-ghost btn-sm" onclick="clearFile()" style="color:var(--high)">Supprimer</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px"
+              id="img-btn" onclick="runImageDiag()">
+              <span class="material-symbols-outlined" style="font-size:18px">image_search</span>
+              <span id="img-txt">Analyser l'image</span>
+              <div class="spinner" id="img-spin" style="display:none"></div>
+            </button>
+          </div>
+
+          <div class="result-panel">
+            <div class="card" id="img-result-empty">
+              <div class="result-empty">
+                <div class="result-icon">🌿</div>
+                <div style="font-size:15px;font-weight:600;margin-bottom:6px">Aucune analyse</div>
+                <div style="font-size:13px">Uploadez une image foliaire pour détecter les maladies.</div>
+              </div>
+            </div>
+            <div id="img-result-card" style="display:none;border-radius:var(--r);overflow:hidden;
+              border:1px solid var(--border);box-shadow:var(--sh)">
+              <div class="result-header" style="background:var(--primary)">
+                <div class="result-tag">Analyse ML</div>
+                <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;margin-top:6px" id="img-disease">—</div>
+              </div>
+              <div class="result-body">
+                <div style="margin-bottom:16px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                    <span style="font-size:13px;font-weight:500;color:var(--muted)">Confiance</span>
+                    <span style="font-family:'Fraunces',serif;font-weight:700;color:var(--primary)" id="img-confidence">—</span>
+                  </div>
+                  <div class="score-bar-wrap"><div class="score-bar" id="img-conf-bar" style="background:var(--primary)"></div></div>
+                </div>
+                <div style="background:var(--bg);border-radius:8px;padding:14px;border:1px solid var(--border-l)">
+                  <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Recommandation</div>
+                  <div style="font-size:13.5px;line-height:1.6" id="img-rec">—</div>
+                </div>
+                <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
+                  <span style="font-size:13px;color:var(--muted)">Sévérité :</span>
+                  <span id="img-sev"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('diagnostic');
+
+let currentFile = null;
+
+// Load plantations into selects
+async function loadPlantations() {
+  try {
+    const r = await authFetch('/plantations?limit=200');
+    if (!r?.ok) return;
+    const pls = await r.json();
+    const html = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.region||p.country||'')})</option>`).join('');
+    document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + html;
+    document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + html;
+    // Pre-select if ?id= in URL
+    const pid = new URLSearchParams(location.search).get('id');
+    if (pid) {
+      document.getElementById('plantation-select').value = pid;
+      document.getElementById('img-plantation').value = pid;
+    }
+  } catch {}
+}
+
+function showTab(tab, el) {
+  document.getElementById('tab-agro').style.display = tab==='agro' ? '' : 'none';
+  document.getElementById('tab-image').style.display = tab==='image' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function runDiagnostic() {
+  const pid = document.getElementById('plantation-select').value;
+  if (!pid) { toast('Veuillez sélectionner une plantation.', 'error'); return; }
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-spin').style.display = 'block';
+  document.getElementById('run-txt').textContent = 'Analyse en cours…';
+
+  const inputs = {
+    country:               document.getElementById('country').value || 'Côte d\'Ivoire',
+    region:                document.getElementById('region').value || null,
+    humidity_pct:          +document.getElementById('humidity').value,
+    rainfall_mm_month:     +document.getElementById('rain').value,
+    avg_temp_c:            +document.getElementById('temp').value,
+    plantation_age_years:  +document.getElementById('age').value,
+    shade_tree_density_pct:+document.getElementById('shade').value,
+  };
+
+  try {
+    const res = await authFetch(`/cacao/diagnostic?plantation_id=${pid}`, {
+      method: 'POST', body: JSON.stringify(inputs)
+    });
+    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Erreur diagnostic.'); }
+    const report = await res.json();
+    showResult(report);
+    toast('Diagnostic enregistré.');
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled=false;
+    document.getElementById('run-spin').style.display='none';
+    document.getElementById('run-txt').textContent='Lancer le diagnostic';
+  }
+}
+
+const MODULE_NAMES = {
+  disease_risk:      'Risque maladie',
+  plantation_age:    'Âge plantation',
+  rainfall_balance:  'Bilan pluviométrique',
+  shade_balance:     'Bilan ombrage',
+};
+
+function showResult(r) {
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-card').style.display = '';
+  document.getElementById('r-score').textContent = Math.round(r.global_score);
+  document.getElementById('r-badge').innerHTML = riskBadge(r.global_risk_level);
+
+  const colors = { LOW: '#1a6b3a', MEDIUM: '#9a6200', HIGH: '#922b21' };
+  document.getElementById('r-header').style.background = colors[r.global_risk_level] || '#1a4231';
+
+  document.getElementById('r-modules').innerHTML = (r.module_results||[]).map(m => `
+    <div class="module-item">
+      <div class="module-header">
+        <span class="module-name">${MODULE_NAMES[m.module_name]||m.module_name}</span>
+        <span class="module-score" style="color:${scoreColor(m.score)}">${Math.round(m.score)}</span>
+      </div>
+      <div class="score-bar-wrap" style="margin-bottom:8px">
+        <div class="score-bar" style="width:${m.score}%;background:${scoreColor(m.score)}"></div>
+      </div>
+      <div class="module-reasons">${(m.reasons||[]).map(r => `<div>• ${esc(r)}</div>`).join('')}</div>
+    </div>`).join('');
+}
+
+// Image diagnosis
+function handleFile(file) {
+  if (!file) return;
+  currentFile = file;
+  const url = URL.createObjectURL(file);
+  document.getElementById('preview-img').src = url;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('upload-preview').style.display = '';
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) handleFile(f);
+}
+function clearFile() {
+  currentFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('upload-zone').style.display = '';
+  document.getElementById('upload-preview').style.display = 'none';
+}
+
+async function runImageDiag() {
+  if (!currentFile) { toast('Veuillez sélectionner une image.', 'error'); return; }
+  const pid = document.getElementById('img-plantation').value;
+  const btn = document.getElementById('img-btn');
+  btn.disabled=true;
+  document.getElementById('img-spin').style.display='block';
+  document.getElementById('img-txt').textContent='Analyse…';
+
+  try {
+    const form = new FormData();
+    form.append('file', currentFile);
+    const url = `${API_BASE}/diagnostic/image${pid ? '?plantation_id='+pid : ''}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer '+getToken() },
+      body: form
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Erreur analyse.'); }
+    const data = await res.json();
+    showImageResult(data);
+    toast('Analyse terminée.');
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled=false;
+    document.getElementById('img-spin').style.display='none';
+    document.getElementById('img-txt').textContent='Analyser l\'image';
+  }
+}
+
+function showImageResult(d) {
+  document.getElementById('img-result-empty').style.display = 'none';
+  document.getElementById('img-result-card').style.display = '';
+  document.getElementById('img-disease').textContent = d.disease || '—';
+  const conf = Math.round((d.confidence||0)*100);
+  document.getElementById('img-confidence').textContent = conf + '%';
+  document.getElementById('img-conf-bar').style.width = conf + '%';
+  document.getElementById('img-rec').textContent = d.recommendation || '—';
+  document.getElementById('img-sev').innerHTML = riskBadge(d.severity || 'MEDIUM');
+}
+
+function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+loadPlantations();
+</script>
+</body>
+</html>

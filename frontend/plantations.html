@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Plantations</title>
+<script src="auth.js"></script>
+<style>
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.search-wrap{position:relative;flex:1;min-width:200px;max-width:340px}
+.search-wrap .ms{position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  font-size:18px;color:var(--faint);pointer-events:none}
+.search-input{width:100%;padding:9px 12px 9px 38px;border:1.5px solid var(--border);
+  border-radius:var(--r);font-size:13.5px;color:var(--text);background:var(--surface);
+  outline:none;font-family:'DM Sans',sans-serif;transition:.15s}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.12)}
+.search-input::placeholder{color:var(--faint)}
+
+.filter-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.ftab{padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;border:none;
+  background:transparent;font-family:'DM Sans',sans-serif;color:var(--muted);transition:.15s}
+.ftab:hover{background:var(--bg)}
+.ftab.active{background:var(--primary);color:#fff}
+
+.plantation-name{display:flex;align-items:center;gap:10px}
+.p-avatar{width:34px;height:34px;border-radius:9px;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.p-name{font-size:14px;font-weight:600}
+.p-owner{font-size:12px;color:var(--muted);margin-top:1px}
+
+.score-pill{display:flex;align-items:center;gap:8px}
+.score-pill-bar{width:52px;height:6px;background:var(--border-l);border-radius:99px;overflow:hidden}
+.score-pill-fill{height:100%;border-radius:99px}
+.score-num{font-family:'Fraunces',serif;font-size:14px;font-weight:700;min-width:26px}
+
+.action-btns{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:.15s}
+tr:hover .action-btns{opacity:1}
+.act-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:16px;transition:.15s;font-family:'DM Sans',sans-serif}
+.act-btn:hover{border-color:var(--accent);background:#f0faf5}
+
+.empty-state{text-align:center;padding:64px 20px;color:var(--muted)}
+.empty-icon{font-size:52px;opacity:.18;margin-bottom:14px}
+.pagination{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-top:1px solid var(--border);background:var(--surface-warm)}
+.pag-info{font-size:12.5px;color:var(--muted)}
+.pag-btns{display:flex;gap:6px}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);
+  display:flex;align-items:center;justify-content:center;z-index:900;padding:20px;display:none}
+.modal{background:var(--surface);border-radius:var(--rl);padding:28px;
+  width:100%;max-width:520px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.modal-title{font-family:'Fraunces',serif;font-size:20px;font-weight:700;margin-bottom:20px}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;
+  padding-top:16px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Plantations</div>
+        <div class="page-sub" id="count-sub">Chargement…</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal()">
+        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+        Nouvelle plantation
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="material-symbols-outlined ms">search</span>
+          <input class="search-input" id="search" placeholder="Nom, région, propriétaire…" oninput="filterRows()">
+        </div>
+        <div class="filter-tabs">
+          <button class="ftab active" data-filter="all" onclick="setFilter('all',this)">Toutes</button>
+          <button class="ftab" data-filter="LOW" onclick="setFilter('LOW',this)">Faible</button>
+          <button class="ftab" data-filter="MEDIUM" onclick="setFilter('MEDIUM',this)">Moyen</button>
+          <button class="ftab" data-filter="HIGH" onclick="setFilter('HIGH',this)">Élevé</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Plantation</th>
+              <th>Région</th>
+              <th>Superficie</th>
+              <th>Score</th>
+              <th>Risque</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--muted)">Chargement…</td></tr>
+          </tbody>
+        </table>
+        <div class="pagination" id="pagination" style="display:none">
+          <span class="pag-info" id="pag-info"></span>
+          <div class="pag-btns">
+            <button class="btn btn-outline btn-sm" id="pag-prev" onclick="changePage(-1)">← Précédent</button>
+            <button class="btn btn-outline btn-sm" id="pag-next" onclick="changePage(1)">Suivant →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal création -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">Nouvelle plantation</div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="m-name" placeholder="Plantation Soubré"></div>
+      <div class="form-group"><label class="form-label">Propriétaire *</label><input class="form-input" id="m-owner" placeholder="Konan Kouassi"></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Pays</label>
+        <select class="form-input" id="m-country">
+          <option>Côte d'Ivoire</option><option>Ghana</option><option>Cameroun</option><option>Nigeria</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Région</label><input class="form-input" id="m-region" placeholder="Soubré"></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="m-lat" type="number" step="any" placeholder="5.78"></div>
+      <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="m-lng" type="number" step="any" placeholder="-6.59"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Superficie (ha)</label><input class="form-input" id="m-ha" type="number" step="any" placeholder="4.5"></div>
+    <div id="m-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="m-btn" onclick="createPlantation()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('plantations');
+
+let allPlantations = [];
+let mapData = {};
+let currentFilter = 'all';
+let page = 0;
+const PAGE_SIZE = 15;
+
+async function load() {
+  try {
+    // Load plantations + map data in parallel
+    const [r1, r2] = await Promise.all([
+      authFetch('/plantations?limit=200'),
+      authFetch('/map/plantations')
+    ]);
+    if (!r1?.ok) return;
+    allPlantations = await r1.json();
+    if (r2?.ok) {
+      const md = await r2.json();
+      md.forEach(p => { mapData[p.id] = p; });
+    }
+    document.getElementById('count-sub').textContent = `${allPlantations.length} plantation${allPlantations.length > 1 ? 's' : ''} enregistrée${allPlantations.length > 1 ? 's' : ''}`;
+    render();
+  } catch {}
+}
+
+function getFiltered() {
+  const q = document.getElementById('search').value.toLowerCase();
+  return allPlantations.filter(p => {
+    const md = mapData[p.id];
+    const risk = md?.risk_level || '';
+    if (currentFilter !== 'all' && risk !== currentFilter) return false;
+    if (q && !`${p.name} ${p.region||''} ${p.owner_name}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  const start = page * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+  const tb = document.getElementById('tbody');
+
+  if (!filtered.length) {
+    tb.innerHTML = `<tr><td colspan="6">
+      <div class="empty-state">
+        <div class="empty-icon">🌱</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune plantation trouvée</div>
+        <div style="font-size:13px">Créez votre première plantation ou modifiez les filtres.</div>
+      </div></td></tr>`;
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  tb.innerHTML = slice.map(p => {
+    const md = mapData[p.id];
+    const score = md?.score;
+    const risk  = md?.risk_level;
+    return `<tr>
+      <td>
+        <div class="plantation-name">
+          <div class="p-avatar">🌱</div>
+          <div>
+            <div class="p-name">${esc(p.name)}</div>
+            <div class="p-owner">${esc(p.owner_name)}</div>
+          </div>
+        </div>
+      </td>
+      <td style="color:var(--muted)">${esc(p.region || p.country || '—')}</td>
+      <td style="color:var(--muted)">${p.hectares != null ? p.hectares + ' ha' : '—'}</td>
+      <td>${score != null ? `
+        <div class="score-pill">
+          <div class="score-pill-bar"><div class="score-pill-fill" style="width:${score}%;background:${scoreColor(score)}"></div></div>
+          <span class="score-num" style="color:${scoreColor(score)}">${Math.round(score)}</span>
+        </div>` : '<span style="color:var(--faint)">—</span>'}
+      </td>
+      <td>${risk ? riskBadge(risk) : '<span style="color:var(--faint);font-size:12px">Non diagnostiqué</span>'}</td>
+      <td style="text-align:right">
+        <div class="action-btns">
+          <button class="act-btn" onclick="viewDetail(${p.id})" title="Voir détail">
+            <span class="material-symbols-outlined" style="font-size:15px">visibility</span>
+          </button>
+          <button class="act-btn" onclick="goDiag(${p.id})" title="Lancer un diagnostic">
+            <span class="material-symbols-outlined" style="font-size:15px">biotech</span>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const pag = document.getElementById('pagination');
+  if (filtered.length > PAGE_SIZE) {
+    pag.style.display = 'flex';
+    document.getElementById('pag-info').textContent = `${start+1}–${Math.min(start+PAGE_SIZE, filtered.length)} sur ${filtered.length}`;
+    document.getElementById('pag-prev').disabled = page === 0;
+    document.getElementById('pag-next').disabled = start + PAGE_SIZE >= filtered.length;
+  } else {
+    pag.style.display = 'none';
+  }
+}
+
+function filterRows() { page = 0; render(); }
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.ftab').forEach(t => t.classList.toggle('active', t.dataset.filter === f));
+  page = 0; render();
+}
+function changePage(d) { page += d; render(); }
+function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }
+function viewDetail(id) { location.href = `plantation_detail.html?id=${id}`; }
+function goDiag(id)     { location.href = `diagnostic.html?id=${id}`; }
+
+function openModal()  { document.getElementById('modal').style.display = 'flex'; }
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+document.getElementById('modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+async function createPlantation() {
+  const name   = document.getElementById('m-name').value.trim();
+  const owner  = document.getElementById('m-owner').value.trim();
+  const country= document.getElementById('m-country').value;
+  const region = document.getElementById('m-region').value.trim();
+  const lat    = parseFloat(document.getElementById('m-lat').value);
+  const lng    = parseFloat(document.getElementById('m-lng').value);
+  const ha     = parseFloat(document.getElementById('m-ha').value);
+  const errEl  = document.getElementById('m-err');
+  errEl.style.display = 'none';
+
+  if (!name || !owner) { errEl.textContent = 'Nom et propriétaire sont requis.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('m-btn');
+  btn.disabled=true; btn.textContent='Création…';
+
+  try {
+    const res = await authFetch('/plantations', {
+      method:'POST',
+      body: JSON.stringify({ name, owner_name:owner, country, region:region||null,
+        latitude:isNaN(lat)?null:lat, longitude:isNaN(lng)?null:lng, hectares:isNaN(ha)?null:ha })
+    });
+    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Erreur (rôle admin requis).'); }
+    closeModal();
+    ['m-name','m-owner','m-region','m-lat','m-lng','m-ha'].forEach(id => document.getElementById(id).value='');
+    toast('Plantation créée avec succès.');
+    await load();
+  } catch(e) {
+    errEl.textContent = e.message; errEl.style.display='block';
+  } finally { btn.disabled=false; btn.textContent='Créer'; }
+}
+
+load();
+</script>
+</body>
+</html>

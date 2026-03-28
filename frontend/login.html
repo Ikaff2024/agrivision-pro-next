@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Connexion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--sb:#0c2018;--primary:#1a4231;--accent:#52b788;--bg:#f8f4ee;
+  --surface:#fff;--border:#e6ddd0;--text:#1a2218;--muted:#6a7d64;--faint:#b0c4b0;--r:10px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex}
+
+.panel-l{width:44%;background:var(--sb);display:flex;flex-direction:column;
+  flex-shrink:0;position:relative;overflow:hidden}
+@media(max-width:840px){.panel-l{display:none}}
+
+/* Layered organic background */
+.panel-l::before{content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 340px 500px at 15% 25%, rgba(82,183,136,.13) 0%,transparent 65%),
+    radial-gradient(ellipse 250px 350px at 85% 75%, rgba(82,183,136,.09) 0%,transparent 60%),
+    radial-gradient(ellipse 180px 200px at 50% 55%, rgba(82,183,136,.06) 0%,transparent 55%)}
+
+/* Big leaf SVG bg */
+.leaf-bg{position:absolute;right:-80px;bottom:-60px;width:420px;opacity:.055}
+
+.p-inner{position:relative;z-index:1;padding:44px;display:flex;flex-direction:column;height:100%}
+.p-brand{display:flex;align-items:center;gap:12px}
+.p-brand-icon{width:42px;height:42px;background:rgba(82,183,136,.16);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.p-brand-name{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.p-brand-sub{font-size:10.5px;color:rgba(255,255,255,.4);margin-top:2px}
+
+.p-hero{margin:auto 0;padding:32px 0}
+.p-tagline{font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:#fff;
+  line-height:1.22;letter-spacing:-.5px;margin-bottom:14px}
+.p-tagline em{color:var(--accent);font-style:normal}
+.p-desc{font-size:14.5px;color:rgba(255,255,255,.5);line-height:1.75;max-width:310px;margin-bottom:32px}
+
+.features{display:flex;flex-direction:column;gap:14px}
+.feat{display:flex;align-items:flex-start;gap:12px}
+.feat-icon{width:30px;height:30px;background:rgba(82,183,136,.13);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.feat-icon svg{width:14px;height:14px;stroke:var(--accent);stroke-width:2;fill:none;stroke-linecap:round}
+.feat-title{font-size:13px;font-weight:600;color:rgba(255,255,255,.82);margin-bottom:2px}
+.feat-body{font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.5}
+
+.p-footer{font-size:11px;color:rgba(255,255,255,.22);padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.07)}
+
+/* Right */
+.panel-r{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 32px}
+.auth-box{width:100%;max-width:400px}
+.auth-title{font-family:'Fraunces',serif;font-size:27px;font-weight:700;letter-spacing:-.4px;margin-bottom:6px}
+.auth-sub{font-size:13.5px;color:var(--muted);margin-bottom:32px}
+
+.form-group{margin-bottom:15px}
+.form-label{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:6px;letter-spacing:.01em}
+.form-input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);
+  font-size:14.5px;color:var(--text);background:var(--surface);outline:none;
+  font-family:'DM Sans',sans-serif;transition:.15s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.13)}
+.form-input::placeholder{color:var(--faint)}
+
+.btn-go{width:100%;padding:12px;border-radius:var(--r);border:none;cursor:pointer;
+  background:var(--primary);color:#fff;font-size:15px;font-weight:600;
+  font-family:'DM Sans',sans-serif;transition:.2s;display:flex;align-items:center;
+  justify-content:center;gap:8px;margin-top:6px}
+.btn-go:hover{background:var(--sb)}
+.btn-go:disabled{opacity:.55;cursor:not-allowed}
+
+.spinner{width:17px;height:17px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error-box{background:#fdedec;border:1px solid #f1948a;border-radius:var(--r);
+  padding:10px 14px;font-size:13px;color:#922b21;margin-bottom:14px;display:none;line-height:1.5}
+
+.auth-bottom{text-align:center;margin-top:22px;padding-top:18px;
+  border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+.auth-bottom a{color:var(--primary);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="panel-l">
+  <svg class="leaf-bg" viewBox="0 0 420 420" fill="white">
+    <path d="M210 400C110 310 20 200 60 90C100-20 320-20 360 90C400 200 310 310 210 400Z"/>
+    <path d="M210 400L210 50" stroke="#0c2018" stroke-width="4" fill="none"/>
+    <path d="M210 200C160 155 130 115 150 70" stroke="#0c2018" stroke-width="2.5" fill="none"/>
+    <path d="M210 270C260 225 290 185 270 140" stroke="#0c2018" stroke-width="2.5" fill="none"/>
+    <path d="M210 330C170 305 150 275 165 245" stroke="#0c2018" stroke-width="2" fill="none"/>
+    <path d="M210 330C250 305 270 275 255 245" stroke="#0c2018" stroke-width="2" fill="none"/>
+    <path d="M210 140C190 120 185 100 195 85" stroke="#0c2018" stroke-width="1.5" fill="none"/>
+    <path d="M210 140C230 120 235 100 225 85" stroke="#0c2018" stroke-width="1.5" fill="none"/>
+  </svg>
+
+  <div class="p-inner">
+    <div class="p-brand">
+      <div class="p-brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#52b788" stroke-width="1.8" stroke-linecap="round">
+          <path d="M12 2C8 2 4 6 4 11c0 3.5 1.8 6.5 4.5 8.2V22h7v-2.8C18.2 17.5 20 14.5 20 11c0-5-4-9-8-9z"/>
+          <path d="M12 2v20"/><path d="M8 8c2 1 4 2 4 5"/><path d="M16 8c-2 1-4 2-4 5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="p-brand-name">AgriVision Pro</div>
+        <div class="p-brand-sub">Plateforme agronomique</div>
+      </div>
+    </div>
+
+    <div class="p-hero">
+      <p class="p-tagline">Intelligence au service<br>de votre <em>cacao</em></p>
+      <p class="p-desc">Pilotez vos plantations, analysez les risques et optimisez vos rendements grâce au moteur CacaoEngine.</p>
+      <div class="features">
+        <div class="feat">
+          <div class="feat-icon"><svg viewBox="0 0 14 14"><path d="M2 7l3.5 3.5L12 3.5"/></svg></div>
+          <div><div class="feat-title">Diagnostic agronomique</div><div class="feat-body">4 modules : maladies, âge, pluviométrie, ombrage</div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon"><svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 4v3l2 2"/></svg></div>
+          <div><div class="feat-title">Suivi en temps réel</div><div class="feat-body">Carte, indices NDVI et historique complet</div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon"><svg viewBox="0 0 14 14"><path d="M7 1L2 4v6l5 3 5-3V4z"/></svg></div>
+          <div><div class="feat-title">Multi-coopérative</div><div class="feat-body">Isolation stricte des données par coopérative</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-footer">© 2026 IKAFFANAN LTD — AgriVision Pro</div>
+  </div>
+</div>
+
+<div class="panel-r">
+  <div class="auth-box">
+    <h1 class="auth-title">Connexion</h1>
+    <p class="auth-sub">Accédez à votre espace coopérative</p>
+
+    <div class="error-box" id="err"></div>
+
+    <div class="form-group">
+      <label class="form-label">Adresse email</label>
+      <input class="form-input" id="email" type="email" placeholder="vous@cooperative.ci" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mot de passe</label>
+      <input class="form-input" id="pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn-go" id="btn" onclick="doLogin()">
+      <span id="btn-text">Se connecter</span>
+      <div class="spinner" id="spin"></div>
+    </button>
+
+    <div class="auth-bottom">Pas encore de compte ? <a href="register.html">Créer un compte</a></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+
+// Already logged in?
+try {
+  const t = localStorage.getItem('avp_token');
+  if (t) {
+    const p = JSON.parse(atob(t.split('.')[1]));
+    if (p.exp && Date.now()/1000 < p.exp) window.location.href = 'index.html';
+  }
+} catch {}
+
+async function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const err   = document.getElementById('err');
+  const btn   = document.getElementById('btn');
+  const spin  = document.getElementById('spin');
+  const txt   = document.getElementById('btn-text');
+
+  err.style.display = 'none';
+  if (!email || !pass) { err.textContent = 'Veuillez remplir tous les champs.'; err.style.display='block'; return; }
+
+  btn.disabled = true; spin.style.display = 'block'; txt.textContent = 'Connexion…';
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, password: pass })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail || 'Identifiants incorrects.'); }
+    const data = await res.json();
+    localStorage.setItem('avp_token', data.access_token);
+    window.location.href = 'index.html';
+  } catch(e) {
+    err.textContent = e.message; err.style.display = 'block';
+    btn.disabled=false; spin.style.display='none'; txt.textContent='Se connecter';
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

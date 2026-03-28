@@ -1,0 +1,42 @@
+# Environnement — NE JAMAIS COMMITTER
+.env
+*.env
+
+# Base de données locale
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Virtualenv / venv
+venv/
+.venv/
+env/
+Lib/
+Scripts/
+pyvenv.cfg
+activate.bat
+deactivate.bat
+Activate.ps1
+
+# Uploads temporaires
+uploads/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (pour les scripts de génération de docs)
+node_modules/

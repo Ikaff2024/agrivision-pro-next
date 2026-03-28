@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Satellite</title>
+<script src="auth.js"></script>
+<style>
+.sat-grid{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+@media(max-width:1100px){.sat-grid{grid-template-columns:1fr}}
+
+/* NDVI gauge */
+.ndvi-display{text-align:center;padding:32px 20px}
+.ndvi-gauge{position:relative;width:180px;height:180px;margin:0 auto 16px}
+.ndvi-gauge svg{width:100%;height:100%}
+.ndvi-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:2px}
+.ndvi-num{font-family:'Fraunces',serif;font-size:38px;font-weight:700;line-height:1}
+.ndvi-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ndvi-status{display:inline-block;padding:5px 14px;border-radius:99px;font-size:13px;
+  font-weight:600;border:1.5px solid;margin-top:8px}
+.status-healthy{background:var(--low-bg);color:var(--low);border-color:var(--low-b)}
+.status-moderate{background:var(--med-bg);color:var(--med);border-color:var(--med-b)}
+.status-stressed{background:var(--high-bg);color:var(--high);border-color:var(--high-b)}
+
+.ndvi-scale{margin-top:20px;padding:0 16px}
+.scale-bar{height:10px;border-radius:99px;background:linear-gradient(to right,
+  #922b21 0%, #9a6200 30%, #52b788 60%, #1a6b3a 100%);position:relative;margin-bottom:6px}
+.scale-needle{position:absolute;top:-4px;width:3px;height:18px;background:#1a2218;
+  border-radius:2px;transform:translateX(-50%);transition:.5s}
+.scale-labels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)}
+
+/* Form */
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:22px;box-shadow:var(--sh);margin-bottom:20px}
+.form-section-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border-l)}
+
+/* Results table */
+.ndvi-table tbody tr td:first-child{font-weight:600}
+.ndvi-badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;
+  font-weight:600;border:1px solid}
+
+/* History items */
+.hist-item{display:flex;align-items:center;gap:12px;padding:12px 0;
+  border-bottom:1px solid var(--border-l)}
+.hist-item:last-child{border-bottom:none}
+.hist-num{font-family:'Fraunces',serif;font-size:20px;font-weight:700}
+.hist-bar-wrap{flex:1;background:var(--border-l);height:7px;border-radius:99px;overflow:hidden}
+.hist-bar{height:100%;border-radius:99px;transition:.5s}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty-icon{font-size:44px;opacity:.18;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Analyse Satellite</div>
+        <div class="page-sub">Indice NDVI — Santé de la végétation</div>
+      </div>
+    </div>
+
+    <div class="avp-content">
+      <div class="sat-grid">
+
+        <!-- Form + result -->
+        <div>
+          <!-- Mode selector -->
+          <div class="form-card">
+            <div class="form-section-title">Analyse par plantation</div>
+            <div class="form-group">
+              <label class="form-label">Sélectionner une plantation</label>
+              <select class="form-input" id="p-select">
+                <option value="">— Choisir —</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center"
+              id="p-btn" onclick="runByPlantation()">
+              <span class="material-symbols-outlined" style="font-size:18px">satellite_alt</span>
+              <span id="p-txt">Analyser</span>
+              <div class="spinner" id="p-spin" style="display:none"></div>
+            </button>
+          </div>
+
+          <div style="text-align:center;color:var(--faint);font-size:12px;margin:4px 0 18px">— ou —</div>
+
+          <div class="form-card">
+            <div class="form-section-title">Analyse par coordonnées</div>
+            <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group">
+                <label class="form-label">Latitude</label>
+                <input class="form-input" id="lat" type="number" step="any" placeholder="5.78">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Longitude</label>
+                <input class="form-input" id="lng" type="number" step="any" placeholder="-6.59">
+              </div>
+            </div>
+            <button class="btn btn-outline" style="width:100%;justify-content:center"
+              id="coord-btn" onclick="runByCoords()">
+              <span class="material-symbols-outlined" style="font-size:18px">my_location</span>
+              <span id="coord-txt">Analyser les coordonnées</span>
+              <div class="spinner" id="coord-spin" style="display:none"></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Result panel -->
+        <div>
+          <div class="card" id="result-empty">
+            <div class="empty-state">
+              <div class="empty-icon">🛰️</div>
+              <div style="font-size:15px;font-weight:600;margin-bottom:6px">Aucune analyse</div>
+              <div style="font-size:13px">Sélectionnez une plantation ou entrez des coordonnées GPS.</div>
+            </div>
+          </div>
+
+          <div id="result-section" style="display:none">
+            <!-- NDVI display -->
+            <div class="card" style="margin-bottom:20px">
+              <div class="ndvi-display">
+                <div class="ndvi-gauge">
+                  <svg viewBox="0 0 180 180">
+                    <!-- Track -->
+                    <circle cx="90" cy="90" r="70" fill="none" stroke="#f0ead8" stroke-width="12"
+                      stroke-dasharray="351 439" stroke-linecap="round"
+                      transform="rotate(135 90 90)"/>
+                    <!-- Fill -->
+                    <circle cx="90" cy="90" r="70" fill="none" id="gauge-fill"
+                      stroke="#1a6b3a" stroke-width="12" stroke-dasharray="0 439"
+                      stroke-linecap="round" transform="rotate(135 90 90)"
+                      style="transition:stroke-dasharray .6s ease"/>
+                  </svg>
+                  <div class="ndvi-value">
+                    <div class="ndvi-num" id="ndvi-num">—</div>
+                    <div class="ndvi-lbl">NDVI</div>
+                  </div>
+                </div>
+                <div id="ndvi-status"></div>
+                <div class="ndvi-scale" style="margin-top:20px">
+                  <div class="scale-bar">
+                    <div class="scale-needle" id="scale-needle" style="left:50%"></div>
+                  </div>
+                  <div class="scale-labels">
+                    <span>0.0 — Stressé</span>
+                    <span>0.5</span>
+                    <span>1.0 — Sain</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Info grid -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;
+                border-top:1px solid var(--border);background:var(--border)">
+                <div style="background:var(--surface-warm);padding:14px 18px;text-align:center">
+                  <div style="font-size:11.5px;color:var(--muted);text-transform:uppercase;
+                    letter-spacing:.05em;margin-bottom:4px">Statut</div>
+                  <div style="font-weight:600;font-size:14px" id="r-status">—</div>
+                </div>
+                <div style="background:var(--surface-warm);padding:14px 18px;text-align:center">
+                  <div style="font-size:11.5px;color:var(--muted);text-transform:uppercase;
+                    letter-spacing:.05em;margin-bottom:4px">Interprétation</div>
+                  <div style="font-weight:600;font-size:14px" id="r-interp">—</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interpretation card -->
+            <div class="card" id="r-advice">
+              <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+                letter-spacing:.06em;margin-bottom:12px">Recommandation</div>
+              <div style="font-size:14px;line-height:1.7;color:var(--text)" id="r-advice-text">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch analysis of all plantations -->
+      <div style="margin-top:28px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="section-title" style="margin:0">Toutes les plantations</div>
+          <button class="btn btn-outline btn-sm" onclick="loadAll()">
+            <span class="material-symbols-outlined" style="font-size:15px">refresh</span>
+            Actualiser
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Plantation</th>
+                <th>Coordonnées</th>
+                <th>NDVI</th>
+                <th>Statut végétation</th>
+                <th>Santé</th>
+              </tr>
+            </thead>
+            <tbody id="sat-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:48px;color:var(--muted)">
+                Cliquez sur "Actualiser" pour lancer l'analyse satellite de toutes vos plantations.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('satellite');
+
+const NDVI_ADVICE = {
+  HEALTHY:  'La végétation est dense et en bonne santé. Continuez votre programme d\'entretien habituel.',
+  MODERATE: 'La végétation montre quelques signes de stress. Vérifiez l\'irrigation et l\'apport en nutriments.',
+  STRESSED: 'Végétation fortement stressée. Inspection immédiate recommandée : irrigation, maladies, ravageurs.',
+};
+const NDVI_LABELS = { HEALTHY: 'Saine', MODERATE: 'Modérée', STRESSED: 'Stressée' };
+const NDVI_COLORS = { HEALTHY: '#1a6b3a', MODERATE: '#9a6200', STRESSED: '#922b21' };
+
+async function loadPlantations() {
+  const r = await authFetch('/plantations?limit=200');
+  if (!r?.ok) return;
+  const pls = await r.json();
+  const html = pls.map(p => `<option value="${p.id}" data-lat="${p.latitude||''}" data-lng="${p.longitude||''}">${esc(p.name)}</option>`).join('');
+  document.getElementById('p-select').innerHTML = '<option value="">— Choisir —</option>' + html;
+  const pid = new URLSearchParams(location.search).get('id');
+  if (pid) { document.getElementById('p-select').value = pid; }
+}
+
+function showResult(data) {
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-section').style.display = '';
+
+  const ndvi = data.ndvi;
+  const status = data.vegetation_status;
+  const color = NDVI_COLORS[status] || '#888';
+
+  document.getElementById('ndvi-num').textContent = ndvi.toFixed(2);
+  document.getElementById('ndvi-num').style.color = color;
+
+  // Gauge arc: max arc = 351 (270° of a circle of r=70)
+  const pct = Math.max(0, Math.min(1, ndvi));
+  const arc = Math.round(pct * 351);
+  document.getElementById('gauge-fill').setAttribute('stroke-dasharray', `${arc} 439`);
+  document.getElementById('gauge-fill').setAttribute('stroke', color);
+  document.getElementById('scale-needle').style.left = (pct * 100) + '%';
+
+  const statusClass = { HEALTHY:'status-healthy', MODERATE:'status-moderate', STRESSED:'status-stressed' };
+  document.getElementById('ndvi-status').innerHTML =
+    `<div class="ndvi-status ${statusClass[status]||'status-moderate'}">${NDVI_LABELS[status]||status}</div>`;
+  document.getElementById('r-status').textContent = NDVI_LABELS[status] || status;
+  document.getElementById('r-interp').textContent = ndvi >= 0.7 ? 'Excellente' : ndvi >= 0.5 ? 'Bonne' : ndvi >= 0.3 ? 'Faible' : 'Critique';
+  document.getElementById('r-advice-text').textContent = NDVI_ADVICE[status] || '';
+}
+
+async function runByPlantation() {
+  const sel = document.getElementById('p-select');
+  const pid = sel.value;
+  if (!pid) { toast('Sélectionnez une plantation.', 'error'); return; }
+
+  const btn = document.getElementById('p-btn');
+  btn.disabled = true;
+  document.getElementById('p-spin').style.display = 'block';
+  document.getElementById('p-txt').textContent = 'Analyse…';
+
+  try {
+    const r = await authFetch(`/plantations/${pid}/satellite`);
+    if (!r?.ok) { const e = await r?.json().catch(()=>({})); throw new Error(e.detail || 'Coordonnées GPS manquantes pour cette plantation.'); }
+    const data = await r.json();
+    showResult(data);
+    toast('Analyse NDVI terminée.');
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('p-spin').style.display = 'none';
+    document.getElementById('p-txt').textContent = 'Analyser';
+  }
+}
+
+async function runByCoords() {
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+  if (isNaN(lat) || isNaN(lng)) { toast('Entrez des coordonnées valides.', 'error'); return; }
+
+  const btn = document.getElementById('coord-btn');
+  btn.disabled = true;
+  document.getElementById('coord-spin').style.display = 'block';
+  document.getElementById('coord-txt').textContent = 'Analyse…';
+
+  try {
+    const r = await authFetch(`/satellite/ndvi?latitude=${lat}&longitude=${lng}`);
+    if (!r?.ok) throw new Error('Erreur lors de l\'analyse.');
+    const data = await r.json();
+    showResult(data);
+    toast('Analyse NDVI terminée.');
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('coord-spin').style.display = 'none';
+    document.getElementById('coord-txt').textContent = 'Analyser les coordonnées';
+  }
+}
+
+async function loadAll() {
+  const tb = document.getElementById('sat-tbody');
+  tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">Chargement…</td></tr>';
+
+  try {
+    const r = await authFetch('/plantations?limit=200');
+    if (!r?.ok) return;
+    const pls = await r.json();
+
+    const withCoords = pls.filter(p => p.latitude != null && p.longitude != null);
+    if (!withCoords.length) {
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Aucune plantation avec coordonnées GPS.</td></tr>';
+      return;
+    }
+
+    // Analyse sequentially
+    const results = [];
+    for (const p of withCoords) {
+      try {
+        const r2 = await authFetch(`/plantations/${p.id}/satellite`);
+        if (r2?.ok) {
+          const data = await r2.json();
+          results.push({ p, data });
+        }
+      } catch {}
+    }
+
+    if (!results.length) {
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Aucun résultat disponible.</td></tr>';
+      return;
+    }
+
+    const NDVI_BC = { HEALTHY:'#eafaf1', MODERATE:'#fef8ec', STRESSED:'#fdedec' };
+    const NDVI_TC = { HEALTHY:'#1a6b3a', MODERATE:'#9a6200', STRESSED:'#922b21' };
+    tb.innerHTML = results.map(({ p, data }) => `
+      <tr>
+        <td>
+          <div style="font-weight:600">${esc(p.name)}</div>
+          <div style="font-size:12px;color:var(--muted)">${esc(p.region||p.country||'')}</div>
+        </td>
+        <td style="color:var(--muted);font-size:12.5px">
+          ${p.latitude?.toFixed(3)}, ${p.longitude?.toFixed(3)}
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:60px;height:7px;background:var(--border-l);border-radius:99px;overflow:hidden">
+              <div style="width:${data.ndvi*100}%;height:100%;border-radius:99px;
+                background:${NDVI_TC[data.vegetation_status]||'#888'}"></div>
+            </div>
+            <span style="font-family:'Fraunces',serif;font-weight:700;font-size:14px;
+              color:${NDVI_TC[data.vegetation_status]||'#888'}">${data.ndvi.toFixed(2)}</span>
+          </div>
+        </td>
+        <td>${esc(data.vegetation_status)}</td>
+        <td>
+          <span class="ndvi-badge" style="background:${NDVI_BC[data.vegetation_status]||'#f5f5f5'};
+            color:${NDVI_TC[data.vegetation_status]||'#888'};
+            border-color:${NDVI_TC[data.vegetation_status]||'#ccc'}40">
+            ${NDVI_LABELS[data.vegetation_status]||data.vegetation_status}
+          </span>
+        </td>
+      </tr>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+loadPlantations();
+</script>
+</body>
+</html>

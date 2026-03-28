@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Détail plantation</title>
+<script src="auth.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;
+  color:var(--muted);margin-bottom:20px;cursor:pointer;transition:.15s}
+.back-link:hover{color:var(--primary)}
+
+.detail-grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
+@media(max-width:1050px){.detail-grid{grid-template-columns:1fr}}
+
+/* Info card */
+.info-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--sh)}
+.info-card-hero{background:var(--primary);padding:28px 24px;position:relative;overflow:hidden}
+.info-card-hero::after{content:'🌱';position:absolute;right:20px;bottom:10px;
+  font-size:72px;opacity:.08;line-height:1}
+.info-name{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#fff;
+  letter-spacing:-.3px;margin-bottom:4px}
+.info-owner{font-size:13px;color:rgba(255,255,255,.6)}
+.info-score-row{display:flex;align-items:center;gap:14px;margin-top:16px}
+.info-score-circle{width:56px;height:56px;border-radius:50%;border:3px solid rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0}
+.info-score-num{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#fff;line-height:1}
+.info-score-lbl{font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.05em}
+.info-risk-lbl{font-size:14px;font-weight:600;color:rgba(255,255,255,.85)}
+.info-risk-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+
+.info-meta{padding:18px 20px;display:flex;flex-direction:column;gap:0}
+.meta-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-l)}
+.meta-row:last-child{border-bottom:none}
+.meta-icon{width:32px;height:32px;border-radius:8px;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.meta-icon .ms{font-size:17px;color:var(--muted)}
+.meta-label{font-size:11.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
+.meta-value{font-size:13.5px;font-weight:500;color:var(--text)}
+
+.action-row{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+
+/* Right column */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:22px;box-shadow:var(--sh);margin-bottom:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.chart-title{font-family:'Fraunces',serif;font-size:17px;font-weight:700}
+.chart-wrap{position:relative;height:220px}
+
+.history-table .table-wrap{box-shadow:none;border-radius:var(--r)}
+.diag-module-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.dpill{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg);
+  border:1px solid var(--border);color:var(--muted)}
+
+.empty-state{text-align:center;padding:56px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;opacity:.18;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title" id="page-title">Chargement…</div>
+        <div class="page-sub" id="page-sub"></div>
+      </div>
+      <button class="btn btn-primary" id="diag-btn" onclick="goDiag()" style="display:none">
+        <span class="material-symbols-outlined" style="font-size:18px">biotech</span>
+        Nouveau diagnostic
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="back-link" onclick="history.back()">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+        Retour aux plantations
+      </div>
+
+      <div class="detail-grid" id="detail-grid">
+        <div style="text-align:center;padding:60px;color:var(--muted)" id="loading">Chargement…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('plantations');
+
+const pid = new URLSearchParams(location.search).get('id');
+if (!pid) location.href = 'plantations.html';
+
+let chartInstance = null;
+
+async function load() {
+  try {
+    const [r1, r2] = await Promise.all([
+      authFetch(`/plantations/${pid}`),
+      authFetch(`/plantations/${pid}/history?limit=20`)
+    ]);
+    if (!r1?.ok) { location.href = 'plantations.html'; return; }
+    const { plantation, diagnostics } = await r1.json();
+    const history = r2?.ok ? await r2.json() : [];
+
+    document.getElementById('page-title').textContent = plantation.name;
+    document.getElementById('page-sub').textContent = `${plantation.region||''} · ${plantation.country}`;
+    document.getElementById('diag-btn').style.display = '';
+
+    const latestDiag = diagnostics.sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0];
+    const score = latestDiag?.global_score;
+    const risk  = latestDiag?.global_risk_level;
+    const colors = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
+    const heroColor = colors[risk] || '#1a4231';
+
+    document.getElementById('detail-grid').innerHTML = `
+      <!-- Info card -->
+      <div class="info-card">
+        <div class="info-card-hero" style="background:${heroColor}">
+          <div class="info-name">${esc(plantation.name)}</div>
+          <div class="info-owner">${esc(plantation.owner_name)}</div>
+          ${score != null ? `
+          <div class="info-score-row">
+            <div class="info-score-circle">
+              <div class="info-score-num">${Math.round(score)}</div>
+              <div class="info-score-lbl">score</div>
+            </div>
+            <div>
+              <div class="info-risk-lbl">${riskLabels[risk]||risk}</div>
+              <div class="info-risk-sub">Dernier diagnostic</div>
+            </div>
+          </div>` : '<div style="color:rgba(255,255,255,.5);font-size:13px;margin-top:12px">Aucun diagnostic réalisé</div>'}
+        </div>
+        <div class="info-meta">
+          <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">location_on</span></div>
+            <div>
+              <div class="meta-label">Localisation</div>
+              <div class="meta-value">${esc(plantation.region||'—')}, ${esc(plantation.country)}</div>
+            </div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">landscape</span></div>
+            <div>
+              <div class="meta-label">Superficie</div>
+              <div class="meta-value">${plantation.hectares != null ? plantation.hectares + ' hectares' : '—'}</div>
+            </div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">my_location</span></div>
+            <div>
+              <div class="meta-label">Coordonnées GPS</div>
+              <div class="meta-value">${plantation.latitude != null ? `${plantation.latitude.toFixed(4)}, ${plantation.longitude.toFixed(4)}` : '—'}</div>
+            </div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">history</span></div>
+            <div>
+              <div class="meta-label">Diagnostics réalisés</div>
+              <div class="meta-value">${diagnostics.length}</div>
+            </div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">calendar_today</span></div>
+            <div>
+              <div class="meta-label">Dernière analyse</div>
+              <div class="meta-value">${latestDiag ? fmtDate(latestDiag.created_at) : '—'}</div>
+            </div>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-primary btn-sm" onclick="goDiag()">
+            <span class="material-symbols-outlined" style="font-size:15px">biotech</span>
+            Diagnostic
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="goSat()">
+            <span class="material-symbols-outlined" style="font-size:15px">satellite_alt</span>
+            NDVI Satellite
+          </button>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div>
+        ${history.length > 1 ? `
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Évolution du score</span>
+            <span class="badge badge-${(risk||'').toLowerCase()==='low'?'low':risk?.toLowerCase()==='high'?'high':'med'}">${history.length} mesures</span>
+          </div>
+          <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
+        </div>` : ''}
+
+        <div class="chart-card history-table">
+          <div class="chart-header">
+            <span class="chart-title">Historique des diagnostics</span>
+          </div>
+          ${diagnostics.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-icon">🔬</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:6px">Aucun diagnostic</div>
+            <div style="font-size:13px">Lancez le premier diagnostic pour cette plantation.</div>
+          </div>` : `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Score</th>
+                  <th>Risque</th>
+                  <th>Humidité</th>
+                  <th>Pluie</th>
+                  <th>Temp.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${diagnostics.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(d => `
+                <tr>
+                  <td style="color:var(--muted)">${fmtDate(d.created_at)}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:50px;height:6px;background:var(--border-l);border-radius:99px;overflow:hidden">
+                        <div style="width:${d.global_score}%;height:100%;background:${scoreColor(d.global_score)};border-radius:99px"></div>
+                      </div>
+                      <span style="font-family:'Fraunces',serif;font-weight:700;font-size:14px">${Math.round(d.global_score)}</span>
+                    </div>
+                  </td>
+                  <td>${riskBadge(d.global_risk_level)}</td>
+                  <td style="color:var(--muted)">${d.humidity_pct != null ? d.humidity_pct + '%' : '—'}</td>
+                  <td style="color:var(--muted)">${d.rainfall_mm_month != null ? d.rainfall_mm_month + ' mm' : '—'}</td>
+                  <td style="color:var(--muted)">${d.avg_temp_c != null ? d.avg_temp_c + '°C' : '—'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`}
+        </div>
+      </div>
+    `;
+
+    // Draw chart if enough data
+    if (history.length > 1) {
+      const sorted = [...history].reverse();
+      const ctx = document.getElementById('history-chart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sorted.map(h => h.date),
+          datasets: [{
+            label: 'Score global',
+            data: sorted.map(h => h.score),
+            borderColor: '#1a4231',
+            backgroundColor: 'rgba(26,66,49,.08)',
+            borderWidth: 2,
+            pointBackgroundColor: sorted.map(h => scoreColor(h.score)),
+            pointRadius: 4,
+            tension: 0.35,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#6a7d64' } },
+            y: { min: 0, max: 100, grid: { color: '#f0ead8' },
+              ticks: { font: { size: 11 }, color: '#6a7d64', callback: v => v } }
+          }
+        }
+      });
+    }
+  } catch(e) { console.error(e); }
+}
+
+const riskLabels = { LOW: 'Risque faible', MEDIUM: 'Risque moyen', HIGH: 'Risque élevé' };
+function goDiag() { location.href = `diagnostic.html?id=${pid}`; }
+function goSat()  { location.href = `satellite.html?id=${pid}`; }
+function esc(s)   { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+load();
+</script>
+</body>
+</html>

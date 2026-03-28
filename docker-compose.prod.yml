@@ -1,0 +1,32 @@
+version: "3.9"
+
+# Override de production — utiliser avec :
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  api:
+    restart: always
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ACCESS_TOKEN_EXPIRE_MINUTES: 120
+    # En production, pas d'exposition directe — passer par un reverse proxy
+    ports: []
+    expose:
+      - "8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    restart: always
+    # Ne pas exposer la DB en production
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
