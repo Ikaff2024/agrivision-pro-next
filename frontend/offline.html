@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Hors ligne</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#f8f4ee;color:#1a2218;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:1px solid #e6ddd0;border-radius:16px;padding:48px 40px;
+  max-width:420px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(26,42,24,.08)}
+.icon{font-size:56px;margin-bottom:20px;opacity:.7}
+h1{font-size:22px;font-weight:700;margin-bottom:10px;font-family:Georgia,serif}
+p{font-size:14px;color:#6a7d64;line-height:1.7;margin-bottom:24px}
+.badge{display:inline-flex;align-items:center;gap:8px;background:#eafaf1;
+  border:1px solid #a8d8bb;border-radius:99px;padding:8px 18px;font-size:13px;
+  font-weight:600;color:#1a6b3a;margin-bottom:28px}
+.dot{width:8px;height:8px;border-radius:50%;background:#1a6b3a;
+  animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+button{background:#1a4231;color:#fff;border:none;border-radius:10px;
+  padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
+button:hover{background:#0c2018}
+.cached-pages{margin-top:24px;text-align:left}
+.cached-pages h3{font-size:12px;font-weight:600;color:#6a7d64;
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.page-link{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:#f8f4ee;border-radius:8px;margin-bottom:6px;cursor:pointer;
+  text-decoration:none;color:#1a2218;font-size:13.5px;font-weight:500;transition:.15s}
+.page-link:hover{background:#f0ead8}
+.page-icon{font-size:18px;width:28px;text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>Vous êtes hors ligne</h1>
+  <p>Pas de connexion internet détectée. Les données affichées proviennent de votre dernière session.</p>
+  <div class="badge">
+    <div class="dot"></div>
+    Mode hors ligne actif
+  </div>
+  <div class="cached-pages">
+    <h3>Pages disponibles en cache</h3>
+    <a class="page-link" href="/index.html"><span class="page-icon">📊</span>Dashboard</a>
+    <a class="page-link" href="/plantations.html"><span class="page-icon">🌱</span>Plantations</a>
+    <a class="page-link" href="/diagnostic.html"><span class="page-icon">🔬</span>Diagnostic</a>
+    <a class="page-link" href="/map.html"><span class="page-icon">🗺️</span>Carte</a>
+  </div>
+  <br>
+  <button onclick="location.reload()">🔄 Réessayer</button>
+</div>
+</body>
+</html>

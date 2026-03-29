@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a4231">
 <title>AgriVision Pro — Diagnostic</title>
 <script src="auth.js"></script>
 <style>
@@ -452,6 +454,16 @@ function showImageResult(d) {
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
 loadPlantations();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] Service Worker enregistré:', reg.scope))
+      .catch(err => console.warn('[PWA] Échec enregistrement SW:', err));
+  });
+}
 </script>
 </body>
 </html>

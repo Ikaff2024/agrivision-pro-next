@@ -1,0 +1,41 @@
+{
+  "name": "AgriVision Pro",
+  "short_name": "AgriVision",
+  "description": "Plateforme de gestion agronomique des plantations de cacao",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f8f4ee",
+  "theme_color": "#1a4231",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["agriculture", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Diagnostic",
+      "short_name": "Diagnostic",
+      "url": "/diagnostic.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Plantations",
+      "short_name": "Plantations",
+      "url": "/plantations.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
