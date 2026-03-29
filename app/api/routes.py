@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.cacao_engine.engine import run_engine
@@ -216,6 +217,36 @@ def get_plantation_history(
 
 # ─── Carte ────────────────────────────────────────────────────────────────────
 
+def _latest_diag_by_plantation(plantation_ids: list, db: Session) -> dict:
+    """
+    Retourne le dernier diagnostic de chaque plantation en UNE SEULE requête.
+    Évite le problème N+1 (1 requête par plantation en boucle).
+    """
+    if not plantation_ids:
+        return {}
+    # Sous-requête : date max du dernier diagnostic par plantation
+    subq = (
+        db.query(
+            Diagnostic.plantation_id,
+            func.max(Diagnostic.created_at).label("max_at"),
+        )
+        .filter(Diagnostic.plantation_id.in_(plantation_ids))
+        .group_by(Diagnostic.plantation_id)
+        .subquery()
+    )
+    # Jointure pour récupérer les lignes complètes
+    latest_diags = (
+        db.query(Diagnostic)
+        .join(
+            subq,
+            (Diagnostic.plantation_id == subq.c.plantation_id)
+            & (Diagnostic.created_at == subq.c.max_at),
+        )
+        .all()
+    )
+    return {d.plantation_id: d for d in latest_diags}
+
+
 @router.get("/map/plantations")
 def get_map_plantations(
     risk_level: Optional[str] = None,
@@ -227,14 +258,10 @@ def get_map_plantations(
         .filter(Plantation.cooperative_id == current_user.cooperative_id)
         .all()
     )
+    latest_map = _latest_diag_by_plantation([p.id for p in plantations], db)
     results = []
     for p in plantations:
-        latest = (
-            db.query(Diagnostic)
-            .filter(Diagnostic.plantation_id == p.id)
-            .order_by(Diagnostic.created_at.desc())
-            .first()
-        )
+        latest = latest_map.get(p.id)
         if not latest:
             continue
         if risk_level and latest.global_risk_level != risk_level:
@@ -260,14 +287,10 @@ def get_map_stats(
         .filter(Plantation.cooperative_id == current_user.cooperative_id)
         .all()
     )
+    latest_map = _latest_diag_by_plantation([p.id for p in plantations], db)
     high = medium = low = 0
     for p in plantations:
-        latest = (
-            db.query(Diagnostic)
-            .filter(Diagnostic.plantation_id == p.id)
-            .order_by(Diagnostic.created_at.desc())
-            .first()
-        )
+        latest = latest_map.get(p.id)
         if latest:
             if latest.global_risk_level == "HIGH":
                 high += 1
@@ -296,41 +319,31 @@ async def diagnostic_image(
     if current_user.role not in {"admin", "technician"}:
         raise HTTPException(status_code=403, detail="Rôle technicien requis.")
 
-    os.makedirs("uploads", exist_ok=True)
-    file_location = f"uploads/{file.filename}"
+    # Vérifier la plantation avant de traiter l'image
+    if plantation_id is not None:
+        plantation = db.query(Plantation).filter(
+            Plantation.id == plantation_id,
+            Plantation.cooperative_id == current_user.cooperative_id,
+        ).first()
+        if not plantation:
+            raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    try:
-        with open(file_location, "wb+") as f:
-            f.write(await file.read())
+    # Lecture en mémoire — pas d'écriture disque (filesystem éphémère sur Railway)
+    contents = await file.read()
 
-        diagnosis_result = analyze_leaf_image(file_location)
+    # Exécution du module ML (stub pour l'instant)
+    # NOTE : le stub ignore le contenu — on lui passe le nom de fichier pour
+    # compatibilité avec la signature existante de analyze_leaf_image.
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
+        tmp.write(contents)
+        tmp.flush()
+        diagnosis_result = analyze_leaf_image(tmp.name)
 
-        if plantation_id is not None:
-            plantation = db.query(Plantation).filter(
-                Plantation.id == plantation_id,
-                Plantation.cooperative_id == current_user.cooperative_id,
-            ).first()
-            if not plantation:
-                raise HTTPException(status_code=404, detail="Plantation introuvable.")
-
-            new_diagnostic = Diagnostic(
-                plantation_id=plantation_id,
-                country=plantation.country,
-                region=plantation.region,
-                humidity_pct=0.0,
-                rainfall_mm_month=0.0,
-                avg_temp_c=0.0,
-                global_score=diagnosis_result["confidence"] * 100,
-                global_risk_level=diagnosis_result["severity"],
-            )
-            db.add(new_diagnostic)
-            db.commit()
-            db.refresh(new_diagnostic)
-
-    finally:
-        # Nettoyage garanti même en cas d'erreur
-        if os.path.exists(file_location):
-            os.remove(file_location)
+    # On ne persiste PAS les diagnostics image en DB :
+    # ils n'ont pas de données climatiques réelles (humidity, rainfall, temp)
+    # et corrupraient les statistiques agronomiques du dashboard.
+    # Quand le vrai modèle ML sera intégré, un type de diagnostic dédié sera créé.
 
     return diagnosis_result
 
