@@ -17,17 +17,17 @@ def test_create_plantation(client, auth_headers):
     assert data["cooperative_id"] is not None  # toujours rattachée
 
 
-def test_create_plantation_requires_admin(client):
-    # Créer un agronomist
+def test_create_plantation_requires_admin(client, auth_headers):
+    # L'agronome rejoint la coop existante → reste agronomist → ne peut pas créer
     client.post("/auth/register", json={
         "email": "agro@test.ci",
-        "password": "pass",
+        "password": "pass123",
         "role": "agronomist",
-        "cooperative_name": "C",
-        "country": "CI",
+        "cooperative_name": "Coop Test Fixture",  # coop existante → pas admin
+        "country": "Côte d'Ivoire",
     })
     token = client.post("/auth/login", json={
-        "email": "agro@test.ci", "password": "pass"
+        "email": "agro@test.ci", "password": "pass123"
     }).json()["access_token"]
 
     res = client.post("/plantations", json={
@@ -58,21 +58,21 @@ def test_cooperative_isolation(client):
     """Deux coopératives distinctes ne voient pas les plantations de l'autre."""
     # Coop A
     client.post("/auth/register", json={
-        "email": "admin_a@test.ci", "password": "pass",
+        "email": "admin_a@test.ci", "password": "pass123",
         "role": "admin", "cooperative_name": "Coop A", "country": "CI"
     })
     token_a = client.post("/auth/login", json={
-        "email": "admin_a@test.ci", "password": "pass"
+        "email": "admin_a@test.ci", "password": "pass123"
     }).json()["access_token"]
     headers_a = {"Authorization": f"Bearer {token_a}"}
 
     # Coop B
     client.post("/auth/register", json={
-        "email": "admin_b@test.ci", "password": "pass",
+        "email": "admin_b@test.ci", "password": "pass123",
         "role": "admin", "cooperative_name": "Coop B", "country": "CI"
     })
     token_b = client.post("/auth/login", json={
-        "email": "admin_b@test.ci", "password": "pass"
+        "email": "admin_b@test.ci", "password": "pass123"
     }).json()["access_token"]
     headers_b = {"Authorization": f"Bearer {token_b}"}
 

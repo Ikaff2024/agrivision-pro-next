@@ -1,81 +1,81 @@
-import os
+"""
+conftest.py — Fixtures partagées pour les tests d'intégration AgriVision Pro.
+Placé dans : tests/conftest.py
+"""
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-# Base de données en mémoire pour les tests — jamais de contact avec la DB réelle
-os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
-os.environ.setdefault("DATABASE_URL", "")
+from sqlalchemy.pool import StaticPool
 
 from app.db.database import Base, get_db
+from app.db import models  # noqa: F401
 from main import app
 
-TEST_DATABASE_URL = "sqlite:///:memory:"
-
-engine_test = create_engine(
-    TEST_DATABASE_URL, connect_args={"check_same_thread": False}
+# StaticPool = toutes les connexions partagent la MÊME DB en mémoire
+# Sans ça : SQLite crée une DB vide à chaque connexion → "no such table"
+TEST_ENGINE = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_test)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=TEST_ENGINE
+)
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function")
 def setup_db():
-    """Recrée les tables avant chaque test, les supprime après."""
-    Base.metadata.create_all(bind=engine_test)
+    Base.metadata.create_all(bind=TEST_ENGINE)
     yield
-    Base.metadata.drop_all(bind=engine_test)
+    Base.metadata.drop_all(bind=TEST_ENGINE)
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
+@pytest.fixture(scope="function")
+def client(setup_db):
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+    app.dependency_overrides.clear()
 
 
-@pytest.fixture
-def admin_token(client):
-    """Crée un utilisateur admin et retourne son token JWT."""
-    client.post("/auth/register", json={
-        "email": "admin@test.ci",
+@pytest.fixture(scope="function")
+def auth_headers(client):
+    r = client.post("/auth/register", json={
+        "email": "admin@fixture.ci",
         "password": "testpass123",
         "role": "admin",
-        "cooperative_name": "Coop Test",
+        "cooperative_name": "Coop Test Fixture",
         "country": "Côte d'Ivoire",
     })
-    res = client.post("/auth/login", json={
-        "email": "admin@test.ci",
+    assert r.status_code == 201, f"Register échoué: {r.text}"
+
+    r = client.post("/auth/login", json={
+        "email": "admin@fixture.ci",
         "password": "testpass123",
     })
-    return res.json()["access_token"]
+    assert r.status_code == 200, f"Login échoué: {r.text}"
+
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
-@pytest.fixture
-def auth_headers(admin_token):
-    return {"Authorization": f"Bearer {admin_token}"}
-
-
-@pytest.fixture
+@pytest.fixture(scope="function")
 def plantation_id(client, auth_headers):
-    """Crée une plantation de test et retourne son ID."""
-    res = client.post("/plantations", json={
-        "name": "Plantation Test",
-        "owner_name": "Konan Kouassi",
+    r = client.post("/plantations", json={
+        "name": "Plantation Test Fixture",
+        "owner_name": "Kouamé Test",
         "country": "Côte d'Ivoire",
         "region": "Soubré",
         "latitude": 5.78,
         "longitude": -6.59,
-        "hectares": 4.5,
+        "hectares": 3.0,
     }, headers=auth_headers)
-    assert res.status_code == 200
-    return res.json()["id"]
+    assert r.status_code == 200, f"Plantation fixture échouée: {r.text}"
+    return r.json()["id"]
