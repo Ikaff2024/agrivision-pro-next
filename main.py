@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,10 +21,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agrivision")
 
+
+# ── Lifespan (remplace les @app.on_event dépréciés) ──────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Tables DB vérifiées/créées avec succès.")
+    except Exception as e:
+        logger.error("Erreur création tables : %s", e)
+    logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
+
+    yield  # l'application tourne ici
+
+    # Shutdown
+    logger.info("AgriVision Pro API arrêtée.")
+
+
 app = FastAPI(
     title="AgriVision Pro - CacaoEngine API",
     description="API exposant le moteur agronomique déterministe CacaoEngine",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -45,7 +65,8 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration_ms = round((time.perf_counter() - start) * 1000, 1)
     level = logging.WARNING if response.status_code >= 400 else logging.INFO
-    logger.log(level, "%s %s → %d  [%s ms]", request.method, request.url.path, response.status_code, duration_ms)
+    logger.log(level, "%s %s → %d  [%s ms]",
+                request.method, request.url.path, response.status_code, duration_ms)
     response.headers["X-Process-Time"] = str(duration_ms)
     return response
 
@@ -54,20 +75,6 @@ async def log_requests(request: Request, call_next):
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s: %s", request.url.path, exc, exc_info=True)
     return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
-
-# ── Startup : créer les tables si elles n'existent pas ───────────────────────
-@app.on_event("startup")
-async def startup_event():
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Tables DB vérifiées/créées avec succès.")
-    except Exception as e:
-        logger.error("Erreur création tables : %s", e)
-    logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("AgriVision Pro API arrêtée.")
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
