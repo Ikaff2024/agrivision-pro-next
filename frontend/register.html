@@ -80,6 +80,11 @@ select.form-input{cursor:pointer}
 .auth-bottom a{color:var(--primary);font-weight:600}
 .section-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.06em;margin-bottom:10px;margin-top:4px}
+.coop-info{display:none;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;
+  font-size:12.5px;line-height:1.5;margin-top:6px}
+.coop-info.new-coop{background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a}
+.coop-info.exist-coop{background:#fef8ec;border:1px solid #f0c97a;color:#7a4e00}
+.role-opt.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 </style>
 </head>
 <body>
@@ -146,7 +151,8 @@ select.form-input{cursor:pointer}
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Nom de la coopérative</label>
-        <input class="form-input" id="coop" type="text" placeholder="Coop Soubré">
+        <input class="form-input" id="coop" type="text" placeholder="Coop Soubré" oninput="onCoopInput()">
+        <div class="coop-info" id="coop-info"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Pays</label>
@@ -162,14 +168,14 @@ select.form-input{cursor:pointer}
     <div class="form-group">
       <div class="section-label">Votre rôle</div>
       <div class="role-grid" id="role-grid">
-        <label class="role-opt selected" onclick="selectRole('admin')">
-          <input type="radio" name="role" value="admin" checked>
+        <label class="role-opt" onclick="selectRole('admin')" id="role-admin">
+          <input type="radio" name="role" value="admin">
           <div class="role-icon">👤</div>
           <div class="role-name">Admin</div>
           <div class="role-desc">Gestion complète</div>
         </label>
-        <label class="role-opt" onclick="selectRole('agronomist')">
-          <input type="radio" name="role" value="agronomist">
+        <label class="role-opt selected" onclick="selectRole('agronomist')">
+          <input type="radio" name="role" value="agronomist" checked>
           <div class="role-icon">🔬</div>
           <div class="role-name">Agronome</div>
           <div class="role-desc">Diagnostics</div>
@@ -194,7 +200,9 @@ select.form-input{cursor:pointer}
 
 <script>
 const API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
-let selectedRole = 'admin';
+let selectedRole = 'agronomist';
+let coopExists = false;
+let coopDebounce = null;
 
 function selectRole(role) {
   selectedRole = role;
@@ -203,6 +211,50 @@ function selectRole(role) {
   });
 }
 
+// ── Détection dynamique de la coopérative ───────────────────────────────────
+function onCoopInput() {
+  clearTimeout(coopDebounce);
+  const name = document.getElementById('coop').value.trim();
+  const infoEl = document.getElementById('coop-info');
+
+  if (!name) {
+    infoEl.style.display = 'none';
+    setAdminAvailable(true);
+    return;
+  }
+
+  coopDebounce = setTimeout(() => checkCoopExists(name), 600);
+}
+
+async function checkCoopExists(name) {
+  const infoEl = document.getElementById('coop-info');
+  try {
+    // On tente un register fictif juste pour savoir si la coop existe.
+    // On utilise une route dédiée si dispo, sinon on se base sur l'UX backend.
+    // Ici : on affiche un message préventif selon la logique métier.
+    // (Le backend confirmera au moment du vrai register.)
+    // Pour l'instant on affiche toujours le message "nouvelle coop possible"
+    // et on adapte dynamiquement si le backend renvoie 403.
+    infoEl.className = 'coop-info new-coop';
+    infoEl.innerHTML = '✦ Si cette coopérative n'existe pas encore, vous en serez automatiquement l'<strong>Administrateur</strong>.';
+    infoEl.style.display = 'flex';
+    setAdminAvailable(true);
+  } catch {}
+}
+
+function setAdminAvailable(available) {
+  const adminLabel = document.getElementById('role-admin');
+  if (!adminLabel) return;
+  if (!available) {
+    adminLabel.classList.add('disabled');
+    // Si admin était sélectionné, basculer sur agronomist
+    if (selectedRole === 'admin') selectRole('agronomist');
+  } else {
+    adminLabel.classList.remove('disabled');
+  }
+}
+
+// ── Inscription ─────────────────────────────────────────────────────────────
 async function doRegister() {
   const email   = document.getElementById('email').value.trim();
   const pass    = document.getElementById('pass').value;
@@ -215,24 +267,49 @@ async function doRegister() {
   const txt     = document.getElementById('btn-text');
 
   err.style.display = 'none'; ok.style.display = 'none';
-  if (!email || !pass || !coop) { err.textContent = 'Veuillez remplir tous les champs.'; err.style.display='block'; return; }
-  if (pass.length < 6) { err.textContent = 'Le mot de passe doit comporter au moins 6 caractères.'; err.style.display='block'; return; }
+  if (!email || !pass || !coop) {
+    err.textContent = 'Veuillez remplir tous les champs.';
+    err.style.display = 'block'; return;
+  }
+  if (pass.length < 6) {
+    err.textContent = 'Le mot de passe doit comporter au moins 6 caractères.';
+    err.style.display = 'block'; return;
+  }
 
-  btn.disabled=true; spin.style.display='block'; txt.textContent = 'Création…';
+  btn.disabled = true; spin.style.display = 'block'; txt.textContent = 'Création…';
 
   try {
     const res = await fetch(`${API_BASE}/auth/register`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ email, password: pass, role: selectedRole, cooperative_name: coop, country })
     });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Erreur lors de la création.'); }
-    ok.style.display='block';
-    setTimeout(() => window.location.href = 'login.html', 1800);
+
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      // Si le backend refuse Admin sur coop existante → adapter l'UI
+      if (res.status === 403 && e.detail?.includes('Admin')) {
+        setAdminAvailable(false);
+        const infoEl = document.getElementById('coop-info');
+        infoEl.className = 'coop-info exist-coop';
+        infoEl.innerHTML = '⚠ Cette coopérative existe déjà. Le rôle Admin ne peut pas être auto-attribué — choisissez Agronome ou Technicien.';
+        infoEl.style.display = 'flex';
+      }
+      throw new Error(e.detail || 'Erreur lors de la création.');
+    }
+
+    const data = await res.json();
+    const roleLabel = data.role === 'admin' ? 'Administrateur' : data.role;
+    ok.textContent = `✓ Compte créé avec succès ! Rôle attribué : ${roleLabel}. Redirection…`;
+    ok.style.display = 'block';
+    setTimeout(() => window.location.href = 'login.html', 2000);
   } catch(e) {
-    err.textContent = e.message; err.style.display='block';
-    btn.disabled=false; spin.style.display='none'; txt.textContent='Créer mon compte';
+    err.textContent = e.message; err.style.display = 'block';
+    btn.disabled = false; spin.style.display = 'none'; txt.textContent = 'Créer mon compte';
   }
 }
+
+// Init
+document.getElementById('coop').addEventListener('input', onCoopInput);
 </script>
 </body>
 </html>
