@@ -136,7 +136,12 @@
 
   const toastEl = document.createElement('div');
   toastEl.id = 'avp-toast';
-  document.body.appendChild(toastEl);
+  // body peut être null si le script est dans <head> — attendre le DOM
+  if (document.body) {
+    document.body.appendChild(toastEl);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(toastEl));
+  }
 })();
 
 /* ── Toast ──────────────────────────────────────────────────── */
