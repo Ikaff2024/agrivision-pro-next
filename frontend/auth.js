@@ -251,6 +251,10 @@ function renderSidebar(activePage) {
     { id:'analytics',   href:'analytics.html',     icon:'bar_chart_4_bars', label:'Analytique' },
     { id:'satellite',   href:'satellite.html',     icon:'satellite_alt',    label:'Satellite' },
   ];
+  // Lien admin uniquement visible pour les administrateurs
+  if (user && user.role === 'admin') {
+    links.push({ id:'admin', href:'admin.html', icon:'admin_panel_settings', label:'Administration' });
+  }
   el.innerHTML = `
     <div class="sb-logo">
       <div class="sb-logo-row">

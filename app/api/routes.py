@@ -384,3 +384,100 @@ def get_plantation_satellite_analysis(
         "ndvi": ndvi_result["ndvi"],
         "vegetation_status": ndvi_result["vegetation_status"],
     }
+
+
+# ─── Admin — Gestion des membres ─────────────────────────────────────────────
+
+class UpdateRoleRequest(BaseModel):
+    role: str  # "admin" | "agronomist" | "technician"
+
+VALID_ROLES = {"admin", "agronomist", "technician"}
+
+
+@router.get("/admin/members")
+def get_members(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Liste tous les membres de la coopérative. Admin uniquement."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    members = (
+        db.query(User)
+        .filter(User.cooperative_id == current_user.cooperative_id)
+        .order_by(User.created_at.asc())
+        .all()
+    )
+    return [
+        {
+            "id": m.id,
+            "email": m.email,
+            "role": m.role,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "is_current_user": m.id == current_user.id,
+        }
+        for m in members
+    ]
+
+
+@router.put("/admin/members/{user_id}/role")
+def update_member_role(
+    user_id: int,
+    req: UpdateRoleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Change le rôle d'un membre. Admin uniquement. Un admin ne peut pas dégrader son propre rôle."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    if req.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Rôle invalide : {req.role}.")
+
+    # Empêcher l'admin de se dégrader lui-même (évite de perdre le dernier admin)
+    if user_id == current_user.id and req.role != "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Vous ne pouvez pas modifier votre propre rôle.",
+        )
+
+    member = db.query(User).filter(
+        User.id == user_id,
+        User.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Membre introuvable.")
+
+    member.role = req.role
+    db.commit()
+    db.refresh(member)
+    return {"id": member.id, "email": member.email, "role": member.role}
+
+
+@router.delete("/admin/members/{user_id}")
+def remove_member(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime un membre de la coopérative. Admin uniquement. Ne peut pas se supprimer soi-même."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Vous ne pouvez pas supprimer votre propre compte.",
+        )
+
+    member = db.query(User).filter(
+        User.id == user_id,
+        User.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Membre introuvable.")
+
+    db.delete(member)
+    db.commit()
+    return {"message": f"Membre {member.email} supprimé avec succès."}

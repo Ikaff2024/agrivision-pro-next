@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Administration</title>
+<script src="auth.js"></script>
+<style>
+.member-table-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh)}
+.role-select{padding:5px 10px;border:1.5px solid var(--border);border-radius:7px;
+  font-size:12.5px;font-family:'DM Sans',sans-serif;color:var(--text);
+  background:var(--surface);cursor:pointer;outline:none;transition:.15s}
+.role-select:focus{border-color:var(--accent)}
+.role-select.admin{border-color:var(--low);color:var(--low);background:var(--low-bg)}
+.role-select.agronomist{border-color:#1e4a6e;color:#1e4a6e;background:#eef4fb}
+.role-select.technician{border-color:var(--muted);color:var(--muted);background:var(--bg)}
+
+.member-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.avatar-admin{background:var(--low-bg);color:var(--low)}
+.avatar-agronomist{background:#eef4fb;color:#1e4a6e}
+.avatar-technician{background:var(--bg);color:var(--muted)}
+
+.you-badge{display:inline-flex;padding:1px 8px;border-radius:99px;font-size:10.5px;
+  font-weight:600;background:var(--border-l);color:var(--muted);margin-left:6px;vertical-align:middle}
+
+.stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+@media(max-width:700px){.stat-cards{grid-template-columns:1fr}}
+.stat-c{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px 20px;box-shadow:var(--sh);display:flex;align-items:center;gap:14px}
+.stat-c-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0}
+.stat-c-val{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1}
+.stat-c-lbl{font-size:12px;color:var(--muted);margin-top:2px}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:flex;
+  align-items:center;justify-content:center;z-index:900;padding:20px;display:none}
+.confirm-box{background:var(--surface);border-radius:var(--rl);padding:28px;
+  max-width:400px;width:100%;box-shadow:var(--sh-md)}
+.confirm-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:8px}
+.confirm-body{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:22px}
+.confirm-footer{display:flex;gap:10px;justify-content:flex-end}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Administration</div>
+        <div class="page-sub" id="coop-sub">Gestion des membres de la coopérative</div>
+      </div>
+    </div>
+
+    <div class="avp-content">
+
+      <!-- Stats -->
+      <div class="stat-cards">
+        <div class="stat-c">
+          <div class="stat-c-icon" style="background:#eafaf1">👥</div>
+          <div>
+            <div class="stat-c-val" id="s-total">—</div>
+            <div class="stat-c-lbl">Membres total</div>
+          </div>
+        </div>
+        <div class="stat-c">
+          <div class="stat-c-icon" style="background:#eafaf1">🛡️</div>
+          <div>
+            <div class="stat-c-val" id="s-admin" style="color:var(--low)">—</div>
+            <div class="stat-c-lbl">Administrateurs</div>
+          </div>
+        </div>
+        <div class="stat-c">
+          <div class="stat-c-icon" style="background:#eef4fb">👤</div>
+          <div>
+            <div class="stat-c-val" id="s-other">—</div>
+            <div class="stat-c-lbl">Agronomes / Techniciens</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table membres -->
+      <div class="section-title">Membres de la coopérative</div>
+      <div class="member-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Membre</th>
+              <th>Rôle actuel</th>
+              <th>Membre depuis</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="members-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:48px;color:var(--muted)">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Confirmer l'action</div>
+    <div class="confirm-body" id="confirm-body"></div>
+    <div class="confirm-footer">
+      <button class="btn btn-outline" onclick="closeConfirm()">Annuler</button>
+      <button class="btn btn-primary" id="confirm-ok" style="background:var(--high)">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('admin');
+
+const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien' };
+const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)' };
+
+async function load() {
+  try {
+    const r = await authFetch('/admin/members');
+    if (!r?.ok) {
+      if (r?.status === 403) {
+        document.querySelector('.avp-content').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px">Accès refusé</div>
+            <div style="font-size:13px">Cette page est réservée aux administrateurs.</div>
+          </div>`;
+        return;
+      }
+      throw new Error('Erreur chargement membres');
+    }
+    const members = await r.json();
+    renderStats(members);
+    renderTable(members);
+  } catch(e) { console.error(e); }
+}
+
+function renderStats(members) {
+  const admins = members.filter(m => m.role === 'admin').length;
+  document.getElementById('s-total').textContent = members.length;
+  document.getElementById('s-admin').textContent = admins;
+  document.getElementById('s-other').textContent = members.length - admins;
+}
+
+function renderTable(members) {
+  const tb = document.getElementById('members-tbody');
+  if (!members.length) {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Aucun membre trouvé.</td></tr>';
+    return;
+  }
+  tb.innerHTML = members.map(m => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="member-avatar avatar-${m.role}">${m.email.substring(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-size:13.5px;font-weight:500">${esc(m.email)}${m.is_current_user ? '<span class="you-badge">Vous</span>' : ''}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        ${m.is_current_user
+          ? `<span class="badge badge-low">${ROLE_LABELS[m.role]||m.role}</span>`
+          : `<select class="role-select ${m.role}" onchange="changeRole(${m.id}, this)"
+                data-original="${m.role}">
+              <option value="admin"   ${m.role==='admin'   ?'selected':''}>Admin</option>
+              <option value="agronomist" ${m.role==='agronomist'?'selected':''}>Agronome</option>
+              <option value="technician" ${m.role==='technician'?'selected':''}>Technicien</option>
+            </select>`
+        }
+      </td>
+      <td style="color:var(--muted);font-size:13px">${fmtDate(m.created_at)}</td>
+      <td style="text-align:right">
+        ${m.is_current_user ? '<span style="color:var(--faint);font-size:12px">—</span>' : `
+        <button class="btn btn-outline btn-sm" style="color:var(--high);border-color:var(--high-b)"
+          onclick="confirmRemove(${m.id}, '${esc(m.email)}')">
+          <span class="material-symbols-outlined" style="font-size:14px">person_remove</span>
+          Retirer
+        </button>`}
+      </td>
+    </tr>`).join('');
+}
+
+async function changeRole(userId, selectEl) {
+  const newRole = selectEl.value;
+  const original = selectEl.dataset.original;
+  selectEl.className = `role-select ${newRole}`;
+
+  try {
+    const r = await authFetch(`/admin/members/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (!r?.ok) {
+      const e = await r.json().catch(()=>({}));
+      throw new Error(e.detail || 'Erreur modification rôle.');
+    }
+    selectEl.dataset.original = newRole;
+    toast(`Rôle mis à jour : ${ROLE_LABELS[newRole]}.`);
+    load(); // Refresh stats
+  } catch(e) {
+    toast(e.message, 'error');
+    selectEl.value = original;
+    selectEl.className = `role-select ${original}`;
+  }
+}
+
+let pendingRemoveId = null;
+function confirmRemove(userId, email) {
+  pendingRemoveId = userId;
+  document.getElementById('confirm-title').textContent = 'Retirer ce membre ?';
+  document.getElementById('confirm-body').textContent =
+    `${email} sera retiré de la coopérative. Cette action est irréversible.`;
+  document.getElementById('confirm-ok').onclick = doRemove;
+  document.getElementById('confirm-overlay').style.display = 'flex';
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').style.display = 'none';
+  pendingRemoveId = null;
+}
+
+async function doRemove() {
+  if (!pendingRemoveId) return;
+  closeConfirm();
+  try {
+    const r = await authFetch(`/admin/members/${pendingRemoveId}`, { method: 'DELETE' });
+    if (!r?.ok) {
+      const e = await r.json().catch(()=>({}));
+      throw new Error(e.detail || 'Erreur suppression.');
+    }
+    toast('Membre retiré avec succès.');
+    load();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfirm();
+});
+
+function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }
+
+load();
+</script>
+</body>
+</html>
