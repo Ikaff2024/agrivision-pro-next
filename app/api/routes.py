@@ -105,6 +105,31 @@ def get_plantation(
     return {"plantation": plantation, "diagnostics": diagnostics}
 
 
+
+@router.delete("/plantations/{plantation_id}")
+def delete_plantation(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime une plantation et ses diagnostics associés. Admin uniquement."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    # Supprimer les diagnostics associés d'abord
+    db.query(Diagnostic).filter(Diagnostic.plantation_id == plantation_id).delete()
+    db.delete(plantation)
+    db.commit()
+
+    return {"message": f"Plantation '{plantation.name}' supprimée avec succès."}
+
 # ─── Diagnostic agronomique ───────────────────────────────────────────────────
 
 @router.post("/cacao/diagnostic", response_model=None)
