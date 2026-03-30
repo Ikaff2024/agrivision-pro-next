@@ -72,17 +72,20 @@ def _fetch_ndvi_statistical(
 function setup() {
   return {
     input: [{
-      bands: ["B04", "B08"],
+      bands: ["B04", "B08", "SCL"],
       units: "REFLECTANCE"
     }],
     output: [
-      { id: "ndvi", bands: 1, sampleType: "FLOAT32" }
+      { id: "ndvi",     bands: 1, sampleType: "FLOAT32" },
+      { id: "dataMask", bands: 1, sampleType: "UINT8"   }
     ]
   };
 }
 function evaluatePixel(samples) {
-  let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04 + 0.0001);
-  return { ndvi: [ndvi] };
+  // Exclure nuages (SCL 8,9,10) et eau (SCL 6)
+  var valid = [6,8,9,10].includes(samples.SCL) ? 0 : 1;
+  var ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04 + 0.0001);
+  return { ndvi: [ndvi], dataMask: [valid] };
 }
 """
 
