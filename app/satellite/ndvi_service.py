@@ -71,10 +71,7 @@ def _fetch_ndvi_statistical(
 //VERSION=3
 function setup() {
   return {
-    input: [
-      { bands: ["B04", "B08"], units: "REFLECTANCE" },
-      { bands: ["SCL"],        units: "DN" }
-    ],
+    input: [{ bands: ["B04", "B08"], units: "REFLECTANCE" }],
     output: [
       { id: "ndvi",     bands: 1, sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1, sampleType: "UINT8"   }
@@ -82,10 +79,9 @@ function setup() {
   };
 }
 function evaluatePixel(samples) {
-  // Exclure nuages (SCL 8,9,10) et eau (SCL 6)
-  var valid = [6,8,9,10].includes(samples.SCL) ? 0 : 1;
   var ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04 + 0.0001);
-  return { ndvi: [ndvi], dataMask: [valid] };
+  var mask = (samples.B08 + samples.B04 > 0.01) ? 1 : 0;
+  return { ndvi: [ndvi], dataMask: [mask] };
 }
 """
 
@@ -177,10 +173,10 @@ function evaluatePixel(samples) {
 
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="ignore")
-        logger.warning("HTTP %d Sentinel Statistical : %s", e.code, body[:300])
+        logger.warning("HTTP %d Sentinel Statistical : %s", e.code, body[:500])
         return None
     except Exception as e:
-        logger.warning("Erreur Sentinel Statistical : %s", e)
+        logger.warning("Erreur Sentinel Statistical [%s]: %s", type(e).__name__, e)
         return None
 
 
