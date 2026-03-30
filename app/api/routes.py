@@ -35,45 +35,6 @@ def health_check():
     return {"status": "ok"}
 
 
-
-
-# ─── Route de nettoyage one-shot (à retirer après usage) ─────────────────────
-
-@router.delete("/admin/cleanup-corrupted-diagnostics")
-def cleanup_corrupted_diagnostics(
-    secret: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Supprime les diagnostics corrompus (humidity=0, rainfall=0, temp=0).
-    Protégé par token admin + secret query param.
-    À retirer après utilisation.
-    """
-    import os
-    expected = os.getenv("CLEANUP_SECRET", "")
-    if not expected or secret != expected:
-        raise HTTPException(status_code=403, detail="Secret invalide.")
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin requis.")
-
-    corrupted = db.query(Diagnostic).filter(
-        Diagnostic.humidity_pct == 0.0,
-        Diagnostic.rainfall_mm_month == 0.0,
-        Diagnostic.avg_temp_c == 0.0,
-    ).all()
-
-    count = len(corrupted)
-    for d in corrupted:
-        db.delete(d)
-    db.commit()
-
-    return {
-        "deleted": count,
-        "message": f"{count} diagnostic(s) corrompu(s) supprimé(s)."
-    }
-
-
 # ─── Plantations ─────────────────────────────────────────────────────────────
 
 @router.post("/plantations")
