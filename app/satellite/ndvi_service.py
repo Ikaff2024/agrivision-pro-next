@@ -1,12 +1,12 @@
 """
-ndvi_service.py — Service NDVI via Copernicus Data Space Ecosystem (CDSE).
+ndvi_service.py — Service NDVI via Copernicus Data Space / Sentinel Hub Statistical API.
 
-API gratuite : https://dataspace.copernicus.eu
-Sentinel-2 Level-2A — Résolution 10m — Revisite ~5 jours sur l'Afrique de l'Ouest.
+L'API Statistical retourne directement des statistiques JSON (mean, min, max, stdev)
+sans nécessiter de parsing de fichiers raster binaires.
 
-Variables d'environnement requises (Railway) :
-    SENTINEL_CLIENT_ID      → Client ID OAuth2 CDSE
-    SENTINEL_CLIENT_SECRET  → Client Secret OAuth2 CDSE
+Variables d'environnement requises :
+    SENTINEL_CLIENT_ID
+    SENTINEL_CLIENT_SECRET
 """
 import os
 import json
@@ -20,8 +20,11 @@ from typing import Dict, Union, Optional
 
 logger = logging.getLogger("agrivision.ndvi")
 
-CDSE_TOKEN_URL   = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
-CDSE_PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
+CDSE_TOKEN_URL = (
+    "https://identity.dataspace.copernicus.eu"
+    "/auth/realms/CDSE/protocol/openid-connect/token"
+)
+CDSE_STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 
 _token_cache: Dict = {"token": None, "expires_at": 0}
 
@@ -53,15 +56,16 @@ def _get_access_token() -> Optional[str]:
         return None
 
 
-def _fetch_ndvi_cdse(latitude: float, longitude: float, token: str) -> Optional[float]:
+def _fetch_ndvi_statistical(
+    latitude: float, longitude: float, token: str
+) -> Optional[float]:
     """
-    Calcule le NDVI moyen via Sentinel Hub Process API (format corrigé).
-    Utilise une bounding box de ~1km autour du point.
+    Utilise l'API Statistical de Sentinel Hub pour obtenir le NDVI moyen.
+    Retourne un JSON avec mean/min/max — pas de parsing raster.
     """
-    delta = 0.005  # ~500m en degrés latitude/longitude
-
+    delta     = 0.005   # ~500m
     date_to   = datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
-    date_from = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00Z")
+    date_from = (datetime.utcnow() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00Z")
 
     evalscript = """
 //VERSION=3
@@ -71,15 +75,14 @@ function setup() {
       bands: ["B04", "B08"],
       units: "REFLECTANCE"
     }],
-    output: {
-      bands: 1,
-      sampleType: "FLOAT32"
-    }
+    output: [
+      { id: "ndvi", bands: 1, sampleType: "FLOAT32" }
+    ]
   };
 }
-function evaluatePixel(sample) {
-  var ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04 + 0.0001);
-  return [ndvi];
+function evaluatePixel(samples) {
+  let ndvi = (samples.B08 - samples.B04) / (samples.B08 + samples.B04 + 0.0001);
+  return { ndvi: [ndvi] };
 }
 """
 
@@ -102,70 +105,79 @@ function evaluatePixel(sample) {
                     "dataFilter": {
                         "timeRange": {
                             "from": date_from,
-                            "to":   date_to
+                            "to":   date_to,
                         },
-                        "maxCloudCoverage": 50,
-                        "mosaickingOrder": "leastCC"
-                    }
+                        "maxCloudCoverage": 70,
+                        "mosaickingOrder": "leastCC",
+                    },
                 }
-            ]
+            ],
         },
-        "output": {
-            "width":  5,
-            "height": 5,
-            "responses": [
-                {
-                    "identifier": "default",
-                    "format": {
-                        "type": "image/tiff"
-                    }
-                }
-            ]
+        "aggregation": {
+            "timeRange": {
+                "from": date_from,
+                "to":   date_to,
+            },
+            "aggregationInterval": {
+                "of": "P30D"   # agrégation sur 30 jours
+            },
+            "evalscript": evalscript,
+            "resx": 0.0001,    # ~10m résolution
+            "resy": 0.0001,
         },
-        "evalscript": evalscript
+        "calculations": {
+            "default": {
+                "histograms": {"default": {"nBins": 5, "lowEdge": -1.0, "highEdge": 1.0}},
+                "statistics": {"default": {"percentiles": {"k": [25, 50, 75]}}}
+            }
+        }
     }
 
     try:
         data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(CDSE_PROCESS_URL, data=data, method="POST")
+        req = urllib.request.Request(CDSE_STATS_URL, data=data, method="POST")
         req.add_header("Authorization", f"Bearer {token}")
         req.add_header("Content-Type",  "application/json")
-        req.add_header("Accept",        "application/octet-stream")
+        req.add_header("Accept",        "application/json")
 
         with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read()
+            result = json.loads(resp.read())
 
-        # Parser le GeoTIFF minimal : extraire les valeurs float32
-        # Les pixels NDVI sont encodés en float32 dans le TIFF
-        import struct
-        floats = []
-        # Chercher les float32 valides dans le binaire (entre -1 et 1)
-        for i in range(0, len(raw) - 4, 4):
-            try:
-                val = struct.unpack_from('<f', raw, i)[0]
-                if -1.0 <= val <= 1.0 and val == val:  # exclure NaN
-                    floats.append(val)
-            except Exception:
-                continue
-
-        if not floats:
-            logger.warning("Aucune valeur NDVI extraite du TIFF.")
+        # Extraire la valeur NDVI moyenne depuis la réponse Statistical
+        # Structure: data[0].outputs.ndvi.bands.B0.stats.mean
+        intervals = result.get("data", [])
+        if not intervals:
+            logger.warning("Sentinel Statistical: aucun intervalle retourné.")
             return None
 
-        # Prendre la médiane pour éviter les outliers
-        floats.sort()
-        median = floats[len(floats) // 2]
-        ndvi = round(median, 3)
-        logger.info("NDVI Sentinel-2 réel: %.3f (lat=%.4f, lon=%.4f, n=%d pixels)",
-                    ndvi, latitude, longitude, len(floats))
+        # Prendre le dernier intervalle (le plus récent)
+        last = intervals[-1]
+        ndvi_band = (
+            last.get("outputs", {})
+                .get("ndvi", {})
+                .get("bands", {})
+                .get("B0", {})
+                .get("stats", {})
+        )
+
+        mean = ndvi_band.get("mean")
+        if mean is None or mean != mean:   # None ou NaN
+            logger.warning("Sentinel Statistical: mean NDVI non disponible.")
+            return None
+
+        ndvi = round(float(mean), 3)
+        logger.info(
+            "NDVI Sentinel-2 réel (Statistical): %.3f (lat=%.4f, lon=%.4f)",
+            ndvi, latitude, longitude,
+        )
         return ndvi
 
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="ignore")
-        logger.warning("HTTP %d depuis Sentinel Hub : %s", e.code, body[:300])
+        logger.warning("HTTP %d Sentinel Statistical : %s", e.code, body[:300])
         return None
     except Exception as e:
-        logger.warning("Erreur appel API Sentinel Hub : %s", e)
+        logger.warning("Erreur Sentinel Statistical : %s", e)
         return None
 
 
@@ -181,25 +193,37 @@ def _status_from_ndvi(ndvi: float) -> dict:
         return {
             "vegetation_status": "HEALTHY",
             "interpretation": "Excellente",
-            "recommendation": "La végétation est dense et en bonne santé. Continuez votre programme d'entretien habituel.",
+            "recommendation": (
+                "La végétation est dense et en bonne santé. "
+                "Continuez votre programme d'entretien habituel."
+            ),
         }
     elif ndvi >= 0.5:
         return {
             "vegetation_status": "MODERATE",
             "interpretation": "Modérée",
-            "recommendation": "La végétation montre des signes de stress modéré. Vérifiez l'irrigation et la fertilisation.",
+            "recommendation": (
+                "La végétation montre des signes de stress modéré. "
+                "Vérifiez l'irrigation et la fertilisation."
+            ),
         }
     elif ndvi >= 0.3:
         return {
             "vegetation_status": "STRESSED",
             "interpretation": "Stressée",
-            "recommendation": "Stress végétatif détecté. Inspection terrain recommandée dans les 7 jours.",
+            "recommendation": (
+                "Stress végétatif détecté. "
+                "Inspection terrain recommandée dans les 7 jours."
+            ),
         }
     else:
         return {
             "vegetation_status": "CRITICAL",
             "interpretation": "Critique",
-            "recommendation": "Végétation en état critique. Intervention urgente requise.",
+            "recommendation": (
+                "Végétation en état critique. "
+                "Intervention urgente requise — possible maladie ou sécheresse sévère."
+            ),
         }
 
 
@@ -209,17 +233,17 @@ def get_ndvi(latitude: float, longitude: float) -> Dict[str, Union[float, str]]:
 
     token = _get_access_token()
     if token:
-        ndvi = _fetch_ndvi_cdse(latitude, longitude, token)
+        ndvi = _fetch_ndvi_statistical(latitude, longitude, token)
 
     if ndvi is None:
         ndvi = _ndvi_stub(latitude, longitude)
         source = "simulation"
         if not os.getenv("SENTINEL_CLIENT_ID"):
-            logger.info("NDVI en mode simulation (SENTINEL_CLIENT_ID non configuré).")
+            logger.info("NDVI simulation (SENTINEL_CLIENT_ID non configuré).")
         else:
-            logger.warning("NDVI en mode simulation (échec API Sentinel).")
+            logger.warning("NDVI simulation (échec API Sentinel Statistical).")
 
     result = _status_from_ndvi(ndvi)
-    result["ndvi"] = ndvi
+    result["ndvi"]   = ndvi
     result["source"] = source
     return result
