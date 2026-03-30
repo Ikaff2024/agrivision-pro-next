@@ -71,10 +71,10 @@ def _fetch_ndvi_statistical(
 //VERSION=3
 function setup() {
   return {
-    input: [{
-      bands: ["B04", "B08", "SCL"],
-      units: "REFLECTANCE"
-    }],
+    input: [
+      { bands: ["B04", "B08"], units: "REFLECTANCE" },
+      { bands: ["SCL"],        units: "DN" }
+    ],
     output: [
       { id: "ndvi",     bands: 1, sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1, sampleType: "UINT8"   }
