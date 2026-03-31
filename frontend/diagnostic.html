@@ -404,7 +404,7 @@ async function loadPlantations() {
     pls.forEach(p => {
       plantationCoords[p.id] = { lat: p.latitude, lng: p.longitude, name: p.name };
     });
-    const html = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.region||p.country||'')})</option>`).join('');
+    const html = pls.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' (' + esc(p.region||p.country||'') + ')</option>').join('');
     document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + html;
     document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + html;
     // Pre-select if ?id= in URL
