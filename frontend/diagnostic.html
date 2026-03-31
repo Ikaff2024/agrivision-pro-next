@@ -336,11 +336,11 @@ async function captureWeather() {
   const coords = plantationCoords[pid];
 
   if (!pid) {
-    toast('Sélectionnez d'abord une plantation.', 'error');
+    toast("Sélectionnez d'abord une plantation.", 'error');
     return;
   }
   if (!coords || coords.lat == null || coords.lng == null) {
-    toast('Cette plantation n'a pas de coordonnées GPS — saisissez les paramètres manuellement.', 'error');
+    toast("Cette plantation n'a pas de coordonnées GPS — saisissez les paramètres manuellement.", 'error');
     return;
   }
 
