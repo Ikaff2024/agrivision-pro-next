@@ -131,6 +131,44 @@
     .divider{height:1px;background:var(--border);margin:20px 0}
     .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+    .sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:998}
+    .sb-overlay.open{display:block}
+    .hamburger{display:none;position:fixed;top:14px;left:14px;z-index:1001;
+      width:40px;height:40px;border-radius:10px;border:none;cursor:pointer;
+      background:var(--sb);color:#fff;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .hamburger .ms{font-size:22px;color:#fff}
+
+    @media(max-width:768px){
+      .hamburger{display:flex}
+      #sidebar{position:fixed;top:0;left:0;height:100vh;z-index:999;
+        transform:translateX(-100%);transition:transform .25s ease;width:260px}
+      #sidebar.open{transform:translateX(0)}
+      .avp-main{width:100%!important;height:100vh;overflow-y:auto}
+      .avp-layout{display:block}
+      .avp-header{padding:14px 16px 12px 64px!important;flex-wrap:wrap;gap:10px}
+      .avp-header .page-title{font-size:18px}
+      .avp-content{padding:16px!important}
+      .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+      table{min-width:500px}
+      .content-grid,.analytics-grid,.diag-layout,.detail-grid,
+      .grid-2,.form-row,.form-row2,.form-row3{grid-template-columns:1fr!important}
+      .stats-row,.kpi-row{grid-template-columns:1fr 1fr!important}
+      .quick-actions{grid-template-columns:1fr 1fr!important}
+      .result-panel{position:static!important}
+      .map-layout{flex-direction:column!important}
+      .map-panel{width:100%!important;max-height:280px;border-right:none!important;
+        border-bottom:1px solid var(--border)}
+      .map-container{min-height:320px}
+      #map{height:320px!important}
+      .btn{padding:7px 12px!important;font-size:12.5px!important}
+      input[type=range]{height:8px!important}
+      .stat-cards{grid-template-columns:1fr!important}
+      .hide-mobile{display:none!important}
+      #avp-toast{left:12px;right:12px;bottom:12px}
+      .toast{max-width:100%!important}
+    }
   `;
   document.head.appendChild(style);
 
@@ -243,9 +281,45 @@ async function authFetch(endpoint, options = {}) {
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
+
+function toggleSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('avp-overlay');
+  const hb  = document.getElementById('avp-hamburger');
+  const open = sb && sb.classList.toggle('open');
+  if (ov) ov.classList.toggle('open', open);
+  if (hb) hb.querySelector('.ms').textContent = open ? 'close' : 'menu';
+}
+
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('avp-overlay');
+  const hb = document.getElementById('avp-hamburger');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.classList.remove('open');
+  if (hb) hb.querySelector('.ms').textContent = 'menu';
+}
+
 function renderSidebar(activePage) {
   const el = document.getElementById('sidebar');
   if (!el) return;
+
+  // ── Hamburger button (mobile) ─────────────────────────────────────────────
+  if (!document.getElementById('avp-hamburger')) {
+    const hamburger = document.createElement('button');
+    hamburger.id = 'avp-hamburger';
+    hamburger.className = 'hamburger';
+    hamburger.innerHTML = '<span class="material-symbols-outlined ms">menu</span>';
+    hamburger.onclick = toggleSidebar;
+    document.body.appendChild(hamburger);
+
+    // Overlay pour fermer la sidebar en cliquant à côté
+    const overlay = document.createElement('div');
+    overlay.id = 'avp-overlay';
+    overlay.className = 'sb-overlay';
+    overlay.onclick = closeSidebar;
+    document.body.appendChild(overlay);
+  }
   const user = getCurrentUser();
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
   const links = [
@@ -278,7 +352,7 @@ function renderSidebar(activePage) {
     <nav class="sb-nav">
       <div class="sb-sec">Navigation</div>
       ${links.map(l => `
-        <a href="${l.href}" class="nav-link ${activePage===l.id?'active':''}">
+        <a href="${l.href}" class="nav-link ${activePage===l.id?'active':''}" onclick="closeSidebar()">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`).join('')}
     </nav>
