@@ -7,7 +7,7 @@
  *  - Autres         → Network Only (satellite, images ML)
  */
 
-const CACHE_VERSION   = 'avp-v1.1';
+const CACHE_VERSION   = 'avp-v1.2';
 const STATIC_CACHE    = `${CACHE_VERSION}-static`;
 const API_CACHE       = `${CACHE_VERSION}-api`;
 
