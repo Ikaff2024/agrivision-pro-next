@@ -37,6 +37,7 @@
 
 .action-btns{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:.15s}
 tr:hover .action-btns{opacity:1}
+@media(max-width:768px){.action-btns{opacity:1!important}.mob-hide{display:none!important}.search-wrap{max-width:100%!important}.toolbar{gap:8px}.filter-tabs .ftab{padding:6px 10px;font-size:12px}.btn-primary{padding:8px 10px!important;font-size:12px!important}}
 .act-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);
   background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;
   font-size:16px;transition:.15s;font-family:'DM Sans',sans-serif}
@@ -95,8 +96,8 @@ tr:hover .action-btns{opacity:1}
           <thead>
             <tr>
               <th>Plantation</th>
-              <th>Région</th>
-              <th>Superficie</th>
+              <th class="mob-hide">Région</th>
+              <th class="mob-hide">Superficie</th>
               <th>Score</th>
               <th>Risque</th>
               <th style="text-align:right">Actions</th>
@@ -216,8 +217,8 @@ function render() {
           </div>
         </div>
       </td>
-      <td style="color:var(--muted)">${esc(p.region || p.country || '—')}</td>
-      <td style="color:var(--muted)">${p.hectares != null ? p.hectares + ' ha' : '—'}</td>
+      <td class="mob-hide" style="color:var(--muted)">${esc(p.region || p.country || '—')}</td>
+      <td class="mob-hide" style="color:var(--muted)">${p.hectares != null ? p.hectares + ' ha' : '—'}</td>
       <td>${score != null ? `
         <div class="score-pill">
           <div class="score-pill-bar"><div class="score-pill-fill" style="width:${score}%;background:${scoreColor(score)}"></div></div>

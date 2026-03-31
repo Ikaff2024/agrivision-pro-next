@@ -23,9 +23,9 @@
 
 .you-badge{display:inline-flex;padding:1px 8px;border-radius:99px;font-size:10.5px;
   font-weight:600;background:var(--border-l);color:var(--muted);margin-left:6px;vertical-align:middle}
+@media(max-width:768px){.mob-hide{display:none!important}.member-email{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stat-c-val{font-size:20px!important}.stat-c-lbl{font-size:11px!important}.stat-c{padding:12px 14px!important}}
 
-.stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
-@media(max-width:700px){.stat-cards{grid-template-columns:1fr}}
+.stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
 .stat-c{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
   padding:18px 20px;box-shadow:var(--sh);display:flex;align-items:center;gap:14px}
 .stat-c-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;
@@ -89,8 +89,8 @@
             <tr>
               <th>Membre</th>
               <th>Rôle actuel</th>
-              <th>Membre depuis</th>
-              <th style="text-align:right">Actions</th>
+              <th class="mob-hide">Membre depuis</th>
+              <th class="mob-hide" style="text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="members-tbody">
@@ -161,7 +161,7 @@ function renderTable(members) {
         <div style="display:flex;align-items:center;gap:10px">
           <div class="member-avatar avatar-${m.role}">${m.email.substring(0,2).toUpperCase()}</div>
           <div>
-            <div style="font-size:13.5px;font-weight:500">${esc(m.email)}${m.is_current_user ? '<span class="you-badge">Vous</span>' : ''}</div>
+            <div class="member-email" style="font-size:13.5px;font-weight:500">${esc(m.email)}${m.is_current_user ? '<span class="you-badge">Vous</span>' : ''}</div>
           </div>
         </div>
       </td>
@@ -176,8 +176,8 @@ function renderTable(members) {
             </select>`
         }
       </td>
-      <td style="color:var(--muted);font-size:13px">${fmtDate(m.created_at)}</td>
-      <td style="text-align:right">
+      <td class="mob-hide" style="color:var(--muted);font-size:13px">${fmtDate(m.created_at)}</td>
+      <td class="mob-hide" style="text-align:right">
         ${m.is_current_user ? '<span style="color:var(--faint);font-size:12px">—</span>' : `
         <button class="btn btn-outline btn-sm" style="color:var(--high);border-color:var(--high-b)"
           onclick="confirmRemove(${m.id}, '${esc(m.email)}')">
