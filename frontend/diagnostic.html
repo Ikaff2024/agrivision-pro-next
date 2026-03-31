@@ -66,6 +66,24 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .upload-preview img{width:100%;max-height:240px;object-fit:cover;display:block}
 .upload-preview-bar{padding:10px 14px;border-top:1px solid var(--border);display:flex;
   align-items:center;justify-content:space-between;background:var(--surface-warm);font-size:13px}
+
+.weather-bar{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;padding:12px 14px;border-radius:8px;
+  background:linear-gradient(135deg,#eafaf1,#f0faf5);
+  border:1px solid var(--low-b);gap:12px;flex-wrap:wrap}
+.weather-bar-info{font-size:12.5px;color:var(--low);flex:1;min-width:0}
+.weather-bar-info strong{display:block;font-size:13px;font-weight:600;margin-bottom:2px}
+.weather-bar-info span{color:var(--muted)}
+.btn-weather{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
+  border-radius:8px;border:1.5px solid var(--low);background:var(--surface);
+  color:var(--low);font-size:13px;font-weight:600;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:.2s;white-space:nowrap;flex-shrink:0}
+.btn-weather:hover{background:var(--low-bg)}
+.btn-weather:disabled{opacity:.5;cursor:not-allowed}
+.btn-weather .ms{font-size:16px}
+.weather-source{display:none;font-size:11.5px;color:var(--low);margin-top:8px;
+  padding:6px 10px;background:var(--low-bg);border-radius:6px;
+  border:1px solid var(--low-b)}
 .beta-banner{display:flex;align-items:flex-start;gap:12px;background:#fef8ec;border:1px solid #f0c97a;border-radius:var(--r);padding:14px 16px;margin-bottom:20px}
 .beta-badge{display:inline-flex;align-items:center;padding:2px 10px;background:#9a6200;color:#fff;border-radius:99px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;margin-top:1px}
 .beta-text{font-size:13px;color:#7a4e00;line-height:1.6}
@@ -117,6 +135,18 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 
             <div class="form-section">
               <div class="form-section-title">Conditions climatiques</div>
+              <!-- Barre de capture météo automatique -->
+              <div class="weather-bar" id="weather-bar">
+                <div class="weather-bar-info">
+                  <strong>Capture automatique</strong>
+                  <span>Pré-remplit humidité, température et pluie depuis les données météo en temps réel</span>
+                </div>
+                <button class="btn-weather" id="weather-btn" onclick="captureWeather()">
+                  <span class="material-symbols-outlined ms">cloud_download</span>
+                  Capturer météo
+                </button>
+              </div>
+              <div class="weather-source" id="weather-source"></div>
               <div class="range-group">
                 <div class="range-header">
                   <span class="range-label">Humidité relative</span>
@@ -298,11 +328,82 @@ initApp('diagnostic');
 let currentFile = null;
 
 // Load plantations into selects
+// ── Capture météo automatique (Open-Meteo) ──────────────────────────────────
+let plantationCoords = {}; // {id: {lat, lng, name}}
+
+async function captureWeather() {
+  const pid = document.getElementById('plantation-select').value;
+  const coords = plantationCoords[pid];
+
+  if (!pid) {
+    toast('Sélectionnez d'abord une plantation.', 'error');
+    return;
+  }
+  if (!coords || coords.lat == null || coords.lng == null) {
+    toast('Cette plantation n'a pas de coordonnées GPS — saisissez les paramètres manuellement.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('weather-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined ms" style="animation:spin .7s linear infinite">sync</span> Chargement…';
+
+  try {
+    // Open-Meteo API — gratuit, sans clé, données horaires temps réel
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}` +
+      `&current=temperature_2m,relative_humidity_2m,precipitation` +
+      `&daily=precipitation_sum&timezone=auto&forecast_days=1`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error('Erreur API météo');
+    const data = await res.json();
+
+    const cur = data.current;
+    const temp      = Math.round(cur.temperature_2m);
+    const humidity  = Math.round(cur.relative_humidity_2m);
+    // Pluviométrie mensuelle estimée = pluie du jour × 30 (approximation simple)
+    // On prend la valeur journalière et on l'utilise comme proxy mensuel moyen
+    const rainDay   = cur.precipitation || 0;
+    // Récupérer aussi la prévision mensuelle via l'archive si dispo
+    const rainMonth = Math.min(400, Math.round(rainDay * 30));
+
+    // Pré-remplir les sliders
+    setSlider('humidity', humidity, 'val-humidity', humidity + '%');
+    setSlider('temp', Math.max(10, Math.min(45, temp)), 'val-temp', Math.max(10, Math.min(45, temp)) + '°C');
+    setSlider('rain', Math.max(0, Math.min(400, rainMonth)), 'val-rain', Math.max(0, Math.min(400, rainMonth)) + ' mm');
+
+    // Afficher la source
+    const srcEl = document.getElementById('weather-source');
+    const now = new Date(cur.time);
+    srcEl.style.display = 'block';
+    srcEl.innerHTML = `📡 Données Open-Meteo — ${coords.name} — ${now.toLocaleString('fr-FR', {hour:'2-digit',minute:'2-digit'})} — Temp: ${temp}°C · Humidité: ${humidity}% · Pluie jour: ${rainDay.toFixed(1)}mm`;
+
+    toast('Paramètres météo capturés automatiquement.');
+  } catch(e) {
+    toast('Impossible de récupérer les données météo. Saisissez manuellement.', 'error');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined ms">cloud_download</span> Capturer météo';
+  }
+}
+
+function setSlider(id, value, labelId, labelText) {
+  const slider = document.getElementById(id);
+  const label  = document.getElementById(labelId);
+  if (slider) { slider.value = value; }
+  if (label)  { label.textContent = labelText; }
+}
+
 async function loadPlantations() {
   try {
     const r = await authFetch('/plantations?limit=200');
     if (!r?.ok) return;
     const pls = await r.json();
+    // Stocker coordonnées pour la capture météo
+    pls.forEach(p => {
+      plantationCoords[p.id] = { lat: p.latitude, lng: p.longitude, name: p.name };
+    });
     const html = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.region||p.country||'')})</option>`).join('');
     document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + html;
     document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + html;
@@ -311,8 +412,35 @@ async function loadPlantations() {
     if (pid) {
       document.getElementById('plantation-select').value = pid;
       document.getElementById('img-plantation').value = pid;
+      updateWeatherBar(pid);
     }
+    document.getElementById('plantation-select').addEventListener('change', e => updateWeatherBar(e.target.value));
   } catch {}
+}
+
+function updateWeatherBar(pid) {
+  const coords = plantationCoords[pid];
+  const bar = document.getElementById('weather-bar');
+  const src = document.getElementById('weather-source');
+  if (!bar) return;
+  if (src) src.style.display = 'none';
+  if (!pid) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  const hasGps = coords && coords.lat != null && coords.lng != null;
+  const btn = document.getElementById('weather-btn');
+  if (btn) {
+    btn.disabled = !hasGps;
+    btn.title = hasGps ? '' : 'Coordonnées GPS manquantes pour cette plantation';
+  }
+  const info = bar.querySelector('.weather-bar-info span');
+  if (info) {
+    info.textContent = hasGps
+      ? `Pré-remplit humidité, température et pluie depuis les données météo en temps réel`
+      : `Coordonnées GPS manquantes — ajoutez-les dans la fiche plantation pour activer cette fonction`;
+  }
 }
 
 function showTab(tab, el) {
