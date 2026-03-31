@@ -376,7 +376,8 @@ async function captureWeather() {
     const srcEl = document.getElementById('weather-source');
     const now = new Date(cur.time);
     srcEl.style.display = 'block';
-    srcEl.innerHTML = `📡 Données Open-Meteo — ${coords.name} — ${now.toLocaleString('fr-FR', {hour:'2-digit',minute:'2-digit'})} — Temp: ${temp}°C · Humidité: ${humidity}% · Pluie jour: ${rainDay.toFixed(1)}mm`;
+    const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    srcEl.innerHTML = '📡 Données Open-Meteo — ' + coords.name + ' — ' + timeStr + ' — Temp: ' + temp + '°C · Humidité: ' + humidity + '% · Pluie jour: ' + rainDay.toFixed(1) + 'mm';
 
     toast('Paramètres météo capturés automatiquement.');
   } catch(e) {
