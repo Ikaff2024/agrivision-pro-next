@@ -70,23 +70,6 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .beta-badge{display:inline-flex;align-items:center;padding:2px 10px;background:#9a6200;color:#fff;border-radius:99px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;margin-top:1px}
 .beta-text{font-size:13px;color:#7a4e00;line-height:1.6}
 .beta-text strong{font-weight:600;color:#5a3800}
-
-.weather-bar{display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:16px;padding:12px 14px;border-radius:8px;
-  background:linear-gradient(135deg,#eafaf1,#f0faf5);
-  border:1px solid #b7dfc8;gap:12px;flex-wrap:wrap}
-.weather-bar-info strong{display:block;font-size:13px;font-weight:600;
-  color:#1a4231;margin-bottom:2px}
-.weather-bar-info span{font-size:12px;color:#5a7a6a}
-.btn-weather{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
-  border-radius:8px;border:1.5px solid #1a6b3a;background:#fff;
-  color:#1a6b3a;font-size:13px;font-weight:600;cursor:pointer;
-  font-family:"DM Sans",sans-serif;transition:.2s;white-space:nowrap}
-.btn-weather:hover{background:#eafaf1}
-.btn-weather:disabled{opacity:.45;cursor:not-allowed}
-.weather-source{font-size:11.5px;color:#1a6b3a;margin-top:8px;
-  padding:6px 10px;background:#eafaf1;border-radius:6px;
-  border:1px solid #b7dfc8}
 </style>
 </head>
 <body>
@@ -134,17 +117,6 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 
             <div class="form-section">
               <div class="form-section-title">Conditions climatiques</div>
-              <div class="weather-bar" id="weather-bar" style="display:none">
-                <div class="weather-bar-info">
-                  <strong>Capture automatique</strong>
-                  <span id="weather-info-text">Pre-remplit les parametres depuis la meteo en temps reel</span>
-                </div>
-                <button class="btn-weather" id="weather-btn" onclick="captureWeather()">
-                  <span class="material-symbols-outlined" style="font-size:16px">cloud_download</span>
-                  Capturer meteo
-                </button>
-              </div>
-              <div id="weather-source" style="display:none" class="weather-source"></div>
               <div class="range-group">
                 <div class="range-header">
                   <span class="range-label">Humidité relative</span>
@@ -326,103 +298,21 @@ initApp('diagnostic');
 let currentFile = null;
 
 // Load plantations into selects
-let _pCoords = {};
-
 async function loadPlantations() {
   try {
     const r = await authFetch('/plantations?limit=200');
     if (!r?.ok) return;
     const pls = await r.json();
-    pls.forEach(function(p) {
-      _pCoords[p.id] = { lat: p.latitude, lng: p.longitude, name: p.name };
-    });
-    const opts = pls.map(function(p) {
-      return '<option value="' + p.id + '">' + esc(p.name) + ' (' + esc(p.region || p.country || '') + ')</option>';
-    }).join('');
-    document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + opts;
-    document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + opts;
-    document.getElementById('plantation-select').addEventListener('change', function(e) {
-      syncWeatherBar(e.target.value);
-    });
+    const html = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.region||p.country||'')})</option>`).join('');
+    document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + html;
+    document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + html;
+    // Pre-select if ?id= in URL
     const pid = new URLSearchParams(location.search).get('id');
     if (pid) {
       document.getElementById('plantation-select').value = pid;
       document.getElementById('img-plantation').value = pid;
-      syncWeatherBar(pid);
     }
-  } catch(err) { console.error(err); }
-}
-
-function syncWeatherBar(pid) {
-  var bar = document.getElementById('weather-bar');
-  var btn = document.getElementById('weather-btn');
-  var src = document.getElementById('weather-source');
-  var txt = document.getElementById('weather-info-text');
-  if (!bar) return;
-  if (src) { src.style.display = 'none'; }
-  if (!pid) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  var c = _pCoords[pid];
-  var hasGps = c && c.lat != null && c.lng != null;
-  if (btn) btn.disabled = !hasGps;
-  if (txt) {
-    txt.textContent = hasGps
-      ? 'Pre-remplit humidite, temperature et pluie depuis la meteo en temps reel'
-      : 'Coordonnees GPS manquantes pour cette plantation';
-  }
-}
-
-async function captureWeather() {
-  var sel = document.getElementById('plantation-select');
-  var pid = sel ? sel.value : '';
-  if (!pid) { toast('Selectionnez une plantation.', 'error'); return; }
-  var c = _pCoords[pid];
-  if (!c || c.lat == null || c.lng == null) {
-    toast('Coordonnees GPS manquantes.', 'error');
-    return;
-  }
-  var btn = document.getElementById('weather-btn');
-  var orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.textContent = 'Chargement...';
-  try {
-    var url = 'https://api.open-meteo.com/v1/forecast'
-      + '?latitude=' + c.lat
-      + '&longitude=' + c.lng
-      + '&current=temperature_2m,relative_humidity_2m,precipitation'
-      + '&timezone=auto&forecast_days=1';
-    var res = await fetch(url);
-    if (!res.ok) throw new Error('API meteo indisponible');
-    var data = await res.json();
-    var cur = data.current;
-    var temp = Math.round(cur.temperature_2m);
-    var hum  = Math.round(cur.relative_humidity_2m);
-    var rain = cur.precipitation || 0;
-    var tClamp = Math.max(10, Math.min(45, temp));
-    var rClamp = Math.max(0, Math.min(400, Math.round(rain * 30)));
-    var hClamp = Math.max(0, Math.min(100, hum));
-    var sH = document.getElementById('humidity');
-    var sT = document.getElementById('temp');
-    var sR = document.getElementById('rain');
-    if (sH) { sH.value = hClamp; document.getElementById('val-humidity').textContent = hClamp + '%'; }
-    if (sT) { sT.value = tClamp; document.getElementById('val-temp').textContent = tClamp + 'C'; }
-    if (sR) { sR.value = rClamp; document.getElementById('val-rain').textContent = rClamp + ' mm'; }
-    var now = new Date();
-    var hh = now.getHours().toString().padStart(2, '0');
-    var mm = now.getMinutes().toString().padStart(2, '0');
-    var src = document.getElementById('weather-source');
-    if (src) {
-      src.style.display = 'block';
-      src.textContent = 'Open-Meteo - ' + c.name + ' - ' + hh + ':' + mm
-        + ' - ' + temp + 'C - ' + hum + '% humidite - ' + rain.toFixed(1) + 'mm pluie/j';
-    }
-    toast('Parametres meteo captures.');
-  } catch(e) {
-    toast('Impossible de recuperer la meteo.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = orig;
-  }
+  } catch {}
 }
 
 function showTab(tab, el) {
