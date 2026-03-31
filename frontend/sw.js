@@ -7,7 +7,7 @@
  *  - Autres         → Network Only (satellite, images ML)
  */
 
-const CACHE_VERSION   = 'avp-v1.2';
+const CACHE_VERSION   = 'avp-v1.3';
 const STATIC_CACHE    = `${CACHE_VERSION}-static`;
 const API_CACHE       = `${CACHE_VERSION}-api`;
 
@@ -74,8 +74,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 2. Assets statiques → Cache First
+  // 2. Assets statiques → Cache First (sauf diagnostic.html toujours Network First)
   if (url.origin === self.location.origin) {
+    if (url.pathname === '/diagnostic.html') {
+      event.respondWith(networkFirstStatic(request));
+      return;
+    }
     event.respondWith(cacheFirstStatic(request));
     return;
   }
@@ -102,6 +106,22 @@ async function cacheFirstStatic(request) {
       return caches.match('/offline.html');
     }
     return new Response('Hors ligne', { status: 503 });
+  }
+}
+
+// ── Stratégie : Network First (pages critiques) ──────────────────────────
+async function networkFirstStatic(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return caches.match('/offline.html');
   }
 }
 
