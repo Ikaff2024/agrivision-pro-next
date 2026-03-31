@@ -319,5 +319,22 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<script>
+// Override CSS mobile — doit s'exécuter APRÈS auth.js pour avoir la priorité
+(function() {
+  var s = document.createElement('style');
+  s.id = 'avp-mobile-override';
+  s.textContent = `
+    @media(max-width:768px){
+      table{min-width:0!important;width:100%!important}
+      th.mob-hide,td.mob-hide{display:none!important}
+      .score-pill-bar{width:36px!important}
+      .action-btns{opacity:1!important}
+    }
+  `;
+  document.head.appendChild(s);
+})();
+</script>
 </body>
 </html>
