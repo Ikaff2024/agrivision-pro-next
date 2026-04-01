@@ -166,8 +166,64 @@ def diagnostic_endpoint(
     db.add(new_diagnostic)
     db.commit()
     db.refresh(new_diagnostic)
-    return report
+    # Générer les recommandations actionnables
+    rec_list = build_recommendations(
+        module_results=[
+            {"module_name": m.module_name, "score": m.score, "reasons": m.reasons}
+            for m in report.module_results
+        ],
+        inputs={
+            "humidity_pct":           inputs.humidity_pct,
+            "rainfall_mm_month":      inputs.rainfall_mm_month,
+            "avg_temp_c":             inputs.avg_temp_c,
+            "shade_tree_density_pct": inputs.shade_tree_density_pct,
+            "plantation_age_years":   inputs.plantation_age_years,
+        },
+        global_score=report.global_score,
+        global_risk=report.global_risk_level,
+    )
 
+    return {
+        "global_score":      report.global_score,
+        "global_risk_level": report.global_risk_level,
+        "module_results":    [
+            {"module_name": m.module_name, "score": m.score,
+             "risk_level": m.risk_level, "reasons": m.reasons}
+            for m in report.module_results
+        ],
+        "recommendations":   rec_list,
+        "diagnostic_id":     new_diagnostic.id,
+    }
+
+
+
+@router.get("/diagnostics/{diagnostic_id}/recommendations")
+def get_diagnostic_recommendations(
+    diagnostic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retourne les recommandations actionnables pour un diagnostic existant."""
+    diag = db.query(Diagnostic).filter(
+        Diagnostic.id == diagnostic_id,
+    ).first()
+    if not diag:
+        raise HTTPException(status_code=404, detail="Diagnostic introuvable.")
+
+    # Recalculer les recs depuis les données stockées
+    rec_list = build_recommendations(
+        module_results=[],  # pas de module_results en DB, on utilise les inputs
+        inputs={
+            "humidity_pct":           diag.humidity_pct,
+            "rainfall_mm_month":      diag.rainfall_mm_month,
+            "avg_temp_c":             diag.avg_temp_c,
+            "shade_tree_density_pct": None,
+            "plantation_age_years":   None,
+        },
+        global_score=diag.global_score,
+        global_risk=diag.global_risk_level,
+    )
+    return rec_list
 
 # ─── Historique diagnostics ───────────────────────────────────────────────────
 
