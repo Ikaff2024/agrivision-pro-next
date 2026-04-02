@@ -80,7 +80,7 @@ tr:hover .action-btns{opacity:1}
         <div class="page-title">Plantations</div>
         <div class="page-sub" id="count-sub">Chargement…</div>
       </div>
-      <button class="btn btn-primary" onclick="openModal()">
+      <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
         <span class="material-symbols-outlined" style="font-size:18px">add</span>
         Nouvelle plantation
       </button>
@@ -159,6 +159,18 @@ tr:hover .action-btns{opacity:1}
 
 <script>
 initApp('plantations');
+
+// Afficher le bouton création uniquement pour les admins
+(function() {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.role === 'admin') {
+      document.getElementById('add-btn').style.display = '';
+    }
+  } catch(e) {}
+})();
 
 let allPlantations = [];
 let mapData = {};
