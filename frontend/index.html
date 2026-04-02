@@ -67,7 +67,7 @@
         <div class="page-title">Dashboard</div>
         <div class="page-sub" id="coop-name">Chargement…</div>
       </div>
-      <button class="btn btn-primary" onclick="openModal()">
+      <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
         <span class="material-symbols-outlined" style="font-size:18px">add</span>
         Nouvelle plantation
       </button>
@@ -153,6 +153,10 @@
                 <div class="qa-icon">📊</div>
                 <div><div class="qa-label">Analytique</div><div class="qa-sub">Tendances</div></div>
               </button>
+              <button class="qa-btn" onclick="location.href='agroforestry.html'">
+                <div class="qa-icon">🌳</div>
+                <div><div class="qa-label">Agroforesterie</div><div class="qa-sub">Inventaire & carbone</div></div>
+              </button>
             </div>
           </div>
         </div>
@@ -181,6 +185,12 @@
       <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="m-lat" type="number" step="any" placeholder="5.78"></div>
       <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="m-lng" type="number" step="any" placeholder="-6.59"></div>
     </div>
+    <button type="button" class="btn btn-outline" id="geo-btn" onclick="grabGPS()"
+      style="width:100%;justify-content:center;margin-bottom:12px">
+      <span class="material-symbols-outlined" style="font-size:16px">my_location</span>
+      <span id="geo-txt">Utiliser ma position GPS</span>
+    </button>
+    <div id="geo-err" style="font-size:12px;color:var(--high);display:none;margin-bottom:8px"></div>
     <div class="form-group"><label class="form-label">Superficie (hectares)</label><input class="form-input" id="m-ha" type="number" step="any" placeholder="4.5"></div>
     <div id="m-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-footer">
@@ -196,9 +206,24 @@ initApp('dashboard');
 const user = getCurrentUser();
 if (user) {
   document.getElementById('coop-name').textContent = `Coopérative · ${user.role}`;
+  if (user.role === 'admin') {
+    document.getElementById('add-btn').style.display = '';
+  }
 }
 
+// Cache des noms de plantations
+let _plantationNames = {};
+
 async function loadDashboard() {
+  // Charger plantations en parallèle pour avoir les vrais noms
+  try {
+    const rp = await authFetch('/plantations?limit=200');
+    if (rp?.ok) {
+      const pls = await rp.json();
+      pls.forEach(p => { _plantationNames[p.id] = p.name; });
+    }
+  } catch {}
+
   // Stats
   try {
     const r = await authFetch('/map/stats');
@@ -240,7 +265,7 @@ async function loadDashboard() {
     }
     tb.innerHTML = diags.map(d => `
       <tr>
-        <td style="font-weight:500">${d.plantation_id ? `Plantation #${d.plantation_id}` : '—'}</td>
+        <td style="font-weight:500;cursor:pointer" onclick="location.href='plantation_detail.html?id=${d.plantation_id}'">${_plantationNames[d.plantation_id] || (d.plantation_id ? 'Plantation #'+d.plantation_id : '—')}</td>
         <td style="color:var(--muted)">${d.region || d.country || '—'}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
@@ -257,6 +282,35 @@ async function loadDashboard() {
 }
 
 loadDashboard();
+
+function grabGPS() {
+  const btn = document.getElementById('geo-btn');
+  const txt = document.getElementById('geo-txt');
+  const err = document.getElementById('geo-err');
+  err.style.display = 'none';
+  if (!navigator.geolocation) {
+    err.textContent = 'Géolocalisation non supportée.';
+    err.style.display = 'block'; return;
+  }
+  btn.disabled = true; txt.textContent = 'Localisation en cours…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('m-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('m-lng').value = pos.coords.longitude.toFixed(6);
+      txt.textContent = 'Position capturée';
+      btn.disabled = false;
+      setTimeout(() => { txt.textContent = 'Utiliser ma position GPS'; }, 2500);
+    },
+    e => {
+      const msgs = {1:'Permission refusée.',2:'Position indisponible.',3:'Délai dépassé.'};
+      err.textContent = msgs[e.code] || 'Erreur de localisation.';
+      err.style.display = 'block';
+      txt.textContent = 'Utiliser ma position GPS';
+      btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
 
 function openModal() { document.getElementById('modal').style.display = 'flex'; }
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
