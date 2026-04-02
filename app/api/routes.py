@@ -14,6 +14,7 @@ from app.db.models import Diagnostic, Plantation, User
 from app.auth.auth_service import get_current_user
 from app.ml.image_diagnosis import analyze_leaf_image
 from app.satellite.ndvi_service import get_ndvi
+from app.recommendations import build_recommendations
 
 router = APIRouter()
 
