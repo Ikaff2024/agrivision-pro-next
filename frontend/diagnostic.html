@@ -84,6 +84,24 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .btn-weather:disabled{opacity:.45;cursor:not-allowed}
 .weather-source{font-size:11.5px;color:#1a6b3a;margin-top:8px;padding:6px 10px;
   background:#eafaf1;border-radius:6px;border:1px solid #b7dfc8;display:none}
+
+/* Recommandations */
+.reco-section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin:20px 0 12px;padding-top:16px;border-top:1px solid var(--border-l)}
+.reco-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.reco-item{border-radius:8px;padding:12px 14px;border-left:3px solid transparent}
+.reco-item.high{background:#fdf2f2;border-left-color:#c0392b}
+.reco-item.medium{background:#fef9ec;border-left-color:#d4a012}
+.reco-item.low{background:#f0faf5;border-left-color:#1a6b3a}
+.reco-item-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.reco-icon{font-size:16px;line-height:1}
+.reco-title{font-size:13px;font-weight:700;color:var(--text);flex:1}
+.reco-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;
+  text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.reco-badge.high{background:#fde8e8;color:#922b21}
+.reco-badge.medium{background:#fef3cd;color:#8a6000}
+.reco-badge.low{background:#d4edda;color:#155724}
+.reco-action{font-size:12px;color:var(--muted);line-height:1.6}
 </style>
 </head>
 <body>
@@ -220,6 +238,10 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
                 <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
                   letter-spacing:.06em;margin-bottom:12px">Détail par module</div>
                 <div class="module-list" id="r-modules"></div>
+                <div id="r-reco-wrap" style="display:none">
+                  <div class="reco-section-title">Recommandations terrain</div>
+                  <div class="reco-list" id="r-reco"></div>
+                </div>
                 <button class="btn btn-outline" style="width:100%;justify-content:center"
                   onclick="runDiagnostic()">
                   <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
@@ -413,6 +435,26 @@ function showResult(r) {
       </div>
       <div class="module-reasons">${(m.reasons||[]).map(r => `<div>• ${esc(r)}</div>`).join('')}</div>
     </div>`).join('');
+
+  // Recommandations terrain
+  const recos = r.recommendations || [];
+  const recoWrap = document.getElementById('r-reco-wrap');
+  const recoList = document.getElementById('r-reco');
+  if (recos.length > 0) {
+    const priorityLabel = { high: 'Urgent', medium: 'Prioritaire', low: 'Conseil' };
+    recoList.innerHTML = recos.map(rec => `
+      <div class="reco-item ${rec.priority}">
+        <div class="reco-item-header">
+          <span class="reco-icon">${esc(rec.icon||'')}</span>
+          <span class="reco-title">${esc(rec.title)}</span>
+          <span class="reco-badge ${rec.priority}">${priorityLabel[rec.priority]||rec.priority}</span>
+        </div>
+        <div class="reco-action">${esc(rec.action)}</div>
+      </div>`).join('');
+    recoWrap.style.display = '';
+  } else {
+    recoWrap.style.display = 'none';
+  }
 }
 
 // Image diagnosis
