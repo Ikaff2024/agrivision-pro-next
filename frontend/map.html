@@ -173,7 +173,8 @@ async function load() {
 
     if (r2?.ok) {
       const s = await r2.json();
-      document.getElementById('cnt-all').textContent  = s.total_plantations;
+      // cnt-all reflète ce qui est réellement affiché sur la carte (plantations avec diagnostic)
+      // Les autres compteurs viennent des stats agrégées backend
       document.getElementById('cnt-low').textContent  = s.low_risk_plantations;
       document.getElementById('cnt-med').textContent  = s.medium_risk_plantations;
       document.getElementById('cnt-high').textContent = s.high_risk_plantations;
@@ -182,6 +183,8 @@ async function load() {
       document.getElementById('map-sub').textContent  =
         `${s.total_plantations} plantation${s.total_plantations>1?'s':''} · ${s.high_risk_plantations} à risque élevé`;
     }
+    // cnt-all = plantations effectivement visibles sur la carte (ont un diagnostic)
+    document.getElementById('cnt-all').textContent = allData.length;
 
     renderList();
     renderMarkers();
