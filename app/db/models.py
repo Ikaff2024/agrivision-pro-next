@@ -46,6 +46,8 @@ class Plantation(Base):
 
     cooperative = relationship("Cooperative", back_populates="plantations")
     diagnostics = relationship("Diagnostic", back_populates="plantation")
+    agroforestry_records = relationship("AgroforestryRecord", back_populates="plantation",
+                                        cascade="all, delete-orphan")
 
 
 class Diagnostic(Base):
@@ -68,3 +70,29 @@ class Diagnostic(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     plantation = relationship("Plantation", back_populates="diagnostics")
+
+
+class AgroforestryRecord(Base):
+    """
+    Enregistrement d'une espèce d'arbre associée à une plantation.
+    Plusieurs enregistrements par plantation (un par espèce).
+    """
+    __tablename__ = "agroforestry_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plantation_id = Column(Integer, ForeignKey("plantations.id"), nullable=False)
+
+    # Identification de l'espèce
+    species_name = Column(String, nullable=False)          # Nom scientifique / commun
+    local_name = Column(String, nullable=True)             # Nom local (dioula, baoulé, etc.)
+
+    # Données dendrométriques
+    layer = Column(String, nullable=True)                  # "superior" | "intermediate" | "understory"
+    count_per_hectare = Column(Float, nullable=False)      # Densité (arbres/ha)
+    avg_age_years = Column(Float, nullable=True)           # Âge moyen estimé
+
+    # Métadonnées
+    notes = Column(String, nullable=True)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation = relationship("Plantation", back_populates="agroforestry_records")

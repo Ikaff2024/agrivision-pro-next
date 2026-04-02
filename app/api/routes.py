@@ -563,3 +563,255 @@ def remove_member(
     db.delete(member)
     db.commit()
     return {"message": f"Membre {member.email} supprimé avec succès."}
+
+
+# ════════════════════════════════════════════════════════════════
+# ─── Agroforesterie ──────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
+
+from app.db.models import AgroforestryRecord
+
+# ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
+# carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
+# shade_factor  : contribution à l'ombrage par arbre (arbres/ha → % ombrage)
+SPECIES_LIBRARY = [
+    # Légumineuses fixatrices d'azote (ombrage rapide)
+    {"name":"Gliricidia sepium",    "local":"Gliricidi",    "layer":"intermediate", "carbon_factor":0.012, "shade_factor":0.8,  "category":"Légumineuse"},
+    {"name":"Leucaena leucocephala","local":"Leucéna",      "layer":"intermediate", "carbon_factor":0.010, "shade_factor":0.7,  "category":"Légumineuse"},
+    {"name":"Erythrina spp.",       "local":"Érythrine",    "layer":"superior",     "carbon_factor":0.018, "shade_factor":0.9,  "category":"Légumineuse"},
+    {"name":"Albizzia adianthifolia","local":"Albizzia",    "layer":"superior",     "carbon_factor":0.025, "shade_factor":1.0,  "category":"Légumineuse"},
+    # Fruitiers
+    {"name":"Musa spp.",            "local":"Bananier",     "layer":"understory",   "carbon_factor":0.004, "shade_factor":0.4,  "category":"Fruitier"},
+    {"name":"Persea americana",     "local":"Avocatier",    "layer":"intermediate", "carbon_factor":0.015, "shade_factor":0.8,  "category":"Fruitier"},
+    {"name":"Mangifera indica",     "local":"Manguier",     "layer":"superior",     "carbon_factor":0.022, "shade_factor":1.0,  "category":"Fruitier"},
+    {"name":"Citrus sinensis",      "local":"Oranger",      "layer":"intermediate", "carbon_factor":0.010, "shade_factor":0.6,  "category":"Fruitier"},
+    {"name":"Dacryodes edulis",     "local":"Safoutier",    "layer":"intermediate", "carbon_factor":0.014, "shade_factor":0.75, "category":"Fruitier"},
+    {"name":"Cola nitida",          "local":"Colatier",     "layer":"intermediate", "carbon_factor":0.012, "shade_factor":0.7,  "category":"Fruitier"},
+    {"name":"Carica papaya",        "local":"Papayer",      "layer":"understory",   "carbon_factor":0.003, "shade_factor":0.3,  "category":"Fruitier"},
+    # Timber / bois d'oeuvre
+    {"name":"Milicia excelsa",      "local":"Iroko",        "layer":"superior",     "carbon_factor":0.045, "shade_factor":1.0,  "category":"Timber"},
+    {"name":"Terminalia superba",   "local":"Fraké",        "layer":"superior",     "carbon_factor":0.038, "shade_factor":1.0,  "category":"Timber"},
+    {"name":"Ceiba pentandra",      "local":"Fromager",     "layer":"superior",     "carbon_factor":0.042, "shade_factor":1.0,  "category":"Timber"},
+    {"name":"Khaya senegalensis",   "local":"Khaya",        "layer":"superior",     "carbon_factor":0.040, "shade_factor":1.0,  "category":"Timber"},
+    # Palmiers / divers
+    {"name":"Elaeis guineensis",    "local":"Palmier à huile","layer":"superior",   "carbon_factor":0.020, "shade_factor":0.85, "category":"Divers"},
+    {"name":"Cocos nucifera",       "local":"Cocotier",     "layer":"superior",     "carbon_factor":0.018, "shade_factor":0.8,  "category":"Divers"},
+    {"name":"Tectona grandis",      "local":"Teck",         "layer":"superior",     "carbon_factor":0.035, "shade_factor":0.9,  "category":"Timber"},
+]
+
+def _compute_metrics(records) -> dict:
+    """
+    Calcule les métriques agroforestières à partir des enregistrements.
+    - shade_score      : % d'ombrage estimé (0-100)
+    - diversity_score  : score de diversité floristique (0-100)
+    - carbon_stock_tco2_ha : stock carbone estimé (tCO₂/ha)
+    - conformity_score : score global de conformité agroforestière (0-100)
+    """
+    if not records:
+        return {
+            "shade_score": 0, "diversity_score": 0,
+            "carbon_stock_tco2_ha": 0.0, "conformity_score": 0,
+            "total_trees_per_ha": 0, "species_count": 0
+        }
+
+    species_lib = {s["name"]: s for s in SPECIES_LIBRARY}
+
+    total_trees = 0.0
+    shade_sum = 0.0
+    carbon_sum = 0.0
+    species_seen = set()
+
+    for r in records:
+        density = r.count_per_hectare or 0
+        age = r.avg_age_years or 5          # défaut 5 ans si non renseigné
+        total_trees += density
+        species_seen.add(r.species_name)
+
+        lib = species_lib.get(r.species_name)
+        cf = lib["carbon_factor"] if lib else 0.010   # défaut générique
+        sf = lib["shade_factor"]  if lib else 0.6
+
+        # Facteur âge : croît jusqu'à 2.0 à 30 ans (log)
+        import math
+        age_factor = min(2.0, 0.4 + (math.log1p(age) / math.log1p(30)) * 1.6)
+
+        shade_sum  += density * sf
+        carbon_sum += density * cf * age_factor
+
+    # Ombrage : 40 arbres/ha de plein couvert = 100% ombrage (règle empirique cacao)
+    shade_score = min(100, round(shade_sum / 40 * 100))
+
+    # Diversité : 1 espèce = 10pts, chaque espèce suppl. +12pts, plafonné 100
+    species_count = len(species_seen)
+    diversity_score = min(100, 10 + (species_count - 1) * 12) if species_count else 0
+
+    # Carbone : plafonné à 5 tCO₂/ha (valeur réaliste pour agroforesterie cacao)
+    carbon_score = min(100, round(carbon_sum / 5 * 100))
+
+    # Conformité globale : ombrage 40% + diversité 30% + carbone 30%
+    conformity_score = round(shade_score * 0.4 + diversity_score * 0.3 + carbon_score * 0.3)
+
+    return {
+        "shade_score": shade_score,
+        "diversity_score": diversity_score,
+        "carbon_stock_tco2_ha": round(carbon_sum, 2),
+        "carbon_score": carbon_score,
+        "conformity_score": conformity_score,
+        "total_trees_per_ha": round(total_trees, 1),
+        "species_count": species_count,
+    }
+
+
+class AgroforestryCreate(BaseModel):
+    species_name: str
+    local_name: Optional[str] = None
+    layer: Optional[str] = None
+    count_per_hectare: float
+    avg_age_years: Optional[float] = None
+    notes: Optional[str] = None
+
+
+@router.get("/species-library")
+def get_species_library(current_user: User = Depends(get_current_user)):
+    """Retourne la bibliothèque des espèces agroforestières."""
+    return SPECIES_LIBRARY
+
+
+@router.get("/plantations/{plantation_id}/agroforestry")
+def get_agroforestry(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retourne l'inventaire agroforestier d'une plantation + métriques calculées."""
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    records = db.query(AgroforestryRecord).filter(
+        AgroforestryRecord.plantation_id == plantation_id
+    ).order_by(AgroforestryRecord.recorded_at.desc()).all()
+
+    metrics = _compute_metrics(records)
+
+    return {
+        "plantation_id": plantation_id,
+        "plantation_name": plantation.name,
+        "hectares": plantation.hectares,
+        "records": [
+            {
+                "id": r.id,
+                "species_name": r.species_name,
+                "local_name": r.local_name,
+                "layer": r.layer,
+                "count_per_hectare": r.count_per_hectare,
+                "avg_age_years": r.avg_age_years,
+                "notes": r.notes,
+                "recorded_at": r.recorded_at.isoformat() if r.recorded_at else None,
+            }
+            for r in records
+        ],
+        "metrics": metrics,
+    }
+
+
+@router.post("/plantations/{plantation_id}/agroforestry", status_code=201)
+def add_agroforestry_record(
+    plantation_id: int,
+    data: AgroforestryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ajoute une espèce à l'inventaire agroforestier d'une plantation."""
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(status_code=403, detail="Rôle agronome requis.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    record = AgroforestryRecord(
+        plantation_id=plantation_id,
+        species_name=data.species_name,
+        local_name=data.local_name,
+        layer=data.layer,
+        count_per_hectare=data.count_per_hectare,
+        avg_age_years=data.avg_age_years,
+        notes=data.notes,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {"id": record.id, "message": "Espèce ajoutée avec succès."}
+
+
+@router.delete("/agroforestry/{record_id}", status_code=200)
+def delete_agroforestry_record(
+    record_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime un enregistrement agroforestier. Admin uniquement."""
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(status_code=403, detail="Rôle agronome requis.")
+
+    record = db.query(AgroforestryRecord).join(Plantation).filter(
+        AgroforestryRecord.id == record_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Enregistrement introuvable.")
+
+    db.delete(record)
+    db.commit()
+    return {"message": "Enregistrement supprimé."}
+
+
+@router.get("/agroforestry/summary")
+def get_agroforestry_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Bilan agroforestier global de la coopérative.
+    Retourne le stock carbone agrégé et les scores moyens.
+    """
+    plantations = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id
+    ).all()
+
+    total_carbon = 0.0
+    total_trees = 0.0
+    conformity_scores = []
+    species_all = set()
+
+    for p in plantations:
+        records = db.query(AgroforestryRecord).filter(
+            AgroforestryRecord.plantation_id == p.id
+        ).all()
+        if not records:
+            continue
+        m = _compute_metrics(records)
+        ha = p.hectares or 1.0
+        total_carbon += m["carbon_stock_tco2_ha"] * ha
+        total_trees += m["total_trees_per_ha"] * ha
+        conformity_scores.append(m["conformity_score"])
+        for r in records:
+            species_all.add(r.species_name)
+
+    avg_conformity = round(sum(conformity_scores) / len(conformity_scores)) if conformity_scores else 0
+
+    return {
+        "total_carbon_tco2": round(total_carbon, 1),
+        "total_trees_estimated": round(total_trees),
+        "avg_conformity_score": avg_conformity,
+        "plantations_with_inventory": len(conformity_scores),
+        "total_plantations": len(plantations),
+        "unique_species_count": len(species_all),
+    }

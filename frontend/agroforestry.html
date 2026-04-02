@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Agroforesterie</title>
+<script src="auth.js"></script>
+<style>
+.agro-layout{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
+@media(max-width:1050px){.agro-layout{grid-template-columns:1fr}}
+
+/* Métriques */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:900px){.metrics-grid{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;box-shadow:var(--sh);text-align:center}
+.metric-val{font-family:'Fraunces',serif;font-size:28px;font-weight:700;line-height:1}
+.metric-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+.metric-sub{font-size:12px;color:var(--faint);margin-top:2px}
+
+/* Score gauge */
+.gauge-wrap{position:relative;width:80px;height:80px;margin:0 auto 8px}
+.gauge-wrap svg{transform:rotate(-90deg)}
+.gauge-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;font-family:'Fraunces',serif;font-size:18px;font-weight:700;line-height:1}
+.gauge-text small{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--muted);font-weight:500}
+
+/* Panel gauche */
+.left-panel{display:flex;flex-direction:column;gap:16px}
+.panel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:20px;box-shadow:var(--sh)}
+.panel-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px}
+.plantation-item{padding:10px 12px;border-radius:8px;cursor:pointer;transition:.15s;
+  border:1px solid transparent;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.plantation-item:hover{background:var(--bg);border-color:var(--border-l)}
+.plantation-item.active{background:#f0faf5;border-color:var(--accent)}
+.pl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pl-info{flex:1;min-width:0}
+.pl-name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-meta{font-size:12px;color:var(--muted)}
+.pl-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;flex-shrink:0}
+
+/* Inventaire */
+.inventory-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:20px;box-shadow:var(--sh);margin-bottom:20px}
+.species-row{display:grid;grid-template-columns:1fr auto auto auto 36px;gap:10px;
+  align-items:center;padding:12px 0;border-bottom:1px solid var(--border-l)}
+.species-row:last-child{border-bottom:none}
+.species-name{font-size:13.5px;font-weight:600}
+.species-local{font-size:12px;color:var(--muted);margin-top:1px}
+.species-layer{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;
+  background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+.species-density{font-family:'Fraunces',serif;font-size:14px;font-weight:700;
+  text-align:right;white-space:nowrap}
+.species-age{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.del-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--high);transition:.15s;flex-shrink:0}
+.del-btn:hover{background:var(--high-bg);border-color:var(--high)}
+
+/* Formulaire ajout */
+.add-form{background:var(--surface-warm);border:1px solid var(--border-l);border-radius:var(--r);
+  padding:18px;margin-top:16px}
+.add-form-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:14px}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.form-row3,.form-row2{grid-template-columns:1fr}}
+
+/* Layer labels */
+.layer-label{display:inline-flex;align-items:center;gap:5px}
+.layer-sup{background:#fff3cd;color:#856404;border-color:#ffc107}
+.layer-int{background:#d1ecf1;color:#0c5460;border-color:#bee5eb}
+.layer-und{background:#d4edda;color:#155724;border-color:#c3e6cb}
+
+/* Carbon banner */
+.carbon-banner{background:linear-gradient(135deg,#0c2018,#1a4231);border-radius:var(--r);
+  padding:22px;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:20px}
+.carbon-icon{font-size:40px;flex-shrink:0}
+.carbon-val{font-family:'Fraunces',serif;font-size:36px;font-weight:700;line-height:1}
+.carbon-lbl{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
+.carbon-detail{display:flex;gap:20px;margin-top:12px;flex-wrap:wrap}
+.carbon-stat{text-align:center}
+.carbon-stat-val{font-family:'Fraunces',serif;font-size:18px;font-weight:700}
+.carbon-stat-lbl{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px}
+
+.empty-inventory{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-inv-icon{font-size:40px;opacity:.2;margin-bottom:10px}
+
+/* Conformity color */
+.conf-high{color:#1a6b3a}
+.conf-med{color:#9a6200}
+.conf-low{color:#922b21}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Agroforesterie</div>
+        <div class="page-sub" id="page-sub">Inventaire des espèces associées · Calcul carbone</div>
+      </div>
+    </div>
+
+    <div class="avp-content">
+
+      <!-- Bilan global coopérative -->
+      <div class="carbon-banner" id="carbon-banner" style="display:none">
+        <div class="carbon-icon">🌳</div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:4px;
+            text-transform:uppercase;letter-spacing:.06em">Bilan carbone coopérative</div>
+          <div class="carbon-val" id="cb-carbon">—</div>
+          <div class="carbon-lbl">tCO₂ stockées (estimation)</div>
+          <div class="carbon-detail">
+            <div class="carbon-stat">
+              <div class="carbon-stat-val" id="cb-trees">—</div>
+              <div class="carbon-stat-lbl">Arbres estimés</div>
+            </div>
+            <div class="carbon-stat">
+              <div class="carbon-stat-val" id="cb-species">—</div>
+              <div class="carbon-stat-lbl">Espèces uniques</div>
+            </div>
+            <div class="carbon-stat">
+              <div class="carbon-stat-val" id="cb-pl">—</div>
+              <div class="carbon-stat-lbl">Plantations inventoriées</div>
+            </div>
+            <div class="carbon-stat">
+              <div class="carbon-stat-val" id="cb-conf">—</div>
+              <div class="carbon-stat-lbl">Score conformité moy.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="agro-layout">
+
+        <!-- Panel gauche : liste plantations -->
+        <div class="left-panel">
+          <div class="panel-card">
+            <div class="panel-title">🌿 Plantations</div>
+            <div id="pl-list">
+              <div style="text-align:center;padding:20px;color:var(--muted)">Chargement…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel droit : inventaire -->
+        <div id="right-panel">
+          <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+            <div style="font-size:40px;opacity:.15;margin-bottom:12px">🌱</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:6px">Sélectionnez une plantation</div>
+            <div style="font-size:13px">Choisissez une plantation pour gérer son inventaire agroforestier.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ajout espèce -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-title">Ajouter une espèce</div>
+
+    <div class="form-group">
+      <label class="form-label">Espèce *</label>
+      <select class="form-input" id="m-species" onchange="onSpeciesSelect()">
+        <option value="">— Choisir dans la bibliothèque —</option>
+      </select>
+    </div>
+    <div class="form-group" id="custom-species-wrap" style="display:none">
+      <label class="form-label">Nom de l'espèce (saisie libre)</label>
+      <input class="form-input" id="m-custom-species" placeholder="Ex: Terminalia catappa">
+    </div>
+
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Nom local</label>
+        <input class="form-input" id="m-local" placeholder="Ex: Gliricidi">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Strate</label>
+        <select class="form-input" id="m-layer">
+          <option value="">— Choisir —</option>
+          <option value="superior">Supérieure (> 15m)</option>
+          <option value="intermediate">Intermédiaire (5–15m)</option>
+          <option value="understory">Sous-étage (< 5m)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Densité (arbres/ha) *</label>
+        <input class="form-input" id="m-density" type="number" min="1" step="1" placeholder="Ex: 15">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Âge moyen estimé (ans)</label>
+        <input class="form-input" id="m-age" type="number" min="0" step="1" placeholder="Ex: 8">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input class="form-input" id="m-notes" placeholder="Observations terrain…">
+    </div>
+
+    <div id="m-err" style="color:var(--high);font-size:13px;margin-top:4px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="m-save-btn" onclick="saveSpecies()">
+        <span class="material-symbols-outlined" style="font-size:16px">add</span>
+        Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('agroforestry');
+
+let allPlantations = [];
+let speciesLibrary = [];
+let currentPid = null;
+let currentData = null;
+let userRole = null;
+
+// Récupérer le rôle depuis le token JWT
+try {
+  const tok = getToken();
+  if (tok) {
+    const payload = JSON.parse(atob(tok.split('.')[1]));
+    userRole = payload.role;
+  }
+} catch(e) {}
+
+const canEdit = () => userRole === 'admin' || userRole === 'agronomist';
+
+const LAYER_LABELS = {
+  superior:     { label:'Supérieure',    cls:'layer-sup' },
+  intermediate: { label:'Intermédiaire', cls:'layer-int' },
+  understory:   { label:'Sous-étage',    cls:'layer-und' },
+};
+
+async function init() {
+  try {
+    const [r1, r2, r3] = await Promise.all([
+      authFetch('/plantations?limit=200'),
+      authFetch('/species-library'),
+      authFetch('/agroforestry/summary'),
+    ]);
+
+    if (r1?.ok) allPlantations = await r1.json();
+    if (r2?.ok) speciesLibrary = await r2.json();
+    if (r3?.ok) {
+      const s = await r3.json();
+      if (s.plantations_with_inventory > 0) {
+        document.getElementById('carbon-banner').style.display = 'flex';
+        document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
+        document.getElementById('cb-trees').textContent = s.total_trees_estimated.toLocaleString('fr-FR');
+        document.getElementById('cb-species').textContent = s.unique_species_count;
+        document.getElementById('cb-pl').textContent = `${s.plantations_with_inventory} / ${s.total_plantations}`;
+        const conf = s.avg_conformity_score;
+        const confEl = document.getElementById('cb-conf');
+        confEl.textContent = conf + ' / 100';
+        confEl.className = 'carbon-stat-val ' + (conf >= 65 ? 'conf-high' : conf >= 35 ? 'conf-med' : 'conf-low');
+      }
+    }
+
+    renderPlantationList();
+    populateSpeciesSelect();
+
+    // Auto-select depuis ?id= dans l'URL
+    const pid = new URLSearchParams(location.search).get('id');
+    if (pid) selectPlantation(parseInt(pid));
+  } catch(e) { console.error(e); }
+}
+
+function renderPlantationList() {
+  const el = document.getElementById('pl-list');
+  if (!allPlantations.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Aucune plantation.</div>';
+    return;
+  }
+  el.innerHTML = allPlantations.map(p => `
+    <div class="plantation-item ${p.id === currentPid ? 'active' : ''}" id="pl-item-${p.id}"
+      onclick="selectPlantation(${p.id})">
+      <div class="pl-dot" style="background:var(--accent)"></div>
+      <div class="pl-info">
+        <div class="pl-name">${esc(p.name)}</div>
+        <div class="pl-meta">${esc(p.region || p.country || '—')} · ${p.hectares ? p.hectares + ' ha' : '—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+function populateSpeciesSelect() {
+  const sel = document.getElementById('m-species');
+  const byCategory = {};
+  speciesLibrary.forEach(s => {
+    if (!byCategory[s.category]) byCategory[s.category] = [];
+    byCategory[s.category].push(s);
+  });
+  let html = '<option value="">— Choisir dans la bibliothèque —</option>';
+  for (const [cat, species] of Object.entries(byCategory)) {
+    html += `<optgroup label="${cat}">`;
+    species.forEach(s => {
+      html += `<option value="${esc(s.name)}" data-local="${esc(s.local||'')}"
+        data-layer="${s.layer}">${s.name} (${s.local})</option>`;
+    });
+    html += '</optgroup>';
+  }
+  html += '<option value="__custom__">✏️ Autre espèce…</option>';
+  sel.innerHTML = html;
+}
+
+function onSpeciesSelect() {
+  const sel = document.getElementById('m-species');
+  const opt = sel.options[sel.selectedIndex];
+  const isCustom = sel.value === '__custom__';
+  document.getElementById('custom-species-wrap').style.display = isCustom ? '' : 'none';
+  if (!isCustom && sel.value) {
+    document.getElementById('m-local').value = opt.dataset.local || '';
+    document.getElementById('m-layer').value = opt.dataset.layer || '';
+  }
+}
+
+async function selectPlantation(pid) {
+  currentPid = pid;
+
+  // Highlight dans la liste
+  document.querySelectorAll('.plantation-item').forEach(el => el.classList.remove('active'));
+  const li = document.getElementById(`pl-item-${pid}`);
+  if (li) li.classList.add('active');
+
+  await loadInventory(pid);
+}
+
+async function loadInventory(pid) {
+  document.getElementById('right-panel').innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--muted)">Chargement…</div>';
+
+  try {
+    const res = await authFetch(`/plantations/${pid}/agroforestry`);
+    if (!res?.ok) throw new Error();
+    currentData = await res.json();
+    renderInventory(currentData);
+  } catch(e) {
+    document.getElementById('right-panel').innerHTML =
+      '<div style="color:var(--high);padding:20px">Erreur de chargement.</div>';
+  }
+}
+
+function conformityColor(score) {
+  return score >= 65 ? '#1a6b3a' : score >= 35 ? '#9a6200' : '#922b21';
+}
+
+function gauge(score, color) {
+  const r = 32, cx = 40, cy = 40;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  return `
+    <div class="gauge-wrap">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f0ead8" stroke-width="8"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+          stroke-dasharray="${dash} ${circ}" stroke-linecap="round"/>
+      </svg>
+      <div class="gauge-text">${score}<small>/100</small></div>
+    </div>`;
+}
+
+function renderInventory(data) {
+  const m = data.metrics;
+  const p = allPlantations.find(x => x.id === data.plantation_id) || {};
+  const editAllowed = canEdit();
+
+  const html = `
+    <!-- Métriques -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        ${gauge(m.shade_score, conformityColor(m.shade_score))}
+        <div class="metric-lbl">Score ombrage</div>
+        <div class="metric-sub">${m.total_trees_per_ha} arbres/ha</div>
+      </div>
+      <div class="metric-card">
+        ${gauge(m.diversity_score, conformityColor(m.diversity_score))}
+        <div class="metric-lbl">Diversité floristique</div>
+        <div class="metric-sub">${m.species_count} espèce${m.species_count > 1 ? 's' : ''}</div>
+      </div>
+      <div class="metric-card">
+        ${gauge(m.carbon_score || 0, conformityColor(m.carbon_score || 0))}
+        <div class="metric-lbl">Score carbone</div>
+        <div class="metric-sub">${m.carbon_stock_tco2_ha} tCO₂/ha</div>
+      </div>
+      <div class="metric-card" style="border-top:3px solid ${conformityColor(m.conformity_score)}">
+        ${gauge(m.conformity_score, conformityColor(m.conformity_score))}
+        <div class="metric-lbl" style="font-weight:700">Conformité globale</div>
+        <div class="metric-sub">${m.conformity_score >= 65 ? '✓ Conforme' : m.conformity_score >= 35 ? '⚠ Partiel' : '✗ Non conforme'}</div>
+      </div>
+    </div>
+
+    <!-- Inventaire -->
+    <div class="inventory-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700">
+          🌿 Inventaire — ${esc(data.plantation_name)}
+        </div>
+        ${editAllowed ? `
+        <button class="btn btn-primary btn-sm" onclick="openModal()">
+          <span class="material-symbols-outlined" style="font-size:15px">add</span>
+          Ajouter une espèce
+        </button>` : ''}
+      </div>
+
+      ${data.records.length === 0 ? `
+      <div class="empty-inventory">
+        <div class="empty-inv-icon">🌳</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">Inventaire vide</div>
+        <div style="font-size:13px">Ajoutez les espèces d'arbres associées à cette plantation.</div>
+      </div>` : `
+      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;
+        letter-spacing:.06em;padding:0 0 8px;display:grid;
+        grid-template-columns:1fr auto auto auto 36px;gap:10px">
+        <span>Espèce</span><span>Strate</span><span style="text-align:right">Densité</span>
+        <span style="text-align:right">Âge</span><span></span>
+      </div>
+      ${data.records.map(r => {
+        const layer = LAYER_LABELS[r.layer] || { label: r.layer || '—', cls: '' };
+        return `
+        <div class="species-row">
+          <div>
+            <div class="species-name">${esc(r.species_name)}</div>
+            ${r.local_name ? `<div class="species-local">${esc(r.local_name)}</div>` : ''}
+          </div>
+          <div><span class="species-layer ${layer.cls}">${layer.label}</span></div>
+          <div class="species-density">${r.count_per_hectare} /ha</div>
+          <div class="species-age">${r.avg_age_years ? r.avg_age_years + ' ans' : '—'}</div>
+          ${editAllowed ? `
+          <button class="del-btn" onclick="deleteRecord(${r.id})" title="Supprimer">
+            <span class="material-symbols-outlined" style="font-size:16px">delete</span>
+          </button>` : '<div></div>'}
+        </div>`;
+      }).join('')}`}
+    </div>
+  `;
+
+  document.getElementById('right-panel').innerHTML = html;
+}
+
+function openModal() {
+  document.getElementById('modal-add').style.display = 'flex';
+  document.getElementById('m-err').style.display = 'none';
+  document.getElementById('m-species').value = '';
+  document.getElementById('m-local').value = '';
+  document.getElementById('m-layer').value = '';
+  document.getElementById('m-density').value = '';
+  document.getElementById('m-age').value = '';
+  document.getElementById('m-notes').value = '';
+  document.getElementById('custom-species-wrap').style.display = 'none';
+  document.getElementById('m-custom-species').value = '';
+}
+function closeModal() {
+  document.getElementById('modal-add').style.display = 'none';
+}
+document.getElementById('modal-add').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+async function saveSpecies() {
+  const speciesSel = document.getElementById('m-species').value;
+  const speciesName = speciesSel === '__custom__'
+    ? document.getElementById('m-custom-species').value.trim()
+    : speciesSel;
+  const density = parseFloat(document.getElementById('m-density').value);
+  const errEl = document.getElementById('m-err');
+  errEl.style.display = 'none';
+
+  if (!speciesName) { errEl.textContent = 'Veuillez choisir ou saisir une espèce.'; errEl.style.display='block'; return; }
+  if (!density || density <= 0) { errEl.textContent = 'La densité (arbres/ha) est obligatoire.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('m-save-btn');
+  btn.disabled = true;
+
+  try {
+    const res = await authFetch(`/plantations/${currentPid}/agroforestry`, {
+      method: 'POST',
+      body: JSON.stringify({
+        species_name: speciesName,
+        local_name: document.getElementById('m-local').value.trim() || null,
+        layer: document.getElementById('m-layer').value || null,
+        count_per_hectare: density,
+        avg_age_years: parseFloat(document.getElementById('m-age').value) || null,
+        notes: document.getElementById('m-notes').value.trim() || null,
+      })
+    });
+    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Erreur.'); }
+    closeModal();
+    toast('Espèce ajoutée avec succès.');
+    await loadInventory(currentPid);
+    await refreshSummary();
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteRecord(recordId) {
+  if (!confirm('Supprimer cet enregistrement ?')) return;
+  try {
+    const res = await authFetch(`/agroforestry/${recordId}`, { method:'DELETE' });
+    if (!res?.ok) throw new Error();
+    toast('Enregistrement supprimé.');
+    await loadInventory(currentPid);
+    await refreshSummary();
+  } catch(e) {
+    toast('Erreur lors de la suppression.', 'error');
+  }
+}
+
+async function refreshSummary() {
+  try {
+    const res = await authFetch('/agroforestry/summary');
+    if (!res?.ok) return;
+    const s = await res.json();
+    if (s.plantations_with_inventory > 0) {
+      document.getElementById('carbon-banner').style.display = 'flex';
+      document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
+      document.getElementById('cb-trees').textContent = s.total_trees_estimated.toLocaleString('fr-FR');
+      document.getElementById('cb-species').textContent = s.unique_species_count;
+      document.getElementById('cb-pl').textContent = `${s.plantations_with_inventory} / ${s.total_plantations}`;
+      const confEl = document.getElementById('cb-conf');
+      const conf = s.avg_conformity_score;
+      confEl.textContent = conf + ' / 100';
+      confEl.className = 'carbon-stat-val ' + (conf >= 65 ? 'conf-high' : conf >= 35 ? 'conf-med' : 'conf-low');
+    }
+  } catch(e) {}
+}
+
+function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+init();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
