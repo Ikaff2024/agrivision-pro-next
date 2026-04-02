@@ -101,6 +101,12 @@
                 <input class="form-input" id="lng" type="number" step="any" placeholder="-6.59">
               </div>
             </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="gps-btn" onclick="grabGPS()"
+              style="width:100%;justify-content:center;margin-bottom:10px;border:1px dashed var(--border)">
+              <span class="material-symbols-outlined" style="font-size:16px">gps_fixed</span>
+              <span id="gps-txt">Utiliser ma position GPS</span>
+            </button>
+            <div id="gps-err" style="font-size:12px;color:var(--high);display:none;margin-bottom:8px"></div>
             <button class="btn btn-outline" style="width:100%;justify-content:center"
               id="coord-btn" onclick="runByCoords()">
               <span class="material-symbols-outlined" style="font-size:18px">my_location</span>
@@ -341,8 +347,8 @@ async function loadAll() {
       return;
     }
 
-    const NDVI_BC = { HEALTHY:'#eafaf1', MODERATE:'#fef8ec', STRESSED:'#fdedec' };
-    const NDVI_TC = { HEALTHY:'#1a6b3a', MODERATE:'#9a6200', STRESSED:'#922b21' };
+    const NDVI_BC = { HEALTHY:'#eafaf1', MODERATE:'#fef8ec', STRESSED:'#fdedec', CRITICAL:'#f5e0e0' };
+    const NDVI_TC = { HEALTHY:'#1a6b3a', MODERATE:'#9a6200', STRESSED:'#922b21', CRITICAL:'#7b1d1d' };
     tb.innerHTML = results.map(({ p, data }) => `
       <tr>
         <td>
@@ -375,6 +381,32 @@ async function loadAll() {
 }
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+function grabGPS() {
+  const btn = document.getElementById('gps-btn');
+  const txt = document.getElementById('gps-txt');
+  const err = document.getElementById('gps-err');
+  err.style.display = 'none';
+  if (!navigator.geolocation) {
+    err.textContent = 'Géolocalisation non supportée.'; err.style.display='block'; return;
+  }
+  btn.disabled = true; txt.textContent = 'Localisation en cours…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('lng').value = pos.coords.longitude.toFixed(6);
+      txt.textContent = 'Position capturée';
+      btn.disabled = false;
+      setTimeout(() => { txt.textContent = 'Utiliser ma position GPS'; }, 2500);
+    },
+    e => {
+      const msgs = {1:'Permission refusée.',2:'Position indisponible.',3:'Délai dépassé.'};
+      err.textContent = msgs[e.code]||'Erreur GPS.'; err.style.display='block';
+      txt.textContent = 'Utiliser ma position GPS'; btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
 
 loadPlantations();
 </script>
