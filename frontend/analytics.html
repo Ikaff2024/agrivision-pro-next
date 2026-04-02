@@ -194,8 +194,18 @@ async function load() {
     // Line: by region
     if (r3?.ok) {
       const diags = await r3.json();
+
+      // Dédupliquer : garder uniquement le dernier diagnostic par plantation
+      // (l'API retourne trié par date desc — on prend le premier vu par plantation_id)
+      const seenPlantations = new Set();
+      const latestDiags = diags.filter(d => {
+        if (seenPlantations.has(d.plantation_id)) return false;
+        seenPlantations.add(d.plantation_id);
+        return true;
+      });
+
       const regionMap = {};
-      diags.forEach(d => {
+      latestDiags.forEach(d => {
         const reg = d.region || d.country || 'Inconnu';
         if (!regionMap[reg]) regionMap[reg] = [];
         regionMap[reg].push(d.global_score);
