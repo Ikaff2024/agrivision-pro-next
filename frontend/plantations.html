@@ -148,6 +148,12 @@ tr:hover .action-btns{opacity:1}
       <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="m-lat" type="number" step="any" placeholder="5.78"></div>
       <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="m-lng" type="number" step="any" placeholder="-6.59"></div>
     </div>
+    <button type="button" class="btn btn-outline" id="geo-btn" onclick="grabGPS()"
+      style="width:100%;justify-content:center;margin-bottom:4px">
+      <span class="material-symbols-outlined" style="font-size:16px">my_location</span>
+      <span id="geo-txt">Utiliser ma position GPS</span>
+    </button>
+    <div id="geo-err" style="font-size:12px;color:var(--high);display:none;margin-bottom:4px"></div>
     <div class="form-group"><label class="form-label">Superficie (ha)</label><input class="form-input" id="m-ha" type="number" step="any" placeholder="4.5"></div>
     <div id="m-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-footer">
@@ -317,6 +323,43 @@ async function createPlantation() {
   } catch(e) {
     errEl.textContent = e.message; errEl.style.display='block';
   } finally { btn.disabled=false; btn.textContent='Créer'; }
+}
+
+function grabGPS() {
+  const btn = document.getElementById('geo-btn');
+  const txt = document.getElementById('geo-txt');
+  const err = document.getElementById('geo-err');
+  err.style.display = 'none';
+
+  if (!navigator.geolocation) {
+    err.textContent = 'Géolocalisation non supportée par ce navigateur.';
+    err.style.display = 'block'; return;
+  }
+
+  btn.disabled = true;
+  txt.textContent = 'Localisation en cours…';
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('m-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('m-lng').value = pos.coords.longitude.toFixed(6);
+      txt.textContent = '✓ Position capturée';
+      btn.disabled = false;
+      setTimeout(() => { txt.textContent = 'Utiliser ma position GPS'; }, 2500);
+    },
+    e => {
+      const msgs = {
+        1: 'Permission refusée — autorisez la localisation dans votre navigateur.',
+        2: 'Position indisponible — vérifiez le GPS de votre appareil.',
+        3: 'Délai dépassé — réessayez en extérieur.'
+      };
+      err.textContent = msgs[e.code] || 'Erreur de localisation.';
+      err.style.display = 'block';
+      txt.textContent = 'Utiliser ma position GPS';
+      btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
 }
 
 load();
