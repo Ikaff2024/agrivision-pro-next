@@ -182,6 +182,16 @@
       .hide-mobile{display:none!important}
       #avp-toast{left:8px!important;right:8px!important;bottom:8px!important}
       .toast{max-width:100%!important}
+      /* ── Agroforesterie ── */
+      .agro-layout{display:grid!important;grid-template-columns:1fr!important}
+      .metrics-grid{grid-template-columns:1fr 1fr!important}
+      .agro-metrics{grid-template-columns:1fr 1fr!important}
+      .carbon-banner{flex-direction:column!important;gap:12px!important;padding:16px!important}
+      .carbon-val{font-size:26px!important}
+      .carbon-detail{gap:12px!important}
+      /* ── Diagnostic ── */
+      .result-panel{position:static!important}
+      .range-val{font-size:14px!important}
     }
   `;
   document.head.appendChild(style);
