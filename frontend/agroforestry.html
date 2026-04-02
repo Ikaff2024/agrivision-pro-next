@@ -92,6 +92,40 @@
 .conf-high{color:#1a6b3a}
 .conf-med{color:#9a6200}
 .conf-low{color:#922b21}
+
+/* ── Print / PDF export ─────────────────────────────────── */
+#print-report{display:none}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body,html{background:#fff!important;font-family:Arial,sans-serif!important}
+  .avp-layout,.avp-main,.avp-header,.avp-content,#sidebar,
+  .modal-overlay,#avp-toast,.hamburger,.sb-overlay{display:none!important}
+  #print-report{display:block!important;padding:24px;max-width:800px;margin:0 auto}
+  .pr-header{display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:14px;border-bottom:2px solid #1a4231;margin-bottom:20px}
+  .pr-logo{font-size:20px;font-weight:700;color:#1a4231}
+  .pr-date{font-size:11px;color:#6a7d64}
+  .pr-title{font-size:18px;font-weight:700;color:#1a4231;margin-bottom:4px}
+  .pr-sub{font-size:12px;color:#6a7d64;margin-bottom:20px}
+  .pr-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .pr-kpi{background:#f0faf5;border:1px solid #a8d8bb;border-radius:8px;padding:12px;text-align:center}
+  .pr-kpi-val{font-size:22px;font-weight:700;color:#1a4231}
+  .pr-kpi-lbl{font-size:9px;color:#6a7d64;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+  .pr-section-title{font-size:13px;font-weight:700;color:#1a4231;text-transform:uppercase;
+    letter-spacing:.06em;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #e6ddd0}
+  .pr-table{width:100%;border-collapse:collapse;font-size:11px}
+  .pr-table th{background:#1a4231;color:#fff;padding:7px 10px;text-align:left;font-weight:600}
+  .pr-table td{padding:7px 10px;border-bottom:1px solid #e6ddd0}
+  .pr-table tr:nth-child(even) td{background:#f8f4ee}
+  .pr-badge{display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700}
+  .pr-badge-ok{background:#eafaf1;color:#1a6b3a}
+  .pr-badge-warn{background:#fef8ec;color:#9a6200}
+  .pr-badge-bad{background:#fdedec;color:#922b21}
+  .pr-footer{margin-top:28px;padding-top:12px;border-top:1px solid #e6ddd0;
+    font-size:10px;color:#a0b09a;text-align:center}
+  .pr-note{background:#fef8ec;border:1px solid #f0c97a;border-radius:6px;
+    padding:10px 14px;font-size:11px;color:#7a4e00;margin-top:16px;line-height:1.6}
+}
 </style>
 </head>
 <body>
@@ -134,6 +168,12 @@
               <div class="carbon-stat-lbl">Score conformité moy.</div>
             </div>
           </div>
+          <button onclick="exportReport()" class="btn btn-outline btn-sm"
+            style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);
+            color:#fff;margin-top:12px;align-self:flex-start">
+            <span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span>
+            Exporter le bilan PDF
+          </button>
         </div>
       </div>
 
@@ -545,8 +585,124 @@ async function refreshSummary() {
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
+async function exportReport() {
+  // Charger toutes les données inventaires en parallèle
+  const inventaires = [];
+  for (const p of allPlantations) {
+    try {
+      const r = await authFetch(`/plantations/${p.id}/agroforestry`);
+      if (r?.ok) {
+        const d = await r.json();
+        if (d.records.length > 0) inventaires.push(d);
+      }
+    } catch {}
+  }
+
+  const now = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const user = getCurrentUser();
+  const coopLabel = user ? `Coopérative — ${user.role}` : 'AgriVision Pro';
+
+  // KPIs globaux depuis le banner
+  const totalCarbon = document.getElementById('cb-carbon')?.textContent || '—';
+  const totalTrees  = document.getElementById('cb-trees')?.textContent || '—';
+  const totalSpecies= document.getElementById('cb-species')?.textContent || '—';
+  const confMoy     = document.getElementById('cb-conf')?.textContent || '—';
+
+  const confBadge = (score) => {
+    if (score >= 65) return `<span class="pr-badge pr-badge-ok">Conforme</span>`;
+    if (score >= 35) return `<span class="pr-badge pr-badge-warn">Partiel</span>`;
+    return `<span class="pr-badge pr-badge-bad">Non conforme</span>`;
+  };
+
+  const LAYER_FR = { superior:'Supérieure', intermediate:'Intermédiaire', understory:'Sous-étage' };
+
+  let inventaireRows = '';
+  for (const inv of inventaires) {
+    const m = inv.metrics;
+    inventaireRows += `
+      <tr style="background:#f0faf5!important">
+        <td colspan="5" style="font-weight:700;color:#1a4231;padding-top:10px">
+          🌿 ${esc(inv.plantation_name)}
+          — Conformité : ${m.conformity_score}/100 ${confBadge(m.conformity_score)}
+          — ${m.carbon_stock_tco2_ha} tCO₂/ha — ${m.total_trees_per_ha} arbres/ha
+        </td>
+      </tr>`;
+    for (const r of inv.records) {
+      inventaireRows += `
+        <tr>
+          <td style="padding-left:20px">${esc(r.species_name)}</td>
+          <td>${esc(r.local_name||'—')}</td>
+          <td>${LAYER_FR[r.layer]||r.layer||'—'}</td>
+          <td>${r.count_per_hectare} /ha</td>
+          <td>${r.avg_age_years ? r.avg_age_years + ' ans' : '—'}</td>
+        </tr>`;
+    }
+  }
+
+  if (!inventaireRows) {
+    inventaireRows = '<tr><td colspan="5" style="text-align:center;color:#6a7d64;padding:20px">Aucun inventaire disponible.</td></tr>';
+  }
+
+  document.getElementById('print-report').innerHTML = `
+    <div class="pr-header">
+      <div>
+        <div class="pr-logo">🌱 AgriVision Pro</div>
+        <div class="pr-date">${coopLabel}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="pr-date">Rapport généré le ${now}</div>
+        <div class="pr-date" style="color:#1a4231;font-weight:700">Bilan Agroforestier</div>
+      </div>
+    </div>
+
+    <div class="pr-kpis">
+      <div class="pr-kpi">
+        <div class="pr-kpi-val">${totalCarbon}</div>
+        <div class="pr-kpi-lbl">Stock carbone total</div>
+      </div>
+      <div class="pr-kpi">
+        <div class="pr-kpi-val">${totalTrees}</div>
+        <div class="pr-kpi-lbl">Arbres estimés</div>
+      </div>
+      <div class="pr-kpi">
+        <div class="pr-kpi-val">${totalSpecies}</div>
+        <div class="pr-kpi-lbl">Espèces uniques</div>
+      </div>
+      <div class="pr-kpi">
+        <div class="pr-kpi-val">${confMoy}</div>
+        <div class="pr-kpi-lbl">Conformité moyenne</div>
+      </div>
+    </div>
+
+    <div class="pr-section-title">Inventaire détaillé par plantation</div>
+    <table class="pr-table">
+      <thead>
+        <tr>
+          <th>Espèce</th><th>Nom local</th><th>Strate</th>
+          <th>Densité</th><th>Âge moyen</th>
+        </tr>
+      </thead>
+      <tbody>${inventaireRows}</tbody>
+    </table>
+
+    <div class="pr-note">
+      ⚠ Estimation indicative — Les valeurs de stock carbone sont calculées à partir de coefficients
+      allométriques simplifiés (FAO/IPCC). Pour une certification carbone officielle, un audit terrain
+      par un expert accrédité est requis.
+    </div>
+
+    <div class="pr-footer">
+      AgriVision Pro — IKAFFANAN LTD · Rapport généré automatiquement · ${now}
+    </div>`;
+
+  setTimeout(() => window.print(), 100);
+}
+
 init();
 </script>
+
+<!-- Rapport print (caché, affiché seulement à l'impression) -->
+<div id="print-report"></div>
 
 <script>
 if ('serviceWorker' in navigator) {
