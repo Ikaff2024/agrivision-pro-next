@@ -1,15 +1,20 @@
 /**
- * AgriVision Pro — Service Worker v1.0
+ * AgriVision Pro — Service Worker v2.0
  *
  * Stratégies de cache :
- *  - STATIC assets  → Cache First  (HTML, JS, fonts, icons CDN)
- *  - API Railway    → Network First avec fallback cache (données terrain)
- *  - Autres         → Network Only (satellite, images ML)
+ *  - HTML + JS applicatif  → Network First  (toujours à jour après déploiement)
+ *  - API Railway           → Network First avec fallback cache (données terrain)
+ *  - CDN externes          → Cache First    (Leaflet, Chart.js, fonts — immuables)
+ *  - Autres                → Network Only   (satellite, images ML)
+ *
+ * v2.0 : correction du bug de cache — les pages HTML et auth.js
+ *        sont désormais en Network First pour refléter les déploiements
+ *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION   = 'avp-v1.3';
-const STATIC_CACHE    = `${CACHE_VERSION}-static`;
-const API_CACHE       = `${CACHE_VERSION}-api`;
+const CACHE_VERSION = 'avp-v2.0';
+const STATIC_CACHE  = `${CACHE_VERSION}-static`;
+const API_CACHE     = `${CACHE_VERSION}-api`;
 
 // Assets statiques à précacher à l'installation
 const STATIC_ASSETS = [
@@ -19,42 +24,57 @@ const STATIC_ASSETS = [
   '/diagnostic.html',
   '/map.html',
   '/analytics.html',
+  '/satellite.html',
+  '/agroforestry.html',
+  '/plantation_detail.html',
   '/auth.js',
   '/offline.html',
 ];
 
-// Préfixes d'URL Railway pour les requêtes API à cacher
+// Pages HTML et JS applicatif → Network First obligatoire
+// (tout ce qui peut changer à chaque déploiement Netlify)
+const NETWORK_FIRST_PATTERNS = [
+  /\.html$/,
+  /auth\.js$/,
+  /config\.js$/,
+];
+
+// Préfixes API Railway à mettre en cache pour le mode offline
 const API_ORIGIN = 'https://handsome-wisdom-production-d83b.up.railway.app';
 const CACHEABLE_API_PATHS = [
   '/plantations',
   '/map/plantations',
   '/map/stats',
   '/diagnostics',
+  '/agroforestry/summary',
 ];
 
-// ── Installation : précacher les assets statiques ─────────────────────────
+// ── Installation : précacher les assets ───────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then(cache => {
-      console.log('[SW] Précache des assets statiques');
+      console.log('[SW v2.0] Précache des assets statiques');
       return cache.addAll(STATIC_ASSETS);
-    }).then(() => self.skipWaiting())
+    }).then(() => self.skipWaiting())   // force activation immédiate
   );
 });
 
-// ── Activation : nettoyer les anciens caches ──────────────────────────────
+// ── Activation : nettoyer TOUS les anciens caches ─────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(k => k.startsWith('avp-') && k !== STATIC_CACHE && k !== API_CACHE)
+          .filter(k => k !== STATIC_CACHE && k !== API_CACHE)
           .map(k => {
-            console.log('[SW] Suppression ancien cache:', k);
+            console.log('[SW v2.0] Suppression ancien cache:', k);
             return caches.delete(k);
           })
       )
-    ).then(() => self.clients.claim())
+    ).then(() => {
+      console.log('[SW v2.0] Activé — contrôle de tous les clients');
+      return self.clients.claim();  // prendre le contrôle immédiatement
+    })
   );
 });
 
@@ -63,32 +83,57 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. Requêtes API Railway → Network First avec fallback cache
+  // 1. API Railway → Network First avec fallback cache
   if (url.origin === API_ORIGIN) {
     const isCacheable = CACHEABLE_API_PATHS.some(p => url.pathname.startsWith(p));
     if (isCacheable && request.method === 'GET') {
       event.respondWith(networkFirstAPI(request));
-      return;
     }
-    // POST/PUT/DELETE → Network Only (on ne cache pas les mutations)
+    // POST/PUT/DELETE → Network Only (mutations non cachées)
     return;
   }
 
-  // 2. Assets statiques → Cache First (sauf diagnostic.html toujours Network First)
+  // 2. Assets applicatifs (HTML + JS projet) → Network First
   if (url.origin === self.location.origin) {
-    if (url.pathname === '/diagnostic.html') {
+    const isAppAsset = NETWORK_FIRST_PATTERNS.some(p => p.test(url.pathname));
+    if (isAppAsset) {
       event.respondWith(networkFirstStatic(request));
       return;
     }
+    // Autres assets locaux (images, manifest, icons) → Cache First
     event.respondWith(cacheFirstStatic(request));
     return;
   }
 
-  // 3. CDN externes (fonts, Leaflet, Chart.js) → Cache First
+  // 3. CDN externes (Leaflet, Chart.js, Google Fonts) → Cache First
   event.respondWith(cacheFirstStatic(request));
 });
 
-// ── Stratégie : Cache First (assets statiques + CDN) ─────────────────────
+// ── Network First (HTML + JS applicatif) ─────────────────────────────────
+// Tente toujours le réseau en premier.
+// Si hors ligne → fallback sur le cache.
+// Met à jour le cache à chaque réponse réseau réussie.
+async function networkFirstStatic(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (request.headers.get('accept')?.includes('text/html')) {
+      return caches.match('/offline.html');
+    }
+    return new Response('Hors ligne', { status: 503 });
+  }
+}
+
+// ── Cache First (CDN + assets immuables) ─────────────────────────────────
+// Sert depuis le cache si disponible.
+// Télécharge et met en cache si absent.
 async function cacheFirstStatic(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -101,7 +146,6 @@ async function cacheFirstStatic(request) {
     }
     return response;
   } catch {
-    // Fallback page offline si on demande un HTML
     if (request.headers.get('accept')?.includes('text/html')) {
       return caches.match('/offline.html');
     }
@@ -109,23 +153,7 @@ async function cacheFirstStatic(request) {
   }
 }
 
-// ── Stratégie : Network First (pages critiques) ──────────────────────────
-async function networkFirstStatic(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return caches.match('/offline.html');
-  }
-}
-
-// ── Stratégie : Network First avec fallback cache (API) ───────────────────
+// ── Network First API (données terrain offline) ───────────────────────────
 async function networkFirstAPI(request) {
   try {
     const response = await fetch(request);
@@ -135,10 +163,9 @@ async function networkFirstAPI(request) {
     }
     return response;
   } catch {
-    // Réseau indisponible → retourner les données en cache si disponibles
     const cached = await caches.match(request);
     if (cached) {
-      console.log('[SW] Offline — données cache pour:', request.url);
+      console.log('[SW v2.0] Offline — données cache:', request.url);
       return cached;
     }
     return new Response(
