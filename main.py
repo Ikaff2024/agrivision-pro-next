@@ -47,8 +47,22 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500")
+# Fallback explicite : Netlify prod + localhost dev
+# En production Railway, surcharger via la variable ALLOWED_ORIGINS
+_DEFAULT_ORIGINS = ",".join([
+    "https://genuine-halva-d492f4.netlify.app",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://localhost:3000",
+])
+_raw = os.getenv("ALLOWED_ORIGINS", _DEFAULT_ORIGINS)
 allowed_origins = [o.strip() for o in _raw.split(",") if o.strip()]
+
+# Sécurité : refuser le wildcard en production
+if "*" in allowed_origins:
+    logger.warning("CORS: wildcard '*' détecté — à éviter en production !")
+
+logger.info("CORS origines autorisées : %s", allowed_origins)
 
 app.add_middleware(
     CORSMiddleware,
