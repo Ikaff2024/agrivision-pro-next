@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -12,6 +12,7 @@ class Cooperative(Base):
     name = Column(String, index=True)
     country = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, default=True, nullable=False, server_default='true')
 
     users = relationship("User", back_populates="cooperative")
     plantations = relationship("Plantation", back_populates="cooperative")
@@ -26,6 +27,7 @@ class User(Base):
     role = Column(String)
     cooperative_id = Column(Integer, ForeignKey("cooperatives.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, default=True, nullable=False, server_default='true')
 
     cooperative = relationship("Cooperative", back_populates="users")
 

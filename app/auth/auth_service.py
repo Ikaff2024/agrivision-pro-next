@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from app.db.database import get_db
-from app.db.models import User
+from app.db.models import User, Cooperative
 
 load_dotenv()
 
@@ -78,4 +78,18 @@ def get_current_user(
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
+    # Niveau 1 : compte utilisateur suspendu
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Votre compte a été suspendu. Contactez votre administrateur."
+        )
+    # Niveau 2 : coopérative suspendue par IKAFFANAN LTD
+    if user.cooperative_id:
+        coop = db.query(Cooperative).filter(Cooperative.id == user.cooperative_id).first()
+        if coop and not coop.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Votre coopérative a été suspendue. Contactez le support IKAFFANAN LTD."
+            )
     return user

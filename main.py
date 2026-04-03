@@ -31,6 +31,22 @@ async def lifespan(app: FastAPI):
         logger.info("Tables DB vérifiées/créées avec succès.")
     except Exception as e:
         logger.error("Erreur création tables : %s", e)
+
+    # ── Migrations idempotentes (colonnes ajoutées post-déploiement initial) ──
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            if engine.dialect.name == "postgresql":
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL"
+                ))
+                conn.commit()
+                logger.info("Migration is_active : OK")
+    except Exception as e:
+        logger.warning("Migration is_active (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
 
     yield  # l'application tourne ici
@@ -47,22 +63,8 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# Fallback explicite : Netlify prod + localhost dev
-# En production Railway, surcharger via la variable ALLOWED_ORIGINS
-_DEFAULT_ORIGINS = ",".join([
-    "https://genuine-halva-d492f4.netlify.app",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://localhost:3000",
-])
-_raw = os.getenv("ALLOWED_ORIGINS", _DEFAULT_ORIGINS)
+_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500")
 allowed_origins = [o.strip() for o in _raw.split(",") if o.strip()]
-
-# Sécurité : refuser le wildcard en production
-if "*" in allowed_origins:
-    logger.warning("CORS: wildcard '*' détecté — à éviter en production !")
-
-logger.info("CORS origines autorisées : %s", allowed_origins)
 
 app.add_middleware(
     CORSMiddleware,

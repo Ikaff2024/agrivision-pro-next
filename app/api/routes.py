@@ -527,6 +527,7 @@ def get_members(
             "id": m.id,
             "email": m.email,
             "role": m.role,
+            "is_active": m.is_active,
             "created_at": m.created_at.isoformat() if m.created_at else None,
             "is_current_user": m.id == current_user.id,
         }
@@ -600,7 +601,7 @@ def remove_member(
 # ─── Agroforesterie ──────────────────────────────────────────────────────────
 # ════════════════════════════════════════════════════════════════
 
-from app.db.models import AgroforestryRecord
+from app.db.models import AgroforestryRecord, Cooperative
 
 # ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
 # carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
@@ -846,3 +847,129 @@ def get_agroforestry_summary(
         "total_plantations": len(plantations),
         "unique_species_count": len(species_all),
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Suspension — Niveau 1 (Admin coopérative) ──────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.put("/admin/members/{user_id}/suspend")
+def suspend_member(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Suspend un membre de la coopérative. Admin uniquement."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas suspendre votre propre compte.")
+
+    member = db.query(User).filter(
+        User.id == user_id,
+        User.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Membre introuvable.")
+    if not member.is_active:
+        raise HTTPException(status_code=400, detail="Ce membre est déjà suspendu.")
+
+    member.is_active = False
+    db.commit()
+    return {"message": f"Compte {member.email} suspendu.", "user_id": member.id, "is_active": False}
+
+
+@router.put("/admin/members/{user_id}/activate")
+def activate_member(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Réactive un membre suspendu. Admin uniquement."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    member = db.query(User).filter(
+        User.id == user_id,
+        User.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Membre introuvable.")
+    if member.is_active:
+        raise HTTPException(status_code=400, detail="Ce membre est déjà actif.")
+
+    member.is_active = True
+    db.commit()
+    return {"message": f"Compte {member.email} réactivé.", "user_id": member.id, "is_active": True}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Suspension — Niveau 2 (IKAFFANAN LTD — propriétaire plateforme) ────────
+# ════════════════════════════════════════════════════════════════════════════
+
+from fastapi import Header
+
+def _check_owner_key(x_owner_key: Optional[str] = Header(None)):
+    """Vérifie la clé propriétaire IKAFFANAN LTD."""
+    owner_key = os.getenv("OWNER_API_KEY")
+    if not owner_key:
+        raise HTTPException(status_code=503, detail="OWNER_API_KEY non configurée sur le serveur.")
+    if x_owner_key != owner_key:
+        raise HTTPException(status_code=401, detail="Clé propriétaire invalide.")
+
+
+@router.get("/owner/cooperatives")
+def list_cooperatives(
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Liste toutes les coopératives. Réservé IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    coops = db.query(Cooperative).order_by(Cooperative.created_at.desc()).all()
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "country": c.country,
+            "is_active": c.is_active,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "members_count": len(c.users),
+        }
+        for c in coops
+    ]
+
+
+@router.put("/owner/cooperatives/{coop_id}/suspend")
+def suspend_cooperative(
+    coop_id: int,
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Suspend une coopérative entière. Réservé IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
+    if not coop:
+        raise HTTPException(status_code=404, detail="Coopérative introuvable.")
+    if not coop.is_active:
+        raise HTTPException(status_code=400, detail="Coopérative déjà suspendue.")
+    coop.is_active = False
+    db.commit()
+    return {"message": f"Coopérative '{coop.name}' suspendue.", "coop_id": coop.id, "is_active": False}
+
+
+@router.put("/owner/cooperatives/{coop_id}/activate")
+def activate_cooperative(
+    coop_id: int,
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Réactive une coopérative suspendue. Réservé IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
+    if not coop:
+        raise HTTPException(status_code=404, detail="Coopérative introuvable.")
+    if coop.is_active:
+        raise HTTPException(status_code=400, detail="Coopérative déjà active.")
+    coop.is_active = True
+    db.commit()
+    return {"message": f"Coopérative '{coop.name}' réactivée.", "coop_id": coop.id, "is_active": True}
