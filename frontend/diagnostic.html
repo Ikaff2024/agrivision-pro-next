@@ -85,6 +85,14 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .weather-source{font-size:11.5px;color:#1a6b3a;margin-top:8px;padding:6px 10px;
   background:#eafaf1;border-radius:6px;border:1px solid #b7dfc8;display:none}
 
+/* Bandeau ombrage agroforestier */
+.agro-shade-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-radius:8px;background:#f0faf5;border:1px solid #b7dfc8;margin-bottom:10px;
+  font-size:12.5px;color:#1a4231}
+.agro-shade-bar .ms{font-size:16px;color:#2D8C5A;flex-shrink:0}
+.agro-shade-bar strong{font-weight:700}
+.agro-shade-bar a{color:#1a4231;text-decoration:underline;cursor:pointer;font-weight:600}
+
 /* Recommandations */
 .reco-section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.06em;margin:20px 0 12px;padding-top:16px;border-top:1px solid var(--border-l)}
@@ -188,6 +196,15 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 
             <div class="form-section">
               <div class="form-section-title">Caractéristiques de la plantation</div>
+              <!-- Bandeau ombrage agroforestier (affiché si inventaire disponible) -->
+              <div id="agro-shade-bar" class="agro-shade-bar" style="display:none">
+                <span class="material-symbols-outlined ms">forest</span>
+                <div>
+                  Ombrage calculé depuis l'inventaire agroforestier :
+                  <strong id="agro-shade-val">—</strong>
+                  — <a onclick="location.href='agroforestry.html?id='+currentPid">Modifier l'inventaire</a>
+                </div>
+              </div>
               <div class="range-group">
                 <div class="range-header">
                   <span class="range-label">Âge de la plantation</span>
@@ -343,6 +360,8 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 initApp('diagnostic');
 
 let currentFile = null;
+let currentPid = null;
+let _agroShade = null;   // ombrage calculé depuis l'inventaire (null si absent)
 
 // Load plantations into selects
 async function loadPlantations() {
@@ -356,13 +375,65 @@ async function loadPlantations() {
     document.getElementById('img-plantation').innerHTML = '<option value="">— Sans association —</option>' + html;
     // Pre-select if ?id= in URL
     const pid = new URLSearchParams(location.search).get('id');
-    document.getElementById('plantation-select').addEventListener('change', function(e) { showWeatherBar(e.target.value); });
+    document.getElementById('plantation-select').addEventListener('change', function(e) {
+      showWeatherBar(e.target.value);
+      loadAgroShade(e.target.value);
+    });
     if (pid) {
       document.getElementById('plantation-select').value = pid;
       document.getElementById('img-plantation').value = pid;
       showWeatherBar(pid);
+      loadAgroShade(pid);
     }
   } catch {}
+}
+
+async function loadAgroShade(pid) {
+  currentPid = pid;
+  const bar = document.getElementById('agro-shade-bar');
+  const shadeSlider = document.getElementById('shade');
+  const shadeVal = document.getElementById('val-shade');
+
+  if (!pid) {
+    _agroShade = null;
+    bar.style.display = 'none';
+    shadeSlider.disabled = false;
+    shadeSlider.style.opacity = '1';
+    return;
+  }
+
+  try {
+    const r = await authFetch(`/plantations/${pid}/agroforestry`);
+    if (!r?.ok) throw new Error();
+    const data = await r.json();
+
+    if (data.metrics && data.metrics.species_count > 0) {
+      // Ombrage calculé depuis l'inventaire réel
+      const shade = data.metrics.shade_score;
+      _agroShade = shade;
+
+      // Mettre à jour le slider (read-only)
+      shadeSlider.value = shade;
+      shadeSlider.disabled = true;
+      shadeSlider.style.opacity = '0.5';
+      shadeVal.textContent = shade + '%';
+
+      // Afficher le bandeau
+      document.getElementById('agro-shade-val').textContent = shade + '%';
+      bar.style.display = 'flex';
+    } else {
+      // Pas d'inventaire → slider libre
+      _agroShade = null;
+      bar.style.display = 'none';
+      shadeSlider.disabled = false;
+      shadeSlider.style.opacity = '1';
+    }
+  } catch {
+    _agroShade = null;
+    bar.style.display = 'none';
+    shadeSlider.disabled = false;
+    shadeSlider.style.opacity = '1';
+  }
 }
 
 function showTab(tab, el) {

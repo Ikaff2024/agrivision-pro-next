@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -149,6 +149,37 @@ def diagnostic_endpoint(
     ).first()
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    # ── Couche 2 Agroforesterie : substituer l'ombrage si inventaire disponible ──
+    agro_records = db.query(AgroforestryRecord).filter(
+        AgroforestryRecord.plantation_id == plantation_id
+    ).all()
+    if agro_records:
+        SHADE_FACTORS = {
+            "Gliricidia sepium": 0.8,  "Leucaena leucocephala": 0.7,
+            "Erythrina spp.": 0.9,     "Albizzia adianthifolia": 1.0,
+            "Musa spp.": 0.4,          "Persea americana": 0.8,
+            "Mangifera indica": 1.0,   "Citrus sinensis": 0.6,
+            "Dacryodes edulis": 0.75,  "Cola nitida": 0.7,
+            "Carica papaya": 0.3,      "Milicia excelsa": 1.0,
+            "Terminalia superba": 1.0, "Ceiba pentandra": 1.0,
+            "Khaya senegalensis": 1.0, "Elaeis guineensis": 0.85,
+            "Cocos nucifera": 0.8,     "Tectona grandis": 0.9,
+        }
+        shade_sum = sum(
+            (r.count_per_hectare or 0) * SHADE_FACTORS.get(r.species_name, 0.6)
+            for r in agro_records
+        )
+        computed_shade = min(100.0, round(shade_sum / 40 * 100, 1))
+        inputs = CacaoInputs(
+            country=inputs.country,
+            region=inputs.region,
+            humidity_pct=inputs.humidity_pct,
+            rainfall_mm_month=inputs.rainfall_mm_month,
+            avg_temp_c=inputs.avg_temp_c,
+            plantation_age_years=inputs.plantation_age_years,
+            shade_tree_density_pct=computed_shade,
+        )
 
     report: EngineReport = run_engine(inputs)
 
@@ -666,8 +697,8 @@ class AgroforestryCreate(BaseModel):
     species_name: str
     local_name: Optional[str] = None
     layer: Optional[str] = None
-    count_per_hectare: float = Field(..., gt=0, description="Densité en arbres/ha — doit être > 0")
-    avg_age_years: Optional[float] = Field(None, ge=0)
+    count_per_hectare: float
+    avg_age_years: Optional[float] = None
     notes: Optional[str] = None
 
 
