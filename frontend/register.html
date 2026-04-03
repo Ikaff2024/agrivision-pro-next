@@ -236,7 +236,7 @@ async function checkCoopExists(name) {
     // Pour l'instant on affiche toujours le message "nouvelle coop possible"
     // et on adapte dynamiquement si le backend renvoie 403.
     infoEl.className = 'coop-info new-coop';
-    infoEl.innerHTML = '✦ Si cette coopérative n'existe pas encore, vous en serez automatiquement l'<strong>Administrateur</strong>.';
+    infoEl.innerHTML = '✦ Si cette coop&eacute;rative n&apos;existe pas encore, vous en serez automatiquement l&apos;<strong>Administrateur</strong>.';
     infoEl.style.display = 'flex';
     setAdminAvailable(true);
   } catch {}
