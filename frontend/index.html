@@ -101,6 +101,13 @@
           <div class="stat-lbl">Risque élevé</div>
           <div class="stat-sub">intervention requise</div>
         </div>
+        <div class="stat-card" id="s-agro-card" style="display:none;cursor:pointer"
+          onclick="location.href='agroforestry.html'">
+          <div class="stat-icon">🌳</div>
+          <div class="stat-val" id="s-agro" style="color:#2D8C5A">—</div>
+          <div class="stat-lbl">Conformité agro.</div>
+          <div class="stat-sub" id="s-agro-sub">score moyen / 100</div>
+        </div>
       </div>
 
       <div class="content-grid">
@@ -221,6 +228,24 @@ async function loadDashboard() {
     if (rp?.ok) {
       const pls = await rp.json();
       pls.forEach(p => { _plantationNames[p.id] = p.name; });
+    }
+  } catch {}
+
+  // Bilan agroforestier
+  try {
+    const ra = await authFetch('/agroforestry/summary');
+    if (ra?.ok) {
+      const a = await ra.json();
+      if (a.plantations_with_inventory > 0) {
+        const card = document.getElementById('s-agro-card');
+        const val  = document.getElementById('s-agro');
+        const sub  = document.getElementById('s-agro-sub');
+        const conf = a.avg_conformity_score;
+        val.textContent = conf;
+        val.style.color = conf >= 65 ? '#1a6b3a' : conf >= 35 ? '#9a6200' : '#922b21';
+        sub.textContent = `${a.plantations_with_inventory} plantation${a.plantations_with_inventory > 1 ? 's' : ''} inventoriée${a.plantations_with_inventory > 1 ? 's' : ''}`;
+        card.style.display = '';
+      }
     }
   } catch {}
 
