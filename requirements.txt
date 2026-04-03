@@ -5,6 +5,5 @@ passlib[sha256_crypt]==1.7.4
 PyJWT==2.10.1
 python-multipart==0.0.19
 psycopg2-binary
-alembic==1.14.0
-python-dotenv==1.0.1
-pydantic[email]==2.10.6
+httpx==0.27.2
+python-dotenv
