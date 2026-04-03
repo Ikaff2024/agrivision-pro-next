@@ -54,6 +54,23 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .module-score{font-family:'Fraunces',serif;font-size:16px;font-weight:700}
 .module-reasons{font-size:11.5px;color:var(--muted);line-height:1.6}
 
+/* Feedback ML */
+.feedback-box{margin-top:16px;padding:14px 16px;background:#fef8ec;border:1px solid #f0c97a;
+  border-radius:10px}
+.feedback-title{font-size:12px;font-weight:600;color:#7a4e00;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px}
+.feedback-btns{display:flex;gap:8px}
+.fb-btn{flex:1;padding:9px 8px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--surface);cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-size:12.5px;font-weight:600;transition:.15s;display:flex;align-items:center;
+  justify-content:center;gap:5px}
+.fb-btn:hover{border-color:var(--accent);background:#f0faf5}
+.fb-btn.selected-yes{border-color:#1a6b3a;background:#eafaf1;color:#1a6b3a}
+.fb-btn.selected-no{border-color:#922b21;background:#fdedec;color:#922b21}
+.fb-btn.selected-unk{border-color:#9a6200;background:#fef8ec;color:#9a6200}
+.feedback-thanks{font-size:12px;color:#1a6b3a;font-weight:600;display:none;
+  text-align:center;padding:8px;background:#eafaf1;border-radius:8px;margin-top:8px}
+
 /* Upload zone */
 .upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 20px;
   text-align:center;cursor:pointer;transition:.2s;background:var(--surface-warm)}
@@ -386,6 +403,29 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
                   <span style="font-size:13px;color:var(--muted)">Sévérité :</span>
                   <span id="img-sev"></span>
                 </div>
+                <!-- Feedback ML -->
+                <div class="feedback-box" id="feedback-box" style="display:none">
+                  <div class="feedback-title">
+                    🧠 Aidez-nous à améliorer la détection
+                  </div>
+                  <div style="font-size:12.5px;color:#7a4e00;margin-bottom:10px;line-height:1.5">
+                    Le diagnostic affiché correspond-il à ce que vous observez sur la feuille ?
+                  </div>
+                  <div class="feedback-btns">
+                    <button class="fb-btn" id="fb-yes" onclick="submitFeedback('yes')">
+                      ✓ Oui, c'est correct
+                    </button>
+                    <button class="fb-btn" id="fb-no" onclick="submitFeedback('no')">
+                      ✗ Non, c'est faux
+                    </button>
+                    <button class="fb-btn" id="fb-unk" onclick="submitFeedback('unknown')">
+                      ? Je ne sais pas
+                    </button>
+                  </div>
+                  <div class="feedback-thanks" id="feedback-thanks">
+                    Merci ! Votre retour nous aide à améliorer la détection.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -628,6 +668,9 @@ async function runImageDiag() {
   }
 }
 
+// Données de la dernière analyse (pour le feedback)
+let _lastAnalysis = null;
+
 function showImageResult(d) {
   document.getElementById('img-result-empty').style.display = 'none';
   document.getElementById('img-result-card').style.display = '';
@@ -637,6 +680,49 @@ function showImageResult(d) {
   document.getElementById('img-conf-bar').style.width = conf + '%';
   document.getElementById('img-rec').textContent = d.recommendation || '—';
   document.getElementById('img-sev').innerHTML = riskBadge(d.severity || 'MEDIUM');
+
+  // Stocker pour le feedback
+  _lastAnalysis = {
+    disease: d.disease,
+    severity: d.severity,
+    confidence: d.confidence,
+    plantation_id: document.getElementById('img-plantation').value || null,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Réinitialiser le bloc feedback
+  document.getElementById('feedback-box').style.display = '';
+  document.getElementById('feedback-thanks').style.display = 'none';
+  ['fb-yes','fb-no','fb-unk'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'fb-btn';
+    el.disabled = false;
+  });
+}
+
+function submitFeedback(verdict) {
+  if (!_lastAnalysis) return;
+
+  // Stocker dans localStorage (collecte locale pour V2 ML)
+  const key = 'avp_ml_feedback';
+  const existing = JSON.parse(localStorage.getItem(key) || '[]');
+  existing.push({ ..._lastAnalysis, verdict, feedback_at: new Date().toISOString() });
+  // Garder les 200 derniers feedbacks max
+  if (existing.length > 200) existing.splice(0, existing.length - 200);
+  localStorage.setItem(key, JSON.stringify(existing));
+
+  // UI : mettre en évidence le bouton sélectionné
+  const clsMap = { yes: 'selected-yes', no: 'selected-no', unknown: 'selected-unk' };
+  ['fb-yes','fb-no','fb-unk'].forEach(id => {
+    document.getElementById(id).disabled = true;
+    document.getElementById(id).className = 'fb-btn';
+  });
+  const btnMap = { yes:'fb-yes', no:'fb-no', unknown:'fb-unk' };
+  document.getElementById(btnMap[verdict]).className = 'fb-btn ' + clsMap[verdict];
+  document.getElementById('feedback-thanks').style.display = 'block';
+
+  // Log pour debug (à remplacer par un vrai endpoint en V2)
+  console.log('[ML Feedback]', JSON.stringify({ ..._lastAnalysis, verdict }));
 }
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
