@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -666,8 +666,8 @@ class AgroforestryCreate(BaseModel):
     species_name: str
     local_name: Optional[str] = None
     layer: Optional[str] = None
-    count_per_hectare: float
-    avg_age_years: Optional[float] = None
+    count_per_hectare: float = Field(..., gt=0, description="Densité en arbres/ha — doit être > 0")
+    avg_age_years: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
 
 
