@@ -192,6 +192,7 @@ async function doLogin() {
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail || 'Identifiants incorrects.'); }
     const data = await res.json();
     localStorage.setItem('avp_token', data.access_token);
+    if (data.refresh_token) localStorage.setItem('avp_refresh_token', data.refresh_token);
     window.location.href = 'index.html';
   } catch(e) {
     err.textContent = e.message; err.style.display = 'block';

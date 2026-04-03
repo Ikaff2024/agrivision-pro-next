@@ -298,10 +298,20 @@ async function doRegister() {
     }
 
     const data = await res.json();
-    const roleLabel = data.role === 'admin' ? 'Administrateur' : data.role;
-    ok.textContent = `✓ Compte créé avec succès ! Rôle attribué : ${roleLabel}. Redirection…`;
-    ok.style.display = 'block';
-    setTimeout(() => window.location.href = 'login.html', 2000);
+    // Connexion automatique si le backend retourne un token
+    if (data.access_token) {
+      localStorage.setItem('avp_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('avp_refresh_token', data.refresh_token);
+      const roleLabel = data.role === 'admin' ? 'Administrateur' : data.role;
+      ok.textContent = `✓ Compte créé ! Rôle : ${roleLabel}. Redirection…`;
+      ok.style.display = 'block';
+      setTimeout(() => window.location.href = 'index.html', 1500);
+    } else {
+      // Pas de token dans la réponse → rediriger vers login
+      ok.textContent = '✓ Compte créé avec succès ! Connectez-vous pour continuer.';
+      ok.style.display = 'block';
+      setTimeout(() => window.location.href = 'login.html', 2000);
+    }
   } catch(e) {
     err.textContent = e.message; err.style.display = 'block';
     btn.disabled = false; spin.style.display = 'none'; txt.textContent = 'Créer mon compte';
