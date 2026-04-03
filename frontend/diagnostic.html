@@ -85,6 +85,19 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .weather-source{font-size:11.5px;color:#1a6b3a;margin-top:8px;padding:6px 10px;
   background:#eafaf1;border-radius:6px;border:1px solid #b7dfc8;display:none}
 
+/* Boutons ombrage terrain */
+.shade-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.shade-btn{border:1.5px solid var(--border);background:var(--surface);border-radius:10px;
+  padding:12px 10px;cursor:pointer;transition:.15s;text-align:left;font-family:'DM Sans',sans-serif;
+  display:flex;flex-direction:column;gap:4px}
+.shade-btn:hover{border-color:var(--accent);background:#f0faf5}
+.shade-btn.selected{border-color:var(--accent);background:#f0faf5;
+  box-shadow:0 0 0 2px rgba(82,183,136,.25)}
+.shade-btn-icon{font-size:22px;line-height:1}
+.shade-btn-label{font-size:13px;font-weight:700;color:var(--text)}
+.shade-btn-desc{font-size:11px;color:var(--muted);line-height:1.4}
+.shade-btn-val{font-size:11px;font-weight:700;color:var(--accent);margin-top:2px}
+
 /* Bandeau ombrage agroforestier */
 .agro-shade-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;
   border-radius:8px;background:#f0faf5;border:1px solid #b7dfc8;margin-bottom:10px;
@@ -213,13 +226,40 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
                 <input type="range" id="age" min="0" max="60" value="10"
                   oninput="document.getElementById('val-age').textContent=this.value+' ans'">
               </div>
-              <div class="range-group">
+              <div class="range-group" id="shade-group">
                 <div class="range-header">
                   <span class="range-label">Densité d'ombrage</span>
-                  <span class="range-val" id="val-shade">30%</span>
+                  <span class="range-val" id="val-shade">25%</span>
                 </div>
-                <input type="range" id="shade" min="0" max="100" value="30"
-                  oninput="document.getElementById('val-shade').textContent=this.value+'%'">
+                <!-- Boutons terrain (cachés si inventaire agroforestier disponible) -->
+                <div class="shade-btns" id="shade-btns">
+                  <button type="button" class="shade-btn" onclick="selectShade(10, this)">
+                    <span class="shade-btn-icon">🌱</span>
+                    <span class="shade-btn-label">Très peu</span>
+                    <span class="shade-btn-desc">Moins de 5 arbres/ha visibles</span>
+                    <span class="shade-btn-val">≈ 10%</span>
+                  </button>
+                  <button type="button" class="shade-btn selected" onclick="selectShade(25, this)">
+                    <span class="shade-btn-icon">🌿</span>
+                    <span class="shade-btn-label">Quelques arbres</span>
+                    <span class="shade-btn-desc">Arbres dispersés, sol bien éclairé</span>
+                    <span class="shade-btn-val">≈ 25%</span>
+                  </button>
+                  <button type="button" class="shade-btn" onclick="selectShade(40, this)">
+                    <span class="shade-btn-icon">🌳</span>
+                    <span class="shade-btn-label">Ombrage modéré</span>
+                    <span class="shade-btn-desc">Couverture partielle, mi-ombre</span>
+                    <span class="shade-btn-val">≈ 40%</span>
+                  </button>
+                  <button type="button" class="shade-btn" onclick="selectShade(65, this)">
+                    <span class="shade-btn-icon">🌲</span>
+                    <span class="shade-btn-label">Ombrage dense</span>
+                    <span class="shade-btn-desc">Canopée quasi-fermée, peu de soleil</span>
+                    <span class="shade-btn-val">≈ 65%</span>
+                  </button>
+                </div>
+                <!-- Input caché pour compatibilité avec le JS existant -->
+                <input type="hidden" id="shade" value="25">
               </div>
             </div>
 
@@ -412,28 +452,35 @@ async function loadAgroShade(pid) {
       const shade = data.metrics.shade_score;
       _agroShade = shade;
 
-      // Mettre à jour le slider (read-only)
+      // Mettre à jour la valeur cachée
       shadeSlider.value = shade;
-      shadeSlider.disabled = true;
-      shadeSlider.style.opacity = '0.5';
       shadeVal.textContent = shade + '%';
 
-      // Afficher le bandeau
+      // Cacher les boutons terrain, afficher le bandeau
+      const shadeBtns = document.getElementById('shade-btns');
+      if (shadeBtns) shadeBtns.style.display = 'none';
       document.getElementById('agro-shade-val').textContent = shade + '%';
       bar.style.display = 'flex';
     } else {
-      // Pas d'inventaire → slider libre
+      // Pas d'inventaire → boutons terrain visibles
       _agroShade = null;
       bar.style.display = 'none';
-      shadeSlider.disabled = false;
-      shadeSlider.style.opacity = '1';
+      const shadeBtns = document.getElementById('shade-btns');
+      if (shadeBtns) shadeBtns.style.display = 'grid';
     }
   } catch {
     _agroShade = null;
     bar.style.display = 'none';
-    shadeSlider.disabled = false;
-    shadeSlider.style.opacity = '1';
+    const shadeBtns = document.getElementById('shade-btns');
+    if (shadeBtns) shadeBtns.style.display = 'grid';
   }
+}
+
+function selectShade(value, btn) {
+  document.getElementById('shade').value = value;
+  document.getElementById('val-shade').textContent = value + '%';
+  document.querySelectorAll('.shade-btn').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
 }
 
 function showTab(tab, el) {
