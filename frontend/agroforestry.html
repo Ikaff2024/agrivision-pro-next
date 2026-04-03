@@ -74,6 +74,24 @@
 .layer-int{background:#d1ecf1;color:#0c5460;border-color:#bee5eb}
 .layer-und{background:#d4edda;color:#155724;border-color:#c3e6cb}
 
+/* Recommandations agroforestières */
+.agro-recos{margin-bottom:20px}
+.agro-reco-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-l)}
+.agro-reco-item{border-radius:8px;padding:12px 14px;border-left:3px solid transparent;margin-bottom:8px}
+.agro-reco-item.high{background:#fdf2f2;border-left-color:#c0392b}
+.agro-reco-item.medium{background:#fef9ec;border-left-color:#d4a012}
+.agro-reco-item.low{background:#f0faf5;border-left-color:#1a6b3a}
+.agro-reco-header{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.agro-reco-icon{font-size:16px;line-height:1}
+.agro-reco-ttl{font-size:13px;font-weight:700;color:var(--text);flex:1}
+.agro-reco-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;
+  text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.agro-reco-badge.high{background:#fdf2f2;color:#c0392b;border:1px solid #f5c6cb}
+.agro-reco-badge.medium{background:#fef9ec;color:#d4a012;border:1px solid #f0c97a}
+.agro-reco-badge.low{background:#f0faf5;color:#1a6b3a;border:1px solid #b7dfc8}
+.agro-reco-action{font-size:12.5px;color:var(--muted);line-height:1.55}
+
 /* Carbon banner */
 .carbon-banner{background:linear-gradient(135deg,#0c2018,#1a4231);border-radius:var(--r);
   padding:22px;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:20px}
@@ -443,6 +461,23 @@ function renderInventory(data) {
         <div class="metric-sub">${m.conformity_score >= 65 ? '✓ Conforme' : m.conformity_score >= 35 ? '⚠ Partiel' : '✗ Non conforme'}</div>
       </div>
     </div>
+
+    <!-- Recommandations agroforestières -->
+    ${(data.recommendations && data.recommendations.length > 0) ? `
+    <div class="agro-recos">
+      <div class="agro-reco-title">Recommandations agroforestières</div>
+      ${data.recommendations.map(r => {
+        const labels = {high:'Urgent', medium:'Prioritaire', low:'Conseil'};
+        return \`<div class="agro-reco-item \${r.priority}">
+          <div class="agro-reco-header">
+            <span class="agro-reco-icon">\${r.icon}</span>
+            <span class="agro-reco-ttl">\${r.title}</span>
+            <span class="agro-reco-badge \${r.priority}">\${labels[r.priority]||r.priority}</span>
+          </div>
+          <div class="agro-reco-action">\${r.action}</div>
+        </div>\`;
+      }).join('')}
+    </div>` : ''}
 
     <!-- Inventaire -->
     <div class="inventory-card">

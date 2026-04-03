@@ -694,6 +694,64 @@ def _compute_metrics(records) -> dict:
     }
 
 
+
+def _build_recommendations(metrics: dict, records: list) -> list:
+    recos = []
+    shade    = metrics["shade_score"]
+    div      = metrics["diversity_score"]
+    carbon   = metrics["carbon_score"]
+    conf     = metrics["conformity_score"]
+    trees    = metrics["total_trees_per_ha"]
+    sp_count = metrics["species_count"]
+
+    # Ombrage
+    if shade == 0:
+        recos.append({"priority":"high","icon":"🌳","title":"Aucun arbre d'ombrage enregistré",
+            "action":"Planter en urgence des arbres d'ombrage a croissance rapide : Gliricidia sepium ou Musa spp. (Bananier) — objectif minimum 20 arbres/ha."})
+    elif shade < 35:
+        recos.append({"priority":"high","icon":"🌿","title":"Ombrage insuffisant — stress thermique possible",
+            "action":f"Densite actuelle : {trees} arbres/ha. Planter 15 a 20 arbres/ha supplementaires de Gliricidia ou Erythrina pour atteindre l'optimal (20-50%)."})
+    elif shade > 75:
+        recos.append({"priority":"medium","icon":"✂️","title":"Ombrage excessif — risque fongique",
+            "action":"Canopee trop dense (> 75%). Elaguer les arbres d'ombrage pour ameliorer la circulation d'air et reduire les risques de pourriture des cabosses."})
+    else:
+        recos.append({"priority":"low","icon":"✅","title":"Ombrage optimal",
+            "action":"Densite d'ombrage dans la plage ideale (20-75%). Maintenir les pratiques actuelles."})
+
+    # Diversite
+    if sp_count == 1:
+        recos.append({"priority":"medium","icon":"🌱","title":"Diversite floristique faible — 1 seule espece",
+            "action":"Introduire 2 a 3 especes complementaires. Recommandations : Persea americana (Avocatier) pour les revenus + Gliricidia sepium pour la fixation d'azote."})
+    elif sp_count == 2:
+        recos.append({"priority":"low","icon":"🌿","title":"Diversite a ameliorer",
+            "action":"Objectif : 3 especes minimum pour la conformite EUDR. Ajouter une espece de strate superieure (Iroko, Manguier) pour ameliorer le score carbone."})
+    elif sp_count >= 3:
+        recos.append({"priority":"low","icon":"✅","title":"Bonne diversite floristique",
+            "action":f"{sp_count} especes enregistrees. Continuer a diversifier avec des essences a fort potentiel carbone pour renforcer la certification."})
+
+    # Carbone
+    if 0 < carbon < 20:
+        recos.append({"priority":"medium","icon":"🌍","title":"Stock carbone tres faible",
+            "action":"Planter des essences a fort potentiel carbone : Milicia excelsa (Iroko), Ceiba pentandra (Fromager), Khaya senegalensis. Objectif : 1 tCO2/ha minimum."})
+    elif carbon < 50:
+        recos.append({"priority":"low","icon":"📈","title":"Stock carbone en developpement",
+            "action":"Augmenter la densite d'arbres a longue duree de vie (Iroko, Frake, Khaya) pour accelerer la sequestration carbone et acceder aux financements climatiques."})
+
+    # Conformite globale
+    if conf < 35:
+        recos.append({"priority":"high","icon":"⚠️","title":"Non conforme aux standards EUDR",
+            "action":"Score de conformite critique. Votre plantation ne repond pas encore aux exigences EUDR. Appliquer en priorite les recommandations ombrage et diversite."})
+    elif conf < 65:
+        recos.append({"priority":"medium","icon":"📋","title":"Conformite partielle — ameliorations necessaires",
+            "action":"Des progres ont ete faits mais des ajustements sont requis. Concentrez-vous sur le point ayant le score le plus faible."})
+    else:
+        recos.append({"priority":"low","icon":"🏆","title":"Plantation conforme aux standards agroforestiers",
+            "action":"Excellent niveau de conformite. Cette plantation peut etre presentee aux acheteurs et certifications EUDR/Rainforest Alliance."})
+
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    recos.sort(key=lambda x: priority_order.get(x["priority"], 3))
+    return recos
+
 class AgroforestryCreate(BaseModel):
     species_name: str
     local_name: Optional[str] = None
@@ -728,6 +786,7 @@ def get_agroforestry(
     ).order_by(AgroforestryRecord.recorded_at.desc()).all()
 
     metrics = _compute_metrics(records)
+    recommendations = _build_recommendations(metrics, records) if records else []
 
     return {
         "plantation_id": plantation_id,
@@ -747,6 +806,7 @@ def get_agroforestry(
             for r in records
         ],
         "metrics": metrics,
+        "recommendations": recommendations,
     }
 
 
