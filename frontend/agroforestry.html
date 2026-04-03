@@ -432,6 +432,24 @@ function gauge(score, color) {
     </div>`;
 }
 
+function buildRecoHTML(recos) {
+  if (!recos || !recos.length) return '';
+  const labels = {high:'Urgent', medium:'Prioritaire', low:'Conseil'};
+  let html = '<div class="agro-recos"><div class="agro-reco-title">Recommandations agroforestières</div>';
+  recos.forEach(function(r) {
+    html += '<div class="agro-reco-item ' + r.priority + '">';
+    html += '<div class="agro-reco-header">';
+    html += '<span class="agro-reco-icon">' + r.icon + '</span>';
+    html += '<span class="agro-reco-ttl">' + esc(r.title) + '</span>';
+    html += '<span class="agro-reco-badge ' + r.priority + '">' + (labels[r.priority]||r.priority) + '</span>';
+    html += '</div>';
+    html += '<div class="agro-reco-action">' + esc(r.action) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
 function renderInventory(data) {
   const m = data.metrics;
   const p = allPlantations.find(x => x.id === data.plantation_id) || {};
@@ -463,21 +481,7 @@ function renderInventory(data) {
     </div>
 
     <!-- Recommandations agroforestières -->
-    ${(data.recommendations && data.recommendations.length > 0) ? `
-    <div class="agro-recos">
-      <div class="agro-reco-title">Recommandations agroforestières</div>
-      ${data.recommendations.map(r => {
-        const labels = {high:'Urgent', medium:'Prioritaire', low:'Conseil'};
-        return \`<div class="agro-reco-item \${r.priority}">
-          <div class="agro-reco-header">
-            <span class="agro-reco-icon">\${r.icon}</span>
-            <span class="agro-reco-ttl">\${r.title}</span>
-            <span class="agro-reco-badge \${r.priority}">\${labels[r.priority]||r.priority}</span>
-          </div>
-          <div class="agro-reco-action">\${r.action}</div>
-        </div>\`;
-      }).join('')}
-    </div>` : ''}
+    ${buildRecoHTML(data.recommendations)}
 
     <!-- Inventaire -->
     <div class="inventory-card">
