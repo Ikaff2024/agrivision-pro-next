@@ -42,16 +42,24 @@
 .stat-c-val{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1}
 .stat-c-lbl{font-size:12px;color:var(--muted);margin-top:2px}
 
-.suspended-badge{display:inline-flex;padding:2px 8px;border-radius:99px;font-size:10.5px;
-  font-weight:700;background:#fff3cd;color:#856404;border:1px solid #ffc107;margin-left:6px;vertical-align:middle}
-tr.suspended-row td{opacity:.5}
-tr.suspended-row .member-avatar{filter:grayscale(1)}
-.toggle-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;
-  font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid;transition:.15s;font-family:inherit}
-.toggle-btn.suspend{color:var(--high);border-color:var(--high-b);background:var(--surface)}
-.toggle-btn.suspend:hover{background:var(--high-bg)}
-.toggle-btn.activate{color:var(--low);border-color:var(--low-b);background:var(--surface)}
-.toggle-btn.activate:hover{background:var(--low-bg)}
+.reset-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;
+  font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #1e4a6e;
+  color:#1e4a6e;background:var(--surface);transition:.15s;font-family:inherit}
+.reset-btn:hover{background:#eef4fb}
+
+.pwd-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:flex;
+  align-items:center;justify-content:center;z-index:950;padding:20px;display:none}
+.pwd-box{background:var(--surface);border-radius:var(--rl);padding:28px;
+  max-width:420px;width:100%;box-shadow:var(--sh-md)}
+.pwd-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:8px}
+.pwd-body{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:16px}
+.pwd-code{background:var(--bg);border:2px solid var(--accent);border-radius:10px;
+  padding:16px;text-align:center;font-family:'Fraunces',serif;font-size:28px;
+  font-weight:700;color:var(--primary);letter-spacing:2px;margin-bottom:16px;
+  user-select:all;cursor:text}
+.pwd-warning{background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;
+  padding:10px 14px;font-size:12.5px;color:#7a4e00;margin-bottom:18px;line-height:1.5}
+.pwd-footer{display:flex;gap:10px;justify-content:flex-end}
 
 .confirm-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:flex;
   align-items:center;justify-content:center;z-index:900;padding:20px;display:none}
@@ -123,6 +131,25 @@ tr.suspended-row .member-avatar{filter:grayscale(1)}
   </div>
 </div>
 
+<!-- Modal mot de passe temporaire -->
+<div class="pwd-overlay" id="pwd-overlay">
+  <div class="pwd-box">
+    <div class="pwd-title">Mot de passe temporaire</div>
+    <div class="pwd-body" id="pwd-body">Le mot de passe a été réinitialisé.</div>
+    <div class="pwd-code" id="pwd-code">—</div>
+    <div class="pwd-warning">
+      ⚠ Communiquez ce mot de passe au membre immédiatement. Il sera demandé à le changer à sa prochaine connexion.
+    </div>
+    <div class="pwd-footer">
+      <button class="btn btn-outline" onclick="copyPwd()">
+        <span class="material-symbols-outlined" style="font-size:15px">content_copy</span>
+        Copier
+      </button>
+      <button class="btn btn-primary" onclick="closePwd()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm dialog -->
 <div class="confirm-overlay" id="confirm-overlay">
   <div class="confirm-box">
@@ -176,16 +203,12 @@ function renderTable(members) {
     return;
   }
   tb.innerHTML = members.map(m => `
-    <tr class="${!m.is_active ? 'suspended-row' : ''}">
+    <tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div class="member-avatar avatar-${m.role}">${m.email.substring(0,2).toUpperCase()}</div>
           <div>
-            <div class="member-email" style="font-size:13.5px;font-weight:500">
-              ${esc(m.email)}
-              ${m.is_current_user ? '<span class="you-badge">Vous</span>' : ''}
-              ${!m.is_active ? '<span class="suspended-badge">Suspendu</span>' : ''}
-            </div>
+            <div class="member-email" style="font-size:13.5px;font-weight:500">${esc(m.email)}${m.is_current_user ? '<span class="you-badge">Vous</span>' : ''}</div>
           </div>
         </div>
       </td>
@@ -193,33 +216,25 @@ function renderTable(members) {
         ${m.is_current_user
           ? `<span class="badge badge-low">${ROLE_LABELS[m.role]||m.role}</span>`
           : `<select class="role-select ${m.role}" onchange="changeRole(${m.id}, this)"
-                data-original="${m.role}" ${!m.is_active ? 'disabled' : ''}>
-              <option value="admin"      ${m.role==='admin'      ?'selected':''}>Admin</option>
-              <option value="agronomist" ${m.role==='agronomist' ?'selected':''}>Agronome</option>
-              <option value="technician" ${m.role==='technician' ?'selected':''}>Technicien</option>
+                data-original="${m.role}">
+              <option value="admin"   ${m.role==='admin'   ?'selected':''}>Admin</option>
+              <option value="agronomist" ${m.role==='agronomist'?'selected':''}>Agronome</option>
+              <option value="technician" ${m.role==='technician'?'selected':''}>Technicien</option>
             </select>`
         }
       </td>
       <td class="mob-hide" style="color:var(--muted);font-size:13px">${fmtDate(m.created_at)}</td>
       <td class="mob-hide" style="text-align:right">
         ${m.is_current_user ? '<span style="color:var(--faint);font-size:12px">—</span>' : `
-        <div style="display:flex;gap:6px;justify-content:flex-end">
-          ${m.is_active
-            ? `<button class="toggle-btn suspend" onclick="confirmSuspend(${m.id}, '${esc(m.email)}')">
-                <span class="material-symbols-outlined" style="font-size:14px">block</span>
-                Suspendre
-              </button>`
-            : `<button class="toggle-btn activate" onclick="doActivate(${m.id}, '${esc(m.email)}')">
-                <span class="material-symbols-outlined" style="font-size:14px">check_circle</span>
-                Réactiver
-              </button>`
-          }
-          <button class="btn btn-outline btn-sm" style="color:var(--high);border-color:var(--high-b)"
-            onclick="confirmRemove(${m.id}, '${esc(m.email)}')">
-            <span class="material-symbols-outlined" style="font-size:14px">person_remove</span>
-            Retirer
-          </button>
-        </div>`}
+        <button class="reset-btn" onclick="doReset(${m.id}, '${esc(m.email)}')">
+          <span class="material-symbols-outlined" style="font-size:14px">lock_reset</span>
+          MDP
+        </button>
+        <button class="btn btn-outline btn-sm" style="color:var(--high);border-color:var(--high-b)"
+          onclick="confirmRemove(${m.id}, '${esc(m.email)}')">
+          <span class="material-symbols-outlined" style="font-size:14px">person_remove</span>
+          Retirer
+        </button>`}
       </td>
     </tr>`).join('');
 }
@@ -248,40 +263,41 @@ async function changeRole(userId, selectEl) {
   }
 }
 
+// ── Reset mot de passe ───────────────────────────────────────────────────────
+async function doReset(userId, email) {
+  if (!confirm('Réinitialiser le mot de passe de ' + email + ' ?')) return;
+  try {
+    const r = await authFetch('/admin/members/' + userId + '/reset-password', { method: 'PUT' });
+    if (!r?.ok) {
+      const e = await r.json().catch(()=>({}));
+      throw new Error(e.detail || 'Erreur réinitialisation.');
+    }
+    const data = await r.json();
+    document.getElementById('pwd-body').textContent =
+      'Mot de passe de ' + email + ' réinitialisé avec succès.';
+    document.getElementById('pwd-code').textContent = data.temp_password;
+    document.getElementById('pwd-overlay').style.display = 'flex';
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function closePwd() {
+  document.getElementById('pwd-overlay').style.display = 'none';
+}
+
+function copyPwd() {
+  const pwd = document.getElementById('pwd-code').textContent;
+  navigator.clipboard.writeText(pwd).then(() => {
+    toast('Mot de passe copié.');
+  }).catch(() => {
+    toast('Sélectionnez le mot de passe et copiez manuellement.', 'error');
+  });
+}
+
+document.getElementById('pwd-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closePwd();
+});
+
 let pendingRemoveId = null;
-let pendingSuspendId = null;
-
-function confirmSuspend(userId, email) {
-  pendingSuspendId = userId;
-  document.getElementById('confirm-title').textContent = 'Suspendre ce membre ?';
-  document.getElementById('confirm-body').textContent =
-    `${email} ne pourra plus se connecter. Vous pourrez le réactiver à tout moment.`;
-  document.getElementById('confirm-ok').style.background = 'var(--med)';
-  document.getElementById('confirm-ok').onclick = doSuspend;
-  document.getElementById('confirm-overlay').style.display = 'flex';
-}
-
-async function doSuspend() {
-  if (!pendingSuspendId) return;
-  const id = pendingSuspendId;
-  closeConfirm();
-  try {
-    const r = await authFetch(`/admin/members/${id}/suspend`, { method: 'PUT' });
-    if (!r?.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||'Erreur.'); }
-    toast('Membre suspendu.');
-    load();
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function doActivate(userId, email) {
-  try {
-    const r = await authFetch(`/admin/members/${userId}/activate`, { method: 'PUT' });
-    if (!r?.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||'Erreur.'); }
-    toast(`Compte ${email} réactivé.`);
-    load();
-  } catch(e) { toast(e.message, 'error'); }
-}
-
 function confirmRemove(userId, email) {
   pendingRemoveId = userId;
   document.getElementById('confirm-title').textContent = 'Retirer ce membre ?';
