@@ -1033,3 +1033,158 @@ def activate_cooperative(
     coop.is_active = True
     db.commit()
     return {"message": f"Coopérative '{coop.name}' réactivée.", "coop_id": coop.id, "is_active": True}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Dashboard Propriétaire — Statistiques globales IKAFFANAN LTD ───────────
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/owner/stats")
+def owner_stats(
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Statistiques globales de la plateforme. Reserve IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import func
+
+    now = datetime.now(timezone.utc)
+    thirty_days_ago = now - timedelta(days=30)
+    seven_days_ago  = now - timedelta(days=7)
+
+    # Totaux globaux
+    total_coops       = db.query(Cooperative).count()
+    active_coops      = db.query(Cooperative).filter(Cooperative.is_active == True).count()
+    total_users       = db.query(User).count()
+    total_plantations = db.query(Plantation).count()
+    total_diagnostics = db.query(Diagnostic).count()
+
+    # Activite recente
+    diags_last_30d = db.query(Diagnostic).filter(
+        Diagnostic.created_at >= thirty_days_ago
+    ).count()
+    diags_last_7d = db.query(Diagnostic).filter(
+        Diagnostic.created_at >= seven_days_ago
+    ).count()
+
+    # Coopératives sans activite depuis 30j
+    active_coop_ids = db.query(Diagnostic.plantation_id).join(
+        Plantation, Diagnostic.plantation_id == Plantation.id
+    ).filter(
+        Diagnostic.created_at >= thirty_days_ago
+    ).subquery()
+
+    all_coop_ids = db.query(Plantation.cooperative_id).distinct().all()
+    all_coop_ids_set = {r[0] for r in all_coop_ids if r[0]}
+
+    active_via_diag = db.query(Plantation.cooperative_id).join(
+        Diagnostic, Diagnostic.plantation_id == Plantation.id
+    ).filter(
+        Diagnostic.created_at >= thirty_days_ago
+    ).distinct().all()
+    active_via_diag_set = {r[0] for r in active_via_diag if r[0]}
+    inactive_coop_count = len(all_coop_ids_set - active_via_diag_set)
+
+    # Stats par cooperative
+    coops = db.query(Cooperative).order_by(Cooperative.created_at.desc()).all()
+    coop_stats = []
+    for c in coops:
+        n_users = db.query(User).filter(User.cooperative_id == c.id).count()
+        n_plantations = db.query(Plantation).filter(Plantation.cooperative_id == c.id).count()
+        n_diags = db.query(Diagnostic).join(
+            Plantation, Diagnostic.plantation_id == Plantation.id
+        ).filter(Plantation.cooperative_id == c.id).count()
+        n_diags_30d = db.query(Diagnostic).join(
+            Plantation, Diagnostic.plantation_id == Plantation.id
+        ).filter(
+            Plantation.cooperative_id == c.id,
+            Diagnostic.created_at >= thirty_days_ago
+        ).count()
+        last_diag = db.query(Diagnostic).join(
+            Plantation, Diagnostic.plantation_id == Plantation.id
+        ).filter(
+            Plantation.cooperative_id == c.id
+        ).order_by(Diagnostic.created_at.desc()).first()
+
+        coop_stats.append({
+            "id": c.id,
+            "name": c.name,
+            "country": c.country,
+            "is_active": c.is_active,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "users_count": n_users,
+            "plantations_count": n_plantations,
+            "diagnostics_total": n_diags,
+            "diagnostics_last_30d": n_diags_30d,
+            "last_activity": last_diag.created_at.isoformat() if last_diag and last_diag.created_at else None,
+            "status": "active" if n_diags_30d > 0 else ("new" if c.created_at and c.created_at >= thirty_days_ago else "inactive"),
+        })
+
+    # Distribution des risques globale
+    risk_counts = {"LOW": 0, "MEDIUM": 0, "HIGH": 0}
+    latest_diags = db.query(Diagnostic).order_by(Diagnostic.created_at.desc()).limit(500).all()
+    seen_plantations = set()
+    for d in latest_diags:
+        if d.plantation_id not in seen_plantations:
+            seen_plantations.add(d.plantation_id)
+            risk_counts[d.global_risk_level] = risk_counts.get(d.global_risk_level, 0) + 1
+
+    return {
+        "generated_at": now.isoformat(),
+        "summary": {
+            "total_cooperatives": total_coops,
+            "active_cooperatives": active_coops,
+            "suspended_cooperatives": total_coops - active_coops,
+            "inactive_cooperatives_30d": inactive_coop_count,
+            "total_users": total_users,
+            "total_plantations": total_plantations,
+            "total_diagnostics": total_diagnostics,
+            "diagnostics_last_30d": diags_last_30d,
+            "diagnostics_last_7d": diags_last_7d,
+        },
+        "risk_distribution": risk_counts,
+        "cooperatives": coop_stats,
+    }
+
+
+@router.put("/admin/members/{user_id}/reset-password")
+def reset_member_password(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Reinitialise le mot de passe d'un membre.
+    Retourne un mot de passe temporaire a communiquer au membre.
+    Admin uniquement.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas reinitialiser votre propre mot de passe.")
+
+    member = db.query(User).filter(
+        User.id == user_id,
+        User.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Membre introuvable.")
+
+    # Generer un mot de passe temporaire lisible (format : Mot-XXXX)
+    import random, string
+    adjectives = ["Cacao", "Foret", "Soleil", "Pluie", "Terre", "Arbre", "Canne", "Feuil"]
+    adj = random.choice(adjectives)
+    digits = ''.join(random.choices(string.digits, k=4))
+    temp_password = f"{adj}-{digits}"
+
+    from app.auth.auth_service import get_password_hash
+    member.password_hash = get_password_hash(temp_password)
+    db.commit()
+
+    return {
+        "message": f"Mot de passe de {member.email} reinitialise.",
+        "temp_password": temp_password,
+        "user_id": member.id,
+    }
