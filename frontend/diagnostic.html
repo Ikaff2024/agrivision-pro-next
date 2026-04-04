@@ -72,6 +72,16 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
   text-align:center;padding:8px;background:#eafaf1;border-radius:8px;margin-top:8px}
 
 /* Upload zone */
+.camera-btn{display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:13px;border-radius:var(--r);border:2px dashed var(--accent);
+  background:#f0faf5;color:var(--primary);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:'DM Sans',sans-serif;transition:.2s;margin-bottom:10px}
+.camera-btn:hover{background:#e0f5ea;border-color:var(--primary)}
+.camera-btn .ms{font-size:20px}
+.or-divider{display:flex;align-items:center;gap:10px;margin-bottom:10px;
+  font-size:12px;color:var(--faint)}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
 .upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 20px;
   text-align:center;cursor:pointer;transition:.2s;background:var(--surface-warm)}
 .upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:#f0faf5}
@@ -346,6 +356,17 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 
             <div class="form-section">
               <div class="form-section-title">Image foliaire</div>
+              <!-- Bouton caméra (terrain) -->
+              <button type="button" class="camera-btn" onclick="document.getElementById('camera-input').click()">
+                <span class="material-symbols-outlined ms">photo_camera</span>
+                Prendre une photo avec l'appareil
+              </button>
+              <!-- Input caméra : déclenche directement l'appareil photo arrière -->
+              <input type="file" id="camera-input" accept="image/*" capture="environment"
+                style="display:none" onchange="handleFile(this.files[0])">
+
+              <div class="or-divider">ou choisir un fichier existant</div>
+
               <div class="upload-zone" id="upload-zone"
                 onclick="document.getElementById('file-input').click()"
                 ondragover="event.preventDefault();this.classList.add('over')"
@@ -634,6 +655,7 @@ function handleDrop(e) {
 function clearFile() {
   currentFile = null;
   document.getElementById('file-input').value = '';
+  document.getElementById('camera-input').value = '';
   document.getElementById('upload-zone').style.display = '';
   document.getElementById('upload-preview').style.display = 'none';
 }
