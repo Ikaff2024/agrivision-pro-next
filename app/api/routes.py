@@ -899,7 +899,13 @@ def get_agroforestry_summary(
 
     avg_conformity = round(sum(conformity_scores) / len(conformity_scores)) if conformity_scores else 0
 
+    coop = db.query(Cooperative).filter(
+        Cooperative.id == current_user.cooperative_id
+    ).first()
+    cooperative_name = coop.name if coop else "Cooperative"
+
     return {
+        "cooperative_name": cooperative_name,
         "total_carbon_tco2": round(total_carbon, 1),
         "total_trees_estimated": round(total_trees),
         "avg_conformity_score": avg_conformity,

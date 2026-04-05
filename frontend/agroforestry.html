@@ -317,6 +317,8 @@ async function init() {
     if (r2?.ok) speciesLibrary = await r2.json();
     if (r3?.ok) {
       const s = await r3.json();
+      // Stocker le nom de la cooperative pour le PDF
+      if (s.cooperative_name) window._coopName = s.cooperative_name;
       if (s.plantations_with_inventory > 0) {
         document.getElementById('carbon-banner').style.display = 'flex';
         document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
@@ -639,7 +641,7 @@ async function exportReport() {
 
   const now = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const user = getCurrentUser();
-  const coopLabel = user ? `Coopérative — ${user.role}` : 'AgriVision Pro';
+  const coopLabel = window._coopName || (user ? 'Coopérative' : 'AgriVision Pro');
 
   // KPIs globaux depuis le banner
   const totalCarbon = document.getElementById('cb-carbon')?.textContent || '—';
@@ -686,7 +688,7 @@ async function exportReport() {
     <div class="pr-header">
       <div>
         <div class="pr-logo">🌱 AgriVision Pro</div>
-        <div class="pr-date">${coopLabel}</div>
+        <div class="pr-date">Coopérative — ${coopLabel}</div>
       </div>
       <div style="text-align:right">
         <div class="pr-date">Rapport généré le ${now}</div>
