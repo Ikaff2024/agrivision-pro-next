@@ -601,7 +601,7 @@ def remove_member(
 # ─── Agroforesterie ──────────────────────────────────────────────────────────
 # ════════════════════════════════════════════════════════════════
 
-from app.db.models import AgroforestryRecord, Cooperative
+from app.db.models import AgroforestryRecord, Cooperative, PlantationBoundary
 
 # ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
 # carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
@@ -1194,3 +1194,165 @@ def reset_member_password(
         "temp_password": temp_password,
         "user_id": member.id,
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Délimitation de parcelles ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+
+import json as json_module
+import math as math_module
+
+def _calculate_area_hectares(coordinates: list) -> float:
+    """
+    Calcule la superficie d'un polygone en hectares via la formule de Shoelace
+    adaptée aux coordonnées géographiques (approximation sphérique).
+    Précision suffisante pour des parcelles < 100 ha.
+    """
+    if not coordinates or len(coordinates) < 3:
+        return 0.0
+    
+    # Facteur de conversion : 1 degré ≈ 111 320 mètres à l'équateur
+    R = 6371000  # rayon de la Terre en mètres
+    
+    def to_rad(deg):
+        return deg * math_module.pi / 180
+    
+    n = len(coordinates)
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        lat1 = to_rad(coordinates[i][1])
+        lat2 = to_rad(coordinates[j][1])
+        lng1 = to_rad(coordinates[i][0])
+        lng2 = to_rad(coordinates[j][0])
+        area += (lng2 - lng1) * (2 + math_module.sin(lat1) + math_module.sin(lat2))
+    
+    area = abs(area) * R * R / 2
+    return round(area / 10000, 4)  # m² → hectares
+
+
+class BoundaryCreate(BaseModel):
+    geojson: str          # GeoJSON string du polygone
+    method: str = "manual"  # "manual" | "gps_track"
+
+
+@router.post("/plantations/{plantation_id}/boundary", status_code=201)
+def save_boundary(
+    plantation_id: int,
+    data: BoundaryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sauvegarde ou met à jour les limites d'une plantation."""
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Droits insuffisants.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    # Valider et parser le GeoJSON
+    try:
+        geo = json_module.loads(data.geojson)
+        coords = geo.get("coordinates", [[]])[0]  # premier anneau du polygone
+        if len(coords) < 3:
+            raise ValueError("Polygone invalide")
+    except Exception:
+        raise HTTPException(status_code=400, detail="GeoJSON invalide.")
+
+    # Calculer la superficie
+    area = _calculate_area_hectares(coords)
+    points_count = len(coords)
+
+    # Mettre à jour ou créer
+    boundary = db.query(PlantationBoundary).filter(
+        PlantationBoundary.plantation_id == plantation_id
+    ).first()
+
+    if boundary:
+        boundary.geojson = data.geojson
+        boundary.area_hectares = area
+        boundary.method = data.method
+        boundary.points_count = points_count
+    else:
+        boundary = PlantationBoundary(
+            plantation_id=plantation_id,
+            geojson=data.geojson,
+            area_hectares=area,
+            method=data.method,
+            points_count=points_count,
+        )
+        db.add(boundary)
+
+    # Mettre à jour les hectares de la plantation si pas encore renseignés
+    if not plantation.hectares:
+        plantation.hectares = area
+
+    db.commit()
+    db.refresh(boundary)
+
+    return {
+        "id": boundary.id,
+        "plantation_id": plantation_id,
+        "area_hectares": area,
+        "points_count": points_count,
+        "method": data.method,
+        "message": f"Délimitation sauvegardée — {area} ha calculés automatiquement."
+    }
+
+
+@router.get("/plantations/{plantation_id}/boundary")
+def get_boundary(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retourne les limites d'une plantation."""
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    boundary = db.query(PlantationBoundary).filter(
+        PlantationBoundary.plantation_id == plantation_id
+    ).first()
+
+    if not boundary:
+        return {"has_boundary": False}
+
+    return {
+        "has_boundary": True,
+        "id": boundary.id,
+        "geojson": boundary.geojson,
+        "area_hectares": boundary.area_hectares,
+        "points_count": boundary.points_count,
+        "method": boundary.method,
+        "created_at": boundary.created_at.isoformat() if boundary.created_at else None,
+    }
+
+
+@router.delete("/plantations/{plantation_id}/boundary")
+def delete_boundary(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime les limites d'une plantation."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    boundary = db.query(PlantationBoundary).filter(
+        PlantationBoundary.plantation_id == plantation_id
+    ).first()
+    if not boundary:
+        raise HTTPException(status_code=404, detail="Aucune délimitation trouvée.")
+
+    db.delete(boundary)
+    db.commit()
+    return {"message": "Délimitation supprimée."}

@@ -6,7 +6,12 @@
 <title>AgriVision Pro — Carte</title>
 <script src="auth.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <style>
 .map-layout{display:flex;height:100%;flex:1;min-height:0;overflow:hidden}
 .avp-main{overflow:hidden!important}
@@ -54,6 +59,26 @@
 .stat-mini-val{font-family:'Fraunces',serif;font-size:22px;font-weight:700}
 .stat-mini-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
 
+/* Module délimitation */
+.boundary-toolbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;z-index:1000;background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:var(--sh)}
+.tb-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;
+  border:1.5px solid var(--border);background:var(--surface);cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;
+  color:var(--text);transition:.15s;white-space:nowrap}
+.tb-btn:hover{border-color:var(--accent);background:#f0faf5}
+.tb-btn.active{border-color:var(--accent);background:#f0faf5;color:var(--primary)}
+.tb-btn.danger{border-color:var(--high);color:var(--high)}
+.tb-btn.danger:hover{background:var(--high-bg)}
+.tb-btn .ms{font-size:16px}
+.boundary-info{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);
+  z-index:1000;background:var(--primary);color:#fff;padding:8px 16px;
+  border-radius:99px;font-size:12.5px;font-weight:600;display:none;
+  box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.gps-pulse{animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
 .map-legend{position:absolute;bottom:20px;right:20px;background:var(--surface);
   border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;
   box-shadow:var(--sh);z-index:1000;font-size:12px}
@@ -61,6 +86,36 @@
   text-transform:uppercase;letter-spacing:.05em}
 .legend-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12.5px}
 .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ── Délimitation de parcelles ────────────────────────────────────────────── */
+.boundary-toolbar{position:absolute;top:16px;right:16px;z-index:1000;
+  display:flex;flex-direction:column;gap:8px}
+.boundary-btn{display:flex;align-items:center;gap:8px;padding:9px 14px;
+  border-radius:9px;border:1.5px solid var(--border);background:var(--surface);
+  box-shadow:var(--sh);cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-size:13px;font-weight:600;color:var(--text);transition:.2s;white-space:nowrap}
+.boundary-btn:hover{border-color:var(--accent);background:#f0faf5}
+.boundary-btn.active{border-color:var(--accent);background:#f0faf5;color:var(--primary)}
+.boundary-btn.danger{color:var(--high);border-color:var(--high-b)}
+.boundary-btn.danger:hover{background:var(--high-bg)}
+.boundary-btn .ms{font-size:16px}
+
+.boundary-info{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  z-index:1000;background:var(--primary);color:#fff;padding:10px 18px;
+  border-radius:99px;font-size:13px;font-weight:600;
+  box-shadow:0 4px 12px rgba(26,42,24,.3);display:none;white-space:nowrap}
+
+.gps-pulse{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Panel délimitation */
+.boundary-panel{background:var(--surface-warm);border:1px solid var(--border-l);
+  border-radius:var(--r);padding:14px;margin:10px 14px}
+.boundary-panel-title{font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.boundary-stat{display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;margin-bottom:6px}
+.boundary-stat-val{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--primary)}
 </style>
 </head>
 <body>
@@ -112,6 +167,32 @@
           <div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">Chargement…</div>
         </div>
 
+        <!-- Bouton délimitation -->
+        <div style="padding:10px 14px;border-top:1px solid var(--border)">
+          <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center"
+            onclick="showBoundaryMode()" id="btn-boundary">
+            <span class="material-symbols-outlined" style="font-size:15px">polyline</span>
+            Délimiter une parcelle
+          </button>
+        </div>
+
+        <!-- Panel délimitation -->
+        <div class="boundary-panel" id="boundary-panel" style="display:none">
+          <div class="boundary-panel-title">🗺 Délimitation</div>
+          <div class="boundary-stat">
+            <span>Superficie calculée</span>
+            <span class="boundary-stat-val" id="bp-area">—</span>
+          </div>
+          <div class="boundary-stat">
+            <span>Points tracés</span>
+            <span class="boundary-stat-val" id="bp-pts">—</span>
+          </div>
+          <div class="boundary-stat">
+            <span>Méthode</span>
+            <span style="font-size:12px;color:var(--muted)" id="bp-method">—</span>
+          </div>
+        </div>
+
         <div class="stats-mini" id="stats-mini">
           <div class="stat-mini">
             <div class="stat-mini-val" id="st-total">—</div>
@@ -127,6 +208,56 @@
       <!-- Map -->
       <div class="map-container">
         <div id="map"></div>
+
+        <!-- Toolbar délimitation -->
+        <div class="boundary-toolbar" id="boundary-toolbar" style="display:none">
+          <button class="tb-btn" id="btn-draw" onclick="startDraw()">
+            <span class="material-symbols-outlined ms">draw</span>
+            Dessiner
+          </button>
+          <button class="tb-btn" id="btn-gps" onclick="toggleGPS()">
+            <span class="material-symbols-outlined ms">route</span>
+            Tracé GPS
+          </button>
+          <button class="tb-btn" onclick="saveBoundary()">
+            <span class="material-symbols-outlined ms">save</span>
+            Sauvegarder
+          </button>
+          <button class="tb-btn danger" onclick="clearBoundary()">
+            <span class="material-symbols-outlined ms">delete</span>
+            Effacer
+          </button>
+          <button class="tb-btn" onclick="hideBoundaryMode()">
+            <span class="material-symbols-outlined ms">close</span>
+          </button>
+        </div>
+        <div class="boundary-info" id="boundary-info"></div>
+        <!-- Toolbar délimitation -->
+        <div class="boundary-toolbar" id="boundary-toolbar" style="display:none">
+          <button class="boundary-btn" id="btn-draw" onclick="startDraw()">
+            <span class="material-symbols-outlined ms">edit_location</span>
+            Dessiner les limites
+          </button>
+          <button class="boundary-btn" id="btn-gps" onclick="startGPS()">
+            <span class="material-symbols-outlined ms">directions_walk</span>
+            Tracer par GPS
+          </button>
+          <button class="boundary-btn" id="btn-save" onclick="saveBoundary()" style="display:none;background:var(--accent);color:#fff;border-color:var(--accent)">
+            <span class="material-symbols-outlined ms">save</span>
+            Enregistrer
+          </button>
+          <button class="boundary-btn danger" id="btn-clear" onclick="clearBoundary()" style="display:none">
+            <span class="material-symbols-outlined ms">delete</span>
+            Effacer
+          </button>
+        </div>
+
+        <!-- Info bulle tracé GPS -->
+        <div class="boundary-info" id="boundary-info">
+          <span class="gps-pulse">📍</span>
+          <span id="boundary-info-txt">Marchez autour de la parcelle...</span>
+        </div>
+
         <div class="map-legend">
           <div class="legend-title">Niveau de risque</div>
           <div class="legend-row"><div class="legend-dot" style="background:var(--low)"></div>Faible</div>
@@ -276,7 +407,429 @@ function resetView() {
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
+// ── Module délimitation de parcelles ─────────────────────────────────────────
+let drawnItems = null;
+let drawControl = null;
+let boundaryLayer = null;
+let gpsWatchId = null;
+let gpsCoords = [];
+let gpsPolyline = null;
+let currentBoundaryPid = null;
+let isDrawing = false;
+
+function showBoundaryMode() {
+  document.getElementById('boundary-toolbar').style.display = 'flex';
+  // Charger toutes les limites existantes
+  loadAllBoundaries();
+}
+
+function hideBoundaryMode() {
+  document.getElementById('boundary-toolbar').style.display = 'none';
+  stopDraw();
+  stopGPS();
+}
+
+function initDrawTools() {
+  if (drawnItems) return;
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+  drawControl = new L.Control.Draw({
+    edit: { featureGroup: drawnItems },
+    draw: {
+      polygon: { shapeOptions: { color:'#52b788', fillOpacity:.2 } },
+      polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+    }
+  });
+  map.on(L.Draw.Event.CREATED, function(e) {
+    drawnItems.clearLayers();
+    drawnItems.addLayer(e.layer);
+    const coords = e.layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+    updateBoundaryInfo(coords);
+  });
+}
+
+function startDraw() {
+  initDrawTools();
+  if (!map.hasControl(drawControl)) map.addControl(drawControl);
+  document.getElementById('btn-draw').classList.add('active');
+  setBoundaryInfo('Cliquez pour placer les points du polygone. Double-clic pour terminer.');
+}
+
+function stopDraw() {
+  if (drawControl && map.hasControl(drawControl)) map.removeControl(drawControl);
+  if (drawnItems) drawnItems.clearLayers();
+  document.getElementById('btn-draw')?.classList.remove('active');
+  isDrawing = false;
+}
+
+function toggleGPS() {
+  if (gpsWatchId) { stopGPS(); return; }
+  startGPS();
+}
+
+function startGPS() {
+  if (!navigator.geolocation) {
+    alert('GPS non disponible sur cet appareil.');
+    return;
+  }
+  gpsCoords = [];
+  if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+
+  document.getElementById('btn-gps').classList.add('active');
+  document.getElementById('btn-gps').innerHTML =
+    '<span class="material-symbols-outlined ms gps-pulse">radio_button_checked</span> GPS actif — marchez autour de la parcelle';
+
+  setBoundaryInfo('GPS actif — marchez autour de la parcelle. Cliquez "Tracé GPS" pour arrêter.');
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const ll = [pos.coords.latitude, pos.coords.longitude];
+      gpsCoords.push(ll);
+      if (gpsPolyline) {
+        gpsPolyline.setLatLngs(gpsCoords);
+      } else {
+        gpsPolyline = L.polyline(gpsCoords, { color:'#52b788', weight:3 }).addTo(map);
+        map.panTo(ll);
+      }
+    },
+    (err) => { alert('Erreur GPS : ' + err.message); stopGPS(); },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+  );
+}
+
+function stopGPS() {
+  if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  document.getElementById('btn-gps').classList.remove('active');
+  document.getElementById('btn-gps').innerHTML =
+    '<span class="material-symbols-outlined ms">route</span> Tracé GPS';
+
+  if (gpsCoords.length >= 3) {
+    // Convertir le tracé GPS en polygone
+    initDrawTools();
+    drawnItems.clearLayers();
+    const polygon = L.polygon(gpsCoords, { color:'#52b788', fillOpacity:.2 });
+    drawnItems.addLayer(polygon);
+    updateBoundaryInfo(gpsCoords, 'gps_track');
+  }
+}
+
+function updateBoundaryInfo(coords, source='manual') {
+  const ha = calculateHectares(coords);
+  setBoundaryInfo('Superficie calculée : ' + ha.toFixed(2) + ' ha — ' + coords.length + ' points. Cliquez "Sauvegarder".');
+  currentBoundaryPid = getSelectedPid();
+}
+
+function getSelectedPid() {
+  const selected = document.querySelector('.pl-item.selected');
+  if (selected) return parseInt(selected.id.replace('li-', ''));
+  return null;
+}
+
+function calculateHectares(coords) {
+  if (coords.length < 3) return 0;
+  const R = 6371000;
+  let area = 0;
+  const n = coords.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const lat1 = coords[i][0] * Math.PI / 180;
+    const lat2 = coords[j][0] * Math.PI / 180;
+    const dlng = (coords[j][1] - coords[i][1]) * Math.PI / 180;
+    area += Math.sin(dlng) * (2 + Math.sin(lat1) + Math.sin(lat2));
+  }
+  return Math.abs(area * R * R / 2 / 10000);
+}
+
+async function saveBoundary() {
+  const pid = getSelectedPid() || currentBoundaryPid;
+  if (!pid) {
+    alert('Sélectionnez une plantation dans la liste avant de sauvegarder.');
+    return;
+  }
+
+  let coords = [];
+  const source = gpsCoords.length >= 3 && !gpsWatchId ? 'gps_track' : 'manual';
+
+  if (drawnItems && drawnItems.getLayers().length > 0) {
+    const layer = drawnItems.getLayers()[0];
+    coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+  } else if (gpsCoords.length >= 3) {
+    coords = gpsCoords;
+  }
+
+  if (coords.length < 3) {
+    alert('Dessinez d'abord les limites de la parcelle.');
+    return;
+  }
+
+  try {
+    const r = await authFetch('/plantations/' + pid + '/boundary', {
+      method: 'POST',
+      body: JSON.stringify({ coordinates: coords, source: source })
+    });
+    if (!r?.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Erreur.');
+    const data = await r.json();
+    toast('Limites sauvegardées — ' + data.calculated_hectares + ' ha calculés.');
+    loadAllBoundaries();
+    stopDraw();
+    gpsCoords = [];
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function clearBoundary() {
+  stopDraw();
+  stopGPS();
+  gpsCoords = [];
+  if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+  if (drawnItems) drawnItems.clearLayers();
+  hideBoundaryInfo();
+}
+
+async function loadAllBoundaries() {
+  try {
+    const r = await authFetch('/map/boundaries');
+    if (!r?.ok) return;
+    const boundaries = await r.json();
+
+    // Supprimer les anciens polygones
+    if (boundaryLayer) { map.removeLayer(boundaryLayer); }
+    boundaryLayer = L.featureGroup();
+
+    boundaries.forEach(b => {
+      if (b.coordinates.length < 3) return;
+      const polygon = L.polygon(b.coordinates, {
+        color: '#2D8C5A', weight: 2, fillOpacity: 0.08,
+        dashArray: '6, 4'
+      });
+      polygon.bindPopup(
+        '<div style="font-family:DM Sans,sans-serif">' +
+        '<strong>' + esc(b.plantation_name) + '</strong><br>' +
+        b.calculated_hectares + ' ha calculés<br>' +
+        '<small style="color:#6a7d64">Source : ' + (b.source === 'gps_track' ? 'Tracé GPS terrain' : 'Dessin manuel') + '</small>' +
+        '</div>'
+      );
+      boundaryLayer.addLayer(polygon);
+    });
+
+    map.addLayer(boundaryLayer);
+  } catch {}
+}
+
+function setBoundaryInfo(text) {
+  const el = document.getElementById('boundary-info');
+  el.textContent = text;
+  el.style.display = 'block';
+}
+function hideBoundaryInfo() {
+  document.getElementById('boundary-info').style.display = 'none';
+}
+
 load();
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Module Délimitation de parcelles ────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+let drawnItems = new L.FeatureGroup();
+let drawControl = null;
+let currentBoundaryLayer = null;
+let selectedPlantationId = null;
+let gpsWatchId = null;
+let gpsPoints = [];
+let gpsPolyline = null;
+let drawMode = null; // 'manual' | 'gps'
+
+map.addLayer(drawnItems);
+
+// Initialiser les outils de dessin Leaflet.draw
+function initDrawControl() {
+  if (drawControl) map.removeControl(drawControl);
+  drawControl = new L.Control.Draw({
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: { color: '#52b788', fillOpacity: 0.15, weight: 2 }
+      },
+      polyline: false, rectangle: false, circle: false,
+      circlemarker: false, marker: false
+    },
+    edit: { featureGroup: drawnItems }
+  });
+}
+
+// Écouter la fin du dessin
+map.on(L.Draw.Event.CREATED, function(e) {
+  drawnItems.clearLayers();
+  currentBoundaryLayer = e.layer;
+  drawnItems.addLayer(currentBoundaryLayer);
+  drawMode = 'manual';
+
+  const coords = currentBoundaryLayer.getLatLngs()[0];
+  document.getElementById('bp-pts').textContent = coords.length + ' points';
+  document.getElementById('bp-method').textContent = 'Dessin manuel';
+  updateSaveBtn(true);
+});
+
+function selectPlantationForBoundary(pid) {
+  selectedPlantationId = pid;
+  clearBoundary();
+
+  // Afficher la toolbar
+  document.getElementById('boundary-toolbar').style.display = 'flex';
+
+  // Charger la délimitation existante si elle existe
+  loadExistingBoundary(pid);
+}
+
+async function loadExistingBoundary(pid) {
+  try {
+    const r = await authFetch('/plantations/' + pid + '/boundary');
+    if (!r?.ok) return;
+    const data = await r.json();
+    if (!data.has_boundary) return;
+
+    // Afficher la délimitation existante
+    const geo = JSON.parse(data.geojson);
+    const layer = L.geoJSON(geo, {
+      style: { color: '#1a4231', fillOpacity: 0.1, weight: 2, dashArray: '5,5' }
+    }).addTo(drawnItems);
+    currentBoundaryLayer = layer;
+
+    // Mettre à jour le panel
+    document.getElementById('boundary-panel').style.display = '';
+    document.getElementById('bp-area').textContent = data.area_hectares + ' ha';
+    document.getElementById('bp-pts').textContent = data.points_count + ' points';
+    document.getElementById('bp-method').textContent =
+      data.method === 'gps_track' ? 'Tracé GPS' : 'Dessin manuel';
+    updateSaveBtn(false);
+  } catch {}
+}
+
+function startDraw() {
+  if (!selectedPlantationId) { toast('Sélectionnez une plantation d\'abord.', 'error'); return; }
+  initDrawControl();
+  map.addControl(drawControl);
+  document.getElementById('btn-draw').classList.add('active');
+  document.getElementById('btn-clear').style.display = 'flex';
+  toast('Cliquez sur la carte pour dessiner les limites. Double-clic pour terminer.');
+}
+
+// ── Tracé GPS ─────────────────────────────────────────────────────────────────
+function startGPS() {
+  if (!selectedPlantationId) { toast('Sélectionnez une plantation d\'abord.', 'error'); return; }
+  if (!navigator.geolocation) { toast('GPS non disponible sur cet appareil.', 'error'); return; }
+
+  gpsPoints = [];
+  drawMode = 'gps';
+  document.getElementById('btn-gps').classList.add('active');
+  document.getElementById('btn-clear').style.display = 'flex';
+  document.getElementById('boundary-info').style.display = 'block';
+  document.getElementById('boundary-info-txt').textContent = 'Marchez autour de la parcelle... 0 points';
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    function(pos) {
+      const pt = [pos.coords.latitude, pos.coords.longitude];
+      gpsPoints.push(pt);
+
+      // Dessiner la trajectoire en temps réel
+      if (gpsPolyline) map.removeLayer(gpsPolyline);
+      gpsPolyline = L.polyline(gpsPoints, { color: '#52b788', weight: 3 }).addTo(map);
+      map.setView(pt, 16);
+
+      document.getElementById('boundary-info-txt').textContent =
+        'Marchez autour de la parcelle... ' + gpsPoints.length + ' points capturés';
+
+      // Proposer d\'arrêter après 10 points
+      if (gpsPoints.length >= 10) {
+        document.getElementById('btn-save').style.display = 'flex';
+        document.getElementById('boundary-info-txt').textContent =
+          gpsPoints.length + ' points — Cliquez Enregistrer pour finaliser';
+      }
+    },
+    function(err) { toast('Erreur GPS : ' + err.message, 'error'); stopGPS(); },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+  );
+
+  toast('GPS activé — marchez autour de votre parcelle.');
+}
+
+function stopGPS() {
+  if (gpsWatchId) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  document.getElementById('boundary-info').style.display = 'none';
+  document.getElementById('btn-gps').classList.remove('active');
+}
+
+// ── Sauvegarder ───────────────────────────────────────────────────────────────
+async function saveBoundary() {
+  if (!selectedPlantationId) return;
+
+  let geojson;
+
+  if (drawMode === 'gps' && gpsPoints.length >= 3) {
+    stopGPS();
+    // Fermer le polygone GPS
+    const closedPts = [...gpsPoints, gpsPoints[0]];
+    const coords = closedPts.map(p => [p[1], p[0]]); // [lng, lat]
+    geojson = JSON.stringify({
+      type: 'Polygon',
+      coordinates: [coords]
+    });
+    if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+  } else if (currentBoundaryLayer && drawMode === 'manual') {
+    geojson = JSON.stringify(currentBoundaryLayer.toGeoJSON().geometry);
+  } else {
+    toast('Tracez d\'abord les limites de la parcelle.', 'error');
+    return;
+  }
+
+  try {
+    const r = await authFetch('/plantations/' + selectedPlantationId + '/boundary', {
+      method: 'POST',
+      body: JSON.stringify({ geojson, method: drawMode === 'gps' ? 'gps_track' : 'manual' })
+    });
+    if (!r?.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||'Erreur.'); }
+    const data = await r.json();
+
+    toast('Délimitation sauvegardée — ' + data.area_hectares + ' ha calculés.');
+    document.getElementById('boundary-panel').style.display = '';
+    document.getElementById('bp-area').textContent = data.area_hectares + ' ha';
+    document.getElementById('bp-pts').textContent = data.points_count + ' points';
+    document.getElementById('bp-method').textContent = drawMode === 'gps' ? 'Tracé GPS' : 'Dessin manuel';
+
+    // Si pas d\'hectares sur la plantation → afficher le nouveau calcul
+    updateSaveBtn(false);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function clearBoundary() {
+  drawnItems.clearLayers();
+  currentBoundaryLayer = null;
+  drawMode = null;
+  gpsPoints = [];
+  if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+  stopGPS();
+  if (drawControl) { map.removeControl(drawControl); drawControl = null; }
+  document.getElementById('btn-draw').classList.remove('active');
+  document.getElementById('btn-save').style.display = 'none';
+  document.getElementById('btn-clear').style.display = 'none';
+  document.getElementById('boundary-panel').style.display = 'none';
+}
+
+function updateSaveBtn(show) {
+  document.getElementById('btn-save').style.display = show ? 'flex' : 'none';
+}
+
+// Surcharger focusPlantation pour activer le mode délimitation
+const _origFocus = focusPlantation;
+function focusPlantation(id) {
+  _origFocus(id);
+  selectPlantationForBoundary(id);
+}
+loadAllBoundaries(); // Afficher les limites dès le chargement
 </script>
 </body>
 </html>

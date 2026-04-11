@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -50,6 +50,8 @@ class Plantation(Base):
     diagnostics = relationship("Diagnostic", back_populates="plantation")
     agroforestry_records = relationship("AgroforestryRecord", back_populates="plantation",
                                         cascade="all, delete-orphan")
+    boundary = relationship("PlantationBoundary", back_populates="plantation",
+                            uselist=False, cascade="all, delete-orphan")
 
 
 class Diagnostic(Base):
@@ -98,3 +100,31 @@ class AgroforestryRecord(Base):
     recorded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     plantation = relationship("Plantation", back_populates="agroforestry_records")
+
+class PlantationBoundary(Base):
+    """
+    Delimitation geographique d'une plantation.
+    Stocke le polygone GeoJSON des limites de la parcelle.
+    Methodes : dessin manuel sur carte ou tracé GPS terrain.
+    """
+    __tablename__ = "plantation_boundaries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plantation_id = Column(Integer, ForeignKey("plantations.id"), nullable=False, unique=True)
+
+    # GeoJSON du polygone : {"type":"Polygon","coordinates":[[[lng,lat],...}]}
+    geojson = Column(Text, nullable=False)
+
+    # Superficie calculée automatiquement (hectares)
+    area_hectares = Column(Float, nullable=True)
+
+    # Méthode de saisie
+    method = Column(String, default="manual")  # "manual" | "gps_track"
+
+    # Nombre de points du polygone
+    points_count = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    plantation = relationship("Plantation", back_populates="boundary")
