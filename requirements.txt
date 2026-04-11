@@ -7,3 +7,4 @@ python-multipart==0.0.19
 psycopg2-binary
 httpx==0.27.2
 python-dotenv
+gradio_client==1.3.0
