@@ -5,21 +5,21 @@ import logging
 logger = logging.getLogger("agrivision")
 
 # ── URL du modèle déployé sur Hugging Face ────────────────────────────────────
-HF_SPACE_URL = "https://ikaff2026-agrivision-plant-disease.hf.space"
+HF_SPACE_URL  = "https://ikaff2026-agrivision-plant-disease.hf.space"
 API_ENDPOINT  = f"{HF_SPACE_URL}/run/predict"
 
 # Timeout généreux — le Space HF peut être froid au démarrage
-REQUEST_TIMEOUT = 30.0
+REQUEST_TIMEOUT = 60.0
 
 
 def analyze_leaf_image(image_path: str) -> dict:
     """
-    Appelle le modèle EfficientNet-B0 déployé sur Hugging Face Space.
+    Appelle le modèle EfficientNet-B0 déployé sur Hugging Face Space (Gradio 4.x).
     Retourne : disease, confidence, severity, recommendation.
-    Fallback sur stub si le service est indisponible.
+    Fallback si le service est indisponible.
     """
     try:
-        # Lire et encoder l'image en base64 pour l'API Gradio
+        # Lire et encoder l'image en base64
         with open(image_path, "rb") as f:
             image_bytes = f.read()
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -31,13 +31,9 @@ def analyze_leaf_image(image_path: str) -> dict:
         elif image_path.lower().endswith(".webp"):
             mime = "image/webp"
 
-        # Payload Gradio API
+        # ── Payload Gradio 4.x : base64 data URI directement dans data[] ──────
         payload = {
-            "data": [
-                {"path": None, "url": None, "orig_name": "leaf.jpg",
-                 "mime_type": mime, "size": len(image_bytes),
-                 "data": f"data:{mime};base64,{image_b64}"}
-            ]
+            "data": [f"data:{mime};base64,{image_b64}"]
         }
 
         response = httpx.post(
@@ -49,7 +45,7 @@ def analyze_leaf_image(image_path: str) -> dict:
         response.raise_for_status()
         result = response.json()
 
-        # La réponse Gradio est dans data[0]
+        # La réponse Gradio est dans data[0..3]
         data = result.get("data", [])
         if len(data) >= 4:
             disease        = data[0] or "Inconnue"
@@ -80,14 +76,16 @@ def analyze_leaf_image(image_path: str) -> dict:
                 "source":         "huggingface"
             }
 
-    except httpx.TimeoutException:
-        logger.warning("ML inference timeout — fallback stub activé")
-    except httpx.HTTPStatusError as e:
-        logger.warning("ML inference HTTP error %s — fallback stub activé", e.response.status_code)
-    except Exception as e:
-        logger.warning("ML inference erreur inattendue : %s — fallback stub activé", e)
+        logger.warning("ML inference — réponse inattendue : %s", data)
 
-    # ── Fallback : stub si HF Space indisponible ──────────────────────────────
+    except httpx.TimeoutException:
+        logger.warning("ML inference timeout — fallback activé")
+    except httpx.HTTPStatusError as e:
+        logger.warning("ML inference HTTP error %s — fallback activé", e.response.status_code)
+    except Exception as e:
+        logger.warning("ML inference erreur inattendue : %s — fallback activé", e)
+
+    # ── Fallback si HF Space indisponible ─────────────────────────────────────
     return {
         "disease":        "Analyse indisponible",
         "confidence":     0.0,
