@@ -11,10 +11,8 @@ REQUEST_TIMEOUT  = 60.0
 
 def analyze_leaf_image(image_path: str) -> dict:
     """
-    Appelle le modèle EfficientNet-B0 sur Hugging Face Space.
-    Protocole Gradio 5.x avec type=filepath :
-      1. POST /gradio_api/upload  → récupère le path temporaire
-      2. POST /gradio_api/run/predict avec le path comme string simple
+    Appelle EfficientNet-B0 sur HF Space (Gradio 5.x, type=filepath).
+    Upload → FileData complet avec path + url → predict.
     """
     try:
         with open(image_path, "rb") as f:
@@ -39,11 +37,24 @@ def analyze_leaf_image(image_path: str) -> dict:
             raise ValueError(f"Upload échoué : {uploaded_paths}")
 
         uploaded_path = uploaded_paths[0]
+        # URL publique pour que le Space retrouve le fichier
+        file_url = f"{HF_SPACE_URL}/gradio_api/file={uploaded_path}"
         logger.info("ML upload OK — path: %s", uploaded_path)
 
-        # ── Étape 2 : Predict — filepath passé comme string simple ───────────
-        # Compatible type="filepath" dans Gradio 5.x
-        payload = {"data": [uploaded_path]}
+        # ── Étape 2 : Predict — FileData complet (requis par Gradio 5.x) ──────
+        payload = {
+            "data": [
+                {
+                    "path":      uploaded_path,
+                    "url":       file_url,
+                    "orig_name": "image.jpg",
+                    "mime_type": mime,
+                    "size":      len(image_bytes),
+                    "is_stream": False,
+                    "meta":      {"_type": "gradio.FileData"},
+                }
+            ]
+        }
 
         predict_response = httpx.post(
             PREDICT_ENDPOINT,
@@ -81,16 +92,16 @@ def analyze_leaf_image(image_path: str) -> dict:
         raise ValueError(f"Réponse inattendue : {data}")
 
     except httpx.TimeoutException:
-        logger.warning("ML inference timeout")
+        logger.warning("ML timeout")
     except httpx.HTTPStatusError as e:
-        logger.warning("ML HTTP error %s — body: %s", e.response.status_code, e.response.text[:300])
+        logger.warning("ML HTTP %s — %s", e.response.status_code, e.response.text[:300])
     except Exception as e:
-        logger.warning("ML inference erreur : %s — fallback activé", e)
+        logger.warning("ML erreur : %s", e)
 
     return {
         "disease":        "Analyse indisponible",
         "confidence":     0.0,
         "severity":       "MEDIUM",
-        "recommendation": "Service d'analyse temporairement indisponible. Réessayez dans quelques instants.",
+        "recommendation": "Service temporairement indisponible. Réessayez dans quelques instants.",
         "source":         "fallback",
     }
