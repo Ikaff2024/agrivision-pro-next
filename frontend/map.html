@@ -271,6 +271,10 @@
 <script>
 initApp('map');
 
+// Lancer le chargement des données après initialisation
+// Le délai permet au token JWT d'être disponible
+setTimeout(load, 300);
+
 let map, allData = [], markers = [], currentRisk = 'all';
 let boundaryModeActive = false; // Défini globalement pour focusPlantation
 const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
