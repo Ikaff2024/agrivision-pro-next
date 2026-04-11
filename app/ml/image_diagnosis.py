@@ -1,22 +1,21 @@
 import httpx
-import base64
 import logging
 
 logger = logging.getLogger("agrivision")
 
 HF_SPACE_URL     = "https://ikaff2026-agrivision-plant-disease.hf.space"
-UPLOAD_ENDPOINT  = f"{HF_SPACE_URL}/upload"
-PREDICT_ENDPOINT = f"{HF_SPACE_URL}/run/predict"
+UPLOAD_ENDPOINT  = f"{HF_SPACE_URL}/gradio_api/upload"
+PREDICT_ENDPOINT = f"{HF_SPACE_URL}/gradio_api/run/predict"
 REQUEST_TIMEOUT  = 60.0
 
 
 def analyze_leaf_image(image_path: str) -> dict:
     """
     Appelle le modèle EfficientNet-B0 sur Hugging Face Space.
-    Protocole Gradio 5.x : upload fichier -> predict avec le path retourné.
+    Protocole Gradio 5.x : POST /gradio_api/upload -> POST /gradio_api/run/predict
     """
     try:
-        # ── Étape 1 : Upload de l'image vers le Space HF ─────────────────────
+        # ── Étape 1 : Upload de l'image ───────────────────────────────────────
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
@@ -35,12 +34,12 @@ def analyze_leaf_image(image_path: str) -> dict:
         uploaded_paths = upload_response.json()
 
         if not uploaded_paths or not isinstance(uploaded_paths, list):
-            raise ValueError(f"Upload échoué, réponse inattendue : {uploaded_paths}")
+            raise ValueError(f"Upload échoué : {uploaded_paths}")
 
         uploaded_path = uploaded_paths[0]
         logger.info("ML upload OK — path: %s", uploaded_path)
 
-        # ── Étape 2 : Appel predict avec le fichier uploadé ──────────────────
+        # ── Étape 2 : Predict avec le fichier uploadé ─────────────────────────
         payload = {
             "data": [
                 {
@@ -90,7 +89,7 @@ def analyze_leaf_image(image_path: str) -> dict:
     except httpx.TimeoutException:
         logger.warning("ML inference timeout")
     except httpx.HTTPStatusError as e:
-        logger.warning("ML HTTP error %s — body: %s", e.response.status_code, e.response.text[:200])
+        logger.warning("ML HTTP error %s — body: %s", e.response.status_code, e.response.text[:300])
     except Exception as e:
         logger.warning("ML inference erreur : %s — fallback activé", e)
 
