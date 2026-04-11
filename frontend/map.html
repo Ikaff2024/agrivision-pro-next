@@ -168,7 +168,7 @@
         <!-- Bouton délimitation -->
         <div style="padding:10px 14px;border-top:1px solid var(--border)">
           <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center"
-            onclick="showBoundaryMode()" id="btn-boundary">
+            onclick="toggleBoundaryMode()" id="btn-boundary">
             <span class="material-symbols-outlined" style="font-size:15px">polyline</span>
             Délimiter une parcelle
           </button>
@@ -406,8 +406,29 @@ function resetView() {
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ── Module Délimitation de parcelles ────────────────────────────────────────
+// ── Module Délimitation de parcelles ────────────════════════════════════════
 // ════════════════════════════════════════════════════════════════════════════
+
+let boundaryModeActive = false;
+
+function toggleBoundaryMode() {
+  boundaryModeActive = !boundaryModeActive;
+  const toolbar = document.getElementById('boundary-toolbar');
+  const btn = document.getElementById('btn-boundary');
+  if (boundaryModeActive) {
+    toolbar.style.display = 'flex';
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--accent)';
+    toast('Selectionnez une plantation pour delimiter ses limites.');
+  } else {
+    toolbar.style.display = 'none';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    clearBoundary();
+  }
+}
 
 let drawnItems = new L.FeatureGroup();
 let drawControl = null;
@@ -438,7 +459,7 @@ function initDrawControl() {
 }
 
 // Écouter la fin du dessin
-map.on(L.Draw.Event.CREATED, function(e) {
+map.on('draw:created', function(e) {
   drawnItems.clearLayers();
   currentBoundaryLayer = e.layer;
   drawnItems.addLayer(currentBoundaryLayer);
