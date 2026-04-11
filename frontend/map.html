@@ -475,10 +475,24 @@ map.on('draw:created', function(e) {
 
 function selectPlantationForBoundary(pid) {
   selectedPlantationId = pid;
-  clearBoundary();
+
+  // Réinitialiser les layers sans perdre selectedPlantationId
+  drawnItems.clearLayers();
+  currentBoundaryLayer = null;
+  drawMode = null;
+  gpsPoints = [];
+  if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+  if (drawControl) { map.removeControl(drawControl); drawControl = null; }
+  document.getElementById('btn-draw').classList.remove('active');
+  document.getElementById('btn-save').style.display = 'none';
+  document.getElementById('btn-clear').style.display = 'none';
+  document.getElementById('boundary-panel').style.display = 'none';
 
   // Afficher la toolbar
   document.getElementById('boundary-toolbar').style.display = 'flex';
+
+  // Feedback visuel
+  toast('Plantation selectionnee. Cliquez Dessiner ou Trace GPS.');
 
   // Charger la délimitation existante si elle existe
   loadExistingBoundary(pid);
