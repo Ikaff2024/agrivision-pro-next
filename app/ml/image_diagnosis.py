@@ -12,10 +12,9 @@ REQUEST_TIMEOUT  = 60.0
 def analyze_leaf_image(image_path: str) -> dict:
     """
     Appelle le modèle EfficientNet-B0 sur Hugging Face Space.
-    Protocole Gradio 5.x : POST /gradio_api/upload -> POST /gradio_api/run/predict
+    Protocole Gradio 5.x : upload -> predict avec path + url construite.
     """
     try:
-        # ── Étape 1 : Upload de l'image ───────────────────────────────────────
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
@@ -25,6 +24,7 @@ def analyze_leaf_image(image_path: str) -> dict:
         elif image_path.lower().endswith(".webp"):
             mime = "image/webp"
 
+        # ── Étape 1 : Upload ──────────────────────────────────────────────────
         upload_response = httpx.post(
             UPLOAD_ENDPOINT,
             files={"files": ("image.jpg", image_bytes, mime)},
@@ -37,16 +37,22 @@ def analyze_leaf_image(image_path: str) -> dict:
             raise ValueError(f"Upload échoué : {uploaded_paths}")
 
         uploaded_path = uploaded_paths[0]
-        logger.info("ML upload OK — path: %s", uploaded_path)
 
-        # ── Étape 2 : Predict avec le fichier uploadé ─────────────────────────
+        # ── Gradio 5.x : construire l'URL depuis le path uploadé ─────────────
+        file_url = f"{HF_SPACE_URL}/gradio_api/file={uploaded_path}"
+        logger.info("ML upload OK — url: %s", file_url)
+
+        # ── Étape 2 : Predict ─────────────────────────────────────────────────
         payload = {
             "data": [
                 {
-                    "path": uploaded_path,
+                    "path":      uploaded_path,
+                    "url":       file_url,
                     "orig_name": "image.jpg",
                     "mime_type": mime,
-                    "meta": {"_type": "gradio.FileData"},
+                    "size":      len(image_bytes),
+                    "is_stream": False,
+                    "meta":      {"_type": "gradio.FileData"},
                 }
             ]
         }
