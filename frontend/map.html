@@ -214,7 +214,7 @@
             <span class="material-symbols-outlined ms">draw</span>
             Dessiner
           </button>
-          <button class="tb-btn" id="btn-gps" onclick="toggleGPS()">
+          <button class="tb-btn" id="btn-gps" onclick="startGPS()">
             <span class="material-symbols-outlined ms">route</span>
             Tracé GPS
           </button>
@@ -272,6 +272,7 @@
 initApp('map');
 
 let map, allData = [], markers = [], currentRisk = 'all';
+let boundaryModeActive = false; // Défini globalement pour focusPlantation
 const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
 const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
 
@@ -382,10 +383,12 @@ function renderMarkers() {
 
 function focusPlantation(id) {
   document.querySelectorAll('.pl-item').forEach(el => el.classList.remove('selected'));
-  const li = document.getElementById(`li-${id}`);
+  const li = document.getElementById('li-'+id);
   if (li) li.classList.add('selected');
   const m = markers.find(mk => mk._plantationId === id);
   if (m) { map.setView(m.getLatLng(), 13); m.openPopup(); }
+  // Si mode délimitation actif, sélectionner la plantation
+  if (boundaryModeActive) selectPlantationForBoundary(id);
 }
 
 function setRisk(risk, btn) {
@@ -409,8 +412,6 @@ function esc(s) { const el=document.createElement('div'); el.textContent=s||''; 
 // ════════════════════════════════════════════════════════════════════════════
 // ── Module Délimitation de parcelles ────────────════════════════════════════
 // ════════════════════════════════════════════════════════════════════════════
-
-let boundaryModeActive = false;
 
 function toggleBoundaryMode() {
   boundaryModeActive = !boundaryModeActive;
@@ -622,12 +623,7 @@ function updateSaveBtn(show) {
   document.getElementById('btn-save').style.display = show ? 'flex' : 'none';
 }
 
-// Surcharger focusPlantation pour activer le mode délimitation
-const _origFocus = focusPlantation;
-function focusPlantation(id) {
-  _origFocus(id);
-  selectPlantationForBoundary(id);
-}
+
 // Les limites sont chargées à la demande quand on clique sur une plantation
 </script>
 </body>
