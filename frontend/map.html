@@ -7,11 +7,9 @@
 <script src="auth.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <style>
 .map-layout{display:flex;height:100%;flex:1;min-height:0;overflow:hidden}
 .avp-main{overflow:hidden!important}
@@ -558,7 +556,7 @@ async function saveBoundary() {
   }
 
   if (coords.length < 3) {
-    alert('Dessinez d'abord les limites de la parcelle.');
+    alert("Dessinez les limites de la parcelle.");
     return;
   }
 
@@ -707,18 +705,18 @@ async function loadExistingBoundary(pid) {
 }
 
 function startDraw() {
-  if (!selectedPlantationId) { toast('Sélectionnez une plantation d\'abord.', 'error'); return; }
+  if (!selectedPlantationId) { toast("Selectionnez une plantation.", "error"); return; }
   initDrawControl();
   map.addControl(drawControl);
   document.getElementById('btn-draw').classList.add('active');
   document.getElementById('btn-clear').style.display = 'flex';
-  toast('Cliquez sur la carte pour dessiner les limites. Double-clic pour terminer.');
+  toast("Cliquez sur la carte pour dessiner. Double-clic pour terminer.");
 }
 
 // ── Tracé GPS ─────────────────────────────────────────────────────────────────
 function startGPS() {
-  if (!selectedPlantationId) { toast('Sélectionnez une plantation d\'abord.', 'error'); return; }
-  if (!navigator.geolocation) { toast('GPS non disponible sur cet appareil.', 'error'); return; }
+  if (!selectedPlantationId) { toast("Selectionnez une plantation.", "error"); return; }
+  if (!navigator.geolocation) { toast("GPS non disponible sur cet appareil.", "error"); return; }
 
   gpsPoints = [];
   drawMode = 'gps';
@@ -737,21 +735,19 @@ function startGPS() {
       gpsPolyline = L.polyline(gpsPoints, { color: '#52b788', weight: 3 }).addTo(map);
       map.setView(pt, 16);
 
-      document.getElementById('boundary-info-txt').textContent =
-        'Marchez autour de la parcelle... ' + gpsPoints.length + ' points capturés';
+      document.getElementById('boundary-info-txt').textContent = 'Marchez autour de la parcelle... ' + gpsPoints.length + ' points captures';
 
       // Proposer d\'arrêter après 10 points
       if (gpsPoints.length >= 10) {
         document.getElementById('btn-save').style.display = 'flex';
-        document.getElementById('boundary-info-txt').textContent =
-          gpsPoints.length + ' points — Cliquez Enregistrer pour finaliser';
+        document.getElementById('boundary-info-txt').textContent = gpsPoints.length + ' points - Cliquez Enregistrer pour finaliser';
       }
     },
-    function(err) { toast('Erreur GPS : ' + err.message, 'error'); stopGPS(); },
+    function(err) { toast("Erreur GPS : " + err.message, "error"); stopGPS(); },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
   );
 
-  toast('GPS activé — marchez autour de votre parcelle.');
+  toast("GPS active - marchez autour de votre parcelle.");
 }
 
 function stopGPS() {
@@ -782,7 +778,7 @@ async function saveBoundary() {
   } else if (currentBoundaryLayer && drawMode === 'manual') {
     geojson = JSON.stringify(currentBoundaryLayer.toGeoJSON().geometry);
   } else {
-    toast('Tracez d\'abord les limites de la parcelle.', 'error');
+    toast("Tracez les limites de la parcelle.", "error");
     return;
   }
 
@@ -831,5 +827,6 @@ function focusPlantation(id) {
 }
 loadAllBoundaries(); // Afficher les limites dès le chargement
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 </body>
 </html>
