@@ -12,7 +12,9 @@ REQUEST_TIMEOUT  = 60.0
 def analyze_leaf_image(image_path: str) -> dict:
     """
     Appelle le modèle EfficientNet-B0 sur Hugging Face Space.
-    Protocole Gradio 5.x : upload -> predict avec path + url construite.
+    Protocole Gradio 5.x avec type=filepath :
+      1. POST /gradio_api/upload  → récupère le path temporaire
+      2. POST /gradio_api/run/predict avec le path comme string simple
     """
     try:
         with open(image_path, "rb") as f:
@@ -37,25 +39,11 @@ def analyze_leaf_image(image_path: str) -> dict:
             raise ValueError(f"Upload échoué : {uploaded_paths}")
 
         uploaded_path = uploaded_paths[0]
+        logger.info("ML upload OK — path: %s", uploaded_path)
 
-        # ── Gradio 5.x : construire l'URL depuis le path uploadé ─────────────
-        file_url = f"{HF_SPACE_URL}/gradio_api/file={uploaded_path}"
-        logger.info("ML upload OK — url: %s", file_url)
-
-        # ── Étape 2 : Predict ─────────────────────────────────────────────────
-        payload = {
-            "data": [
-                {
-                    "path":      uploaded_path,
-                    "url":       file_url,
-                    "orig_name": "image.jpg",
-                    "mime_type": mime,
-                    "size":      len(image_bytes),
-                    "is_stream": False,
-                    "meta":      {"_type": "gradio.FileData"},
-                }
-            ]
-        }
+        # ── Étape 2 : Predict — filepath passé comme string simple ───────────
+        # Compatible type="filepath" dans Gradio 5.x
+        payload = {"data": [uploaded_path]}
 
         predict_response = httpx.post(
             PREDICT_ENDPOINT,
@@ -90,7 +78,7 @@ def analyze_leaf_image(image_path: str) -> dict:
                 "source":         "huggingface",
             }
 
-        raise ValueError(f"Réponse predict inattendue : {data}")
+        raise ValueError(f"Réponse inattendue : {data}")
 
     except httpx.TimeoutException:
         logger.warning("ML inference timeout")
