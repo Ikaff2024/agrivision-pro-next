@@ -602,6 +602,7 @@ def remove_member(
 # ════════════════════════════════════════════════════════════════
 
 from app.db.models import AgroforestryRecord, Cooperative, PlantationBoundary
+from app.ai_advisor import get_ai_advice
 
 # ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
 # carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
@@ -1194,6 +1195,71 @@ def reset_member_password(
         "temp_password": temp_password,
         "user_id": member.id,
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Conseil IA Agronome ────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.post("/plantations/{plantation_id}/ai-advice")
+async def plantation_ai_advice(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Génère un conseil agronomique IA complet pour une plantation.
+    Agrège : diagnostic, agroforesterie, boundary → appel Claude API.
+    """
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    latest_diag = (
+        db.query(Diagnostic)
+        .filter(Diagnostic.plantation_id == plantation_id)
+        .order_by(Diagnostic.created_at.desc())
+        .first()
+    )
+    agro_records = (
+        db.query(AgroforestryRecord)
+        .filter(AgroforestryRecord.plantation_id == plantation_id)
+        .all()
+    )
+    boundary = (
+        db.query(PlantationBoundary)
+        .filter(PlantationBoundary.plantation_id == plantation_id)
+        .first()
+    )
+
+    plantation_dict = {
+        "id": plantation.id, "name": plantation.name,
+        "owner_name": plantation.owner_name, "country": plantation.country,
+        "region": plantation.region, "hectares": plantation.hectares,
+    }
+    diag_dict = {
+        "global_score": latest_diag.global_score,
+        "global_risk_level": latest_diag.global_risk_level,
+        "humidity_pct": latest_diag.humidity_pct,
+        "rainfall_mm_month": latest_diag.rainfall_mm_month,
+        "avg_temp_c": latest_diag.avg_temp_c,
+        "plantation_age_years": latest_diag.plantation_age_years,
+        "shade_tree_density_pct": latest_diag.shade_tree_density_pct,
+    } if latest_diag else None
+    agro_list = [
+        {"species_name": r.species_name, "count_per_hectare": r.count_per_hectare}
+        for r in agro_records
+    ]
+    boundary_dict = (
+        {"has_boundary": True, "area_hectares": boundary.area_hectares}
+        if boundary else {"has_boundary": False}
+    )
+
+    result = await get_ai_advice(plantation_dict, diag_dict, agro_list, boundary_dict)
+    return result
 
 
 # ════════════════════════════════════════════════════════════════════════════

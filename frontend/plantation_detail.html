@@ -93,6 +93,35 @@
 .agro-pill{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--low-bg);
   border:1px solid var(--low-b);color:var(--low);font-weight:500}
 .agro-empty{font-size:13px;color:var(--faint);font-style:italic}
+
+/* ── Conseil IA ─────────────────────────────────────────────────────────── */
+.ai-card{background:linear-gradient(135deg,#0f2d1f 0%,#1a4231 100%);border-radius:var(--r);padding:20px 22px;margin-bottom:16px;color:#fff}
+.ai-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ai-card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ai-badge{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:99px}
+.ai-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;background:#52b788;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.ai-btn:hover{background:#40916c}.ai-btn:disabled{opacity:.5;cursor:not-allowed}
+.ai-spinner{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-result{display:none;margin-top:14px}
+.ai-resume{font-size:13.5px;line-height:1.65;color:rgba(255,255,255,.88);margin-bottom:14px;padding:12px 14px;background:rgba(255,255,255,.08);border-radius:6px}
+.ai-section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin:12px 0 6px}
+.ai-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ai-tag{font-size:12px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.85)}
+.ai-tag.risk{background:rgba(255,100,80,.18);color:#ff9980}
+.ai-actions{display:flex;flex-direction:column;gap:8px}
+.ai-action{background:rgba(255,255,255,.07);border-radius:6px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.ai-action-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.ai-action-dot.urgent{background:#ff6b6b}.ai-action-dot.important{background:#ffd166}.ai-action-dot.conseil{background:#52b788}
+.ai-action-body{flex:1}
+.ai-action-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.ai-action-detail{font-size:12px;color:rgba(255,255,255,.65);line-height:1.5}
+.ai-action-impact{font-size:11px;color:#52b788;margin-top:4px;font-weight:500}
+.ai-eudr{font-size:12.5px;color:rgba(255,255,255,.75);padding:10px 12px;background:rgba(255,255,255,.06);border-radius:6px;margin-top:10px;border-left:3px solid #52b788}
+.ai-score-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+.ai-score-label{font-size:12px;color:rgba(255,255,255,.55)}
+.ai-score-val{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#52b788}
+.ai-error{color:rgba(255,150,120,.9);font-size:13px;padding:10px;background:rgba(255,100,80,.1);border-radius:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -295,6 +324,101 @@ async function load() {
           </div>
           <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
         </div>` : ''}
+
+
+        <!-- ── Conseil IA Agronome ── -->
+        <div class="ai-card">
+          <div class="ai-card-header">
+            <div class="ai-card-title">
+              🤖 Conseil Agronome IA
+              <span class="ai-badge">Pro</span>
+            </div>
+            <button class="ai-btn" id="ai-btn" onclick="loadAIAdvice()">
+              <span id="ai-spinner" class="ai-spinner"></span>
+              <span id="ai-btn-txt">Analyser cette plantation</span>
+            </button>
+          </div>
+          <div style="font-size:12.5px;color:rgba(255,255,255,.5)">
+            Analyse agronomique complète générée par intelligence artificielle — diagnostic, agroforesterie et perspectives EUDR.
+          </div>
+          <div class="ai-result" id="ai-result"></div>
+        </div>
+
+        <script>
+        async function loadAIAdvice() {
+          const btn = document.getElementById('ai-btn');
+          const spinner = document.getElementById('ai-spinner');
+          const btnTxt = document.getElementById('ai-btn-txt');
+          const result = document.getElementById('ai-result');
+
+          btn.disabled = true;
+          spinner.style.display = 'block';
+          btnTxt.textContent = 'Analyse en cours…';
+          result.style.display = 'none';
+
+          try {
+            const r = await authFetch('/plantations/' + pid + '/ai-advice', { method: 'POST' });
+            if (!r?.ok) throw new Error('Erreur serveur');
+            const d = await r.json();
+
+            if (d.error) {
+              result.innerHTML = '<div class="ai-error">⚠️ ' + esc(d.error) + '</div>';
+              result.style.display = '';
+              return;
+            }
+
+            const priorityColor = p => p === 'urgent' ? 'urgent' : p === 'important' ? 'important' : 'conseil';
+
+            result.innerHTML = \`
+              <div class="ai-resume">\${esc(d.resume || '')}</div>
+
+              \${d.points_forts?.length ? \`
+              <div class="ai-section-title">✅ Points forts</div>
+              <div class="ai-tags">
+                \${d.points_forts.map(p => '<span class="ai-tag">' + esc(p) + '</span>').join('')}
+              </div>\` : ''}
+
+              \${d.risques_prioritaires?.length ? \`
+              <div class="ai-section-title">⚠️ Risques prioritaires</div>
+              <div class="ai-tags">
+                \${d.risques_prioritaires.map(r => '<span class="ai-tag risk">' + esc(r) + '</span>').join('')}
+              </div>\` : ''}
+
+              \${d.actions?.length ? \`
+              <div class="ai-section-title">🎯 Actions recommandées</div>
+              <div class="ai-actions">
+                \${d.actions.map(a => \`
+                <div class="ai-action">
+                  <div class="ai-action-dot \${priorityColor(a.priorite)}"></div>
+                  <div class="ai-action-body">
+                    <div class="ai-action-title">\${esc(a.titre)}</div>
+                    <div class="ai-action-detail">\${esc(a.detail)}</div>
+                    \${a.impact ? '<div class="ai-action-impact">→ ' + esc(a.impact) + '</div>' : ''}
+                  </div>
+                </div>\`).join('')}
+              </div>\` : ''}
+
+              \${d.perspective_eudr ? \`
+              <div class="ai-section-title">🌿 Conformité EUDR</div>
+              <div class="ai-eudr">\${esc(d.perspective_eudr)}</div>\` : ''}
+
+              \${d.score_potentiel ? \`
+              <div class="ai-score-row">
+                <span class="ai-score-label">Score potentiel estimé</span>
+                <span class="ai-score-val">\${d.score_potentiel}/100</span>
+              </div>\` : ''}
+            \`;
+            result.style.display = '';
+          } catch(e) {
+            result.innerHTML = '<div class="ai-error">⚠️ Analyse indisponible. Réessayez dans quelques instants.</div>';
+            result.style.display = '';
+          } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            btnTxt.textContent = 'Relancer l\'analyse';
+          }
+        }
+        </script>
 
         <div class="chart-card history-table">
           <div class="chart-header">
