@@ -784,7 +784,7 @@ def get_agroforestry(
 
     records = db.query(AgroforestryRecord).filter(
         AgroforestryRecord.plantation_id == plantation_id
-    ).order_by(AgroforestryRecord.recorded_at.desc()).all()
+    ).order_by(AgroforestryRecord.created_at.desc()).all()
 
     metrics = _compute_metrics(records)
     recommendations = _build_recommendations(metrics, records) if records else []
@@ -802,7 +802,7 @@ def get_agroforestry(
                 "count_per_hectare": r.count_per_hectare,
                 "avg_age_years": r.avg_age_years,
                 "notes": r.notes,
-                "recorded_at": r.recorded_at.isoformat() if r.recorded_at else None,
+                "recorded_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in records
         ],
