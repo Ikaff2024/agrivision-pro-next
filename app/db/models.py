@@ -91,11 +91,8 @@ class AgroforestryRecord(Base):
 
     id                = Column(Integer, primary_key=True, index=True)
     plantation_id     = Column(Integer, ForeignKey("plantations.id"), nullable=False)
-    species_name      = Column(String, nullable=False)     # Nom scientifique
-    common_name       = Column(String, nullable=True)      # Nom commun
-    count_per_hectare = Column(Float, nullable=True)       # Densité
-    height_m          = Column(Float, nullable=True)       # Hauteur moyenne
-    notes             = Column(Text, nullable=True)
+    species_name      = Column(String, nullable=False)
+    count_per_hectare = Column(Float, nullable=True)
     created_at        = Column(DateTime(timezone=True), server_default=func.now())
 
     plantation = relationship("Plantation", back_populates="agro_records")
