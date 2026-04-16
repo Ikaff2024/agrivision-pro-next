@@ -784,7 +784,7 @@ def get_agroforestry(
 
     records = db.query(AgroforestryRecord).filter(
         AgroforestryRecord.plantation_id == plantation_id
-    ).order_by(AgroforestryRecord.created_at.desc()).all()
+    ).all()
 
     metrics = _compute_metrics(records)
     recommendations = _build_recommendations(metrics, records) if records else []
