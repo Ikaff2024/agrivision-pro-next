@@ -656,7 +656,7 @@ def _compute_metrics(records) -> dict:
 
     for r in records:
         density = r.count_per_hectare or 0
-        age = r.avg_age_years or 5          # défaut 5 ans si non renseigné
+        age = 5  # défaut fixe (avg_age_years non en base)
         total_trees += density
         species_seen.add(r.species_name)
 
@@ -797,12 +797,7 @@ def get_agroforestry(
             {
                 "id": r.id,
                 "species_name": r.species_name,
-                "local_name": r.local_name,
-                "layer": r.layer,
                 "count_per_hectare": r.count_per_hectare,
-                "avg_age_years": r.avg_age_years,
-                "notes": r.notes,
-                "recorded_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in records
         ],
@@ -832,11 +827,7 @@ def add_agroforestry_record(
     record = AgroforestryRecord(
         plantation_id=plantation_id,
         species_name=data.species_name,
-        local_name=data.local_name,
-        layer=data.layer,
         count_per_hectare=data.count_per_hectare,
-        avg_age_years=data.avg_age_years,
-        notes=data.notes,
     )
     db.add(record)
     db.commit()
