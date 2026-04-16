@@ -153,59 +153,46 @@
   font-size:13px;margin-bottom:6px}
 .boundary-stat-val{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--primary)}
 
-/* ── Sélecteur plantation mobile (mode délimitation) ───────────────────── */
+/* ── Picker plantation mobile ───────────────────────────────────────────── */
 #mobile-plantation-picker {
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:3000;
   background:var(--surface);border-radius:16px 16px 0 0;
   box-shadow:0 -4px 20px rgba(0,0,0,.15);
-  padding:0 0 env(safe-area-inset-bottom,0);
   max-height:70vh;overflow:hidden;flex-direction:column;
 }
 #mobile-plantation-picker.open { display:flex; }
-.picker-handle {width:36px;height:4px;background:var(--border);border-radius:99px;
-  margin:10px auto 0;}
-.picker-title {font-size:14px;font-weight:700;padding:10px 16px 8px;
-  border-bottom:1px solid var(--border);color:var(--primary)}
-.picker-list {overflow-y:auto;flex:1;padding:8px 12px 16px}
-.picker-item {display:flex;align-items:center;gap:10px;padding:12px 10px;
-  border-radius:8px;cursor:pointer;border:1px solid var(--border-l);margin-bottom:6px;
-  background:var(--bg)}
-.picker-item:active {background:#f0faf5;border-color:var(--accent)}
-.picker-dot {width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.picker-name {font-size:14px;font-weight:600;flex:1}
-.picker-score {font-family:'Fraunces',serif;font-size:16px;font-weight:700}
+.picker-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:10px auto 4px}
+.picker-title{font-size:14px;font-weight:700;padding:8px 16px 10px;border-bottom:1px solid var(--border);color:var(--primary)}
+.picker-list{overflow-y:auto;flex:1;padding:8px 12px 20px}
+.picker-item{display:flex;align-items:center;gap:10px;padding:14px 12px;border-radius:8px;
+  cursor:pointer;border:1px solid var(--border-l);margin-bottom:8px;background:var(--bg)}
+.picker-item:active{background:#f0faf5;border-color:var(--accent)}
+.picker-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.picker-name{font-size:14px;font-weight:600;flex:1}
+.picker-score{font-family:'Fraunces',serif;font-size:17px;font-weight:700}
 
-/* Mobile map layout fixes */
-@media(max-width:768px) {
+@media(max-width:768px){
   .avp-main{overflow:auto!important;height:auto!important}
   .map-layout{flex-direction:column;height:auto!important;overflow:visible!important}
-  .map-panel{width:100%!important;border-right:none;border-bottom:1px solid var(--border);
-    max-height:none!important;flex-shrink:0}
+  .map-panel{width:100%!important;border-right:none;border-bottom:1px solid var(--border);max-height:none!important;flex-shrink:0}
   .map-panel-header{padding:10px 14px 8px}
-  .map-panel-title{font-size:14px;margin-bottom:6px}
   .risk-filter{flex-direction:row;flex-wrap:wrap;gap:6px}
   .rfb{padding:6px 10px;font-size:12px}
-  /* Liste cachée sur mobile — remplacée par le picker */
   .plantation-list{display:none!important}
-  .stats-mini{padding:10px 14px;gap:8px}
-  /* Carte */
-  .map-container{height:52vh!important;min-height:280px;flex-shrink:0;position:relative!important}
+  .stats-mini{padding:8px 14px;gap:8px}
+  .map-container{height:52vh!important;min-height:260px;flex-shrink:0;position:relative!important}
   #map{height:100%!important;width:100%!important}
-  /* Toolbar délimitation → barre fixe en bas */
   .boundary-toolbar{
     position:fixed!important;bottom:0!important;left:0!important;right:0!important;
     top:auto!important;transform:none!important;
-    flex-direction:row!important;flex-wrap:wrap;gap:4px;
-    justify-content:center;padding:8px 8px env(safe-area-inset-bottom,8px);
-    background:var(--surface)!important;
-    border-top:2px solid var(--accent);
-    z-index:2000!important;box-shadow:0 -2px 10px rgba(0,0,0,.1)
+    flex-direction:row!important;flex-wrap:wrap;gap:4px;justify-content:center;
+    padding:8px;background:var(--surface)!important;
+    border-top:2px solid var(--accent);z-index:2000!important;
+    box-shadow:0 -2px 10px rgba(0,0,0,.1)
   }
-  .boundary-btn{font-size:12px;padding:8px 10px;flex:1;min-width:90px;
-    justify-content:center;max-width:150px}
+  .boundary-btn{font-size:12px;padding:8px 10px;flex:1;min-width:90px;justify-content:center;max-width:150px}
   .map-panel .btn{font-size:12.5px;padding:10px}
   .map-legend{bottom:10px;right:10px;padding:8px 10px;font-size:11px}
-  .legend-title{font-size:10px}
   .boundary-info{bottom:70px!important;font-size:12px;padding:8px 14px}
 }
 </style>
@@ -346,7 +333,6 @@ initApp('map');
 setTimeout(load, 300);
 
 let map, allData = [], markers = [], currentRisk = 'all';
-let allPlantations = [];
 let boundaryModeActive = false; // Défini globalement pour focusPlantation
 const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
 const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
@@ -392,7 +378,6 @@ async function load() {
     // cnt-all = plantations effectivement visibles sur la carte (ont un diagnostic)
     document.getElementById('cnt-all').textContent = allData.length;
 
-    allPlantations = plantations;
     renderList();
     renderMarkers();
   } catch {}
@@ -498,9 +483,8 @@ function toggleBoundaryMode() {
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
     btn.style.borderColor = 'var(--accent)';
-    // Mobile : afficher le picker de plantation
     if (window.innerWidth <= 768) {
-      showMobilePlantationPicker();
+      showMobilePicker();
     } else {
       toast('Selectionnez une plantation pour delimiter ses limites.');
     }
@@ -509,38 +493,42 @@ function toggleBoundaryMode() {
     btn.style.background = '';
     btn.style.color = '';
     btn.style.borderColor = '';
-    hideMobilePlantationPicker();
+    hideMobilePicker();
     clearBoundary();
   }
 }
 
-function showMobilePlantationPicker() {
+function showMobilePicker() {
   const picker = document.getElementById('mobile-plantation-picker');
   const list = document.getElementById('picker-list');
-  const RC = {'LOW':'#52b788','MEDIUM':'#e9c46a','HIGH':'#e76f51'};
-  // Remplir la liste
-  list.innerHTML = allPlantations.length === 0
-    ? '<div style="text-align:center;padding:20px;color:var(--muted)">Aucune plantation disponible</div>'
-    : allPlantations.map(p => {
-        const color = RC[p.risk_level] || '#888';
-        return '<div class="picker-item" onclick="pickPlantationMobile(' + p.id + ')">'
-          + '<div class="picker-dot" style="background:' + color + '"></div>'
-          + '<div class="picker-name">' + (p.name || 'Plantation') + '</div>'
-          + (p.score != null ? '<div class="picker-score" style="color:' + color + '">' + Math.round(p.score) + '</div>' : '')
-          + '</div>';
-      }).join('');
+  // allData est la variable globale du fichier original
+  if (!allData || allData.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Aucune plantation avec diagnostic disponible.<br>Effectuez d'abord un diagnostic.</div>';
+  } else {
+    list.innerHTML = allData.map(function(p) {
+      var color = RC[p.risk_level] || '#888';
+      var label = RL[p.risk_level] || p.risk_level;
+      return '<div class="picker-item" onclick="pickPlantation(' + p.id + ')">'
+        + '<div class="picker-dot" style="background:' + color + '"></div>'
+        + '<div class="picker-name">' + (p.name || 'Plantation') + '</div>'
+        + (p.score != null ? '<div class="picker-score" style="color:' + color + '">' + Math.round(p.score) + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
   picker.classList.add('open');
 }
 
-function hideMobilePlantationPicker() {
-  document.getElementById('mobile-plantation-picker').classList.remove('open');
+function hideMobilePicker() {
+  var picker = document.getElementById('mobile-plantation-picker');
+  if (picker) picker.classList.remove('open');
 }
 
-function pickPlantationMobile(id) {
-  hideMobilePlantationPicker();
+function pickPlantation(id) {
+  hideMobilePicker();
   selectPlantationForBoundary(id);
-  // Scroller vers la carte
-  document.querySelector('.map-container').scrollIntoView({behavior:'smooth'});
+  setTimeout(function() {
+    document.querySelector('.map-container').scrollIntoView({behavior:'smooth'});
+  }, 200);
   focusPlantation(id);
 }
 
@@ -757,7 +745,6 @@ function updateSaveBtn(show) {
 // Les limites sont chargées à la demande quand on clique sur une plantation
 </script>
 
-  <!-- ── Sélecteur plantation mobile (mode délimitation) ── -->
   <div id="mobile-plantation-picker">
     <div class="picker-handle"></div>
     <div class="picker-title">🗺 Choisir une plantation à délimiter</div>
