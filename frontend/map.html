@@ -59,25 +59,15 @@
   .stats-mini{padding:10px 14px;gap:8px}
 
   /* Carte → hauteur fixe sur mobile */
-  .map-container{height:50vh!important;min-height:280px;flex-shrink:0;position:relative!important}
-  #map{height:100%!important;width:100%!important;position:absolute!important;top:0;left:0}
+  .map-container{height:55vh!important;min-height:300px;flex-shrink:0}
+  #map{height:100%!important}
 
-  /* Toolbar délimitation → en bas de la carte, toujours visible */
-  .boundary-toolbar{
-    position:fixed!important;bottom:0!important;left:0!important;right:0!important;
-    top:auto!important;transform:none!important;
-    flex-direction:row!important;flex-wrap:wrap;gap:4px;
-    justify-content:center;padding:8px;
-    background:var(--surface)!important;
-    border-top:1px solid var(--border);
-    z-index:2000!important;
-    box-shadow:0 -2px 10px rgba(0,0,0,.1)
-  }
-  .boundary-btn{font-size:12px;padding:8px 10px;flex:1;min-width:100px;
-    justify-content:center;max-width:160px}
-
-  /* Liste plantations → plus haute pour sélection */
-  .plantation-list{max-height:180px!important;overflow-y:auto}
+  /* Toolbar délimitation → en bas de la carte */
+  .boundary-toolbar{top:auto!important;bottom:60px!important;right:10px!important;
+    left:10px!important;flex-direction:row!important;flex-wrap:wrap;gap:6px;
+    justify-content:center}
+  .boundary-btn{font-size:12px;padding:8px 12px;flex:1;min-width:120px;
+    justify-content:center}
 
   /* Bouton délimiter → toujours visible */
   .map-panel .btn{font-size:12.5px;padding:10px}
@@ -87,11 +77,7 @@
   .legend-title{font-size:10px}
 
   /* Info GPS */
-  .boundary-info{bottom:70px!important;font-size:12px;padding:8px 14px}
-  
-  /* Panneau mobile → instruction sélection visible */
-  .map-panel-header{padding:10px 14px 8px}
-  .map-panel-title{font-size:14px;margin-bottom:6px}
+  .boundary-info{bottom:10px;font-size:12px;padding:8px 14px}
 }
 
 /* Custom marker */
@@ -166,6 +152,62 @@
 .boundary-stat{display:flex;justify-content:space-between;align-items:center;
   font-size:13px;margin-bottom:6px}
 .boundary-stat-val{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--primary)}
+
+/* ── Sélecteur plantation mobile (mode délimitation) ───────────────────── */
+#mobile-plantation-picker {
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:3000;
+  background:var(--surface);border-radius:16px 16px 0 0;
+  box-shadow:0 -4px 20px rgba(0,0,0,.15);
+  padding:0 0 env(safe-area-inset-bottom,0);
+  max-height:70vh;overflow:hidden;flex-direction:column;
+}
+#mobile-plantation-picker.open { display:flex; }
+.picker-handle {width:36px;height:4px;background:var(--border);border-radius:99px;
+  margin:10px auto 0;}
+.picker-title {font-size:14px;font-weight:700;padding:10px 16px 8px;
+  border-bottom:1px solid var(--border);color:var(--primary)}
+.picker-list {overflow-y:auto;flex:1;padding:8px 12px 16px}
+.picker-item {display:flex;align-items:center;gap:10px;padding:12px 10px;
+  border-radius:8px;cursor:pointer;border:1px solid var(--border-l);margin-bottom:6px;
+  background:var(--bg)}
+.picker-item:active {background:#f0faf5;border-color:var(--accent)}
+.picker-dot {width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.picker-name {font-size:14px;font-weight:600;flex:1}
+.picker-score {font-family:'Fraunces',serif;font-size:16px;font-weight:700}
+
+/* Mobile map layout fixes */
+@media(max-width:768px) {
+  .avp-main{overflow:auto!important;height:auto!important}
+  .map-layout{flex-direction:column;height:auto!important;overflow:visible!important}
+  .map-panel{width:100%!important;border-right:none;border-bottom:1px solid var(--border);
+    max-height:none!important;flex-shrink:0}
+  .map-panel-header{padding:10px 14px 8px}
+  .map-panel-title{font-size:14px;margin-bottom:6px}
+  .risk-filter{flex-direction:row;flex-wrap:wrap;gap:6px}
+  .rfb{padding:6px 10px;font-size:12px}
+  /* Liste cachée sur mobile — remplacée par le picker */
+  .plantation-list{display:none!important}
+  .stats-mini{padding:10px 14px;gap:8px}
+  /* Carte */
+  .map-container{height:52vh!important;min-height:280px;flex-shrink:0;position:relative!important}
+  #map{height:100%!important;width:100%!important}
+  /* Toolbar délimitation → barre fixe en bas */
+  .boundary-toolbar{
+    position:fixed!important;bottom:0!important;left:0!important;right:0!important;
+    top:auto!important;transform:none!important;
+    flex-direction:row!important;flex-wrap:wrap;gap:4px;
+    justify-content:center;padding:8px 8px env(safe-area-inset-bottom,8px);
+    background:var(--surface)!important;
+    border-top:2px solid var(--accent);
+    z-index:2000!important;box-shadow:0 -2px 10px rgba(0,0,0,.1)
+  }
+  .boundary-btn{font-size:12px;padding:8px 10px;flex:1;min-width:90px;
+    justify-content:center;max-width:150px}
+  .map-panel .btn{font-size:12.5px;padding:10px}
+  .map-legend{bottom:10px;right:10px;padding:8px 10px;font-size:11px}
+  .legend-title{font-size:10px}
+  .boundary-info{bottom:70px!important;font-size:12px;padding:8px 14px}
+}
 </style>
 </head>
 <body>
@@ -227,9 +269,6 @@
         </div>
 
         <!-- Panel délimitation -->
-        <div id="boundary-select-hint" style="display:none;padding:8px 14px;background:#f0faf5;border-top:1px solid var(--border);font-size:12.5px;color:var(--primary)">
-          👆 Appuyez sur une plantation dans la liste ci-dessus pour la sélectionner
-        </div>
         <div class="boundary-panel" id="boundary-panel" style="display:none">
           <div class="boundary-panel-title">🗺 Délimitation</div>
           <div class="boundary-stat">
@@ -307,6 +346,7 @@ initApp('map');
 setTimeout(load, 300);
 
 let map, allData = [], markers = [], currentRisk = 'all';
+let allPlantations = [];
 let boundaryModeActive = false; // Défini globalement pour focusPlantation
 const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
 const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
@@ -352,6 +392,7 @@ async function load() {
     // cnt-all = plantations effectivement visibles sur la carte (ont un diagnostic)
     document.getElementById('cnt-all').textContent = allData.length;
 
+    allPlantations = plantations;
     renderList();
     renderMarkers();
   } catch {}
@@ -452,26 +493,55 @@ function toggleBoundaryMode() {
   boundaryModeActive = !boundaryModeActive;
   const toolbar = document.getElementById('boundary-toolbar');
   const btn = document.getElementById('btn-boundary');
-  const hint = document.getElementById('boundary-select-hint');
   if (boundaryModeActive) {
     toolbar.style.display = 'flex';
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
     btn.style.borderColor = 'var(--accent)';
-    if (hint) hint.style.display = '';
-    // Sur mobile : scroller vers la liste des plantations
+    // Mobile : afficher le picker de plantation
     if (window.innerWidth <= 768) {
-      document.getElementById('plantation-list').scrollIntoView({behavior:'smooth'});
+      showMobilePlantationPicker();
+    } else {
+      toast('Selectionnez une plantation pour delimiter ses limites.');
     }
-    toast('Selectionnez une plantation dans la liste pour delimiter ses limites.');
   } else {
     toolbar.style.display = 'none';
     btn.style.background = '';
     btn.style.color = '';
     btn.style.borderColor = '';
-    if (hint) hint.style.display = 'none';
+    hideMobilePlantationPicker();
     clearBoundary();
   }
+}
+
+function showMobilePlantationPicker() {
+  const picker = document.getElementById('mobile-plantation-picker');
+  const list = document.getElementById('picker-list');
+  const RC = {'LOW':'#52b788','MEDIUM':'#e9c46a','HIGH':'#e76f51'};
+  // Remplir la liste
+  list.innerHTML = allPlantations.length === 0
+    ? '<div style="text-align:center;padding:20px;color:var(--muted)">Aucune plantation disponible</div>'
+    : allPlantations.map(p => {
+        const color = RC[p.risk_level] || '#888';
+        return '<div class="picker-item" onclick="pickPlantationMobile(' + p.id + ')">'
+          + '<div class="picker-dot" style="background:' + color + '"></div>'
+          + '<div class="picker-name">' + (p.name || 'Plantation') + '</div>'
+          + (p.score != null ? '<div class="picker-score" style="color:' + color + '">' + Math.round(p.score) + '</div>' : '')
+          + '</div>';
+      }).join('');
+  picker.classList.add('open');
+}
+
+function hideMobilePlantationPicker() {
+  document.getElementById('mobile-plantation-picker').classList.remove('open');
+}
+
+function pickPlantationMobile(id) {
+  hideMobilePlantationPicker();
+  selectPlantationForBoundary(id);
+  // Scroller vers la carte
+  document.querySelector('.map-container').scrollIntoView({behavior:'smooth'});
+  focusPlantation(id);
 }
 
 let drawnItems = new L.FeatureGroup();
@@ -484,10 +554,8 @@ let gpsPolyline = null;
 let drawMode = null; // 'manual' | 'gps'
 
 map.addLayer(drawnItems);
-
-// Force Leaflet to recalculate map size after mobile layout renders
 if (window.innerWidth <= 768) {
-  setTimeout(function() { map.invalidateSize(); }, 300);
+  setTimeout(function() { map.invalidateSize(); }, 400);
   window.addEventListener('resize', function() { map.invalidateSize(); });
 }
 
@@ -541,12 +609,6 @@ function selectPlantationForBoundary(pid) {
 
   // Feedback visuel
   toast('Plantation selectionnee. Cliquez Dessiner ou Trace GPS.');
-  const hint = document.getElementById('boundary-select-hint');
-  if (hint) hint.style.display = 'none';
-  // Sur mobile : scroller vers la carte après sélection
-  if (window.innerWidth <= 768) {
-    document.querySelector('.map-container').scrollIntoView({behavior:'smooth'});
-  }
 
   // Charger la délimitation existante si elle existe
   loadExistingBoundary(pid);
@@ -694,5 +756,12 @@ function updateSaveBtn(show) {
 
 // Les limites sont chargées à la demande quand on clique sur une plantation
 </script>
+
+  <!-- ── Sélecteur plantation mobile (mode délimitation) ── -->
+  <div id="mobile-plantation-picker">
+    <div class="picker-handle"></div>
+    <div class="picker-title">🗺 Choisir une plantation à délimiter</div>
+    <div class="picker-list" id="picker-list"></div>
+  </div>
 </body>
 </html>
