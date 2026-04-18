@@ -150,6 +150,13 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
 .reco-badge.medium{background:#fef3cd;color:#8a6000}
 .reco-badge.low{background:#d4edda;color:#155724}
 .reco-action{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* Avertissement confiance faible */
+.conf-warning{display:none;margin-top:10px;padding:10px 12px;background:#fff8e6;
+  border:1px solid #f0c97a;border-radius:8px;font-size:12.5px;color:#7a4e00;
+  line-height:1.5;gap:8px;align-items:flex-start}
+.conf-warning.show{display:flex}
+.conf-warning-icon{font-size:16px;flex-shrink:0;margin-top:1px}
 </style>
 </head>
 <body>
@@ -341,7 +348,7 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
       <div id="tab-image" style="display:none">
         <div class="beta-banner">
           <span class="beta-badge">Beta</span>
-          <div class="beta-text"><strong>Modèle ML actif</strong> — La détection repose sur EfficientNet-B0 entraîné sur données cacao réelles (81.56% de précision). Les résultats sont indicatifs et ne remplacent pas un diagnostic terrain.</div>
+          <div class="beta-text"><strong>Module en développement</strong> — La détection de maladies foliaires repose actuellement sur un modèle de démonstration. Les résultats sont indicatifs et ne remplacent pas un diagnostic terrain. Un modèle ML entraîné sera intégré dans une prochaine version.</div>
         </div>
         <div class="diag-layout">
           <div>
@@ -423,6 +430,14 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
                 <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
                   <span style="font-size:13px;color:var(--muted)">Sévérité :</span>
                   <span id="img-sev"></span>
+                </div>
+                <div class="conf-warning" id="conf-warning">
+                  <span class="conf-warning-icon">⚠️</span>
+                  <div>
+                    <strong>Confiance faible</strong> — Ce résultat est incertain. 
+                    Vérifiez visuellement sur le terrain avant toute intervention. 
+                    Une confiance supérieure à 80% est recommandée pour agir.
+                  </div>
                 </div>
                 <!-- Feedback ML -->
                 <div class="feedback-box" id="feedback-box" style="display:none">
@@ -702,6 +717,16 @@ function showImageResult(d) {
   document.getElementById('img-conf-bar').style.width = conf + '%';
   document.getElementById('img-rec').textContent = d.recommendation || '—';
   document.getElementById('img-sev').innerHTML = riskBadge(d.severity || 'MEDIUM');
+
+  // Avertissement si confiance < 80%
+  const warning = document.getElementById('conf-warning');
+  if (warning) {
+    if (conf < 80) {
+      warning.classList.add('show');
+    } else {
+      warning.classList.remove('show');
+    }
+  }
 
   // Stocker pour le feedback
   _lastAnalysis = {
