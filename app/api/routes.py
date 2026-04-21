@@ -27,6 +27,7 @@ class PlantationCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     hectares: Optional[float] = None
+    plant_count: Optional[int] = None
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ def create_plantation(
         latitude=plantation.latitude,
         longitude=plantation.longitude,
         hectares=plantation.hectares,
+        plant_count=plantation.plant_count,
         cooperative_id=current_user.cooperative_id,  # toujours rattachée
     )
     db.add(new_plantation)
@@ -459,6 +461,54 @@ async def diagnostic_image(
     # Quand le vrai modèle ML sera intégré, un type de diagnostic dédié sera créé.
 
     return diagnosis_result
+
+
+
+@router.put("/plantations/{plantation_id}/plants")
+def update_plant_count(
+    plantation_id: int,
+    plant_count: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Met à jour le nombre de plants d'une plantation. Admin/agronome."""
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(status_code=403, detail="Droits insuffisants.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    if plant_count < 0:
+        raise HTTPException(status_code=400, detail="Le nombre de plants doit être positif.")
+
+    plantation.plant_count = plant_count
+    db.commit()
+
+    # Calculer la densité et le statut
+    result = {"plant_count": plant_count, "plantation_id": plantation_id}
+    if plantation.hectares and plantation.hectares > 0:
+        density = round(plant_count / plantation.hectares)
+        result["density_per_ha"] = density
+        if density < 800:
+            result["alert"] = f"Densité insuffisante ({density} pieds/ha). Minimum recommandé : 800 pieds/ha. Replantation conseillée."
+            result["alert_level"] = "warning"
+        elif density > 1200:
+            result["alert"] = f"Densité élevée ({density} pieds/ha). Éclaircissage possible pour améliorer la qualité."
+            result["alert_level"] = "info"
+        else:
+            result["alert"] = f"Densité optimale ({density} pieds/ha). Objectif CCC atteint."
+            result["alert_level"] = "success"
+
+        # Potentiel de production (rendement moyen CI : 400-600 kg/ha)
+        prod_min = round(plant_count * 0.4)   # 400g/plant
+        prod_max = round(plant_count * 0.6)   # 600g/plant
+        result["production_potential_kg"] = f"{prod_min:,} - {prod_max:,} kg"
+
+    return result
 
 
 # ─── Satellite NDVI ───────────────────────────────────────────────────────────

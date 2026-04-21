@@ -121,6 +121,29 @@
 .ai-score-label{font-size:12px;color:rgba(255,255,255,.55)}
 .ai-score-val{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#52b788}
 .ai-error{color:rgba(255,150,120,.9);font-size:13px;padding:10px;background:rgba(255,100,80,.1);border-radius:6px;margin-top:8px}
+
+/* Potentiel de production */
+.prod-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px 20px;margin-bottom:16px}
+.prod-card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.prod-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.prod-metric{text-align:center;padding:12px 8px;background:var(--bg);border-radius:8px;
+  border:1px solid var(--border-l)}
+.prod-val{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--primary);
+  line-height:1.1;margin-bottom:3px}
+.prod-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.prod-alert{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12.5px;
+  display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.prod-alert.warning{background:#fff8e6;border:1px solid #f0c97a;color:#7a4e00}
+.prod-alert.success{background:#f0faf5;border:1px solid #b7e4c7;color:#1a6b3a}
+.prod-alert.info{background:#eef4ff;border:1px solid #c3d5f5;color:#1e3a5f}
+.plant-edit{display:flex;align-items:center;gap:8px;margin-top:10px}
+.plant-input{width:120px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+  font-size:13px;text-align:center}
+.plant-save{padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.plant-save:hover{background:#40916c}
 </style>
 </head>
 <body>
@@ -224,6 +247,20 @@ async function load() {
             </div>
           </div>
           <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">grass</span></div>
+            <div>
+              <div class="meta-label">Plants de cacao</div>
+              <div class="meta-value" id="plant-count-display">${plantation.plant_count != null ? plantation.plant_count.toLocaleString() + ' plants' : '—'}</div>
+              ${currentUserRole === 'admin' || currentUserRole === 'agronomist' ? \`
+              <div class="plant-edit">
+                <input type="number" class="plant-input" id="plant-count-input"
+                  placeholder="Nb plants" min="0"
+                  value="\${plantation.plant_count || ''}">
+                <button class="plant-save" onclick="savePlantCount()">Enregistrer</button>
+              </div>\` : ''}
+            </div>
+          </div>
+          <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">my_location</span></div>
             <div>
               <div class="meta-label">Coordonnées GPS</div>
@@ -316,6 +353,30 @@ async function load() {
           </div>
         </div>` : ''}
         ${history.length >= 1 ? `
+        \${plantation.plant_count != null && plantation.plant_count > 0 ? \`
+        <div class="prod-card">
+          <div class="prod-card-title">🌱 Potentiel de production</div>
+          <div class="prod-grid">
+            <div class="prod-metric">
+              <div class="prod-val">\${plantation.plant_count.toLocaleString()}</div>
+              <div class="prod-lbl">Plants</div>
+            </div>
+            <div class="prod-metric">
+              <div class="prod-val">\${plantation.hectares ? Math.round(plantation.plant_count / plantation.hectares).toLocaleString() : '—'}</div>
+              <div class="prod-lbl">Pieds/ha</div>
+            </div>
+            <div class="prod-metric">
+              <div class="prod-val">\${plantation.plant_count ? Math.round(plantation.plant_count * 0.5 / 1000) + ' t' : '—'}</div>
+              <div class="prod-lbl">Potentiel/an</div>
+            </div>
+          </div>
+          \${plantation.hectares ? (() => {
+            const density = Math.round(plantation.plant_count / plantation.hectares);
+            if (density < 800) return \`<div class="prod-alert warning">⚠️ Densité insuffisante (\${density} pieds/ha). Minimum recommandé : 800 pieds/ha (norme CCC). Replantation conseillée.</div>\`;
+            if (density > 1200) return \`<div class="prod-alert info">ℹ️ Densité élevée (\${density} pieds/ha). Éclaircissage possible pour améliorer qualité des cabosses.</div>\`;
+            return \`<div class="prod-alert success">✅ Densité optimale (\${density} pieds/ha). Conforme aux normes CCC (800-1 111 pieds/ha).</div>\`;
+          })() : ''}
+        </div>\` : ''}
         <div class="chart-card">
           <div class="chart-header">
             <span class="chart-title">Évolution du score</span>
@@ -381,66 +442,7 @@ async function load() {
     `;
 
 
-    // ── Conseil IA ────────────────────────────────────────────────────────
-    async function loadAIAdvice() {
-      var btn = document.getElementById('ai-btn');
-      var spinner = document.getElementById('ai-spinner');
-      var btnTxt = document.getElementById('ai-btn-txt');
-      var result = document.getElementById('ai-result');
-      btn.disabled = true;
-      spinner.style.display = 'block';
-      btnTxt.textContent = 'Analyse en cours...';
-      result.style.display = 'none';
-      try {
-        var r = await authFetch('/plantations/' + pid + '/ai-advice', { method: 'POST' });
-        if (!r || !r.ok) throw new Error('Erreur serveur');
-        var d = await r.json();
-        if (d.error) {
-          result.innerHTML = '<div class="ai-error">' + esc(d.error) + '</div>';
-          result.style.display = '';
-          return;
-        }
-        var html = '';
-        if (d.resume) html += '<div class="ai-resume">' + esc(d.resume) + '</div>';
-        if (d.points_forts && d.points_forts.length) {
-          html += '<div class="ai-section-title">Points forts</div><div class="ai-tags">';
-          d.points_forts.forEach(function(p) { html += '<span class="ai-tag">' + esc(p) + '</span>'; });
-          html += '</div>';
-        }
-        if (d.risques_prioritaires && d.risques_prioritaires.length) {
-          html += '<div class="ai-section-title">Risques prioritaires</div><div class="ai-tags">';
-          d.risques_prioritaires.forEach(function(rr) { html += '<span class="ai-tag risk">' + esc(rr) + '</span>'; });
-          html += '</div>';
-        }
-        if (d.actions && d.actions.length) {
-          html += '<div class="ai-section-title">Actions recommandees</div><div class="ai-actions">';
-          d.actions.forEach(function(a) {
-            var dot = a.priorite === 'urgent' ? 'urgent' : (a.priorite === 'important' ? 'important' : 'conseil');
-            html += '<div class="ai-action"><div class="ai-action-dot ' + dot + '"></div><div class="ai-action-body">';
-            html += '<div class="ai-action-title">' + esc(a.titre) + '</div>';
-            html += '<div class="ai-action-detail">' + esc(a.detail) + '</div>';
-            if (a.impact) html += '<div class="ai-action-impact">' + esc(a.impact) + '</div>';
-            html += '</div></div>';
-          });
-          html += '</div>';
-        }
-        if (d.perspective_eudr) {
-          html += '<div class="ai-section-title">Conformite EUDR</div><div class="ai-eudr">' + esc(d.perspective_eudr) + '</div>';
-        }
-        if (d.score_potentiel) {
-          html += '<div class="ai-score-row"><span class="ai-score-label">Score potentiel estime</span><span class="ai-score-val">' + d.score_potentiel + '/100</span></div>';
-        }
-        result.innerHTML = html;
-        result.style.display = '';
-      } catch(e) {
-        result.innerHTML = '<div class="ai-error">Analyse indisponible. Reessayez dans quelques instants.</div>';
-        result.style.display = '';
-      } finally {
-        btn.disabled = false;
-        spinner.style.display = 'none';
-        btnTxt.textContent = "Relancer l'analyse";
-      }
-    }
+    // loadAIAdvice chargee depuis ai-advice.js (evite le cache SW)
 
     // Draw chart if enough data
     if (history.length >= 1) {
@@ -477,6 +479,24 @@ async function load() {
 }
 
 const riskLabels = { LOW: 'Risque faible', MEDIUM: 'Risque moyen', HIGH: 'Risque élevé' };
+
+async function savePlantCount() {
+  const input = document.getElementById('plant-count-input');
+  const display = document.getElementById('plant-count-display');
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0) { toast('Nombre de plants invalide.', 'error'); return; }
+  try {
+    const r = await authFetch('/plantations/' + pid + '/plants?plant_count=' + val, { method: 'PUT' });
+    if (!r?.ok) throw new Error('Erreur serveur');
+    const data = await r.json();
+    display.textContent = val.toLocaleString() + ' plants';
+    toast('Nombre de plants enregistré.');
+    // Recharger pour mettre à jour le potentiel
+    setTimeout(() => location.reload(), 800);
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  }
+}
 function goDiag() { location.href = `diagnostic.html?id=${pid}`; }
 function goSat()  { location.href = `satellite.html?id=${pid}`; }
 function goAgro() { location.href = `agroforestry.html?id=${pid}`; }
@@ -484,5 +504,6 @@ function esc(s)   { const el=document.createElement('div'); el.textContent=s||''
 
 load();
 </script>
+<script src="ai-advice.js"></script>
 </body>
 </html>
