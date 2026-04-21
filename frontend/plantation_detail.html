@@ -250,14 +250,13 @@ async function load() {
             <div class="meta-icon"><span class="material-symbols-outlined ms">grass</span></div>
             <div>
               <div class="meta-label">Plants de cacao</div>
-              <div class="meta-value" id="plant-count-display">${plantation.plant_count != null ? plantation.plant_count.toLocaleString() + ' plants' : '—'}</div>
-              ${currentUserRole === 'admin' || currentUserRole === 'agronomist' ? \`
-              <div class="plant-edit">
+              <div class="meta-value" id="plant-count-display">${plantation.plant_count != null ? plantation.plant_count.toLocaleString() + " plants" : "—"}</div>
+              <div class="plant-edit" id="plant-edit-block" style="display:none">
                 <input type="number" class="plant-input" id="plant-count-input"
                   placeholder="Nb plants" min="0"
-                  value="\${plantation.plant_count || ''}">
+                  value="${plantation.plant_count || ""}">
                 <button class="plant-save" onclick="savePlantCount()">Enregistrer</button>
-              </div>\` : ''}
+              </div>
             </div>
           </div>
           <div class="meta-row">
@@ -443,6 +442,15 @@ async function load() {
 
 
     // loadAIAdvice chargee depuis ai-advice.js (evite le cache SW)
+
+    // Afficher le bloc edition plants si admin/agronome
+    const plantEdit = document.getElementById('plant-edit-block');
+    if (plantEdit) {
+      const role = localStorage.getItem('avp_role') || '';
+      if (role === 'admin' || role === 'agronomist') {
+        plantEdit.style.display = 'flex';
+      }
+    }
 
     // Draw chart if enough data
     if (history.length >= 1) {
