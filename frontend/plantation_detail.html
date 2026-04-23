@@ -471,7 +471,8 @@ async function load() {
     }
 
     // Afficher edition plants si admin/agronome
-    const role = localStorage.getItem("avp_role") || "";
+    const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+    const role = u && u.role ? u.role : "";
     if (role === "admin" || role === "agronomist") {
       const edit = document.getElementById("plant-edit-block");
       if (edit) edit.style.display = "flex";
