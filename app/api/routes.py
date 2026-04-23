@@ -27,6 +27,7 @@ class PlantationCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     hectares: Optional[float] = None
+    plant_count: Optional[int] = None
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ def create_plantation(
         latitude=plantation.latitude,
         longitude=plantation.longitude,
         hectares=plantation.hectares,
+        plant_count=plantation.plant_count,
         cooperative_id=current_user.cooperative_id,  # toujours rattachée
     )
     db.add(new_plantation)
@@ -768,6 +770,49 @@ def get_species_library(current_user: User = Depends(get_current_user)):
     return SPECIES_LIBRARY
 
 
+
+
+@router.put("/plantations/{plantation_id}/plants")
+def update_plant_count(
+    plantation_id: int,
+    plant_count: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Met a jour le nombre de plants d'une plantation."""
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(status_code=403, detail="Droits insuffisants.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    if plant_count < 0:
+        raise HTTPException(status_code=400, detail="Nombre de plants invalide.")
+
+    plantation.plant_count = plant_count
+    db.commit()
+
+    result = {"plant_count": plant_count, "plantation_id": plantation_id}
+    if plantation.hectares and plantation.hectares > 0:
+        density = round(plant_count / plantation.hectares)
+        result["density_per_ha"] = density
+        if density < 800:
+            result["alert_level"] = "warning"
+            result["alert"] = f"Densite insuffisante ({density} pieds/ha). Minimum CCC : 800 pieds/ha."
+        elif density > 1200:
+            result["alert_level"] = "info"
+            result["alert"] = f"Densite elevee ({density} pieds/ha). Eclaircissage possible."
+        else:
+            result["alert_level"] = "success"
+            result["alert"] = f"Densite optimale ({density} pieds/ha). Conforme CCC."
+        result["production_min_kg"] = round(plant_count * 0.4)
+        result["production_max_kg"] = round(plant_count * 0.6)
+    return result
+
+
 @router.get("/plantations/{plantation_id}/agroforestry")
 def get_agroforestry(
     plantation_id: int,
@@ -1229,7 +1274,7 @@ async def plantation_ai_advice(
     plantation_dict = {
         "id": plantation.id, "name": plantation.name,
         "owner_name": plantation.owner_name, "country": plantation.country,
-        "region": plantation.region, "hectares": plantation.hectares,
+        "region": plantation.region, "hectares": plantation.hectares, "plant_count": plantation.plant_count,
     }
     diag_dict = {
         "global_score": latest_diag.global_score,

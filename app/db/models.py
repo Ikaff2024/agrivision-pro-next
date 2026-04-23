@@ -42,6 +42,7 @@ class Plantation(Base):
     latitude       = Column(Float, nullable=True)
     longitude      = Column(Float, nullable=True)
     hectares       = Column(Float, nullable=True)
+    plant_count    = Column(Integer, nullable=True)
     cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 

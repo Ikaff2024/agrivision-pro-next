@@ -121,6 +121,22 @@
 .ai-score-label{font-size:12px;color:rgba(255,255,255,.55)}
 .ai-score-val{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#52b788}
 .ai-error{color:rgba(255,150,120,.9);font-size:13px;padding:10px;background:rgba(255,100,80,.1);border-radius:6px;margin-top:8px}
+
+/* Potentiel de production */
+.prod-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:16px}
+.prod-card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.prod-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.prod-metric{text-align:center;padding:12px 8px;background:var(--bg);border-radius:8px;border:1px solid var(--border-l)}
+.prod-val{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--primary);line-height:1.1;margin-bottom:3px}
+.prod-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.prod-alert{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12.5px;line-height:1.5}
+.prod-alert.warning{background:#fff8e6;border:1px solid #f0c97a;color:#7a4e00}
+.prod-alert.success{background:#f0faf5;border:1px solid #b7e4c7;color:#1a6b3a}
+.prod-alert.info{background:#eef4ff;border:1px solid #c3d5f5;color:#1e3a5f}
+.plant-edit{display:flex;align-items:center;gap:8px;margin-top:10px}
+.plant-input{width:120px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center}
+.plant-save{padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer}
+.plant-save:hover{background:#40916c}
 </style>
 </head>
 <body>
@@ -224,6 +240,17 @@ async function load() {
             </div>
           </div>
           <div class="meta-row">
+            <div class="meta-icon"><span class="material-symbols-outlined ms">grass</span></div>
+            <div style="flex:1">
+              <div class="meta-label">Plants de cacao</div>
+              <div class="meta-value" id="plant-count-display">${plantation.plant_count != null ? plantation.plant_count.toLocaleString() + " plants" : "Non renseigne"}</div>
+              <div class="plant-edit" id="plant-edit-block" style="display:none">
+                <input type="number" class="plant-input" id="plant-count-input" placeholder="Nb plants" min="0" value="${plantation.plant_count || ""}">
+                <button class="plant-save" onclick="savePlantCount()">Enregistrer</button>
+              </div>
+            </div>
+          </div>
+          <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">my_location</span></div>
             <div>
               <div class="meta-label">Coordonnées GPS</div>
@@ -263,6 +290,7 @@ async function load() {
 
       <!-- Right column -->
       <div>
+        <div id="prod-container"></div>
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
@@ -442,6 +470,16 @@ async function load() {
       }
     }
 
+    // Afficher edition plants si admin/agronome
+    const role = localStorage.getItem("avp_role") || "";
+    if (role === "admin" || role === "agronomist") {
+      const edit = document.getElementById("plant-edit-block");
+      if (edit) edit.style.display = "flex";
+    }
+
+    // Carte potentiel de production (si plant_count renseigne)
+    renderProductionCard(plantation);
+
     // Draw chart if enough data
     if (history.length >= 1) {
       const sorted = [...history].reverse();
@@ -477,6 +515,55 @@ async function load() {
 }
 
 const riskLabels = { LOW: 'Risque faible', MEDIUM: 'Risque moyen', HIGH: 'Risque élevé' };
+function renderProductionCard(p) {
+  const container = document.getElementById("prod-container");
+  if (!container || p.plant_count == null || p.plant_count <= 0) return;
+
+  const pc = p.plant_count;
+  const density = (p.hectares && p.hectares > 0) ? Math.round(pc / p.hectares) : null;
+  const prodMinKg = Math.round(pc * 0.4);
+  const prodMaxKg = Math.round(pc * 0.6);
+  const prodAvgT = ((prodMinKg + prodMaxKg) / 2 / 1000).toFixed(1);
+
+  let alertHtml = "";
+  if (density !== null) {
+    if (density < 800) {
+      alertHtml = '<div class="prod-alert warning">&#9888; Densite insuffisante (' + density + ' pieds/ha). Minimum recommande : 800 pieds/ha (norme CCC). Replantation conseillee.</div>';
+    } else if (density > 1200) {
+      alertHtml = '<div class="prod-alert info">&#8505; Densite elevee (' + density + ' pieds/ha). Eclaircissage possible pour ameliorer la qualite des cabosses.</div>';
+    } else {
+      alertHtml = '<div class="prod-alert success">&#10003; Densite optimale (' + density + ' pieds/ha). Conforme aux normes CCC (800-1111 pieds/ha).</div>';
+    }
+  }
+
+  container.innerHTML =
+    '<div class="prod-card">' +
+      '<div class="prod-card-title">&#127793; Potentiel de production</div>' +
+      '<div class="prod-grid">' +
+        '<div class="prod-metric"><div class="prod-val">' + pc.toLocaleString() + '</div><div class="prod-lbl">Plants</div></div>' +
+        '<div class="prod-metric"><div class="prod-val">' + (density !== null ? density.toLocaleString() : "—") + '</div><div class="prod-lbl">Pieds/ha</div></div>' +
+        '<div class="prod-metric"><div class="prod-val">' + prodAvgT + ' t</div><div class="prod-lbl">Potentiel/an</div></div>' +
+      '</div>' +
+      alertHtml +
+    '</div>';
+}
+
+async function savePlantCount() {
+  const input = document.getElementById("plant-count-input");
+  const display = document.getElementById("plant-count-display");
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0) { toast("Nombre de plants invalide.", "error"); return; }
+  try {
+    const r = await authFetch("/plantations/" + pid + "/plants?plant_count=" + val, { method: "PUT" });
+    if (!r || !r.ok) throw new Error("Erreur serveur");
+    display.textContent = val.toLocaleString() + " plants";
+    toast("Nombre de plants enregistre.");
+    setTimeout(() => location.reload(), 700);
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
 function goDiag() { location.href = `diagnostic.html?id=${pid}`; }
 function goSat()  { location.href = `satellite.html?id=${pid}`; }
 function goAgro() { location.href = `agroforestry.html?id=${pid}`; }
