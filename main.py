@@ -43,10 +43,13 @@ async def lifespan(app: FastAPI):
                 conn.execute(text(
                     "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL"
                 ))
+                conn.execute(text(
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
+                ))
                 conn.commit()
-                logger.info("Migration is_active : OK")
+                logger.info("Migrations colonnes : OK (is_active, plant_count)")
     except Exception as e:
-        logger.warning("Migration is_active (ignorée si déjà présente) : %s", e)
+        logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
 
     yield  # l'application tourne ici
