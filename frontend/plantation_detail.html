@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgriVision Pro — Détail plantation</title>
+<title>AgriVision Pro â€” DÃ©tail plantation</title>
 <script src="auth.js"></script>
+<script src="ai-advice.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 .back-link{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;
@@ -18,7 +19,7 @@
 .info-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
   overflow:hidden;box-shadow:var(--sh)}
 .info-card-hero{background:var(--primary);padding:28px 24px;position:relative;overflow:hidden}
-.info-card-hero::after{content:'🌱';position:absolute;right:20px;bottom:10px;
+.info-card-hero::after{content:'ðŸŒ±';position:absolute;right:20px;bottom:10px;
   font-size:72px;opacity:.08;line-height:1}
 .info-name{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#fff;
   letter-spacing:-.3px;margin-bottom:4px}
@@ -146,7 +147,7 @@
 
     <div class="avp-header">
       <div>
-        <div class="page-title" id="page-title">Chargement…</div>
+        <div class="page-title" id="page-title">Chargementâ€¦</div>
         <div class="page-sub" id="page-sub"></div>
       </div>
       <button class="btn btn-primary" id="diag-btn" onclick="goDiag()" style="display:none">
@@ -162,7 +163,7 @@
       </div>
 
       <div class="detail-grid" id="detail-grid">
-        <div style="text-align:center;padding:60px;color:var(--muted)" id="loading">Chargement…</div>
+        <div style="text-align:center;padding:60px;color:var(--muted)" id="loading">Chargementâ€¦</div>
       </div>
     </div>
   </div>
@@ -189,7 +190,7 @@ async function load() {
     const agroData = r3?.ok ? await r3.json() : null;
 
     document.getElementById('page-title').textContent = plantation.name;
-    document.getElementById('page-sub').textContent = `${plantation.region||''} · ${plantation.country}`;
+    document.getElementById('page-sub').textContent = `${plantation.region||''} Â· ${plantation.country}`;
     document.getElementById('diag-btn').style.display = '';
 
     const latestDiag = diagnostics.sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0];
@@ -222,21 +223,21 @@ async function load() {
               <div class="info-risk-lbl">${riskLabels[risk]||risk}</div>
               <div class="info-risk-sub">Dernier diagnostic</div>
             </div>
-          </div>` : '<div style="color:rgba(255,255,255,.5);font-size:13px;margin-top:12px">Aucun diagnostic réalisé</div>'}
+          </div>` : '<div style="color:rgba(255,255,255,.5);font-size:13px;margin-top:12px">Aucun diagnostic rÃ©alisÃ©</div>'}
         </div>
         <div class="info-meta">
           <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">location_on</span></div>
             <div>
               <div class="meta-label">Localisation</div>
-              <div class="meta-value">${esc(plantation.region||'—')}, ${esc(plantation.country)}</div>
+              <div class="meta-value">${esc(plantation.region||'â€”')}, ${esc(plantation.country)}</div>
             </div>
           </div>
           <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">landscape</span></div>
             <div>
               <div class="meta-label">Superficie</div>
-              <div class="meta-value">${plantation.hectares != null ? plantation.hectares + ' hectares' : '—'}</div>
+              <div class="meta-value">${plantation.hectares != null ? plantation.hectares + ' hectares' : 'â€”'}</div>
             </div>
           </div>
           <div class="meta-row">
@@ -253,22 +254,22 @@ async function load() {
           <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">my_location</span></div>
             <div>
-              <div class="meta-label">Coordonnées GPS</div>
-              <div class="meta-value">${plantation.latitude != null ? `${plantation.latitude.toFixed(4)}, ${plantation.longitude.toFixed(4)}` : '—'}</div>
+              <div class="meta-label">CoordonnÃ©es GPS</div>
+              <div class="meta-value">${plantation.latitude != null ? `${plantation.latitude.toFixed(4)}, ${plantation.longitude.toFixed(4)}` : 'â€”'}</div>
             </div>
           </div>
           <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">history</span></div>
             <div>
-              <div class="meta-label">Diagnostics réalisés</div>
+              <div class="meta-label">Diagnostics rÃ©alisÃ©s</div>
               <div class="meta-value">${diagnostics.length}</div>
             </div>
           </div>
           <div class="meta-row">
             <div class="meta-icon"><span class="material-symbols-outlined ms">calendar_today</span></div>
             <div>
-              <div class="meta-label">Dernière analyse</div>
-              <div class="meta-value">${latestDiag ? fmtDate(latestDiag.created_at) : '—'}</div>
+              <div class="meta-label">DerniÃ¨re analyse</div>
+              <div class="meta-value">${latestDiag ? fmtDate(latestDiag.created_at) : 'â€”'}</div>
             </div>
           </div>
         </div>
@@ -294,9 +295,9 @@ async function load() {
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
-            <span>🌳 Agroforesterie</span>
+            <span>ðŸŒ³ Agroforesterie</span>
             <a href="agroforestry.html?id=${pid}" style="font-size:12.5px;color:var(--accent);font-weight:600">
-              Gérer l'inventaire →
+              GÃ©rer l'inventaire â†’
             </a>
           </div>
           <div class="agro-metrics">
@@ -304,7 +305,7 @@ async function load() {
               <div class="agro-metric-val" style="color:${agroData.metrics.conformity_score>=65?'#1a6b3a':agroData.metrics.conformity_score>=35?'#9a6200':'#922b21'}">
                 ${agroData.metrics.conformity_score}
               </div>
-              <div class="agro-metric-lbl">Conformité</div>
+              <div class="agro-metric-lbl">ConformitÃ©</div>
             </div>
             <div class="agro-metric">
               <div class="agro-metric-val" style="color:#1a6b3a">${agroData.metrics.shade_score}</div>
@@ -312,7 +313,7 @@ async function load() {
             </div>
             <div class="agro-metric">
               <div class="agro-metric-val">${agroData.metrics.carbon_stock_tco2_ha}</div>
-              <div class="agro-metric-lbl">tCO₂/ha</div>
+              <div class="agro-metric-lbl">tCOâ‚‚/ha</div>
             </div>
             <div class="agro-metric">
               <div class="agro-metric-val">${agroData.metrics.total_trees_per_ha}</div>
@@ -320,13 +321,13 @@ async function load() {
             </div>
           </div>
           <div class="agro-species-list">
-            ${agroData.records.map(r => '<span class="agro-pill">🌿 ' + esc(r.species_name) + ' (' + r.count_per_hectare + '/ha)</span>').join('')}
+            ${agroData.records.map(r => '<span class="agro-pill">ðŸŒ¿ ' + esc(r.species_name) + ' (' + r.count_per_hectare + '/ha)</span>').join('')}
           </div>
         </div>` : ''}
         ${recommendations.length > 0 ? `
         <div class="rec-panel">
           <div class="rec-panel-title">
-            <span>💡</span> Recommandations
+            <span>ðŸ’¡</span> Recommandations
           </div>
           <div class="rec-list">
             ${recommendations.map(r => `
@@ -346,7 +347,7 @@ async function load() {
         ${history.length >= 1 ? `
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">Évolution du score</span>
+            <span class="chart-title">Ã‰volution du score</span>
             <span class="badge badge-${risk?.toLowerCase()==='low'?'low':risk?.toLowerCase()==='high'?'high':'medium'}">${history.length} mesures</span>
           </div>
           <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
@@ -358,7 +359,7 @@ async function load() {
           </div>
           ${diagnostics.length === 0 ? `
           <div class="empty-state">
-            <div class="empty-icon">🔬</div>
+            <div class="empty-icon">ðŸ”¬</div>
             <div style="font-size:14px;font-weight:600;margin-bottom:6px">Aucun diagnostic</div>
             <div style="font-size:13px">Lancez le premier diagnostic pour cette plantation.</div>
           </div>` : `
@@ -369,7 +370,7 @@ async function load() {
                   <th>Date</th>
                   <th>Score</th>
                   <th>Risque</th>
-                  <th>Humidité</th>
+                  <th>HumiditÃ©</th>
                   <th>Pluie</th>
                   <th>Temp.</th>
                 </tr>
@@ -387,9 +388,9 @@ async function load() {
                     </div>
                   </td>
                   <td>${riskBadge(d.global_risk_level)}</td>
-                  <td style="color:var(--muted)">${d.humidity_pct != null ? d.humidity_pct + '%' : '—'}</td>
-                  <td style="color:var(--muted)">${d.rainfall_mm_month != null ? d.rainfall_mm_month + ' mm' : '—'}</td>
-                  <td style="color:var(--muted)">${d.avg_temp_c != null ? d.avg_temp_c + '°C' : '—'}</td>
+                  <td style="color:var(--muted)">${d.humidity_pct != null ? d.humidity_pct + '%' : 'â€”'}</td>
+                  <td style="color:var(--muted)">${d.rainfall_mm_month != null ? d.rainfall_mm_month + ' mm' : 'â€”'}</td>
+                  <td style="color:var(--muted)">${d.avg_temp_c != null ? d.avg_temp_c + 'Â°C' : 'â€”'}</td>
                 </tr>`).join('')}
               </tbody>
             </table>
@@ -402,73 +403,13 @@ async function load() {
               <span id="ai-btn-txt">Analyser cette plantation</span>
             </button>
           </div>
-          <div style="font-size:12.5px;color:rgba(255,255,255,.5)">Analyse IA complete — diagnostic, agroforesterie et conformite EUDR.</div>
+          <div style="font-size:12.5px;color:rgba(255,255,255,.5)">Analyse IA complete â€” diagnostic, agroforesterie et conformite EUDR.</div>
           <div class="ai-result" id="ai-result"></div>
         </div>
       </div>
     `;
 
 
-    // ── Conseil IA ────────────────────────────────────────────────────────
-    async function loadAIAdvice() {
-      var btn = document.getElementById('ai-btn');
-      var spinner = document.getElementById('ai-spinner');
-      var btnTxt = document.getElementById('ai-btn-txt');
-      var result = document.getElementById('ai-result');
-      btn.disabled = true;
-      spinner.style.display = 'block';
-      btnTxt.textContent = 'Analyse en cours...';
-      result.style.display = 'none';
-      try {
-        var r = await authFetch('/plantations/' + pid + '/ai-advice', { method: 'POST' });
-        if (!r || !r.ok) throw new Error('Erreur serveur');
-        var d = await r.json();
-        if (d.error) {
-          result.innerHTML = '<div class="ai-error">' + esc(d.error) + '</div>';
-          result.style.display = '';
-          return;
-        }
-        var html = '';
-        if (d.resume) html += '<div class="ai-resume">' + esc(d.resume) + '</div>';
-        if (d.points_forts && d.points_forts.length) {
-          html += '<div class="ai-section-title">Points forts</div><div class="ai-tags">';
-          d.points_forts.forEach(function(p) { html += '<span class="ai-tag">' + esc(p) + '</span>'; });
-          html += '</div>';
-        }
-        if (d.risques_prioritaires && d.risques_prioritaires.length) {
-          html += '<div class="ai-section-title">Risques prioritaires</div><div class="ai-tags">';
-          d.risques_prioritaires.forEach(function(rr) { html += '<span class="ai-tag risk">' + esc(rr) + '</span>'; });
-          html += '</div>';
-        }
-        if (d.actions && d.actions.length) {
-          html += '<div class="ai-section-title">Actions recommandees</div><div class="ai-actions">';
-          d.actions.forEach(function(a) {
-            var dot = a.priorite === 'urgent' ? 'urgent' : (a.priorite === 'important' ? 'important' : 'conseil');
-            html += '<div class="ai-action"><div class="ai-action-dot ' + dot + '"></div><div class="ai-action-body">';
-            html += '<div class="ai-action-title">' + esc(a.titre) + '</div>';
-            html += '<div class="ai-action-detail">' + esc(a.detail) + '</div>';
-            if (a.impact) html += '<div class="ai-action-impact">' + esc(a.impact) + '</div>';
-            html += '</div></div>';
-          });
-          html += '</div>';
-        }
-        if (d.perspective_eudr) {
-          html += '<div class="ai-section-title">Conformite EUDR</div><div class="ai-eudr">' + esc(d.perspective_eudr) + '</div>';
-        }
-        if (d.score_potentiel) {
-          html += '<div class="ai-score-row"><span class="ai-score-label">Score potentiel estime</span><span class="ai-score-val">' + d.score_potentiel + '/100</span></div>';
-        }
-        result.innerHTML = html;
-        result.style.display = '';
-      } catch(e) {
-        result.innerHTML = '<div class="ai-error">Analyse indisponible. Reessayez dans quelques instants.</div>';
-        result.style.display = '';
-      } finally {
-        btn.disabled = false;
-        spinner.style.display = 'none';
-        btnTxt.textContent = "Relancer l'analyse";
-      }
-    }
 
     // Afficher edition plants si admin/agronome
     const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
@@ -515,7 +456,7 @@ async function load() {
   } catch(e) { console.error(e); }
 }
 
-const riskLabels = { LOW: 'Risque faible', MEDIUM: 'Risque moyen', HIGH: 'Risque élevé' };
+const riskLabels = { LOW: 'Risque faible', MEDIUM: 'Risque moyen', HIGH: 'Risque Ã©levÃ©' };
 function renderProductionCard(p) {
   const container = document.getElementById("prod-container");
   if (!container || p.plant_count == null || p.plant_count <= 0) return;
@@ -542,7 +483,7 @@ function renderProductionCard(p) {
       '<div class="prod-card-title">&#127793; Potentiel de production</div>' +
       '<div class="prod-grid">' +
         '<div class="prod-metric"><div class="prod-val">' + pc.toLocaleString() + '</div><div class="prod-lbl">Plants</div></div>' +
-        '<div class="prod-metric"><div class="prod-val">' + (density !== null ? density.toLocaleString() : "—") + '</div><div class="prod-lbl">Pieds/ha</div></div>' +
+        '<div class="prod-metric"><div class="prod-val">' + (density !== null ? density.toLocaleString() : "â€”") + '</div><div class="prod-lbl">Pieds/ha</div></div>' +
         '<div class="prod-metric"><div class="prod-val">' + prodAvgT + ' t</div><div class="prod-lbl">Potentiel/an</div></div>' +
       '</div>' +
       alertHtml +
