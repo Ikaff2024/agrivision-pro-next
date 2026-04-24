@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
+﻿from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -50,6 +50,7 @@ class Plantation(Base):
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
+    harvests     = relationship("Harvest", back_populates="plantation", cascade="all, delete-orphan")
 
 
 class Diagnostic(Base):
@@ -72,13 +73,13 @@ class Diagnostic(Base):
 
 
 class PlantationBoundary(Base):
-    """Délimitation géographique d'une plantation (polygone GeoJSON)."""
+    """DÃ©limitation gÃ©ographique d'une plantation (polygone GeoJSON)."""
     __tablename__ = "plantation_boundaries"
 
     id             = Column(Integer, primary_key=True, index=True)
     plantation_id  = Column(Integer, ForeignKey("plantations.id"), nullable=False, unique=True)
     geojson        = Column(Text, nullable=False)          # GeoJSON string du polygone
-    area_hectares  = Column(Float, nullable=True)          # Superficie calculée
+    area_hectares  = Column(Float, nullable=True)          # Superficie calculÃ©e
     points_count   = Column(Integer, nullable=True)        # Nombre de points du polygone
     method         = Column(String, default="manual")      # "manual" | "gps_track"
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
@@ -96,3 +97,27 @@ class AgroforestryRecord(Base):
     count_per_hectare = Column(Float, nullable=True)
 
     plantation = relationship("Plantation", back_populates="agro_records")
+
+
+class Harvest(Base):
+    """
+    Recolte enregistree pour une plantation.
+    Permet de constituer l'historique de production et de croiser
+    avec les diagnostics agronomiques pour mesurer l'impact reel.
+    """
+    __tablename__ = "harvests"
+
+    id                 = Column(Integer, primary_key=True, index=True)
+    plantation_id      = Column(Integer, ForeignKey("plantations.id"), nullable=False, index=True)
+    harvest_date       = Column(DateTime(timezone=True), nullable=False, index=True)
+    quantity_kg        = Column(Float, nullable=False)
+    quality            = Column(String, nullable=False)
+    price_per_kg_fcfa  = Column(Float, nullable=True)
+    season             = Column(String, nullable=True)
+    notes              = Column(Text, nullable=True)
+    is_historical      = Column(Boolean, default=False, nullable=False)
+    created_at         = Column(DateTime(timezone=True), server_default=func.now())
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    plantation = relationship("Plantation", back_populates="harvests")
+    created_by = relationship("User")

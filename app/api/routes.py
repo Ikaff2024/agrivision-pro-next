@@ -1,4 +1,4 @@
-import os
+﻿import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -10,7 +10,7 @@ from app.cacao_engine.engine import run_engine
 from app.cacao_engine.inputs import CacaoInputs
 from app.cacao_engine.outputs import EngineReport
 from app.db.database import get_db
-from app.db.models import Diagnostic, Plantation, User
+from app.db.models import Diagnostic, Plantation, User, Harvest
 from app.auth.auth_service import get_current_user
 from app.ml.image_diagnosis import analyze_leaf_image
 from app.satellite.ndvi_service import get_ndvi
@@ -30,14 +30,14 @@ class PlantationCreate(BaseModel):
     plant_count: Optional[int] = None
 
 
-# ─── Health ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/health")
 def health_check():
     return {"status": "ok"}
 
 
-# ─── Plantations ─────────────────────────────────────────────────────────────
+# â”€â”€â”€ Plantations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/plantations")
 def create_plantation(
@@ -51,7 +51,7 @@ def create_plantation(
     if not current_user.cooperative_id:
         raise HTTPException(
             status_code=400,
-            detail="Votre compte n'est associé à aucune coopérative.",
+            detail="Votre compte n'est associÃ© Ã  aucune coopÃ©rative.",
         )
 
     new_plantation = Plantation(
@@ -63,7 +63,7 @@ def create_plantation(
         longitude=plantation.longitude,
         hectares=plantation.hectares,
         plant_count=plantation.plant_count,
-        cooperative_id=current_user.cooperative_id,  # toujours rattachée
+        cooperative_id=current_user.cooperative_id,  # toujours rattachÃ©e
     )
     db.add(new_plantation)
     db.commit()
@@ -115,7 +115,7 @@ def delete_plantation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Supprime une plantation et ses diagnostics associés. Admin uniquement."""
+    """Supprime une plantation et ses diagnostics associÃ©s. Admin uniquement."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
 
@@ -126,14 +126,14 @@ def delete_plantation(
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    # Supprimer les diagnostics associés d'abord
+    # Supprimer les diagnostics associÃ©s d'abord
     db.query(Diagnostic).filter(Diagnostic.plantation_id == plantation_id).delete()
     db.delete(plantation)
     db.commit()
 
-    return {"message": f"Plantation '{plantation.name}' supprimée avec succès."}
+    return {"message": f"Plantation '{plantation.name}' supprimÃ©e avec succÃ¨s."}
 
-# ─── Diagnostic agronomique ───────────────────────────────────────────────────
+# â”€â”€â”€ Diagnostic agronomique â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/cacao/diagnostic", response_model=None)
 def diagnostic_endpoint(
@@ -143,7 +143,7 @@ def diagnostic_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role not in {"admin", "agronomist"}:
-        raise HTTPException(status_code=403, detail="Rôle agronome requis.")
+        raise HTTPException(status_code=403, detail="RÃ´le agronome requis.")
 
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
@@ -152,7 +152,7 @@ def diagnostic_endpoint(
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    # ── Couche 2 Agroforesterie : substituer l'ombrage si inventaire disponible ──
+    # â”€â”€ Couche 2 Agroforesterie : substituer l'ombrage si inventaire disponible â”€â”€
     agro_records = db.query(AgroforestryRecord).filter(
         AgroforestryRecord.plantation_id == plantation_id
     ).all()
@@ -200,7 +200,7 @@ def diagnostic_endpoint(
     db.add(new_diagnostic)
     db.commit()
     db.refresh(new_diagnostic)
-    # Générer les recommandations actionnables
+    # GÃ©nÃ©rer les recommandations actionnables
     rec_list = build_recommendations(
         module_results=[
             {"module_name": m.module_name, "score": m.score, "reasons": m.reasons}
@@ -244,7 +244,7 @@ def get_diagnostic_recommendations(
     if not diag:
         raise HTTPException(status_code=404, detail="Diagnostic introuvable.")
 
-    # Recalculer les recs depuis les données stockées
+    # Recalculer les recs depuis les donnÃ©es stockÃ©es
     rec_list = build_recommendations(
         module_results=[],  # pas de module_results en DB, on utilise les inputs
         inputs={
@@ -259,7 +259,7 @@ def get_diagnostic_recommendations(
     )
     return rec_list
 
-# ─── Historique diagnostics ───────────────────────────────────────────────────
+# â”€â”€â”€ Historique diagnostics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/diagnostics")
 def get_diagnostics(
@@ -330,16 +330,16 @@ def get_plantation_history(
     ]
 
 
-# ─── Carte ────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Carte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _latest_diag_by_plantation(plantation_ids: list, db: Session) -> dict:
     """
-    Retourne le dernier diagnostic de chaque plantation en UNE SEULE requête.
-    Évite le problème N+1 (1 requête par plantation en boucle).
+    Retourne le dernier diagnostic de chaque plantation en UNE SEULE requÃªte.
+    Ã‰vite le problÃ¨me N+1 (1 requÃªte par plantation en boucle).
     """
     if not plantation_ids:
         return {}
-    # Sous-requête : date max du dernier diagnostic par plantation
+    # Sous-requÃªte : date max du dernier diagnostic par plantation
     subq = (
         db.query(
             Diagnostic.plantation_id,
@@ -349,7 +349,7 @@ def _latest_diag_by_plantation(plantation_ids: list, db: Session) -> dict:
         .group_by(Diagnostic.plantation_id)
         .subquery()
     )
-    # Jointure pour récupérer les lignes complètes
+    # Jointure pour rÃ©cupÃ©rer les lignes complÃ¨tes
     latest_diags = (
         db.query(Diagnostic)
         .join(
@@ -422,7 +422,7 @@ def get_map_stats(
     }
 
 
-# ─── Image / ML ──────────────────────────────────────────────────────────────
+# â”€â”€â”€ Image / ML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/diagnostic/image")
 async def diagnostic_image(
@@ -432,9 +432,9 @@ async def diagnostic_image(
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role not in {"admin", "technician"}:
-        raise HTTPException(status_code=403, detail="Rôle technicien requis.")
+        raise HTTPException(status_code=403, detail="RÃ´le technicien requis.")
 
-    # Vérifier la plantation avant de traiter l'image
+    # VÃ©rifier la plantation avant de traiter l'image
     if plantation_id is not None:
         plantation = db.query(Plantation).filter(
             Plantation.id == plantation_id,
@@ -443,12 +443,12 @@ async def diagnostic_image(
         if not plantation:
             raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    # Lecture en mémoire — pas d'écriture disque (filesystem éphémère sur Railway)
+    # Lecture en mÃ©moire â€” pas d'Ã©criture disque (filesystem Ã©phÃ©mÃ¨re sur Railway)
     contents = await file.read()
 
-    # Exécution du module ML (stub pour l'instant)
-    # NOTE : le stub ignore le contenu — on lui passe le nom de fichier pour
-    # compatibilité avec la signature existante de analyze_leaf_image.
+    # ExÃ©cution du module ML (stub pour l'instant)
+    # NOTE : le stub ignore le contenu â€” on lui passe le nom de fichier pour
+    # compatibilitÃ© avec la signature existante de analyze_leaf_image.
     import tempfile
     with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
         tmp.write(contents)
@@ -456,14 +456,14 @@ async def diagnostic_image(
         diagnosis_result = analyze_leaf_image(tmp.name)
 
     # On ne persiste PAS les diagnostics image en DB :
-    # ils n'ont pas de données climatiques réelles (humidity, rainfall, temp)
+    # ils n'ont pas de donnÃ©es climatiques rÃ©elles (humidity, rainfall, temp)
     # et corrupraient les statistiques agronomiques du dashboard.
-    # Quand le vrai modèle ML sera intégré, un type de diagnostic dédié sera créé.
+    # Quand le vrai modÃ¨le ML sera intÃ©grÃ©, un type de diagnostic dÃ©diÃ© sera crÃ©Ã©.
 
     return diagnosis_result
 
 
-# ─── Satellite NDVI ───────────────────────────────────────────────────────────
+# â”€â”€â”€ Satellite NDVI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/satellite/ndvi")
 def get_ndvi_endpoint(
@@ -490,7 +490,7 @@ def get_plantation_satellite_analysis(
     if plantation.latitude is None or plantation.longitude is None:
         raise HTTPException(
             status_code=400,
-            detail="Coordonnées GPS manquantes pour cette plantation.",
+            detail="CoordonnÃ©es GPS manquantes pour cette plantation.",
         )
 
     ndvi_result = get_ndvi(plantation.latitude, plantation.longitude)
@@ -501,7 +501,7 @@ def get_plantation_satellite_analysis(
     }
 
 
-# ─── Admin — Gestion des membres ─────────────────────────────────────────────
+# â”€â”€â”€ Admin â€” Gestion des membres â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class UpdateRoleRequest(BaseModel):
     role: str  # "admin" | "agronomist" | "technician"
@@ -514,7 +514,7 @@ def get_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Liste tous les membres de la coopérative. Admin uniquement."""
+    """Liste tous les membres de la coopÃ©rative. Admin uniquement."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
 
@@ -544,18 +544,18 @@ def update_member_role(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Change le rôle d'un membre. Admin uniquement. Un admin ne peut pas dégrader son propre rôle."""
+    """Change le rÃ´le d'un membre. Admin uniquement. Un admin ne peut pas dÃ©grader son propre rÃ´le."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
 
     if req.role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail=f"Rôle invalide : {req.role}.")
+        raise HTTPException(status_code=400, detail=f"RÃ´le invalide : {req.role}.")
 
-    # Empêcher l'admin de se dégrader lui-même (évite de perdre le dernier admin)
+    # EmpÃªcher l'admin de se dÃ©grader lui-mÃªme (Ã©vite de perdre le dernier admin)
     if user_id == current_user.id and req.role != "admin":
         raise HTTPException(
             status_code=400,
-            detail="Vous ne pouvez pas modifier votre propre rôle.",
+            detail="Vous ne pouvez pas modifier votre propre rÃ´le.",
         )
 
     member = db.query(User).filter(
@@ -577,7 +577,7 @@ def remove_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Supprime un membre de la coopérative. Admin uniquement. Ne peut pas se supprimer soi-même."""
+    """Supprime un membre de la coopÃ©rative. Admin uniquement. Ne peut pas se supprimer soi-mÃªme."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
 
@@ -596,25 +596,25 @@ def remove_member(
 
     db.delete(member)
     db.commit()
-    return {"message": f"Membre {member.email} supprimé avec succès."}
+    return {"message": f"Membre {member.email} supprimÃ© avec succÃ¨s."}
 
 
-# ════════════════════════════════════════════════════════════════
-# ─── Agroforesterie ──────────────────────────────────────────────────────────
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ Agroforesterie â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 from app.db.models import AgroforestryRecord, Cooperative, PlantationBoundary
 from app.ai_advisor import get_ai_advice
 
-# ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
-# carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
-# shade_factor  : contribution à l'ombrage par arbre (arbres/ha → % ombrage)
+# â”€â”€ BibliothÃ¨que d'espÃ¨ces â€” coefficients agronomiques & carbone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# carbon_factor : tCOâ‚‚ stockÃ©e par arbre par an (allomÃ©trie simplifiÃ©e FAO/IPCC)
+# shade_factor  : contribution Ã  l'ombrage par arbre (arbres/ha â†’ % ombrage)
 SPECIES_LIBRARY = [
-    # Légumineuses fixatrices d'azote (ombrage rapide)
-    {"name":"Gliricidia sepium",    "local":"Gliricidi",    "layer":"intermediate", "carbon_factor":0.012, "shade_factor":0.8,  "category":"Légumineuse"},
-    {"name":"Leucaena leucocephala","local":"Leucéna",      "layer":"intermediate", "carbon_factor":0.010, "shade_factor":0.7,  "category":"Légumineuse"},
-    {"name":"Erythrina spp.",       "local":"Érythrine",    "layer":"superior",     "carbon_factor":0.018, "shade_factor":0.9,  "category":"Légumineuse"},
-    {"name":"Albizzia adianthifolia","local":"Albizzia",    "layer":"superior",     "carbon_factor":0.025, "shade_factor":1.0,  "category":"Légumineuse"},
+    # LÃ©gumineuses fixatrices d'azote (ombrage rapide)
+    {"name":"Gliricidia sepium",    "local":"Gliricidi",    "layer":"intermediate", "carbon_factor":0.012, "shade_factor":0.8,  "category":"LÃ©gumineuse"},
+    {"name":"Leucaena leucocephala","local":"LeucÃ©na",      "layer":"intermediate", "carbon_factor":0.010, "shade_factor":0.7,  "category":"LÃ©gumineuse"},
+    {"name":"Erythrina spp.",       "local":"Ã‰rythrine",    "layer":"superior",     "carbon_factor":0.018, "shade_factor":0.9,  "category":"LÃ©gumineuse"},
+    {"name":"Albizzia adianthifolia","local":"Albizzia",    "layer":"superior",     "carbon_factor":0.025, "shade_factor":1.0,  "category":"LÃ©gumineuse"},
     # Fruitiers
     {"name":"Musa spp.",            "local":"Bananier",     "layer":"understory",   "carbon_factor":0.004, "shade_factor":0.4,  "category":"Fruitier"},
     {"name":"Persea americana",     "local":"Avocatier",    "layer":"intermediate", "carbon_factor":0.015, "shade_factor":0.8,  "category":"Fruitier"},
@@ -625,22 +625,22 @@ SPECIES_LIBRARY = [
     {"name":"Carica papaya",        "local":"Papayer",      "layer":"understory",   "carbon_factor":0.003, "shade_factor":0.3,  "category":"Fruitier"},
     # Timber / bois d'oeuvre
     {"name":"Milicia excelsa",      "local":"Iroko",        "layer":"superior",     "carbon_factor":0.045, "shade_factor":1.0,  "category":"Timber"},
-    {"name":"Terminalia superba",   "local":"Fraké",        "layer":"superior",     "carbon_factor":0.038, "shade_factor":1.0,  "category":"Timber"},
+    {"name":"Terminalia superba",   "local":"FrakÃ©",        "layer":"superior",     "carbon_factor":0.038, "shade_factor":1.0,  "category":"Timber"},
     {"name":"Ceiba pentandra",      "local":"Fromager",     "layer":"superior",     "carbon_factor":0.042, "shade_factor":1.0,  "category":"Timber"},
     {"name":"Khaya senegalensis",   "local":"Khaya",        "layer":"superior",     "carbon_factor":0.040, "shade_factor":1.0,  "category":"Timber"},
     # Palmiers / divers
-    {"name":"Elaeis guineensis",    "local":"Palmier à huile","layer":"superior",   "carbon_factor":0.020, "shade_factor":0.85, "category":"Divers"},
+    {"name":"Elaeis guineensis",    "local":"Palmier Ã  huile","layer":"superior",   "carbon_factor":0.020, "shade_factor":0.85, "category":"Divers"},
     {"name":"Cocos nucifera",       "local":"Cocotier",     "layer":"superior",     "carbon_factor":0.018, "shade_factor":0.8,  "category":"Divers"},
     {"name":"Tectona grandis",      "local":"Teck",         "layer":"superior",     "carbon_factor":0.035, "shade_factor":0.9,  "category":"Timber"},
 ]
 
 def _compute_metrics(records) -> dict:
     """
-    Calcule les métriques agroforestières à partir des enregistrements.
-    - shade_score      : % d'ombrage estimé (0-100)
-    - diversity_score  : score de diversité floristique (0-100)
-    - carbon_stock_tco2_ha : stock carbone estimé (tCO₂/ha)
-    - conformity_score : score global de conformité agroforestière (0-100)
+    Calcule les mÃ©triques agroforestiÃ¨res Ã  partir des enregistrements.
+    - shade_score      : % d'ombrage estimÃ© (0-100)
+    - diversity_score  : score de diversitÃ© floristique (0-100)
+    - carbon_stock_tco2_ha : stock carbone estimÃ© (tCOâ‚‚/ha)
+    - conformity_score : score global de conformitÃ© agroforestiÃ¨re (0-100)
     """
     if not records:
         return {
@@ -658,32 +658,32 @@ def _compute_metrics(records) -> dict:
 
     for r in records:
         density = r.count_per_hectare or 0
-        age = 5  # défaut fixe (avg_age_years non en base)
+        age = 5  # dÃ©faut fixe (avg_age_years non en base)
         total_trees += density
         species_seen.add(r.species_name)
 
         lib = species_lib.get(r.species_name)
-        cf = lib["carbon_factor"] if lib else 0.010   # défaut générique
+        cf = lib["carbon_factor"] if lib else 0.010   # dÃ©faut gÃ©nÃ©rique
         sf = lib["shade_factor"]  if lib else 0.6
 
-        # Facteur âge : croît jusqu'à 2.0 à 30 ans (log)
+        # Facteur Ã¢ge : croÃ®t jusqu'Ã  2.0 Ã  30 ans (log)
         import math
         age_factor = min(2.0, 0.4 + (math.log1p(age) / math.log1p(30)) * 1.6)
 
         shade_sum  += density * sf
         carbon_sum += density * cf * age_factor
 
-    # Ombrage : 40 arbres/ha de plein couvert = 100% ombrage (règle empirique cacao)
+    # Ombrage : 40 arbres/ha de plein couvert = 100% ombrage (rÃ¨gle empirique cacao)
     shade_score = min(100, round(shade_sum / 40 * 100))
 
-    # Diversité : 1 espèce = 10pts, chaque espèce suppl. +12pts, plafonné 100
+    # DiversitÃ© : 1 espÃ¨ce = 10pts, chaque espÃ¨ce suppl. +12pts, plafonnÃ© 100
     species_count = len(species_seen)
     diversity_score = min(100, 10 + (species_count - 1) * 12) if species_count else 0
 
-    # Carbone : plafonné à 5 tCO₂/ha (valeur réaliste pour agroforesterie cacao)
+    # Carbone : plafonnÃ© Ã  5 tCOâ‚‚/ha (valeur rÃ©aliste pour agroforesterie cacao)
     carbon_score = min(100, round(carbon_sum / 5 * 100))
 
-    # Conformité globale : ombrage 40% + diversité 30% + carbone 30%
+    # ConformitÃ© globale : ombrage 40% + diversitÃ© 30% + carbone 30%
     conformity_score = round(shade_score * 0.4 + diversity_score * 0.3 + carbon_score * 0.3)
 
     return {
@@ -709,46 +709,46 @@ def _build_recommendations(metrics: dict, records: list) -> list:
 
     # Ombrage
     if shade == 0:
-        recos.append({"priority":"high","icon":"🌳","title":"Aucun arbre d'ombrage enregistré",
-            "action":"Planter en urgence des arbres d'ombrage a croissance rapide : Gliricidia sepium ou Musa spp. (Bananier) — objectif minimum 20 arbres/ha."})
+        recos.append({"priority":"high","icon":"ðŸŒ³","title":"Aucun arbre d'ombrage enregistrÃ©",
+            "action":"Planter en urgence des arbres d'ombrage a croissance rapide : Gliricidia sepium ou Musa spp. (Bananier) â€” objectif minimum 20 arbres/ha."})
     elif shade < 35:
-        recos.append({"priority":"high","icon":"🌿","title":"Ombrage insuffisant — stress thermique possible",
+        recos.append({"priority":"high","icon":"ðŸŒ¿","title":"Ombrage insuffisant â€” stress thermique possible",
             "action":f"Densite actuelle : {trees} arbres/ha. Planter 15 a 20 arbres/ha supplementaires de Gliricidia ou Erythrina pour atteindre l'optimal (20-50%)."})
     elif shade > 75:
-        recos.append({"priority":"medium","icon":"✂️","title":"Ombrage excessif — risque fongique",
+        recos.append({"priority":"medium","icon":"âœ‚ï¸","title":"Ombrage excessif â€” risque fongique",
             "action":"Canopee trop dense (> 75%). Elaguer les arbres d'ombrage pour ameliorer la circulation d'air et reduire les risques de pourriture des cabosses."})
     else:
-        recos.append({"priority":"low","icon":"✅","title":"Ombrage optimal",
+        recos.append({"priority":"low","icon":"âœ…","title":"Ombrage optimal",
             "action":"Densite d'ombrage dans la plage ideale (20-75%). Maintenir les pratiques actuelles."})
 
     # Diversite
     if sp_count == 1:
-        recos.append({"priority":"medium","icon":"🌱","title":"Diversite floristique faible — 1 seule espece",
+        recos.append({"priority":"medium","icon":"ðŸŒ±","title":"Diversite floristique faible â€” 1 seule espece",
             "action":"Introduire 2 a 3 especes complementaires. Recommandations : Persea americana (Avocatier) pour les revenus + Gliricidia sepium pour la fixation d'azote."})
     elif sp_count == 2:
-        recos.append({"priority":"low","icon":"🌿","title":"Diversite a ameliorer",
+        recos.append({"priority":"low","icon":"ðŸŒ¿","title":"Diversite a ameliorer",
             "action":"Objectif : 3 especes minimum pour la conformite EUDR. Ajouter une espece de strate superieure (Iroko, Manguier) pour ameliorer le score carbone."})
     elif sp_count >= 3:
-        recos.append({"priority":"low","icon":"✅","title":"Bonne diversite floristique",
+        recos.append({"priority":"low","icon":"âœ…","title":"Bonne diversite floristique",
             "action":f"{sp_count} especes enregistrees. Continuer a diversifier avec des essences a fort potentiel carbone pour renforcer la certification."})
 
     # Carbone
     if 0 < carbon < 20:
-        recos.append({"priority":"medium","icon":"🌍","title":"Stock carbone tres faible",
+        recos.append({"priority":"medium","icon":"ðŸŒ","title":"Stock carbone tres faible",
             "action":"Planter des essences a fort potentiel carbone : Milicia excelsa (Iroko), Ceiba pentandra (Fromager), Khaya senegalensis. Objectif : 1 tCO2/ha minimum."})
     elif carbon < 50:
-        recos.append({"priority":"low","icon":"📈","title":"Stock carbone en developpement",
+        recos.append({"priority":"low","icon":"ðŸ“ˆ","title":"Stock carbone en developpement",
             "action":"Augmenter la densite d'arbres a longue duree de vie (Iroko, Frake, Khaya) pour accelerer la sequestration carbone et acceder aux financements climatiques."})
 
     # Conformite globale
     if conf < 35:
-        recos.append({"priority":"high","icon":"⚠️","title":"Non conforme aux standards EUDR",
+        recos.append({"priority":"high","icon":"âš ï¸","title":"Non conforme aux standards EUDR",
             "action":"Score de conformite critique. Votre plantation ne repond pas encore aux exigences EUDR. Appliquer en priorite les recommandations ombrage et diversite."})
     elif conf < 65:
-        recos.append({"priority":"medium","icon":"📋","title":"Conformite partielle — ameliorations necessaires",
+        recos.append({"priority":"medium","icon":"ðŸ“‹","title":"Conformite partielle â€” ameliorations necessaires",
             "action":"Des progres ont ete faits mais des ajustements sont requis. Concentrez-vous sur le point ayant le score le plus faible."})
     else:
-        recos.append({"priority":"low","icon":"🏆","title":"Plantation conforme aux standards agroforestiers",
+        recos.append({"priority":"low","icon":"ðŸ†","title":"Plantation conforme aux standards agroforestiers",
             "action":"Excellent niveau de conformite. Cette plantation peut etre presentee aux acheteurs et certifications EUDR/Rainforest Alliance."})
 
     priority_order = {"high": 0, "medium": 1, "low": 2}
@@ -766,7 +766,7 @@ class AgroforestryCreate(BaseModel):
 
 @router.get("/species-library")
 def get_species_library(current_user: User = Depends(get_current_user)):
-    """Retourne la bibliothèque des espèces agroforestières."""
+    """Retourne la bibliothÃ¨que des espÃ¨ces agroforestiÃ¨res."""
     return SPECIES_LIBRARY
 
 
@@ -819,7 +819,7 @@ def get_agroforestry(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Retourne l'inventaire agroforestier d'une plantation + métriques calculées."""
+    """Retourne l'inventaire agroforestier d'une plantation + mÃ©triques calculÃ©es."""
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
         Plantation.cooperative_id == current_user.cooperative_id,
@@ -858,9 +858,9 @@ def add_agroforestry_record(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ajoute une espèce à l'inventaire agroforestier d'une plantation."""
+    """Ajoute une espÃ¨ce Ã  l'inventaire agroforestier d'une plantation."""
     if current_user.role not in {"admin", "agronomist"}:
-        raise HTTPException(status_code=403, detail="Rôle agronome requis.")
+        raise HTTPException(status_code=403, detail="RÃ´le agronome requis.")
 
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
@@ -877,7 +877,7 @@ def add_agroforestry_record(
     db.add(record)
     db.commit()
     db.refresh(record)
-    return {"id": record.id, "message": "Espèce ajoutée avec succès."}
+    return {"id": record.id, "message": "EspÃ¨ce ajoutÃ©e avec succÃ¨s."}
 
 
 @router.delete("/agroforestry/{record_id}", status_code=200)
@@ -888,7 +888,7 @@ def delete_agroforestry_record(
 ):
     """Supprime un enregistrement agroforestier. Admin uniquement."""
     if current_user.role not in {"admin", "agronomist"}:
-        raise HTTPException(status_code=403, detail="Rôle agronome requis.")
+        raise HTTPException(status_code=403, detail="RÃ´le agronome requis.")
 
     record = db.query(AgroforestryRecord).join(Plantation).filter(
         AgroforestryRecord.id == record_id,
@@ -899,7 +899,7 @@ def delete_agroforestry_record(
 
     db.delete(record)
     db.commit()
-    return {"message": "Enregistrement supprimé."}
+    return {"message": "Enregistrement supprimÃ©."}
 
 
 @router.get("/agroforestry/summary")
@@ -908,8 +908,8 @@ def get_agroforestry_summary(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Bilan agroforestier global de la coopérative.
-    Retourne le stock carbone agrégé et les scores moyens.
+    Bilan agroforestier global de la coopÃ©rative.
+    Retourne le stock carbone agrÃ©gÃ© et les scores moyens.
     """
     plantations = db.query(Plantation).filter(
         Plantation.cooperative_id == current_user.cooperative_id
@@ -952,9 +952,9 @@ def get_agroforestry_summary(
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ─── Suspension — Niveau 1 (Admin coopérative) ──────────────────────────────
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ Suspension â€” Niveau 1 (Admin coopÃ©rative) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.put("/admin/members/{user_id}/suspend")
 def suspend_member(
@@ -962,7 +962,7 @@ def suspend_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Suspend un membre de la coopérative. Admin uniquement."""
+    """Suspend un membre de la coopÃ©rative. Admin uniquement."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
     if user_id == current_user.id:
@@ -975,7 +975,7 @@ def suspend_member(
     if not member:
         raise HTTPException(status_code=404, detail="Membre introuvable.")
     if not member.is_active:
-        raise HTTPException(status_code=400, detail="Ce membre est déjà suspendu.")
+        raise HTTPException(status_code=400, detail="Ce membre est dÃ©jÃ  suspendu.")
 
     member.is_active = False
     db.commit()
@@ -988,7 +988,7 @@ def activate_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Réactive un membre suspendu. Admin uniquement."""
+    """RÃ©active un membre suspendu. Admin uniquement."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis.")
 
@@ -999,26 +999,26 @@ def activate_member(
     if not member:
         raise HTTPException(status_code=404, detail="Membre introuvable.")
     if member.is_active:
-        raise HTTPException(status_code=400, detail="Ce membre est déjà actif.")
+        raise HTTPException(status_code=400, detail="Ce membre est dÃ©jÃ  actif.")
 
     member.is_active = True
     db.commit()
-    return {"message": f"Compte {member.email} réactivé.", "user_id": member.id, "is_active": True}
+    return {"message": f"Compte {member.email} rÃ©activÃ©.", "user_id": member.id, "is_active": True}
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ─── Suspension — Niveau 2 (IKAFFANAN LTD — propriétaire plateforme) ────────
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ Suspension â€” Niveau 2 (IKAFFANAN LTD â€” propriÃ©taire plateforme) â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 from fastapi import Header
 
 def _check_owner_key(x_owner_key: Optional[str] = Header(None)):
-    """Vérifie la clé propriétaire IKAFFANAN LTD."""
+    """VÃ©rifie la clÃ© propriÃ©taire IKAFFANAN LTD."""
     owner_key = os.getenv("OWNER_API_KEY")
     if not owner_key:
-        raise HTTPException(status_code=503, detail="OWNER_API_KEY non configurée sur le serveur.")
+        raise HTTPException(status_code=503, detail="OWNER_API_KEY non configurÃ©e sur le serveur.")
     if x_owner_key != owner_key:
-        raise HTTPException(status_code=401, detail="Clé propriétaire invalide.")
+        raise HTTPException(status_code=401, detail="ClÃ© propriÃ©taire invalide.")
 
 
 @router.get("/owner/cooperatives")
@@ -1026,7 +1026,7 @@ def list_cooperatives(
     db: Session = Depends(get_db),
     x_owner_key: Optional[str] = Header(None),
 ):
-    """Liste toutes les coopératives. Réservé IKAFFANAN LTD."""
+    """Liste toutes les coopÃ©ratives. RÃ©servÃ© IKAFFANAN LTD."""
     _check_owner_key(x_owner_key)
     coops = db.query(Cooperative).order_by(Cooperative.created_at.desc()).all()
     return [
@@ -1048,16 +1048,16 @@ def suspend_cooperative(
     db: Session = Depends(get_db),
     x_owner_key: Optional[str] = Header(None),
 ):
-    """Suspend une coopérative entière. Réservé IKAFFANAN LTD."""
+    """Suspend une coopÃ©rative entiÃ¨re. RÃ©servÃ© IKAFFANAN LTD."""
     _check_owner_key(x_owner_key)
     coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
     if not coop:
-        raise HTTPException(status_code=404, detail="Coopérative introuvable.")
+        raise HTTPException(status_code=404, detail="CoopÃ©rative introuvable.")
     if not coop.is_active:
-        raise HTTPException(status_code=400, detail="Coopérative déjà suspendue.")
+        raise HTTPException(status_code=400, detail="CoopÃ©rative dÃ©jÃ  suspendue.")
     coop.is_active = False
     db.commit()
-    return {"message": f"Coopérative '{coop.name}' suspendue.", "coop_id": coop.id, "is_active": False}
+    return {"message": f"CoopÃ©rative '{coop.name}' suspendue.", "coop_id": coop.id, "is_active": False}
 
 
 @router.put("/owner/cooperatives/{coop_id}/activate")
@@ -1066,21 +1066,21 @@ def activate_cooperative(
     db: Session = Depends(get_db),
     x_owner_key: Optional[str] = Header(None),
 ):
-    """Réactive une coopérative suspendue. Réservé IKAFFANAN LTD."""
+    """RÃ©active une coopÃ©rative suspendue. RÃ©servÃ© IKAFFANAN LTD."""
     _check_owner_key(x_owner_key)
     coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
     if not coop:
-        raise HTTPException(status_code=404, detail="Coopérative introuvable.")
+        raise HTTPException(status_code=404, detail="CoopÃ©rative introuvable.")
     if coop.is_active:
-        raise HTTPException(status_code=400, detail="Coopérative déjà active.")
+        raise HTTPException(status_code=400, detail="CoopÃ©rative dÃ©jÃ  active.")
     coop.is_active = True
     db.commit()
-    return {"message": f"Coopérative '{coop.name}' réactivée.", "coop_id": coop.id, "is_active": True}
+    return {"message": f"CoopÃ©rative '{coop.name}' rÃ©activÃ©e.", "coop_id": coop.id, "is_active": True}
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ─── Dashboard Propriétaire — Statistiques globales IKAFFANAN LTD ───────────
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ Dashboard PropriÃ©taire â€” Statistiques globales IKAFFANAN LTD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.get("/owner/stats")
 def owner_stats(
@@ -1112,7 +1112,7 @@ def owner_stats(
         Diagnostic.created_at >= seven_days_ago
     ).count()
 
-    # Coopératives sans activite depuis 30j
+    # CoopÃ©ratives sans activite depuis 30j
     active_coop_ids = db.query(Diagnostic.plantation_id).join(
         Plantation, Diagnostic.plantation_id == Plantation.id
     ).filter(
@@ -1233,9 +1233,9 @@ def reset_member_password(
     }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ─── Conseil IA Agronome ────────────────────────────────────────────────────
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ Conseil IA Agronome â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.post("/plantations/{plantation_id}/ai-advice")
 async def plantation_ai_advice(
@@ -1244,8 +1244,8 @@ async def plantation_ai_advice(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Génère un conseil agronomique IA complet pour une plantation.
-    Agrège : diagnostic, agroforesterie, boundary → appel Claude API.
+    GÃ©nÃ¨re un conseil agronomique IA complet pour une plantation.
+    AgrÃ¨ge : diagnostic, agroforesterie, boundary â†’ appel Claude API.
     """
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
@@ -1298,9 +1298,9 @@ async def plantation_ai_advice(
     return result
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ─── Délimitation de parcelles ──────────────────────────────────────────────
-# ════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# â”€â”€â”€ DÃ©limitation de parcelles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 import json as json_module
 import math as math_module
@@ -1308,14 +1308,14 @@ import math as math_module
 def _calculate_area_hectares(coordinates: list) -> float:
     """
     Calcule la superficie d'un polygone en hectares via la formule de Shoelace
-    adaptée aux coordonnées géographiques (approximation sphérique).
-    Précision suffisante pour des parcelles < 100 ha.
+    adaptÃ©e aux coordonnÃ©es gÃ©ographiques (approximation sphÃ©rique).
+    PrÃ©cision suffisante pour des parcelles < 100 ha.
     """
     if not coordinates or len(coordinates) < 3:
         return 0.0
     
-    # Facteur de conversion : 1 degré ≈ 111 320 mètres à l'équateur
-    R = 6371000  # rayon de la Terre en mètres
+    # Facteur de conversion : 1 degrÃ© â‰ˆ 111 320 mÃ¨tres Ã  l'Ã©quateur
+    R = 6371000  # rayon de la Terre en mÃ¨tres
     
     def to_rad(deg):
         return deg * math_module.pi / 180
@@ -1331,7 +1331,7 @@ def _calculate_area_hectares(coordinates: list) -> float:
         area += (lng2 - lng1) * (2 + math_module.sin(lat1) + math_module.sin(lat2))
     
     area = abs(area) * R * R / 2
-    return round(area / 10000, 4)  # m² → hectares
+    return round(area / 10000, 4)  # mÂ² â†’ hectares
 
 
 class BoundaryCreate(BaseModel):
@@ -1346,7 +1346,7 @@ def save_boundary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Sauvegarde ou met à jour les limites d'une plantation."""
+    """Sauvegarde ou met Ã  jour les limites d'une plantation."""
     if current_user.role not in ("admin", "agronomist"):
         raise HTTPException(status_code=403, detail="Droits insuffisants.")
 
@@ -1370,7 +1370,7 @@ def save_boundary(
     area = _calculate_area_hectares(coords)
     points_count = len(coords)
 
-    # Mettre à jour ou créer
+    # Mettre Ã  jour ou crÃ©er
     boundary = db.query(PlantationBoundary).filter(
         PlantationBoundary.plantation_id == plantation_id
     ).first()
@@ -1390,7 +1390,7 @@ def save_boundary(
         )
         db.add(boundary)
 
-    # Mettre à jour les hectares de la plantation si pas encore renseignés
+    # Mettre Ã  jour les hectares de la plantation si pas encore renseignÃ©s
     if not plantation.hectares:
         plantation.hectares = area
 
@@ -1403,7 +1403,7 @@ def save_boundary(
         "area_hectares": area,
         "points_count": points_count,
         "method": data.method,
-        "message": f"Délimitation sauvegardée — {area} ha calculés automatiquement."
+        "message": f"DÃ©limitation sauvegardÃ©e â€” {area} ha calculÃ©s automatiquement."
     }
 
 
@@ -1453,8 +1453,248 @@ def delete_boundary(
         PlantationBoundary.plantation_id == plantation_id
     ).first()
     if not boundary:
-        raise HTTPException(status_code=404, detail="Aucune délimitation trouvée.")
+        raise HTTPException(status_code=404, detail="Aucune dÃ©limitation trouvÃ©e.")
 
     db.delete(boundary)
     db.commit()
-    return {"message": "Délimitation supprimée."}
+    return {"message": "DÃ©limitation supprimÃ©e."}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Recoltes (Harvests) ────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+
+from datetime import datetime, date as date_type
+
+
+VALID_QUALITIES = {"Bonne", "Moyenne", "Defauts"}
+
+
+class HarvestCreate(BaseModel):
+    harvest_date: datetime
+    quantity_kg: float
+    quality: str
+    price_per_kg_fcfa: Optional[float] = None
+    notes: Optional[str] = None
+    is_historical: bool = False
+
+
+class HarvestUpdate(BaseModel):
+    harvest_date: Optional[datetime] = None
+    quantity_kg: Optional[float] = None
+    quality: Optional[str] = None
+    price_per_kg_fcfa: Optional[float] = None
+    notes: Optional[str] = None
+
+
+def compute_season(d) -> str:
+    """
+    Determine la saison cacao en Cote d'Ivoire :
+    - "grande"      : octobre a janvier (mois 10, 11, 12, 1)
+    - "petite"      : avril a juin (mois 4, 5, 6)
+    - "intersaison" : autres mois (fevrier, mars, juillet, aout, septembre)
+    """
+    if d is None:
+        return "intersaison"
+    m = d.month if hasattr(d, "month") else d
+    if m in (10, 11, 12, 1):
+        return "grande"
+    if m in (4, 5, 6):
+        return "petite"
+    return "intersaison"
+
+
+def _check_plantation_access(plantation_id: int, db: Session, current_user: User) -> Plantation:
+    """Verifie que la plantation existe et appartient a la cooperative de l'utilisateur."""
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    return plantation
+
+
+@router.post("/plantations/{plantation_id}/harvests", status_code=201)
+def create_harvest(
+    plantation_id: int,
+    harvest: HarvestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cree une nouvelle recolte. Reserve aux roles admin et agronomist."""
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Role agronome ou admin requis.")
+
+    _check_plantation_access(plantation_id, db, current_user)
+
+    if harvest.quality not in VALID_QUALITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Qualite invalide. Valeurs acceptees : {sorted(VALID_QUALITIES)}",
+        )
+    if harvest.quantity_kg <= 0:
+        raise HTTPException(status_code=400, detail="La quantite doit etre superieure a 0.")
+    if harvest.price_per_kg_fcfa is not None and harvest.price_per_kg_fcfa < 0:
+        raise HTTPException(status_code=400, detail="Le prix ne peut pas etre negatif.")
+
+    new_harvest = Harvest(
+        plantation_id=plantation_id,
+        harvest_date=harvest.harvest_date,
+        quantity_kg=harvest.quantity_kg,
+        quality=harvest.quality,
+        price_per_kg_fcfa=harvest.price_per_kg_fcfa,
+        season=compute_season(harvest.harvest_date),
+        notes=harvest.notes,
+        is_historical=harvest.is_historical,
+        created_by_user_id=current_user.id,
+    )
+    db.add(new_harvest)
+    db.commit()
+    db.refresh(new_harvest)
+    return new_harvest
+
+
+@router.get("/plantations/{plantation_id}/harvests")
+def list_harvests(
+    plantation_id: int,
+    year: Optional[int] = None,
+    season: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Liste les recoltes d'une plantation, triees par date decroissante."""
+    _check_plantation_access(plantation_id, db, current_user)
+
+    query = db.query(Harvest).filter(Harvest.plantation_id == plantation_id)
+
+    if year is not None:
+        query = query.filter(func.extract("year", Harvest.harvest_date) == year)
+    if season is not None:
+        if season not in ("grande", "petite", "intersaison"):
+            raise HTTPException(status_code=400, detail="Saison invalide.")
+        query = query.filter(Harvest.season == season)
+
+    return query.order_by(Harvest.harvest_date.desc()).all()
+
+
+@router.get("/plantations/{plantation_id}/harvests/stats")
+def harvest_stats(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Statistiques agregees des recoltes d'une plantation :
+    - total_kg_all_time
+    - total_kg_current_year
+    - count_total
+    - by_season : { "grande": kg, "petite": kg, "intersaison": kg } pour l'annee en cours
+    - by_year   : [ { "year": 2025, "total_kg": ... }, ... ]
+    """
+    _check_plantation_access(plantation_id, db, current_user)
+
+    harvests = db.query(Harvest).filter(Harvest.plantation_id == plantation_id).all()
+
+    if not harvests:
+        return {
+            "total_kg_all_time": 0,
+            "total_kg_current_year": 0,
+            "count_total": 0,
+            "by_season": {"grande": 0, "petite": 0, "intersaison": 0},
+            "by_year": [],
+        }
+
+    current_year = datetime.now().year
+
+    total_all = sum(h.quantity_kg for h in harvests)
+    total_current_year = sum(
+        h.quantity_kg for h in harvests if h.harvest_date.year == current_year
+    )
+
+    by_season = {"grande": 0.0, "petite": 0.0, "intersaison": 0.0}
+    for h in harvests:
+        if h.harvest_date.year == current_year and h.season in by_season:
+            by_season[h.season] += h.quantity_kg
+
+    years_dict = {}
+    for h in harvests:
+        y = h.harvest_date.year
+        years_dict[y] = years_dict.get(y, 0) + h.quantity_kg
+    by_year = [
+        {"year": y, "total_kg": round(kg, 2)}
+        for y, kg in sorted(years_dict.items(), reverse=True)
+    ]
+
+    return {
+        "total_kg_all_time": round(total_all, 2),
+        "total_kg_current_year": round(total_current_year, 2),
+        "count_total": len(harvests),
+        "by_season": {k: round(v, 2) for k, v in by_season.items()},
+        "by_year": by_year,
+    }
+
+
+@router.put("/harvests/{harvest_id}")
+def update_harvest(
+    harvest_id: int,
+    update: HarvestUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Modifie une recolte existante. Reserve aux admin et agronomist."""
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Role agronome ou admin requis.")
+
+    harvest = db.query(Harvest).filter(Harvest.id == harvest_id).first()
+    if not harvest:
+        raise HTTPException(status_code=404, detail="Recolte introuvable.")
+
+    _check_plantation_access(harvest.plantation_id, db, current_user)
+
+    if update.quality is not None and update.quality not in VALID_QUALITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Qualite invalide. Valeurs acceptees : {sorted(VALID_QUALITIES)}",
+        )
+    if update.quantity_kg is not None and update.quantity_kg <= 0:
+        raise HTTPException(status_code=400, detail="La quantite doit etre superieure a 0.")
+    if update.price_per_kg_fcfa is not None and update.price_per_kg_fcfa < 0:
+        raise HTTPException(status_code=400, detail="Le prix ne peut pas etre negatif.")
+
+    if update.harvest_date is not None:
+        harvest.harvest_date = update.harvest_date
+        harvest.season = compute_season(update.harvest_date)
+    if update.quantity_kg is not None:
+        harvest.quantity_kg = update.quantity_kg
+    if update.quality is not None:
+        harvest.quality = update.quality
+    if update.price_per_kg_fcfa is not None:
+        harvest.price_per_kg_fcfa = update.price_per_kg_fcfa
+    if update.notes is not None:
+        harvest.notes = update.notes
+
+    db.commit()
+    db.refresh(harvest)
+    return harvest
+
+
+@router.delete("/harvests/{harvest_id}")
+def delete_harvest(
+    harvest_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime une recolte. Reserve aux admins."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    harvest = db.query(Harvest).filter(Harvest.id == harvest_id).first()
+    if not harvest:
+        raise HTTPException(status_code=404, detail="Recolte introuvable.")
+
+    _check_plantation_access(harvest.plantation_id, db, current_user)
+
+    db.delete(harvest)
+    db.commit()
+    return {"message": "Recolte supprimee avec succes."}
