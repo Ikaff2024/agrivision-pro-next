@@ -138,6 +138,40 @@
 .plant-input{width:120px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center}
 .plant-save{padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer}
 .plant-save:hover{background:#40916c}
+/* Carte Recoltes */
+.harvest-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;border-left:4px solid #d4a017}
+.harvest-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.harvest-card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.harvest-actions{display:flex;gap:6px}
+.harvest-btn-add{background:#d4a017;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:.15s}
+.harvest-btn-add:hover{background:#b8890a}
+.harvest-link{font-size:12.5px;color:var(--accent);font-weight:600;text-decoration:none;display:flex;align-items:center;gap:2px}
+.harvest-link:hover{text-decoration:underline}
+.harvest-main{text-align:center;padding:8px 0 14px}
+.harvest-ratio{font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--text);line-height:1.1}
+.harvest-ratio-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.harvest-progress-wrap{background:var(--border-l);border-radius:99px;height:10px;overflow:hidden;margin:14px 0 10px}
+.harvest-progress-bar{height:100%;border-radius:99px;transition:.4s width}
+.harvest-pct{font-size:12px;font-weight:600;text-align:center;margin-bottom:14px}
+.harvest-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.harvest-metric{text-align:center;padding:10px 6px;background:var(--bg);border-radius:8px;border:1px solid var(--border-l)}
+.harvest-metric-val{font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--primary);line-height:1.1;margin-bottom:2px}
+.harvest-metric-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.harvest-empty{text-align:center;padding:24px 12px;color:var(--muted);font-size:13px}
+.harvest-empty-icon{font-size:36px;opacity:.3;margin-bottom:8px}
+
+/* Modale de saisie */
+#harvest-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
+#harvest-modal-overlay.open{display:flex}
+.h-modal{background:var(--surface);border-radius:var(--rl);padding:24px 26px;width:100%;max-width:480px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
+.h-modal-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.h-form-group{margin-bottom:14px}
+.h-form-label{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:5px}
+.h-form-input,.h-form-select,.h-form-textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;color:var(--text);background:var(--surface);outline:none;font-family:'DM Sans',sans-serif;transition:.15s}
+.h-form-input:focus,.h-form-select:focus,.h-form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.14)}
+.h-form-textarea{resize:vertical;min-height:60px;font-family:inherit}
+.h-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.h-modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -292,6 +326,7 @@ async function load() {
       <!-- Right column -->
       <div>
         <div id="prod-container"></div>
+        <div id="harvest-container"></div>
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
@@ -420,6 +455,9 @@ async function load() {
     // Carte potentiel de production (si plant_count renseigne)
     renderProductionCard(plantation);
 
+    // Carte Recoltes (charge depuis l'API)
+    renderHarvestCard(plantation);
+
     // Draw chart if enough data
     if (history.length >= 1) {
       const sorted = [...history].reverse();
@@ -504,6 +542,158 @@ async function savePlantCount() {
   }
 }
 
+async function renderHarvestCard(p) {
+  const container = document.getElementById("harvest-container");
+  if (!container) return;
+
+  // Calcul du potentiel annuel (meme formule que renderProductionCard)
+  const pc = p.plant_count;
+  const hasPotential = pc != null && pc > 0;
+  const prodAvgKg = hasPotential ? Math.round(pc * 0.5) : 0;
+
+  // Recuperer les stats depuis l'API
+  let stats = null;
+  try {
+    const r = await authFetch("/plantations/" + pid + "/harvests/stats");
+    if (r && r.ok) stats = await r.json();
+  } catch (e) {}
+
+  if (!stats) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Permissions
+  const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+  const role = u && u.role ? u.role : "";
+  const canAdd = (role === "admin" || role === "agronomist");
+
+  const totalYear = stats.total_kg_current_year || 0;
+  const countTotal = stats.count_total || 0;
+  const seasonStr = (stats.by_season && stats.by_season.grande !== undefined)
+    ? "Grande: " + Math.round(stats.by_season.grande) + " kg / Petite: " + Math.round(stats.by_season.petite) + " kg"
+    : "";
+
+  // Si pas de plant_count : afficher juste les recoltes sans ratio
+  let mainHtml;
+  if (!hasPotential) {
+    mainHtml =
+      '<div class="harvest-main">' +
+        '<div class="harvest-ratio">' + Math.round(totalYear).toLocaleString() + ' kg</div>' +
+        '<div class="harvest-ratio-sub">recoltes en ' + new Date().getFullYear() + '</div>' +
+      '</div>';
+  } else {
+    const pct = prodAvgKg > 0 ? Math.min(100, Math.round((totalYear / prodAvgKg) * 100)) : 0;
+    let barColor = '#922b21';
+    let pctColor = '#922b21';
+    if (pct >= 80) { barColor = '#1a6b3a'; pctColor = '#1a6b3a'; }
+    else if (pct >= 50) { barColor = '#9a6200'; pctColor = '#9a6200'; }
+
+    mainHtml =
+      '<div class="harvest-main">' +
+        '<div class="harvest-ratio">' + Math.round(totalYear).toLocaleString() + ' / ' + prodAvgKg.toLocaleString() + ' kg</div>' +
+        '<div class="harvest-ratio-sub">recolte ' + new Date().getFullYear() + ' / potentiel annuel</div>' +
+      '</div>' +
+      '<div class="harvest-progress-wrap"><div class="harvest-progress-bar" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
+      '<div class="harvest-pct" style="color:' + pctColor + '">' + pct + '% du potentiel atteint</div>';
+  }
+
+  // Etat vide vs avec donnees
+  let bodyHtml;
+  if (countTotal === 0) {
+    bodyHtml =
+      '<div class="harvest-empty">' +
+        '<div class="harvest-empty-icon">&#127806;</div>' +
+        '<div>Aucune recolte enregistree.</div>' +
+        (canAdd ? '<div style="font-size:12px;margin-top:6px">Cliquez sur <b>+ Saisir</b> pour ajouter votre premiere recolte.</div>' : '') +
+      '</div>';
+  } else {
+    bodyHtml = mainHtml +
+      '<div class="harvest-grid">' +
+        '<div class="harvest-metric"><div class="harvest-metric-val">' + countTotal + '</div><div class="harvest-metric-lbl">Recoltes</div></div>' +
+        '<div class="harvest-metric"><div class="harvest-metric-val">' + Math.round(stats.total_kg_all_time).toLocaleString() + '</div><div class="harvest-metric-lbl">Cumul kg</div></div>' +
+        '<div class="harvest-metric"><div class="harvest-metric-val">' + (stats.by_year && stats.by_year.length || 0) + '</div><div class="harvest-metric-lbl">Annees</div></div>' +
+      '</div>' +
+      (seasonStr ? '<div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:10px">' + seasonStr + '</div>' : '');
+  }
+
+  container.innerHTML =
+    '<div class="harvest-card">' +
+      '<div class="harvest-card-header">' +
+        '<div class="harvest-card-title">&#127806; Recoltes</div>' +
+        '<div class="harvest-actions">' +
+          (canAdd ? '<button class="harvest-btn-add" onclick="openHarvestModal()"><span class="material-symbols-outlined" style="font-size:15px">add</span>Saisir</button>' : '') +
+          '<a class="harvest-link" href="harvests.html?plantation_id=' + pid + '">Voir tout &rarr;</a>' +
+        '</div>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+}
+
+function openHarvestModal() {
+  document.getElementById("harvest-modal-overlay").classList.add("open");
+  // Date par defaut = aujourd'hui
+  document.getElementById("h-date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("h-quantity").value = "";
+  document.getElementById("h-quality").value = "Bonne";
+  document.getElementById("h-price").value = "";
+  document.getElementById("h-notes").value = "";
+  setTimeout(() => document.getElementById("h-quantity").focus(), 100);
+}
+
+function closeHarvestModal() {
+  document.getElementById("harvest-modal-overlay").classList.remove("open");
+}
+
+async function submitHarvest() {
+  const date = document.getElementById("h-date").value;
+  const qty = parseFloat(document.getElementById("h-quantity").value);
+  const quality = document.getElementById("h-quality").value;
+  const priceVal = document.getElementById("h-price").value;
+  const notes = document.getElementById("h-notes").value.trim();
+
+  if (!date) { toast("Date obligatoire.", "error"); return; }
+  if (isNaN(qty) || qty <= 0) { toast("Quantite invalide.", "error"); return; }
+  if (!["Bonne", "Moyenne", "Defauts"].includes(quality)) { toast("Qualite invalide.", "error"); return; }
+
+  const payload = {
+    harvest_date: date + "T08:00:00",
+    quantity_kg: qty,
+    quality: quality,
+    is_historical: false
+  };
+  if (priceVal !== "" && !isNaN(parseFloat(priceVal))) {
+    payload.price_per_kg_fcfa = parseFloat(priceVal);
+  }
+  if (notes) payload.notes = notes;
+
+  const submitBtn = document.getElementById("h-submit-btn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Enregistrement...";
+
+  try {
+    const r = await authFetch("/plantations/" + pid + "/harvests", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    if (!r) throw new Error("Pas de reponse serveur");
+    if (r.status === 403) { toast("Vous n'avez pas les droits pour saisir une recolte.", "error"); return; }
+    if (!r.ok) {
+      let detail = "Erreur serveur";
+      try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
+      throw new Error(detail);
+    }
+    toast("Recolte enregistree avec succes !");
+    closeHarvestModal();
+    // Rafraichir la carte
+    setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enregistrer";
+  }
+}
 function goDiag() { location.href = `diagnostic.html?id=${pid}`; }
 function goSat()  { location.href = `satellite.html?id=${pid}`; }
 function goAgro() { location.href = `agroforestry.html?id=${pid}`; }
@@ -511,5 +701,43 @@ function esc(s)   { const el=document.createElement('div'); el.textContent=s||''
 
 load();
 </script>
+
+<!-- Modale de saisie d'une recolte -->
+<div id="harvest-modal-overlay">
+  <div class="h-modal">
+    <div class="h-modal-title">&#127806; Saisir une recolte</div>
+    <div class="h-form-group">
+      <label class="h-form-label">Date de recolte *</label>
+      <input type="date" id="h-date" class="h-form-input">
+    </div>
+    <div class="h-form-row">
+      <div class="h-form-group">
+        <label class="h-form-label">Quantite (kg) *</label>
+        <input type="number" id="h-quantity" class="h-form-input" min="0" step="0.1" placeholder="Ex: 850">
+      </div>
+      <div class="h-form-group">
+        <label class="h-form-label">Qualite *</label>
+        <select id="h-quality" class="h-form-select">
+          <option value="Bonne">Bonne</option>
+          <option value="Moyenne">Moyenne</option>
+          <option value="Defauts">Defauts</option>
+        </select>
+      </div>
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Prix au kg (FCFA) <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+      <input type="number" id="h-price" class="h-form-input" min="0" step="1" placeholder="Ex: 1200">
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Notes <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+      <textarea id="h-notes" class="h-form-textarea" placeholder="Conditions, observations..."></textarea>
+    </div>
+    <div class="h-modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeHarvestModal()">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="h-submit-btn" onclick="submitHarvest()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
