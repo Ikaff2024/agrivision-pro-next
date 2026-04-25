@@ -354,6 +354,7 @@ function renderSidebar(activePage) {
     { id:'analytics',   href:'analytics.html',     icon:'bar_chart_4_bars', label:'Analytique' },
     { id:'satellite',   href:'satellite.html',     icon:'satellite_alt',    label:'Satellite' },
     { id:'agroforestry', href:'agroforestry.html',  icon:'forest',           label:'Agroforesterie' },
+    { id:'harvests',    href:'harvests.html',       icon:'agriculture',      label:'Recoltes' },
   ];
   // Lien admin uniquement visible pour les administrateurs
   if (user && user.role === 'admin') {

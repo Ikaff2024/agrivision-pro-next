@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a4231">
+<title>AgriVision Pro &mdash; R&eacute;coltes</title>
+<script src="auth.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.tb-select{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13.5px;color:var(--text);background:var(--surface);outline:none;font-family:'DM Sans',sans-serif;transition:.15s;min-width:200px;cursor:pointer}
+.tb-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.12)}
+.tb-spacer{flex:1}
+
+.season-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.stab{padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;font-family:'DM Sans',sans-serif;color:var(--muted);transition:.15s}
+.stab:hover{background:var(--bg)}
+.stab.active{background:#d4a017;color:#fff}
+
+.harvest-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.harvest-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh);border-top:3px solid #d4a017}
+.kpi-label{font-size:11.5px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.kpi-value{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1;color:var(--text)}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:6px}
+
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--sh);margin-bottom:24px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.chart-title{font-family:'Fraunces',serif;font-size:17px;font-weight:700}
+.chart-wrap{position:relative;height:240px}
+
+.h-table-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);background:var(--surface)}
+.season-pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+.season-grande{background:#fef3c7;color:#92400e}
+.season-petite{background:#dbeafe;color:#1e40af}
+.season-intersaison{background:#f3f4f6;color:#6b7280}
+
+.qual-pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:99px}
+.qual-Bonne{background:var(--low-bg);color:var(--low);border:1px solid var(--low-b)}
+.qual-Moyenne{background:var(--med-bg);color:var(--med);border:1px solid var(--med-b)}
+.qual-Defauts{background:var(--high-bg);color:var(--high);border:1px solid var(--high-b)}
+
+.row-actions{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:.15s}
+tr:hover .row-actions{opacity:1}
+.act-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0}
+.act-btn:hover{border-color:var(--accent);background:#f0faf5}
+.act-btn.danger:hover{border-color:#922b21;background:#fdedec}
+.act-btn .ms{font-size:16px;color:var(--muted)}
+.act-btn.danger .ms{color:var(--muted)}
+.act-btn.danger:hover .ms{color:#922b21}
+
+.empty-state{text-align:center;padding:64px 20px;color:var(--muted)}
+.empty-icon{font-size:52px;opacity:.18;margin-bottom:14px}
+
+@media(max-width:768px){
+  table{min-width:680px!important}
+  .harvest-kpis{grid-template-columns:1fr 1fr}
+  .harvest-kpis .harvest-kpi:last-child{grid-column:span 2}
+  .row-actions{opacity:1!important}
+  .toolbar{gap:8px}
+  .tb-select{min-width:0!important;width:100%!important}
+  .stab{padding:6px 10px!important;font-size:11.5px!important}
+}
+
+/* Modale (reutilisee depuis plantation_detail) */
+#h-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
+#h-modal-overlay.open{display:flex}
+.h-modal{background:var(--surface);border-radius:var(--rl);padding:24px 26px;width:100%;max-width:480px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
+.h-modal-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.h-form-group{margin-bottom:14px}
+.h-form-label{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:5px}
+.h-form-input,.h-form-select,.h-form-textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;color:var(--text);background:var(--surface);outline:none;font-family:'DM Sans',sans-serif;transition:.15s}
+.h-form-input:focus,.h-form-select:focus,.h-form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.14)}
+.h-form-textarea{resize:vertical;min-height:60px;font-family:inherit}
+.h-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.h-modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* Modale de confirmation suppression */
+#confirm-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:960;padding:20px}
+#confirm-overlay.open{display:flex}
+.confirm-modal{background:var(--surface);border-radius:var(--rl);padding:24px;max-width:400px;text-align:center;box-shadow:var(--sh-md);animation:modalIn .2s ease}
+.confirm-icon{font-size:36px;margin-bottom:10px}
+.confirm-title{font-family:'Fraunces',serif;font-size:17px;font-weight:700;margin-bottom:8px}
+.confirm-text{font-size:13.5px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.confirm-footer{display:flex;justify-content:center;gap:10px}
+.btn-danger{background:#922b21;color:#fff}.btn-danger:hover{background:#7a1f17}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">R&eacute;coltes</div>
+        <div class="page-sub" id="page-sub">Chargement...</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" id="add-historic-btn" onclick="openModal('historic')" style="display:none">
+          <span class="material-symbols-outlined" style="font-size:16px">history</span>
+          Saisie historique
+        </button>
+        <button class="btn btn-primary" id="add-btn" onclick="openModal('new')" style="display:none">
+          <span class="material-symbols-outlined" style="font-size:18px">add</span>
+          Saisir une r&eacute;colte
+        </button>
+      </div>
+    </div>
+
+    <div class="avp-content">
+
+      <div class="toolbar">
+        <select class="tb-select" id="plantation-select" onchange="onPlantationChange()">
+          <option value="">Chargement des plantations...</option>
+        </select>
+        <select class="tb-select" id="year-select" onchange="applyFilters()" style="min-width:130px">
+          <option value="">Toutes ann&eacute;es</option>
+        </select>
+        <div class="season-tabs">
+          <button class="stab active" data-season="all" onclick="setSeason('all',this)">Toutes</button>
+          <button class="stab" data-season="grande" onclick="setSeason('grande',this)">Grande</button>
+          <button class="stab" data-season="petite" onclick="setSeason('petite',this)">Petite</button>
+          <button class="stab" data-season="intersaison" onclick="setSeason('intersaison',this)">Intersaison</button>
+        </div>
+      </div>
+
+      <div id="content-area">
+        <div style="text-align:center;padding:60px;color:var(--muted)">S&eacute;lectionnez une plantation pour voir ses r&eacute;coltes.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modale saisie/edition -->
+<div id="h-modal-overlay">
+  <div class="h-modal">
+    <div class="h-modal-title" id="h-modal-title">&#127806; Saisir une r&eacute;colte</div>
+    <div class="h-form-group">
+      <label class="h-form-label">Date de r&eacute;colte *</label>
+      <input type="date" id="h-date" class="h-form-input">
+    </div>
+    <div class="h-form-row">
+      <div class="h-form-group">
+        <label class="h-form-label">Quantit&eacute; (kg) *</label>
+        <input type="number" id="h-quantity" class="h-form-input" min="0" step="0.1" placeholder="Ex: 850">
+      </div>
+      <div class="h-form-group">
+        <label class="h-form-label">Qualit&eacute; *</label>
+        <select id="h-quality" class="h-form-select">
+          <option value="Bonne">Bonne</option>
+          <option value="Moyenne">Moyenne</option>
+          <option value="Defauts">D&eacute;fauts</option>
+        </select>
+      </div>
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Prix au kg (FCFA) <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+      <input type="number" id="h-price" class="h-form-input" min="0" step="1" placeholder="Ex: 1200">
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Notes <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+      <textarea id="h-notes" class="h-form-textarea" placeholder="Conditions, observations..."></textarea>
+    </div>
+    <div class="h-modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="h-submit-btn" onclick="submitForm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale confirmation suppression -->
+<div id="confirm-overlay">
+  <div class="confirm-modal">
+    <div class="confirm-icon">&#9888;</div>
+    <div class="confirm-title">Supprimer cette r&eacute;colte ?</div>
+    <div class="confirm-text" id="confirm-text">Cette action est irr&eacute;versible.</div>
+    <div class="confirm-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeConfirm()">Annuler</button>
+      <button class="btn btn-danger btn-sm" id="confirm-del-btn" onclick="confirmDelete()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('harvests');
+
+let plantations = [];
+let currentPlantationId = null;
+let currentSeason = 'all';
+let currentYear = '';
+let allHarvests = [];
+let filteredHarvests = [];
+let editingHarvestId = null;
+let deletingHarvestId = null;
+let chartInstance = null;
+
+// Recuperer plantation_id depuis l'URL si fourni
+const urlParams = new URLSearchParams(location.search);
+const initialPlantationId = urlParams.get('plantation_id');
+
+// ----- Init -----
+async function init() {
+  const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+  const role = u && u.role ? u.role : "";
+  if (role === "admin" || role === "agronomist") {
+    document.getElementById("add-btn").style.display = "";
+    document.getElementById("add-historic-btn").style.display = "";
+  }
+
+  // Charger les plantations
+  try {
+    const r = await authFetch("/plantations");
+    if (!r || !r.ok) throw new Error("Impossible de charger les plantations");
+    plantations = await r.json();
+
+    const sel = document.getElementById("plantation-select");
+    if (plantations.length === 0) {
+      sel.innerHTML = '<option value="">Aucune plantation</option>';
+      document.getElementById("page-sub").textContent = "Aucune plantation dans votre cooperative.";
+      return;
+    }
+
+    sel.innerHTML = '<option value="">-- S&eacute;lectionnez une plantation --</option>' +
+      plantations.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' &mdash; ' + esc(p.owner_name||'') + '</option>').join('');
+
+    // Pre-selection si plantation_id en URL
+    if (initialPlantationId) {
+      sel.value = initialPlantationId;
+      currentPlantationId = parseInt(initialPlantationId);
+      await loadHarvests();
+    }
+
+    document.getElementById("page-sub").textContent = plantations.length + " plantation(s) disponible(s)";
+  } catch (e) {
+    document.getElementById("page-sub").textContent = "Erreur de chargement.";
+    console.error(e);
+  }
+}
+
+async function onPlantationChange() {
+  const sel = document.getElementById("plantation-select");
+  const val = sel.value;
+  if (!val) {
+    currentPlantationId = null;
+    document.getElementById("content-area").innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">S&eacute;lectionnez une plantation pour voir ses r&eacute;coltes.</div>';
+    return;
+  }
+  currentPlantationId = parseInt(val);
+  // Mettre a jour l'URL
+  const newUrl = location.pathname + "?plantation_id=" + currentPlantationId;
+  history.replaceState(null, "", newUrl);
+  await loadHarvests();
+}
+
+async function loadHarvests() {
+  if (!currentPlantationId) return;
+
+  const area = document.getElementById("content-area");
+  area.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Chargement...</div>';
+
+  try {
+    const [r1, r2] = await Promise.all([
+      authFetch("/plantations/" + currentPlantationId + "/harvests"),
+      authFetch("/plantations/" + currentPlantationId + "/harvests/stats")
+    ]);
+
+    if (!r1 || !r1.ok) throw new Error("Erreur chargement recoltes");
+    if (!r2 || !r2.ok) throw new Error("Erreur chargement stats");
+
+    allHarvests = await r1.json();
+    const stats = await r2.json();
+
+    // Remplir le selecteur d'annees
+    const years = [...new Set(allHarvests.map(h => new Date(h.harvest_date).getFullYear()))].sort((a,b) => b-a);
+    const yearSel = document.getElementById("year-select");
+    yearSel.innerHTML = '<option value="">Toutes ann&eacute;es</option>' +
+      years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+
+    renderContent(stats);
+  } catch (e) {
+    area.innerHTML = '<div style="text-align:center;padding:60px;color:#922b21">Erreur : ' + esc(e.message) + '</div>';
+    console.error(e);
+  }
+}
+
+function renderContent(stats) {
+  applyFilters();
+  const seasonStr = stats.by_season ?
+    "Grande: " + Math.round(stats.by_season.grande||0) + " kg / Petite: " + Math.round(stats.by_season.petite||0) + " kg" : "";
+
+  const area = document.getElementById("content-area");
+  area.innerHTML =
+    '<div class="harvest-kpis">' +
+      '<div class="harvest-kpi">' +
+        '<div class="kpi-label">Saison en cours (' + new Date().getFullYear() + ')</div>' +
+        '<div class="kpi-value">' + Math.round(stats.total_kg_current_year||0).toLocaleString() + ' kg</div>' +
+        '<div class="kpi-sub">' + seasonStr + '</div>' +
+      '</div>' +
+      '<div class="harvest-kpi">' +
+        '<div class="kpi-label">Cumul tout temps</div>' +
+        '<div class="kpi-value">' + Math.round(stats.total_kg_all_time||0).toLocaleString() + ' kg</div>' +
+        '<div class="kpi-sub">' + (stats.count_total||0) + ' r&eacute;colte(s) sur ' + (stats.by_year ? stats.by_year.length : 0) + ' ann&eacute;e(s)</div>' +
+      '</div>' +
+      '<div class="harvest-kpi">' +
+        '<div class="kpi-label">Meilleure ann&eacute;e</div>' +
+        '<div class="kpi-value">' + (stats.by_year && stats.by_year.length > 0 ? Math.round(Math.max(...stats.by_year.map(y => y.total_kg))).toLocaleString() + ' kg' : '&mdash;') + '</div>' +
+        '<div class="kpi-sub">' + (stats.by_year && stats.by_year.length > 0 ? 'en ' + stats.by_year.reduce((a,b) => a.total_kg > b.total_kg ? a : b).year : '&mdash;') + '</div>' +
+      '</div>' +
+    '</div>' +
+    (stats.count_total > 0 ?
+      '<div class="chart-card">' +
+        '<div class="chart-header">' +
+          '<span class="chart-title">&Eacute;volution par ann&eacute;e</span>' +
+          '<span class="badge badge-low">' + (stats.by_year ? stats.by_year.length : 0) + ' ann&eacute;e(s)</span>' +
+        '</div>' +
+        '<div class="chart-wrap"><canvas id="harvest-chart"></canvas></div>' +
+      '</div>' : '') +
+    '<div id="filter-summary" style="margin-bottom:12px;padding:10px 16px;background:var(--surface-warm);border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--muted);align-items:center;justify-content:space-between;display:none"></div>' +
+    '<div class="h-table-wrap" id="table-wrap"></div>';
+
+  if (stats.count_total > 0) renderChart(stats);
+  renderTable();
+}
+
+function renderChart(stats) {
+  if (!stats.by_year || stats.by_year.length === 0) return;
+  const sorted = [...stats.by_year].sort((a,b) => a.year - b.year);
+  const ctx = document.getElementById("harvest-chart").getContext("2d");
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: sorted.map(y => y.year),
+      datasets: [{
+        label: "Total (kg)",
+        data: sorted.map(y => y.total_kg),
+        backgroundColor: "rgba(212,160,23,.7)",
+        borderColor: "#d4a017",
+        borderWidth: 1.5,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 12 }, color: "#6a7d64" } },
+        y: { grid: { color: "#f0ead8" }, ticks: { font: { size: 11 }, color: "#6a7d64", callback: v => v.toLocaleString() + " kg" } }
+      }
+    }
+  });
+}
+
+function applyFilters() {
+  const yearSel = document.getElementById("year-select");
+  currentYear = yearSel ? yearSel.value : "";
+
+  filteredHarvests = allHarvests.filter(h => {
+    if (currentSeason !== "all" && h.season !== currentSeason) return false;
+    if (currentYear && new Date(h.harvest_date).getFullYear() !== parseInt(currentYear)) return false;
+    return true;
+  });
+
+  if (document.getElementById("table-wrap")) renderTable();
+}
+
+function setSeason(s, btn) {
+  currentSeason = s;
+  document.querySelectorAll(".stab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  applyFilters();
+}
+
+function renderTable() {
+  const wrap = document.getElementById("table-wrap");
+  if (!wrap) return;
+
+  // Resume des filtres actifs (Option C)
+  const summary = document.getElementById("filter-summary");
+  if (summary) {
+    const isFiltered = (currentSeason !== "all") || (currentYear !== "");
+    if (isFiltered && filteredHarvests.length > 0) {
+      const totalKg = filteredHarvests.reduce((s, h) => s + h.quantity_kg, 0);
+      const filterParts = [];
+      if (currentYear) filterParts.push("Annee " + currentYear);
+      if (currentSeason !== "all") {
+        const lbl = currentSeason === "grande" ? "Grande saison" : currentSeason === "petite" ? "Petite saison" : "Intersaison";
+        filterParts.push(lbl);
+      }
+      const partsTxt = filterParts.length ? " &mdash; " + filterParts.join(" &middot; ") : "";
+      summary.innerHTML =
+        '<div><b>' + filteredHarvests.length + ' recolte(s)' + partsTxt + '</b></div>' +
+        '<div style="font-family:Fraunces,serif;font-size:16px;font-weight:700;color:var(--text)">' + Math.round(totalKg).toLocaleString() + ' kg</div>';
+      summary.style.display = "flex";
+    } else {
+      summary.style.display = "none";
+    }
+  }
+
+
+  const u = (typeof getCurrentUser === "function") ? getCurrentUser() : null;
+  const role = u && u.role ? u.role : "";
+  const canEdit = (role === "admin" || role === "agronomist");
+  const canDelete = (role === "admin");
+
+  if (filteredHarvests.length === 0) {
+    wrap.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-icon">&#127806;</div>' +
+        '<div style="font-size:15px;font-weight:600;margin-bottom:6px">Aucune r&eacute;colte</div>' +
+        '<div style="font-size:13px">Aucune r&eacute;colte ne correspond aux filtres en cours.</div>' +
+      '</div>';
+    return;
+  }
+
+  wrap.innerHTML =
+    '<table>' +
+      '<thead><tr>' +
+        '<th>Date</th>' +
+        '<th>Saison</th>' +
+        '<th style="text-align:right">Quantit&eacute;</th>' +
+        '<th>Qualit&eacute;</th>' +
+        '<th style="text-align:right">Prix kg</th>' +
+        '<th class="mob-hide">Notes</th>' +
+        (canEdit ? '<th style="text-align:right">Actions</th>' : '') +
+      '</tr></thead>' +
+      '<tbody>' +
+      filteredHarvests.map(h => {
+        const seasonLbl = h.season === "grande" ? "Grande" : h.season === "petite" ? "Petite" : "Intersaison";
+        return '<tr>' +
+          '<td style="color:var(--muted)">' + fmtDate(h.harvest_date) + (h.is_historical ? ' <span style="font-size:10px;color:var(--faint)">(historique)</span>' : '') + '</td>' +
+          '<td><span class="season-pill season-' + h.season + '">' + seasonLbl + '</span></td>' +
+          '<td style="text-align:right;font-weight:600">' + h.quantity_kg.toLocaleString() + ' kg</td>' +
+          '<td><span class="qual-pill qual-' + h.quality + '">' + (h.quality === "Defauts" ? "D&eacute;fauts" : h.quality) + '</span></td>' +
+          '<td style="text-align:right;color:var(--muted)">' + (h.price_per_kg_fcfa != null ? h.price_per_kg_fcfa.toLocaleString() + ' FCFA' : '&mdash;') + '</td>' +
+          '<td class="mob-hide" style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (h.notes ? esc(h.notes) : '&mdash;') + '</td>' +
+          (canEdit ? '<td><div class="row-actions">' +
+            '<button class="act-btn" onclick="openModal(\'edit\',' + h.id + ')" title="Modifier"><span class="material-symbols-outlined ms">edit</span></button>' +
+            (canDelete ? '<button class="act-btn danger" onclick="askDelete(' + h.id + ')" title="Supprimer"><span class="material-symbols-outlined ms">delete</span></button>' : '') +
+          '</div></td>' : '') +
+        '</tr>';
+      }).join('') +
+      '</tbody>' +
+    '</table>';
+}
+
+// ----- Modale saisie/edition -----
+function openModal(mode, harvestId) {
+  if (!currentPlantationId) {
+    toast("S&eacute;lectionnez d'abord une plantation.", "error");
+    return;
+  }
+
+  editingHarvestId = null;
+  const titleEl = document.getElementById("h-modal-title");
+  const dateEl = document.getElementById("h-date");
+  const qtyEl = document.getElementById("h-quantity");
+  const qualEl = document.getElementById("h-quality");
+  const priceEl = document.getElementById("h-price");
+  const notesEl = document.getElementById("h-notes");
+
+  if (mode === "edit" && harvestId != null) {
+    const h = allHarvests.find(x => x.id === harvestId);
+    if (!h) { toast("R&eacute;colte introuvable.", "error"); return; }
+    editingHarvestId = harvestId;
+    titleEl.innerHTML = "&#9998; Modifier la r&eacute;colte";
+    dateEl.value = h.harvest_date.split("T")[0];
+    qtyEl.value = h.quantity_kg;
+    qualEl.value = h.quality;
+    priceEl.value = h.price_per_kg_fcfa != null ? h.price_per_kg_fcfa : "";
+    notesEl.value = h.notes || "";
+  } else if (mode === "historic") {
+    titleEl.innerHTML = "&#128338; Saisie historique";
+    dateEl.value = "";
+    qtyEl.value = "";
+    qualEl.value = "Bonne";
+    priceEl.value = "";
+    notesEl.value = "";
+  } else {
+    titleEl.innerHTML = "&#127806; Saisir une r&eacute;colte";
+    dateEl.value = new Date().toISOString().split("T")[0];
+    qtyEl.value = "";
+    qualEl.value = "Bonne";
+    priceEl.value = "";
+    notesEl.value = "";
+  }
+
+  document.getElementById("h-modal-overlay").classList.add("open");
+  setTimeout(() => qtyEl.focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById("h-modal-overlay").classList.remove("open");
+  editingHarvestId = null;
+}
+
+async function submitForm() {
+  const date = document.getElementById("h-date").value;
+  const qty = parseFloat(document.getElementById("h-quantity").value);
+  const quality = document.getElementById("h-quality").value;
+  const priceVal = document.getElementById("h-price").value;
+  const notes = document.getElementById("h-notes").value.trim();
+
+  if (!date) { toast("Date obligatoire.", "error"); return; }
+  if (isNaN(qty) || qty <= 0) { toast("Quantit&eacute; invalide.", "error"); return; }
+  if (!["Bonne", "Moyenne", "Defauts"].includes(quality)) { toast("Qualit&eacute; invalide.", "error"); return; }
+
+  const isHistoric = (document.getElementById("h-modal-title").textContent.indexOf("historique") !== -1);
+  const payload = {
+    harvest_date: date + "T08:00:00",
+    quantity_kg: qty,
+    quality: quality,
+    is_historical: isHistoric || (editingHarvestId == null && new Date(date) < new Date(new Date().setMonth(new Date().getMonth() - 6)))
+  };
+  if (priceVal !== "" && !isNaN(parseFloat(priceVal))) payload.price_per_kg_fcfa = parseFloat(priceVal);
+  if (notes) payload.notes = notes;
+
+  const submitBtn = document.getElementById("h-submit-btn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = editingHarvestId ? "Mise a jour..." : "Enregistrement...";
+
+  try {
+    let r;
+    if (editingHarvestId) {
+      // PUT update
+      const updatePayload = {
+        harvest_date: payload.harvest_date,
+        quantity_kg: payload.quantity_kg,
+        quality: payload.quality,
+        notes: payload.notes || null
+      };
+      if (payload.price_per_kg_fcfa != null) updatePayload.price_per_kg_fcfa = payload.price_per_kg_fcfa;
+      r = await authFetch("/harvests/" + editingHarvestId, {
+        method: "PUT",
+        body: JSON.stringify(updatePayload)
+      });
+    } else {
+      // POST create
+      r = await authFetch("/plantations/" + currentPlantationId + "/harvests", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    }
+    if (!r) throw new Error("Pas de r&eacute;ponse serveur");
+    if (r.status === 403) { toast("Vous n'avez pas les droits pour cette action.", "error"); return; }
+    if (!r.ok) {
+      let detail = "Erreur serveur";
+      try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
+      throw new Error(detail);
+    }
+    toast(editingHarvestId ? "R&eacute;colte mise a jour !" : "R&eacute;colte enregistr&eacute;e !");
+    closeModal();
+    await loadHarvests();
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enregistrer";
+  }
+}
+
+// ----- Suppression -----
+function askDelete(harvestId) {
+  const h = allHarvests.find(x => x.id === harvestId);
+  if (!h) return;
+  deletingHarvestId = harvestId;
+  document.getElementById("confirm-text").innerHTML =
+    "Vous &ecirc;tes sur le point de supprimer la r&eacute;colte du <b>" + fmtDate(h.harvest_date) +
+    "</b> (" + h.quantity_kg + " kg). Cette action est irr&eacute;versible.";
+  document.getElementById("confirm-overlay").classList.add("open");
+}
+
+function closeConfirm() {
+  document.getElementById("confirm-overlay").classList.remove("open");
+  deletingHarvestId = null;
+}
+
+async function confirmDelete() {
+  if (!deletingHarvestId) return;
+  const btn = document.getElementById("confirm-del-btn");
+  btn.disabled = true;
+  btn.textContent = "Suppression...";
+  try {
+    const r = await authFetch("/harvests/" + deletingHarvestId, { method: "DELETE" });
+    if (!r) throw new Error("Pas de r&eacute;ponse serveur");
+    if (r.status === 403) { toast("Vous n'avez pas les droits administrateur.", "error"); return; }
+    if (!r.ok) {
+      let detail = "Erreur serveur";
+      try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
+      throw new Error(detail);
+    }
+    toast("R&eacute;colte supprim&eacute;e.");
+    closeConfirm();
+    await loadHarvests();
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Supprimer";
+  }
+}
+
+function esc(s) { const el = document.createElement("div"); el.textContent = s || ""; return el.innerHTML; }
+
+init();
+</script>
+</body>
+</html>
