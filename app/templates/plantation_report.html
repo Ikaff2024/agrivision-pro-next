@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport Plantation — {{ plantation.name }}</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     AgriVision Pro — Stylesheet rapport plantation
+     Cible : WeasyPrint 63.x (Cairo/Pango)
+     Format : A4 portrait, marges 15mm
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --avp-primary:    #15803d;   /* Vert cacao */
+    --avp-primary-dark: #14532d;
+    --avp-primary-light: #dcfce7;
+    --avp-accent:     #d4a017;   /* Jaune récoltes */
+    --avp-accent-light: #fef3c7;
+    --avp-ink:        #111827;
+    --avp-text:       #374151;
+    --avp-muted:      #6b7280;
+    --avp-border:     #e5e7eb;
+    --avp-bg-soft:    #f9fafb;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm 15mm 18mm 15mm;
+    @bottom-left {
+      content: "AgriVision Pro — Rapport généré le {{ generated_at.strftime('%d/%m/%Y à %H:%M') }}";
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 8pt;
+      color: #6b7280;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 8pt;
+      color: #6b7280;
+    }
+  }
+
+  @page:first {
+    margin: 0;
+    @bottom-left { content: ""; }
+    @bottom-right { content: ""; }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    color: var(--avp-text);
+    line-height: 1.45;
+    -weasy-font-feature-settings: "kern";
+  }
+
+  h1, h2, h3, h4 {
+    color: var(--avp-ink);
+    margin: 0 0 8pt 0;
+    font-weight: 700;
+  }
+
+  h1 { font-size: 22pt; letter-spacing: -0.5pt; }
+  h2 { font-size: 14pt; color: var(--avp-primary-dark);
+       border-bottom: 2pt solid var(--avp-primary); padding-bottom: 4pt;
+       margin-top: 14pt; margin-bottom: 12pt; }
+  h3 { font-size: 11pt; color: var(--avp-primary-dark); margin-top: 12pt; }
+
+  p { margin: 0 0 6pt 0; }
+
+  /* ─── Page de couverture ────────────────────────────────────────────── */
+  .cover {
+    width: 210mm; height: 297mm;
+    background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
+    color: white;
+    padding: 25mm 20mm;
+    page-break-after: always;
+    position: relative;
+  }
+
+  .cover-logo {
+    display: flex;
+    align-items: center;
+    gap: 12pt;
+    margin-bottom: 50mm;
+  }
+  .cover-logo-mark {
+    width: 18mm; height: 18mm;
+    background: white;
+    border-radius: 4mm;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24pt; color: var(--avp-primary);
+    font-weight: bold;
+  }
+  .cover-logo-text { font-size: 18pt; font-weight: 700; letter-spacing: -0.3pt; }
+  .cover-logo-sub  { font-size: 10pt; opacity: 0.85; margin-top: 2pt; }
+
+  .cover-eyebrow {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 2pt;
+    opacity: 0.85;
+    margin-bottom: 4pt;
+  }
+
+  .cover-title {
+    font-size: 36pt;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1pt;
+    margin: 0 0 8pt 0;
+    color: white;
+  }
+  .cover-owner { font-size: 13pt; opacity: 0.9; margin-bottom: 30mm; }
+
+  .cover-score {
+    background: rgba(255,255,255,0.12);
+    border-radius: 8mm;
+    padding: 12mm;
+    border: 1pt solid rgba(255,255,255,0.25);
+  }
+  .cover-score-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.8; }
+  .cover-score-value {
+    font-size: 64pt;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 4pt;
+    color: var(--avp-accent);
+  }
+  .cover-score-suffix { font-size: 18pt; opacity: 0.8; }
+  .cover-score-risk { font-size: 11pt; margin-top: 4pt; opacity: 0.9; }
+
+  .cover-footer {
+    position: absolute;
+    bottom: 18mm; left: 20mm; right: 20mm;
+    font-size: 9pt;
+    opacity: 0.75;
+    border-top: 1pt solid rgba(255,255,255,0.2);
+    padding-top: 6pt;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ─── Sections internes ───────────────────────────────────────────────── */
+  .section { page-break-inside: avoid; }
+  .page-break { page-break-before: always; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8pt; }
+
+  .card {
+    background: var(--avp-bg-soft);
+    border: 1pt solid var(--avp-border);
+    border-radius: 3mm;
+    padding: 8pt 10pt;
+  }
+  .card-label {
+    font-size: 8pt;
+    color: var(--avp-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6pt;
+    margin-bottom: 3pt;
+  }
+  .card-value {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--avp-ink);
+    line-height: 1.1;
+  }
+  .card-suffix { font-size: 9pt; color: var(--avp-muted); font-weight: normal; }
+
+  .card-accent {
+    background: var(--avp-primary-light);
+    border-color: var(--avp-primary);
+  }
+  .card-accent .card-value { color: var(--avp-primary-dark); }
+
+  .card-warning {
+    background: var(--avp-accent-light);
+    border-color: var(--avp-accent);
+  }
+  .card-warning .card-value { color: #92400e; }
+
+  /* ─── Tables ──────────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6pt;
+    font-size: 9pt;
+  }
+  thead th {
+    background: var(--avp-primary);
+    color: white;
+    text-align: left;
+    padding: 6pt 8pt;
+    font-weight: 600;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4pt;
+  }
+  tbody td {
+    padding: 5pt 8pt;
+    border-bottom: 0.5pt solid var(--avp-border);
+  }
+  tbody tr:nth-child(even) { background: var(--avp-bg-soft); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ─── Recommandations ─────────────────────────────────────────────────── */
+  .reco {
+    border-left: 3pt solid;
+    padding: 6pt 10pt;
+    margin: 4pt 0;
+    background: var(--avp-bg-soft);
+    border-radius: 0 2mm 2mm 0;
+  }
+  .reco-high   { border-color: #dc2626; background: #fef2f2; }
+  .reco-medium { border-color: #f59e0b; background: #fffbeb; }
+  .reco-low    { border-color: #16a34a; background: #f0fdf4; }
+  .reco-title { font-weight: 700; font-size: 9.5pt; color: var(--avp-ink); margin-bottom: 2pt; }
+  .reco-action { font-size: 8.5pt; color: var(--avp-text); }
+  .reco-priority {
+    display: inline-block;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.6pt;
+    padding: 1pt 6pt;
+    border-radius: 8pt;
+    color: white;
+    margin-right: 6pt;
+  }
+  .reco-priority-high   { background: #dc2626; }
+  .reco-priority-medium { background: #f59e0b; }
+  .reco-priority-low    { background: #16a34a; }
+
+  /* ─── Score badge inline ──────────────────────────────────────────────── */
+  .score-badge {
+    display: inline-block;
+    padding: 4pt 10pt;
+    border-radius: 12pt;
+    color: white;
+    font-weight: 700;
+    font-size: 10pt;
+    background: {{ score_color }};
+  }
+
+  /* ─── Empty states ────────────────────────────────────────────────────── */
+  .empty {
+    text-align: center;
+    padding: 16pt;
+    color: var(--avp-muted);
+    font-style: italic;
+    background: var(--avp-bg-soft);
+    border: 1pt dashed var(--avp-border);
+    border-radius: 3mm;
+  }
+
+  .meta-line { font-size: 9pt; color: var(--avp-muted); margin-top: 4pt; }
+</style>
+</head>
+<body>
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE 1 — COUVERTURE
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-mark">A</div>
+    <div>
+      <div class="cover-logo-text">AgriVision Pro</div>
+      <div class="cover-logo-sub">Plateforme agronomique pour coopératives cacaoyères</div>
+    </div>
+  </div>
+
+  <div class="cover-eyebrow">Rapport de plantation</div>
+  <div class="cover-title">{{ plantation.name }}</div>
+  <div class="cover-owner">
+    Propriétaire : {{ plantation.owner_name or "Non renseigné" }}<br>
+    {% if plantation.region %}Région : {{ plantation.region }} — {% endif %}{{ plantation.country }}
+  </div>
+
+  <div class="cover-score">
+    <div class="cover-score-label">Score agronomique global</div>
+    {% if diagnostic %}
+      <div class="cover-score-value">
+        {{ "%.0f"|format(diagnostic.global_score) }}<span class="cover-score-suffix"> / 100</span>
+      </div>
+      <div class="cover-score-risk">Niveau de risque : <strong>{{ risk_label }}</strong></div>
+    {% else %}
+      <div class="cover-score-value">—</div>
+      <div class="cover-score-risk">Aucun diagnostic enregistré</div>
+    {% endif %}
+  </div>
+
+  <div class="cover-footer">
+    <span>{% if cooperative %}Coopérative : {{ cooperative.name }}{% endif %}</span>
+    <span>Généré le {{ generated_at.strftime('%d/%m/%Y') }}</span>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE 2 — IDENTITÉ & POTENTIEL
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="section">
+  <h2>Identité de la plantation</h2>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-label">Superficie</div>
+      <div class="card-value">{{ fmt_number(plantation.hectares, 2) }} <span class="card-suffix">hectares</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Nombre de plants</div>
+      <div class="card-value">{{ fmt_number(plantation.plant_count) }}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Densité</div>
+      <div class="card-value">
+        {% if density %}{{ fmt_number(density) }} <span class="card-suffix">plants/ha</span>
+        {% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top: 8pt;">
+    <div class="card">
+      <div class="card-label">Coordonnées GPS</div>
+      <div class="card-value" style="font-size: 11pt;">
+        {% if plantation.latitude and plantation.longitude %}
+          {{ "%.4f"|format(plantation.latitude) }}, {{ "%.4f"|format(plantation.longitude) }}
+        {% else %}—{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Délimitation</div>
+      <div class="card-value" style="font-size: 11pt;">
+        {% if boundary %}
+          {{ fmt_number(boundary.area_hectares, 2) }} ha calculés
+          <span class="card-suffix">({{ boundary.method }})</span>
+        {% else %}Non délimitée{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if density %}
+  <div class="card {% if density_compliance_color == '#16a34a' %}card-accent{% else %}card-warning{% endif %}"
+       style="margin-top: 8pt;">
+    <div class="card-label">Conformité CCC</div>
+    <div class="card-value" style="font-size: 11pt;">{{ density_compliance }}</div>
+  </div>
+  {% endif %}
+
+  <h3>Potentiel de production</h3>
+  <p style="font-size: 9pt; color: var(--avp-muted); margin-bottom: 8pt;">
+    Calcul basé sur la formule métier AgriVision : 0,5 kg par plant et par an.
+  </p>
+  <div class="grid-2">
+    <div class="card card-accent">
+      <div class="card-label">Potentiel annuel</div>
+      <div class="card-value">{{ fmt_number(potential_kg) }} <span class="card-suffix">kg / an</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Récolté en {{ current_year }}</div>
+      <div class="card-value">
+        {{ fmt_number(total_kg_current_year) }}
+        <span class="card-suffix">kg ({{ yield_pct }} %)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE 3 — DIAGNOSTIC AGRONOMIQUE
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="section page-break">
+  <h2>Dernier diagnostic agronomique</h2>
+
+  {% if diagnostic %}
+    <p class="meta-line">
+      Diagnostic du {{ fmt_date(diagnostic.created_at) }}
+      — Score global : <span class="score-badge">{{ "%.0f"|format(diagnostic.global_score) }} / 100</span>
+      — Risque : <strong>{{ risk_label }}</strong>
+    </p>
+
+    <h3>Conditions climatiques relevées</h3>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-label">Humidité</div>
+        <div class="card-value">{{ fmt_number(diagnostic.humidity_pct, 0, ' %') }}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Pluviométrie mensuelle</div>
+        <div class="card-value">{{ fmt_number(diagnostic.rainfall_mm_month, 0, ' mm') }}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Température moyenne</div>
+        <div class="card-value">{{ fmt_number(diagnostic.avg_temp_c, 1, ' °C') }}</div>
+      </div>
+    </div>
+
+    {% if diagnostic.plantation_age_years or diagnostic.shade_tree_density_pct %}
+    <div class="grid-2" style="margin-top: 8pt;">
+      <div class="card">
+        <div class="card-label">Âge moyen plantation</div>
+        <div class="card-value">
+          {% if diagnostic.plantation_age_years %}
+            {{ fmt_number(diagnostic.plantation_age_years, 1, ' ans') }}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Densité d'ombrage</div>
+        <div class="card-value">
+          {% if diagnostic.shade_tree_density_pct %}
+            {{ fmt_number(diagnostic.shade_tree_density_pct, 0, ' %') }}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <h3>Recommandations actionnables</h3>
+    {% if recommendations %}
+      {% for reco in recommendations %}
+        <div class="reco reco-{{ reco.priority|default('medium') }}">
+          <div>
+            <span class="reco-priority reco-priority-{{ reco.priority|default('medium') }}">
+              {{ reco.priority|default('medium')|upper }}
+            </span>
+            <span class="reco-title">{{ reco.title|default('—') }}</span>
+          </div>
+          {% if reco.action %}
+            <div class="reco-action">{{ reco.action }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Aucune recommandation générée pour ce diagnostic.</div>
+    {% endif %}
+
+  {% else %}
+    <div class="empty">
+      Aucun diagnostic agronomique n'a encore été enregistré pour cette plantation.<br>
+      Lancez un diagnostic depuis l'application pour obtenir un score, des recommandations et un suivi.
+    </div>
+  {% endif %}
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE 4 — RÉCOLTES & PRODUCTION
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="section page-break">
+  <h2>Récoltes &amp; production</h2>
+
+  <div class="grid-3">
+    <div class="card card-warning">
+      <div class="card-label">Récolté en {{ current_year }}</div>
+      <div class="card-value">{{ fmt_number(total_kg_current_year) }} <span class="card-suffix">kg</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Cumul tout temps</div>
+      <div class="card-value">{{ fmt_number(total_kg_all_time) }} <span class="card-suffix">kg</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Nombre de récoltes</div>
+      <div class="card-value">{{ all_harvests_count }}</div>
+    </div>
+  </div>
+
+  <h3>5 dernières récoltes</h3>
+  {% if harvests %}
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Saison</th>
+          <th class="num">Quantité</th>
+          <th>Qualité</th>
+          <th class="num">Prix unit.</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in harvests %}
+        <tr>
+          <td>{{ fmt_date(h.harvest_date) }}</td>
+          <td>{{ h.season|default('—')|capitalize }}</td>
+          <td class="num">{{ fmt_number(h.quantity_kg, 0, ' kg') }}</td>
+          <td>{{ h.quality }}</td>
+          <td class="num">
+            {% if h.price_per_kg_fcfa %}{{ fmt_number(h.price_per_kg_fcfa) }} F/kg
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size: 8pt; color: var(--avp-muted);">
+            {{ (h.notes or '—')[:60] }}{% if h.notes and h.notes|length > 60 %}…{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Aucune récolte enregistrée pour cette plantation.</div>
+  {% endif %}
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE 5 — AGROFORESTERIE
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="section page-break">
+  <h2>Agroforesterie &amp; biodiversité</h2>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-label">Espèces inventoriées</div>
+      <div class="card-value">{{ species_count }}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Total arbres / ha</div>
+      <div class="card-value">{{ fmt_number(total_trees_per_ha) }}</div>
+    </div>
+    <div class="card card-accent">
+      <div class="card-label">Stock carbone estimé</div>
+      <div class="card-value">{{ fmt_number(carbon_stock_tco2_ha, 2) }} <span class="card-suffix">tCO₂ / ha</span></div>
+    </div>
+  </div>
+
+  <h3>Inventaire des espèces</h3>
+  {% if agro_records %}
+    <table>
+      <thead>
+        <tr>
+          <th>Espèce</th>
+          <th class="num">Densité (arbres/ha)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in agro_records %}
+        <tr>
+          <td>{{ r.species_name }}</td>
+          <td class="num">{{ fmt_number(r.count_per_hectare or 0, 1) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Aucun inventaire agroforesterie enregistré pour cette plantation.</div>
+  {% endif %}
+
+  <p class="meta-line" style="margin-top: 12pt;">
+    Le stock carbone est estimé à partir d'une formule simplifiée FAO/IPCC :
+    0,05 tCO₂/ha/an par arbre/hectare. Pour un calcul certifié EUDR,
+    une mesure terrain est recommandée.
+  </p>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   FIN — Footer documentaire
+   ════════════════════════════════════════════════════════════════════════ #}
+<div class="section page-break">
+  <h2>À propos de ce rapport</h2>
+
+  <p>
+    Ce document a été généré automatiquement par <strong>AgriVision Pro</strong>
+    le {{ generated_at.strftime('%d/%m/%Y à %H:%M') }} à partir des données
+    enregistrées dans la plateforme pour la plantation <strong>{{ plantation.name }}</strong>.
+  </p>
+
+  <p>
+    Les scores agronomiques, recommandations et estimations de stock carbone
+    sont produits par le moteur déterministe <strong>CacaoEngine v1.0</strong>
+    et reposent sur les meilleures pratiques recommandées par le Conseil
+    Café-Cacao de Côte d'Ivoire (CCC), la FAO et les standards EUDR.
+  </p>
+
+  <p>
+    Pour toute question ou correction, adressez-vous à votre administrateur
+    de coopérative{% if cooperative %} (<strong>{{ cooperative.name }}</strong>){% endif %}
+    ou à l'équipe AgriVision Pro.
+  </p>
+
+  <div style="margin-top: 24pt; padding: 14pt; background: var(--avp-primary-light);
+              border-left: 4pt solid var(--avp-primary); border-radius: 2mm;">
+    <strong style="color: var(--avp-primary-dark);">Powered by AgriVision Pro</strong><br>
+    <span style="font-size: 9pt; color: var(--avp-text);">
+      Plateforme SaaS de gestion agronomique pour coopératives cacaoyères africaines.
+    </span>
+  </div>
+</div>
+
+</body>
+</html>

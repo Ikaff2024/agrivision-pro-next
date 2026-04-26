@@ -2,6 +2,9 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from urllib.parse import quote
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -15,6 +18,11 @@ from app.auth.auth_service import get_current_user
 from app.ml.image_diagnosis import analyze_leaf_image
 from app.satellite.ndvi_service import get_ndvi
 from app.recommendations import build_recommendations
+from app.services.reports import (
+    build_plantation_context,
+    generate_plantation_pdf,
+    report_filename,
+)
 
 router = APIRouter()
 
@@ -1698,3 +1706,59 @@ def delete_harvest(
     db.delete(harvest)
     db.commit()
     return {"message": "Recolte supprimee avec succes."}
+
+# ─── Reports PDF (Sprint R1a) ─────────────────────────────────────────────────
+
+@router.get("/plantations/{plantation_id}/report.pdf")
+def get_plantation_report_pdf(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Génère le rapport PDF complet d'une plantation.
+
+    Permissions : admin et agronomist uniquement (pas de viewer ni technician).
+    Multi-tenant : la plantation doit appartenir à la coopérative de l'utilisateur.
+    Robuste : fonctionne aussi pour une plantation sans diagnostic ni récolte.
+    """
+    # 1. Vérification du rôle
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Génération de rapport réservée aux rôles admin et agronome."
+        )
+
+    # 2. Récupération multi-tenant de la plantation
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    # 3. Construction du contexte + génération du PDF
+    try:
+        context = build_plantation_context(db, plantation)
+        pdf_bytes = generate_plantation_pdf(context)
+    except Exception as e:
+        # Log côté serveur (le middleware global capture déjà l'exception),
+        # mais on renvoie un message propre au client.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la génération du rapport : {type(e).__name__}"
+        )
+
+    # 4. Réponse en streaming avec filename URL-encoded (gère les accents)
+    filename = report_filename(plantation)
+    headers = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{filename}\"; "
+            f"filename*=UTF-8''{quote(filename)}"
+        )
+    }
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers=headers,
+    )
