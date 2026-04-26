@@ -1,4 +1,4 @@
-﻿import os
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -30,14 +30,14 @@ class PlantationCreate(BaseModel):
     plant_count: Optional[int] = None
 
 
-# â”€â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Health ──────────────────────────────────────────────────────────────────
 
 @router.get("/health")
 def health_check():
     return {"status": "ok"}
 
 
-# â”€â”€â”€ Plantations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Plantations ─────────────────────────────────────────────────────────────
 
 @router.post("/plantations")
 def create_plantation(
@@ -133,7 +133,7 @@ def delete_plantation(
 
     return {"message": f"Plantation '{plantation.name}' supprimée avec succès."}
 
-# â”€â”€â”€ Diagnostic agronomique â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Diagnostic agronomique ───────────────────────────────────────────────────
 
 @router.post("/cacao/diagnostic", response_model=None)
 def diagnostic_endpoint(
@@ -152,7 +152,7 @@ def diagnostic_endpoint(
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    # â”€â”€ Couche 2 Agroforesterie : substituer l'ombrage si inventaire disponible â”€â”€
+    # ── Couche 2 Agroforesterie : substituer l'ombrage si inventaire disponible ──
     agro_records = db.query(AgroforestryRecord).filter(
         AgroforestryRecord.plantation_id == plantation_id
     ).all()
@@ -259,7 +259,7 @@ def get_diagnostic_recommendations(
     )
     return rec_list
 
-# â”€â”€â”€ Historique diagnostics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Historique diagnostics ───────────────────────────────────────────────────
 
 @router.get("/diagnostics")
 def get_diagnostics(
@@ -330,7 +330,7 @@ def get_plantation_history(
     ]
 
 
-# â”€â”€â”€ Carte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Carte ────────────────────────────────────────────────────────────────────
 
 def _latest_diag_by_plantation(plantation_ids: list, db: Session) -> dict:
     """
@@ -422,7 +422,7 @@ def get_map_stats(
     }
 
 
-# â”€â”€â”€ Image / ML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Image / ML ──────────────────────────────────────────────────────────────
 
 @router.post("/diagnostic/image")
 async def diagnostic_image(
@@ -443,11 +443,11 @@ async def diagnostic_image(
         if not plantation:
             raise HTTPException(status_code=404, detail="Plantation introuvable.")
 
-    # Lecture en mémoire â€” pas d'écriture disque (filesystem éphémère sur Railway)
+    # Lecture en mémoire — pas d'écriture disque (filesystem éphémère sur Railway)
     contents = await file.read()
 
     # Exécution du module ML (stub pour l'instant)
-    # NOTE : le stub ignore le contenu â€” on lui passe le nom de fichier pour
+    # NOTE : le stub ignore le contenu — on lui passe le nom de fichier pour
     # compatibilité avec la signature existante de analyze_leaf_image.
     import tempfile
     with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
@@ -463,7 +463,7 @@ async def diagnostic_image(
     return diagnosis_result
 
 
-# â”€â”€â”€ Satellite NDVI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Satellite NDVI ───────────────────────────────────────────────────────────
 
 @router.get("/satellite/ndvi")
 def get_ndvi_endpoint(
@@ -501,7 +501,7 @@ def get_plantation_satellite_analysis(
     }
 
 
-# â”€â”€â”€ Admin â€” Gestion des membres â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Admin — Gestion des membres ─────────────────────────────────────────────
 
 class UpdateRoleRequest(BaseModel):
     role: str  # "admin" | "agronomist" | "technician"
@@ -599,16 +599,16 @@ def remove_member(
     return {"message": f"Membre {member.email} supprimé avec succès."}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Agroforesterie â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════
+# ─── Agroforesterie ──────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
 
 from app.db.models import AgroforestryRecord, Cooperative, PlantationBoundary
 from app.ai_advisor import get_ai_advice
 
-# â”€â”€ Bibliothèque d'espèces â€” coefficients agronomiques & carbone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# carbon_factor : tCOâ‚‚ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
-# shade_factor  : contribution à l'ombrage par arbre (arbres/ha â†’ % ombrage)
+# ── Bibliothèque d'espèces — coefficients agronomiques & carbone ──────────────
+# carbon_factor : tCO₂ stockée par arbre par an (allométrie simplifiée FAO/IPCC)
+# shade_factor  : contribution à l'ombrage par arbre (arbres/ha → % ombrage)
 SPECIES_LIBRARY = [
     # Légumineuses fixatrices d'azote (ombrage rapide)
     {"name":"Gliricidia sepium",    "local":"Gliricidi",    "layer":"intermediate", "carbon_factor":0.012, "shade_factor":0.8,  "category":"Légumineuse"},
@@ -639,7 +639,7 @@ def _compute_metrics(records) -> dict:
     Calcule les métriques agroforestières à partir des enregistrements.
     - shade_score      : % d'ombrage estimé (0-100)
     - diversity_score  : score de diversité floristique (0-100)
-    - carbon_stock_tco2_ha : stock carbone estimé (tCOâ‚‚/ha)
+    - carbon_stock_tco2_ha : stock carbone estimé (tCO₂/ha)
     - conformity_score : score global de conformité agroforestière (0-100)
     """
     if not records:
@@ -680,7 +680,7 @@ def _compute_metrics(records) -> dict:
     species_count = len(species_seen)
     diversity_score = min(100, 10 + (species_count - 1) * 12) if species_count else 0
 
-    # Carbone : plafonné à 5 tCOâ‚‚/ha (valeur réaliste pour agroforesterie cacao)
+    # Carbone : plafonné à 5 tCO₂/ha (valeur réaliste pour agroforesterie cacao)
     carbon_score = min(100, round(carbon_sum / 5 * 100))
 
     # Conformité globale : ombrage 40% + diversité 30% + carbone 30%
@@ -709,46 +709,46 @@ def _build_recommendations(metrics: dict, records: list) -> list:
 
     # Ombrage
     if shade == 0:
-        recos.append({"priority":"high","icon":"ðŸŒ³","title":"Aucun arbre d'ombrage enregistré",
-            "action":"Planter en urgence des arbres d'ombrage a croissance rapide : Gliricidia sepium ou Musa spp. (Bananier) â€” objectif minimum 20 arbres/ha."})
+        recos.append({"priority":"high","icon":"🌳","title":"Aucun arbre d'ombrage enregistré",
+            "action":"Planter en urgence des arbres d'ombrage a croissance rapide : Gliricidia sepium ou Musa spp. (Bananier) — objectif minimum 20 arbres/ha."})
     elif shade < 35:
-        recos.append({"priority":"high","icon":"ðŸŒ¿","title":"Ombrage insuffisant â€” stress thermique possible",
+        recos.append({"priority":"high","icon":"🌿","title":"Ombrage insuffisant — stress thermique possible",
             "action":f"Densite actuelle : {trees} arbres/ha. Planter 15 a 20 arbres/ha supplementaires de Gliricidia ou Erythrina pour atteindre l'optimal (20-50%)."})
     elif shade > 75:
-        recos.append({"priority":"medium","icon":"âœ‚ï¸","title":"Ombrage excessif â€” risque fongique",
+        recos.append({"priority":"medium","icon":"✂️","title":"Ombrage excessif — risque fongique",
             "action":"Canopee trop dense (> 75%). Elaguer les arbres d'ombrage pour ameliorer la circulation d'air et reduire les risques de pourriture des cabosses."})
     else:
-        recos.append({"priority":"low","icon":"âœ…","title":"Ombrage optimal",
+        recos.append({"priority":"low","icon":"✅","title":"Ombrage optimal",
             "action":"Densite d'ombrage dans la plage ideale (20-75%). Maintenir les pratiques actuelles."})
 
     # Diversite
     if sp_count == 1:
-        recos.append({"priority":"medium","icon":"ðŸŒ±","title":"Diversite floristique faible â€” 1 seule espece",
+        recos.append({"priority":"medium","icon":"🌱","title":"Diversite floristique faible — 1 seule espece",
             "action":"Introduire 2 a 3 especes complementaires. Recommandations : Persea americana (Avocatier) pour les revenus + Gliricidia sepium pour la fixation d'azote."})
     elif sp_count == 2:
-        recos.append({"priority":"low","icon":"ðŸŒ¿","title":"Diversite a ameliorer",
+        recos.append({"priority":"low","icon":"🌿","title":"Diversite a ameliorer",
             "action":"Objectif : 3 especes minimum pour la conformite EUDR. Ajouter une espece de strate superieure (Iroko, Manguier) pour ameliorer le score carbone."})
     elif sp_count >= 3:
-        recos.append({"priority":"low","icon":"âœ…","title":"Bonne diversite floristique",
+        recos.append({"priority":"low","icon":"✅","title":"Bonne diversite floristique",
             "action":f"{sp_count} especes enregistrees. Continuer a diversifier avec des essences a fort potentiel carbone pour renforcer la certification."})
 
     # Carbone
     if 0 < carbon < 20:
-        recos.append({"priority":"medium","icon":"ðŸŒ","title":"Stock carbone tres faible",
+        recos.append({"priority":"medium","icon":"🌍","title":"Stock carbone tres faible",
             "action":"Planter des essences a fort potentiel carbone : Milicia excelsa (Iroko), Ceiba pentandra (Fromager), Khaya senegalensis. Objectif : 1 tCO2/ha minimum."})
     elif carbon < 50:
-        recos.append({"priority":"low","icon":"ðŸ“ˆ","title":"Stock carbone en developpement",
+        recos.append({"priority":"low","icon":"📈","title":"Stock carbone en developpement",
             "action":"Augmenter la densite d'arbres a longue duree de vie (Iroko, Frake, Khaya) pour accelerer la sequestration carbone et acceder aux financements climatiques."})
 
     # Conformite globale
     if conf < 35:
-        recos.append({"priority":"high","icon":"âš ï¸","title":"Non conforme aux standards EUDR",
+        recos.append({"priority":"high","icon":"⚠️","title":"Non conforme aux standards EUDR",
             "action":"Score de conformite critique. Votre plantation ne repond pas encore aux exigences EUDR. Appliquer en priorite les recommandations ombrage et diversite."})
     elif conf < 65:
-        recos.append({"priority":"medium","icon":"ðŸ“‹","title":"Conformite partielle â€” ameliorations necessaires",
+        recos.append({"priority":"medium","icon":"📋","title":"Conformite partielle — ameliorations necessaires",
             "action":"Des progres ont ete faits mais des ajustements sont requis. Concentrez-vous sur le point ayant le score le plus faible."})
     else:
-        recos.append({"priority":"low","icon":"ðŸ†","title":"Plantation conforme aux standards agroforestiers",
+        recos.append({"priority":"low","icon":"🏆","title":"Plantation conforme aux standards agroforestiers",
             "action":"Excellent niveau de conformite. Cette plantation peut etre presentee aux acheteurs et certifications EUDR/Rainforest Alliance."})
 
     priority_order = {"high": 0, "medium": 1, "low": 2}
@@ -952,9 +952,9 @@ def get_agroforestry_summary(
     }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Suspension â€” Niveau 1 (Admin coopérative) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Suspension — Niveau 1 (Admin coopérative) ──────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
 
 @router.put("/admin/members/{user_id}/suspend")
 def suspend_member(
@@ -1006,9 +1006,9 @@ def activate_member(
     return {"message": f"Compte {member.email} réactivé.", "user_id": member.id, "is_active": True}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Suspension â€” Niveau 2 (IKAFFANAN LTD â€” propriétaire plateforme) â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Suspension — Niveau 2 (IKAFFANAN LTD — propriétaire plateforme) ────────
+# ════════════════════════════════════════════════════════════════════════════
 
 from fastapi import Header
 
@@ -1078,9 +1078,9 @@ def activate_cooperative(
     return {"message": f"Coopérative '{coop.name}' réactivée.", "coop_id": coop.id, "is_active": True}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Dashboard Propriétaire â€” Statistiques globales IKAFFANAN LTD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Dashboard Propriétaire — Statistiques globales IKAFFANAN LTD ───────────
+# ════════════════════════════════════════════════════════════════════════════
 
 @router.get("/owner/stats")
 def owner_stats(
@@ -1233,9 +1233,9 @@ def reset_member_password(
     }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Conseil IA Agronome â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Conseil IA Agronome ────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
 
 @router.post("/plantations/{plantation_id}/ai-advice")
 async def plantation_ai_advice(
@@ -1245,7 +1245,7 @@ async def plantation_ai_advice(
 ):
     """
     Génère un conseil agronomique IA complet pour une plantation.
-    Agrège : diagnostic, agroforesterie, boundary â†’ appel Claude API.
+    Agrège : diagnostic, agroforesterie, boundary → appel Claude API.
     """
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
@@ -1298,9 +1298,9 @@ async def plantation_ai_advice(
     return result
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€â”€ Délimitation de parcelles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Délimitation de parcelles ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
 
 import json as json_module
 import math as math_module
@@ -1314,7 +1314,7 @@ def _calculate_area_hectares(coordinates: list) -> float:
     if not coordinates or len(coordinates) < 3:
         return 0.0
     
-    # Facteur de conversion : 1 degré â‰ˆ 111 320 mètres à l'équateur
+    # Facteur de conversion : 1 degré ≈ 111 320 mètres à l'équateur
     R = 6371000  # rayon de la Terre en mètres
     
     def to_rad(deg):
@@ -1331,7 +1331,7 @@ def _calculate_area_hectares(coordinates: list) -> float:
         area += (lng2 - lng1) * (2 + math_module.sin(lat1) + math_module.sin(lat2))
     
     area = abs(area) * R * R / 2
-    return round(area / 10000, 4)  # mÂ² â†’ hectares
+    return round(area / 10000, 4)  # m² → hectares
 
 
 class BoundaryCreate(BaseModel):
@@ -1403,7 +1403,7 @@ def save_boundary(
         "area_hectares": area,
         "points_count": points_count,
         "method": data.method,
-        "message": f"Délimitation sauvegardée â€” {area} ha calculés automatiquement."
+        "message": f"Délimitation sauvegardée — {area} ha calculés automatiquement."
     }
 
 
