@@ -1,0 +1,62 @@
+# =============================================================================
+# .dockerignore - exclut les fichiers inutiles du contexte de build Docker
+# =============================================================================
+
+# Git et CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Backups locaux et fichiers temporaires
+*.backup-*
+*.bak
+*.swp
+*.tmp
+pytest_*.log
+
+# Tests et docs (pas necessaires en prod runtime)
+tests/
+docs/
+*.md
+!README.md
+
+# Frontend (deploye separement sur Netlify)
+frontend/
+
+# Documents Word, PDF, etc. (livraison client)
+*.docx
+*.pdf
+*.xlsx
+
+# Caches Python
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.iml
+
+# Environnement local
+.env
+.env.local
+.env.*.local
+
+# Anciens fichiers de config remplaces par le Dockerfile
+nixpacks.toml
+railway.json
+
+# Outputs et fichiers generes
+outputs/
+build/
+dist/
+*.egg-info/

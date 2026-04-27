@@ -1742,11 +1742,16 @@ def get_plantation_report_pdf(
         context = build_plantation_context(db, plantation)
         pdf_bytes = generate_plantation_pdf(context)
     except Exception as e:
-        # Log côté serveur (le middleware global capture déjà l'exception),
-        # mais on renvoie un message propre au client.
+        # Log explicite avec la stack trace dans les logs Railway
+        import traceback, logging
+        logger_pdf = logging.getLogger("agrivision")
+        logger_pdf.error(
+            "Echec generation PDF plantation %s : %s\n%s",
+            plantation_id, type(e).__name__, traceback.format_exc()
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Erreur lors de la génération du rapport : {type(e).__name__}"
+            detail=f"Erreur lors de la generation du rapport : {type(e).__name__} - {str(e)[:200]}"
         )
 
     # 4. Réponse en streaming avec filename URL-encoded (gère les accents)
