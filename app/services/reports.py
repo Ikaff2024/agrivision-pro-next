@@ -187,19 +187,33 @@ def build_plantation_context(db: Session, plantation: Plantation) -> dict:
             density_compliance = "Sur-densité (CCC recommande 1000–1400 plants/ha)"
             density_compliance_color = "#f59e0b"
 
-    # ─── Recommandations (dérivées du diagnostic via le moteur existant) ──────
-    # On les recharge depuis le moteur si on a un diagnostic récent
+    # ─── Recommandations (même logique que /diagnostics/{id}/recommendations) ───
+    # Le moteur ne stocke pas les module_results en DB ; on reconstitue les
+    # inputs depuis le diagnostic et on rappelle build_recommendations() avec
+    # la signature exacte qu'il attend.
     recommendations = []
     if last_diagnostic:
         try:
             from app.recommendations import build_recommendations
             recommendations = build_recommendations(
-                diagnostic=last_diagnostic,
-                agro_records=agro_records,
-                plantation=plantation,
+                module_results=[],
+                inputs={
+                    "humidity_pct":           last_diagnostic.humidity_pct,
+                    "rainfall_mm_month":      last_diagnostic.rainfall_mm_month,
+                    "avg_temp_c":             last_diagnostic.avg_temp_c,
+                    "shade_tree_density_pct": last_diagnostic.shade_tree_density_pct,
+                    "plantation_age_years":   last_diagnostic.plantation_age_years,
+                },
+                global_score=last_diagnostic.global_score or 0.0,
+                global_risk=(last_diagnostic.global_risk_level or "LOW").upper(),
             ) or []
-        except Exception:
-            # Le module recommendations est optionnel pour la génération du rapport
+        except Exception as exc:
+            # On loggue l'erreur au lieu de l'avaler silencieusement
+            import logging
+            logging.getLogger("agrivision").warning(
+                "Echec chargement recommandations pour plantation %s : %s",
+                plantation.id, exc,
+            )
             recommendations = []
 
     return {
