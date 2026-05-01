@@ -108,8 +108,9 @@ class TestInterpretNdvi:
         assert result["confidence"] == "low"
 
     def test_stressed_above_critical(self):
+        """0.31 est juste au-dessus du nouveau seuil inclusif <= 0.30."""
         from app.api.routes import _interpret_ndvi
-        result = _interpret_ndvi(0.40)
+        result = _interpret_ndvi(0.31)
         assert result["status"] == "STRESSED"
         assert result["confidence"] == "high"
         assert result["message"] is None
@@ -128,17 +129,18 @@ class TestInterpretNdvi:
 
     def test_critical_yeo_house_case(self):
         """
-        Reproduit le cas reel : la maison de YEO (la "Plantation GB") avec NDVI 0.30.
-        Note : 0.30 est >= 0.30 donc selon la logique stricte ndvi < 0.30,
-        c'est en STRESSED. On valide le comportement attendu.
+        Reproduit le cas reel : la maison du PO (la "Plantation GB") avec NDVI 0.30.
+        Apres R1d-fix1, le seuil est inclusif (<= 0.30) donc 0.30 doit etre
+        CRITICAL_LOW pour declencher le warning sur les zones urbaines/toits.
         """
         from app.api.routes import _interpret_ndvi
         result = _interpret_ndvi(0.30)
-        # 0.30 n'est PAS < 0.30, donc c'est STRESSED (pas CRITICAL_LOW)
-        assert result["status"] == "STRESSED", (
-            "Avec ndvi < 0.30, exactement 0.30 doit etre STRESSED. "
-            "Si on veut inclure 0.30, modifier en ndvi <= 0.30."
+        assert result["status"] == "CRITICAL_LOW", (
+            "Avec ndvi <= 0.30, exactement 0.30 doit etre CRITICAL_LOW "
+            "(zone non vegetalisee — couvre les cas urbains et toits)."
         )
+        assert result["confidence"] == "low"
+        assert result["message"] is not None
 
 
 # ─── Tests : endpoints satellite enrichis ─────────────────────────────────────

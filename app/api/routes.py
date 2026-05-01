@@ -65,7 +65,7 @@ def _interpret_ndvi(ndvi: float) -> dict:
       - 0.50-0.70 : vegetation moyenne a dense → "Moderee"
       - > 0.70 : couvert dense → "Saine"
     """
-    if ndvi < 0.30:
+    if ndvi <= 0.30:
         return {
             "status": "CRITICAL_LOW",
             "label": "Indeterminee",
@@ -79,9 +79,9 @@ def _interpret_ndvi(ndvi: float) -> dict:
                 "la zone n'est pas confirmee vegetalisee."
             ),
         }
-    if ndvi < 0.50:
+    if ndvi <= 0.50:
         return {"status": "STRESSED", "label": "Stressee", "confidence": "high", "message": None}
-    if ndvi < 0.70:
+    if ndvi <= 0.70:
         return {"status": "MODERATE", "label": "Moderee", "confidence": "high", "message": None}
     return {"status": "HEALTHY", "label": "Saine", "confidence": "high", "message": None}
 
