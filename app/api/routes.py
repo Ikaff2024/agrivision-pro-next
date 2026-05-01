@@ -59,13 +59,13 @@ def _interpret_ndvi(ndvi: float) -> dict:
       - message : message pedagogique pour l'utilisateur (None si confidence="high")
 
     Seuils calibres pour la cacaoculture :
-      - < 0.30 : couvert vegetal insignifiant (sol nu, urbain, route, toit)
+      - <= 0.35 : couvert vegetal insignifiant ou tres degrade
                  → confidence LOW, message pedagogique obligatoire
       - 0.30-0.50 : vegetation faible/clairsemee → confidence HIGH, statut "Stressee"
       - 0.50-0.70 : vegetation moyenne a dense → "Moderee"
       - > 0.70 : couvert dense → "Saine"
     """
-    if ndvi <= 0.30:
+    if ndvi <= 0.35:
         return {
             "status": "CRITICAL_LOW",
             "label": "Indeterminee",

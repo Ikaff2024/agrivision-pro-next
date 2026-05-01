@@ -108,9 +108,9 @@ class TestInterpretNdvi:
         assert result["confidence"] == "low"
 
     def test_stressed_above_critical(self):
-        """0.31 est juste au-dessus du nouveau seuil inclusif <= 0.30."""
+        """0.36 est juste au-dessus du nouveau seuil R1d-fix2 (<= 0.35)."""
         from app.api.routes import _interpret_ndvi
-        result = _interpret_ndvi(0.31)
+        result = _interpret_ndvi(0.36)
         assert result["status"] == "STRESSED"
         assert result["confidence"] == "high"
         assert result["message"] is None
@@ -141,6 +141,28 @@ class TestInterpretNdvi:
         )
         assert result["confidence"] == "low"
         assert result["message"] is not None
+
+
+
+    def test_yeo_house_real_value_0_304(self):
+        """
+        Cas reel decouvert en prod (R1d-fix2) : Sentinel-2 renvoie pour la
+        maison du PO un NDVI de 0.304 (pas 0.30 comme l'affichage le suggere).
+        Avec le seuil <= 0.35, ce cas est maintenant correctement classe
+        comme CRITICAL_LOW.
+        """
+        from app.api.routes import _interpret_ndvi
+        result = _interpret_ndvi(0.304)
+        assert result["status"] == "CRITICAL_LOW"
+        assert result["confidence"] == "low"
+        assert result["message"] is not None
+
+    def test_just_below_new_threshold_035(self):
+        """0.35 exactement reste CRITICAL_LOW (seuil inclusif)."""
+        from app.api.routes import _interpret_ndvi
+        result = _interpret_ndvi(0.35)
+        assert result["status"] == "CRITICAL_LOW"
+        assert result["confidence"] == "low"
 
 
 # ─── Tests : endpoints satellite enrichis ─────────────────────────────────────
