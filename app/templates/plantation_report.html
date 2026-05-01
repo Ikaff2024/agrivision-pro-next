@@ -427,6 +427,15 @@
     {% endif %}
 
     <h3>Recommandations actionnables</h3>
+    {% if ndvi_warning %}
+      <div style="margin: 8pt 0 12pt 0; padding: 10pt 12pt;
+                  background: #fef3c7; border-left: 3pt solid #d97706;
+                  border-radius: 2mm; color: #78350f; font-size: 9pt; line-height: 1.4;">
+        <strong style="font-size: 10pt;">⚠ NDVI satellite très faible — recommandations à verifier</strong><br><br>
+        {{ ndvi_warning.message }}<br><br>
+        <em>Aucune recommandation agricole n'est appliquée tant que la zone n'est pas confirmée végétalisée.</em>
+      </div>
+    {% endif %}
     {% if recommendations %}
       {% for reco in recommendations %}
         <div class="reco reco-{{ reco.priority|default('medium') }}">

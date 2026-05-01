@@ -262,7 +262,29 @@ function showResult(data) {
     `<div class="ndvi-status ${statusClass[status]||'status-moderate'}">${NDVI_LABELS[status]||status}</div>`;
   document.getElementById('r-status').textContent = NDVI_LABELS[status] || status;
   document.getElementById('r-interp').textContent = ndvi >= 0.7 ? 'Excellente' : ndvi >= 0.5 ? 'Bonne' : ndvi >= 0.3 ? 'Faible' : 'Critique';
-  document.getElementById('r-advice-text').textContent = NDVI_ADVICE[status] || '';
+
+  // === Sprint R1d : garde-fou Anti-Detracteur ============================
+  // Si l'API signale une confiance faible (NDVI < 0.30 = sol nu/urbain/toit),
+  // on remplace la recommandation agricole par un message pedagogique au lieu
+  // de donner des conseils absurdes ("irriguer un toit"...).
+  const adviceCard = document.getElementById('r-advice');
+  if (data.confidence === 'low' && data.warning_message) {
+    adviceCard.innerHTML =
+      '<div style="font-size:13px;font-weight:600;color:#92400e;text-transform:uppercase;' +
+      'letter-spacing:.06em;margin-bottom:12px">⚠ NDVI très faible — vérification recommandée</div>' +
+      '<div style="padding:14px 16px;background:#fef3c7;border-left:3px solid #d97706;' +
+      'border-radius:6px;font-size:13.5px;line-height:1.6;color:#78350f">' +
+      esc(data.warning_message) +
+      '</div>';
+  } else {
+    // Cas normal : on restaure la mise en page d'origine du bloc Recommandation
+    adviceCard.innerHTML =
+      '<div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;' +
+      'letter-spacing:.06em;margin-bottom:12px">Recommandation</div>' +
+      '<div style="font-size:14px;line-height:1.7;color:var(--text)" id="r-advice-text">' +
+      esc(NDVI_ADVICE[status] || '') +
+      '</div>';
+  }
 }
 
 async function runByPlantation() {

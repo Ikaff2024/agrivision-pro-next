@@ -771,6 +771,37 @@ async function downloadPlantationReport() {
   }
 }
 
+
+// === Sprint R1d : helper Anti-Detracteur — verification NDVI plantation ====
+async function avpCheckPlantationNdvi(plantationId, recoContainerId) {
+  // Recupere l'analyse satellite et, si confidence=low, affiche un badge
+  // d'alerte au-dessus du conteneur de recommandations.
+  if (typeof authFetch !== "function") return;
+  try {
+    const res = await authFetch("/plantations/" + plantationId + "/satellite");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.confidence === "low" && data.warning_message) {
+      const container = document.getElementById(recoContainerId || "recommendations");
+      if (!container) return;
+      let badge = document.getElementById("avp-ndvi-badge");
+      if (!badge) {
+        badge = document.createElement("div");
+        badge.id = "avp-ndvi-badge";
+        badge.style.cssText = "margin: 12px 0; padding: 12px 16px; " +
+          "background: #fef3c7; border-left: 4px solid #d97706; " +
+          "border-radius: 6px; color: #78350f; font-size: 13.5px; line-height: 1.5;";
+        container.parentNode.insertBefore(badge, container);
+      }
+      badge.innerHTML = "<strong>NDVI satellite tres faible — recommandations a verifier</strong><br>" +
+                        data.warning_message;
+    }
+  } catch (e) {
+    // Echec silencieux : le helper est purement informatif
+    console.warn("avpCheckPlantationNdvi: ", e);
+  }
+}
+
 </script>
 
 <!-- Modale de saisie d'une recolte -->

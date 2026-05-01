@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from urllib.parse import quote
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -34,11 +34,57 @@ class PlantationCreate(BaseModel):
     region: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    hectares: Optional[float] = None
+    hectares: Optional[float] = Field(
+        None,
+        gt=0.25,
+        le=500,
+        description="Superficie en hectares (entre 0.25 et 500). "
+                    "Le seuil minimum exclut les zones non agricoles "
+                    "(toits, cours, jardins) ; le maximum exclut les saisies absurdes.",
+    )
     plant_count: Optional[int] = None
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────
+
+
+# ─── Helper NDVI : interpretation pour garde-fous Anti-Detracteur ────────────
+def _interpret_ndvi(ndvi: float) -> dict:
+    """
+    Interprete un NDVI brut (0.0 - 1.0) en fournissant :
+      - status : code interne ("CRITICAL_LOW" | "STRESSED" | "MODERATE" | "HEALTHY")
+      - label : libelle utilisateur FR
+      - confidence : "low" | "high" — si low, l'app doit afficher un avertissement
+                     pedagogique et NE PAS donner de recommandation agricole.
+      - message : message pedagogique pour l'utilisateur (None si confidence="high")
+
+    Seuils calibres pour la cacaoculture :
+      - < 0.30 : couvert vegetal insignifiant (sol nu, urbain, route, toit)
+                 → confidence LOW, message pedagogique obligatoire
+      - 0.30-0.50 : vegetation faible/clairsemee → confidence HIGH, statut "Stressee"
+      - 0.50-0.70 : vegetation moyenne a dense → "Moderee"
+      - > 0.70 : couvert dense → "Saine"
+    """
+    if ndvi < 0.30:
+        return {
+            "status": "CRITICAL_LOW",
+            "label": "Indeterminee",
+            "confidence": "low",
+            "message": (
+                "Le satellite Sentinel-2 mesure un indice de vegetation tres faible "
+                f"(NDVI = {ndvi:.2f}), correspondant habituellement a un sol nu, "
+                "une zone urbaine, ou un couvert vegetal severement degrade. "
+                "Verifiez que les coordonnees GPS correspondent bien a votre plantation. "
+                "Aucune recommandation agricole automatique n'est generee tant que "
+                "la zone n'est pas confirmee vegetalisee."
+            ),
+        }
+    if ndvi < 0.50:
+        return {"status": "STRESSED", "label": "Stressee", "confidence": "high", "message": None}
+    if ndvi < 0.70:
+        return {"status": "MODERATE", "label": "Moderee", "confidence": "high", "message": None}
+    return {"status": "HEALTHY", "label": "Saine", "confidence": "high", "message": None}
+
 
 @router.get("/health")
 def health_check():
@@ -479,7 +525,16 @@ def get_ndvi_endpoint(
     longitude: float,
     current_user: User = Depends(get_current_user),
 ):
-    return get_ndvi(latitude, longitude)
+    ndvi_result = get_ndvi(latitude, longitude)
+    interpretation = _interpret_ndvi(ndvi_result["ndvi"])
+    return {
+        "ndvi": ndvi_result["ndvi"],
+        "vegetation_status": ndvi_result["vegetation_status"],
+        # Garde-fou Anti-Detracteur (Sprint R1d)
+        "ndvi_label": interpretation["label"],
+        "confidence": interpretation["confidence"],
+        "warning_message": interpretation["message"],
+    }
 
 
 @router.get("/plantations/{plantation_id}/satellite")
@@ -502,10 +557,15 @@ def get_plantation_satellite_analysis(
         )
 
     ndvi_result = get_ndvi(plantation.latitude, plantation.longitude)
+    interpretation = _interpret_ndvi(ndvi_result["ndvi"])
     return {
         "plantation_id": plantation.id,
         "ndvi": ndvi_result["ndvi"],
         "vegetation_status": ndvi_result["vegetation_status"],
+        # Garde-fou Anti-Detracteur (Sprint R1d)
+        "ndvi_label": interpretation["label"],
+        "confidence": interpretation["confidence"],
+        "warning_message": interpretation["message"],
     }
 
 

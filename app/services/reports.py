@@ -216,6 +216,26 @@ def build_plantation_context(db: Session, plantation: Plantation) -> dict:
             )
             recommendations = []
 
+    # ─── NDVI : si lat/lon disponibles, calculer pour le garde-fou Anti-Detracteur
+    ndvi_warning = None
+    try:
+        if plantation.latitude is not None and plantation.longitude is not None:
+            from app.ndvi_service import get_ndvi
+            from app.api.routes import _interpret_ndvi
+            ndvi_result = get_ndvi(plantation.latitude, plantation.longitude)
+            interpretation = _interpret_ndvi(ndvi_result["ndvi"])
+            if interpretation["confidence"] == "low":
+                ndvi_warning = {
+                    "ndvi": ndvi_result["ndvi"],
+                    "message": interpretation["message"],
+                }
+    except Exception as exc:
+        import logging
+        logging.getLogger("agrivision").warning(
+            "Echec calcul NDVI pour rapport plantation %s : %s",
+            plantation.id, exc,
+        )
+
     return {
         # Entités principales
         "plantation": plantation,
@@ -226,6 +246,7 @@ def build_plantation_context(db: Session, plantation: Plantation) -> dict:
         "agro_records": agro_records,
         "boundary": boundary,
         "recommendations": recommendations,
+        "ndvi_warning": ndvi_warning,
         # Métriques calculées
         "total_kg_all_time": total_kg_all_time,
         "total_kg_current_year": total_kg_current_year,
