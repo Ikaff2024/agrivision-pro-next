@@ -503,7 +503,7 @@ function showMobilePicker() {
   const list = document.getElementById('picker-list');
   // allData est la variable globale du fichier original
   if (!allData || allData.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Aucune plantation avec diagnostic disponible.<br>Effectuez d'abord un diagnostic.</div>';
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Aucune plantation avec diagnostic disponible.<br>Effectuez un diagnostic en premier.</div>';
   } else {
     list.innerHTML = allData.map(function(p) {
       var color = RC[p.risk_level] || '#888';
