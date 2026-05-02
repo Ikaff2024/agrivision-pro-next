@@ -40,3 +40,22 @@ Thumbs.db
 
 # Node (pour les scripts de génération de docs)
 node_modules/
+
+# === Sprint R1c : empecher la pollution par les fichiers locaux ===
+
+# Backups locaux generes par les patchers (rollback en cas d'echec)
+*.backup-*
+
+# Logs pytest generes lors des sessions de debug
+pytest_*.log
+
+# PDFs de smoke test prod (a regenerer a la demande)
+rapport_*_smoke_test*.pdf
+
+# Patchers temporaires (livres dans /mnt/user-data/outputs, executes localement puis supprimes)
+patch_*_r1*.py
+patch_sprint_*.py
+patch_pdf_template_*.py
+
+# Doublon parasite du .dockerignore (sans le point initial)
+/dockerignore
