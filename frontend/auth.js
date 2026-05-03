@@ -301,7 +301,48 @@ async function authFetch(endpoint, options = {}) {
     }
 
     return res;
-  } catch { toast('Serveur inaccessible. Vérifiez votre connexion.', 'error'); }
+  } catch {
+    // Differencier hors ligne vs probleme serveur (Sprint Honnetete-Offline)
+    if (!navigator.onLine) {
+      toast('Hors ligne — Reconnectez-vous pour accéder à vos données.', 'error');
+    } else {
+      toast('Serveur inaccessible. Réessayez dans un instant.', 'error');
+    }
+  }
+}
+
+
+/* ── Sprint Honnetete-Offline : Bandeau reseau persistant ────────────── */
+
+function avpUpdateNetworkBanner() {
+  const existing = document.getElementById('avp-offline-banner');
+  if (!navigator.onLine) {
+    if (!existing) {
+      const banner = document.createElement('div');
+      banner.id = 'avp-offline-banner';
+      banner.innerHTML = '📡 Vous êtes hors ligne — certaines fonctionnalités ne sont pas disponibles. ' +
+                         'Reconnectez-vous pour utiliser AgriVision Pro.';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;' +
+                             'padding:12px 16px;background:#fef3c7;color:#78350f;' +
+                             'border-bottom:2px solid #d97706;font-size:13.5px;' +
+                             'text-align:center;font-weight:500;line-height:1.4;' +
+                             'box-shadow:0 2px 8px rgba(0,0,0,0.08);';
+      document.body.prepend(banner);
+      // Decaler le contenu pour ne pas etre cache par le bandeau
+      document.body.style.paddingTop = (banner.offsetHeight) + 'px';
+    }
+  } else if (existing) {
+    existing.remove();
+    document.body.style.paddingTop = '';
+  }
+}
+
+function setupNetworkBanner() {
+  // Etat initial au chargement
+  avpUpdateNetworkBanner();
+  // Reagir aux changements de connectivite
+  window.addEventListener('online', avpUpdateNetworkBanner);
+  window.addEventListener('offline', avpUpdateNetworkBanner);
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -397,6 +438,7 @@ function renderSidebar(activePage) {
 }
 
 function initApp(page) {
+  setupNetworkBanner();  // Sprint Honnetete-Offline
   if (!requireAuth()) return;
   renderSidebar(page);
 }
