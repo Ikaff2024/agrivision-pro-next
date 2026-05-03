@@ -185,22 +185,66 @@ let currentFilter = 'all';
 let page = 0;
 const PAGE_SIZE = 15;
 
+// Sprint Offline V1.6 - Phase 2 : Stale-While-Revalidate sur les lectures
 async function load() {
+  // 1. Affichage instantane depuis le cache IndexedDB (si dispo)
+  const [cachedP, cachedM] = await Promise.all([
+    AVPOffline.cacheGet('/plantations?limit=200'),
+    AVPOffline.cacheGet('/map/plantations'),
+  ]);
+  let hasCachedData = false;
+  if (cachedP) {
+    allPlantations = cachedP;
+    if (cachedM) cachedM.forEach(p => { mapData[p.id] = p; });
+    updatePlantationCount();
+    render();
+    hasCachedData = true;
+  }
+
+  // 2. Refresh reseau en arriere-plan (peut echouer si offline)
   try {
-    // Load plantations + map data in parallel
     const [r1, r2] = await Promise.all([
       authFetch('/plantations?limit=200'),
       authFetch('/map/plantations')
     ]);
-    if (!r1?.ok) return;
-    allPlantations = await r1.json();
+    if (r1?.ok) {
+      const data = await r1.json();
+      allPlantations = data;
+      AVPOffline.cacheSet('/plantations?limit=200', data);
+    }
     if (r2?.ok) {
       const md = await r2.json();
       md.forEach(p => { mapData[p.id] = p; });
+      AVPOffline.cacheSet('/map/plantations', md);
     }
-    document.getElementById('count-sub').textContent = `${allPlantations.length} plantation${allPlantations.length > 1 ? 's' : ''} enregistrée${allPlantations.length > 1 ? 's' : ''}`;
+    updatePlantationCount();
     render();
-  } catch {}
+  } catch {
+    // Echec reseau (probablement offline)
+    if (!hasCachedData) {
+      // Aucun cache et pas de reseau : afficher empty state explicite
+      const tb = document.getElementById('tbody');
+      if (tb) {
+        tb.innerHTML = '<tr><td colspan="6">' +
+          '<div class="empty-state">' +
+          '<div class="empty-icon">📡</div>' +
+          '<div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune donnée disponible hors ligne</div>' +
+          '<div style="font-size:13px">Reconnectez-vous puis rechargez la page pour synchroniser vos plantations.</div>' +
+          '</div></td></tr>';
+      }
+      const sub = document.getElementById('count-sub');
+      if (sub) sub.textContent = 'Hors ligne — données non disponibles';
+    }
+    // Si on avait du cache, on garde simplement l'affichage cache (rien a faire)
+  }
+}
+
+function updatePlantationCount() {
+  const n = allPlantations.length;
+  const el = document.getElementById('count-sub');
+  if (el) {
+    el.textContent = n + ' plantation' + (n > 1 ? 's' : '') + ' enregistrée' + (n > 1 ? 's' : '');
+  }
 }
 
 function getFiltered() {
