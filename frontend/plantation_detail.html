@@ -218,31 +218,108 @@ if (!pid) location.href = 'plantations.html';
 
 let chartInstance = null;
 
+// Sprint Offline V1.6 - Phase 3a : load() en mode Stale-While-Revalidate
 async function load() {
+  const PATH_PLANT = `/plantations/${pid}`;
+  const PATH_HIST = `/plantations/${pid}/history?limit=20`;
+  const PATH_AGRO = `/plantations/${pid}/agroforestry`;
+
+  // 1. Tentative cache (instantane si dispo)
+  let renderedFromCache = false;
+  try {
+    const [cP, cH, cA] = await Promise.all([
+      AVPOffline.cacheGet(PATH_PLANT),
+      AVPOffline.cacheGet(PATH_HIST),
+      AVPOffline.cacheGet(PATH_AGRO),
+    ]);
+    if (cP && cP.plantation) {
+      const plantation = cP.plantation;
+      const diagnostics = cP.diagnostics || [];
+      const history = cH || [];
+      const agroData = cA || null;
+      const latestDiagCache = diagnostics.length
+        ? [...diagnostics].sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0]
+        : null;
+      let recommendations = [];
+      if (latestDiagCache) {
+        const cR = await AVPOffline.cacheGet('/diagnostics/' + latestDiagCache.id + '/recommendations');
+        if (cR) recommendations = cR;
+      }
+      _renderPlantationDetail(plantation, diagnostics, history, agroData, recommendations);
+      renderedFromCache = true;
+    }
+  } catch(e) { console.warn('[Phase3a] cache read failed:', e); }
+
+  // 2. Refresh reseau (peut echouer si offline)
   try {
     const [r1, r2, r3] = await Promise.all([
-      authFetch(`/plantations/${pid}`),
-      authFetch(`/plantations/${pid}/history?limit=20`),
-      authFetch(`/plantations/${pid}/agroforestry`)
+      authFetch(PATH_PLANT),
+      authFetch(PATH_HIST),
+      authFetch(PATH_AGRO)
     ]);
-    if (!r1?.ok) { location.href = 'plantations.html'; return; }
-    const { plantation, diagnostics } = await r1.json();
+    if (!r1?.ok) {
+      // Plantation introuvable cote serveur : redirect uniquement si pas de cache deja affiche
+      if (!renderedFromCache) location.href = 'plantations.html';
+      return;
+    }
+    const data1 = await r1.json();
+    const { plantation, diagnostics } = data1;
     const history = r2?.ok ? await r2.json() : [];
     const agroData = r3?.ok ? await r3.json() : null;
 
-    document.getElementById('page-title').textContent = plantation.name;
-    document.getElementById('page-sub').textContent = `${plantation.region||''} · ${plantation.country}`;
-    document.getElementById('diag-btn').style.display = '';
+    // Mise a jour cache
+    AVPOffline.cacheSet(PATH_PLANT, data1);
+    if (r2?.ok) AVPOffline.cacheSet(PATH_HIST, history);
+    if (r3?.ok) AVPOffline.cacheSet(PATH_AGRO, agroData);
 
-    const latestDiag = diagnostics.sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0];
-    // Charger les recommandations du dernier diagnostic
+    // Sub-fetch recommendations + cacheSet
+    const latestDiag = diagnostics.length
+      ? [...diagnostics].sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0]
+      : null;
     let recommendations = [];
     if (latestDiag) {
       try {
         const rr = await authFetch('/diagnostics/' + latestDiag.id + '/recommendations');
-        if (rr?.ok) recommendations = await rr.json();
+        if (rr?.ok) {
+          recommendations = await rr.json();
+          AVPOffline.cacheSet('/diagnostics/' + latestDiag.id + '/recommendations', recommendations);
+        }
       } catch(e) {}
     }
+
+    _renderPlantationDetail(plantation, diagnostics, history, agroData, recommendations);
+  } catch(e) {
+    // Echec reseau (probablement offline)
+    if (!renderedFromCache) {
+      // Aucun cache + pas de reseau : empty state explicite (au lieu d'un redirect)
+      const grid = document.getElementById('detail-grid');
+      if (grid) {
+        grid.innerHTML = `<div style="grid-column:1/-1;padding:60px 24px;text-align:center;color:#6a7d64;">
+          <div style="font-size:48px;margin-bottom:16px">📡</div>
+          <div style="font-size:17px;font-weight:600;margin-bottom:8px;color:#1a4231">Cette plantation n'est pas disponible hors ligne</div>
+          <div style="font-size:14px;line-height:1.6">Reconnectez-vous puis rechargez la page pour synchroniser les détails de cette plantation.</div>
+          </div>`;
+      }
+      const titleEl = document.getElementById('page-title');
+      if (titleEl) titleEl.textContent = 'Plantation';
+      const subEl = document.getElementById('page-sub');
+      if (subEl) subEl.textContent = 'Hors ligne — données non disponibles';
+    }
+    console.warn('[Phase3a] Network refresh failed:', e);
+  }
+}
+
+// Fonction de rendu extraite de load() pour permettre le double-render (cache puis fresh)
+function _renderPlantationDetail(plantation, diagnostics, history, agroData, recommendations) {
+  try {
+    document.getElementById('page-title').textContent = plantation.name;
+    document.getElementById('page-sub').textContent = `${plantation.region||''} · ${plantation.country}`;
+    document.getElementById('diag-btn').style.display = '';
+
+    const latestDiag = diagnostics.length
+      ? [...diagnostics].sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0]
+      : null;
+    // Phase 3a : recommendations sont maintenant passees en parametre par load() (pre-fetched + cached)
     const score = latestDiag?.global_score;
     const risk  = latestDiag?.global_risk_level;
     const colors = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
@@ -560,11 +637,21 @@ async function renderHarvestCard(p) {
   const hasPotential = pc != null && pc > 0;
   const prodAvgKg = hasPotential ? Math.round(pc * 0.5) : 0;
 
-  // Recuperer les stats depuis l'API
+  // Phase 3a : SWR sur les stats recoltes
+  const STATS_PATH = "/plantations/" + pid + "/harvests/stats";
   let stats = null;
+  // 1. Tentative cache d'abord
   try {
-    const r = await authFetch("/plantations/" + pid + "/harvests/stats");
-    if (r && r.ok) stats = await r.json();
+    const cached = await AVPOffline.cacheGet(STATS_PATH);
+    if (cached) stats = cached;
+  } catch (e) {}
+  // 2. Refresh reseau (peut echouer si offline)
+  try {
+    const r = await authFetch(STATS_PATH);
+    if (r && r.ok) {
+      stats = await r.json();
+      AVPOffline.cacheSet(STATS_PATH, stats);
+    }
   } catch (e) {}
 
   if (!stats) {
@@ -778,10 +865,26 @@ async function avpCheckPlantationNdvi(plantationId, recoContainerId) {
   // Recupere l'analyse satellite et, si confidence=low, affiche un badge
   // d'alerte au-dessus du conteneur de recommandations.
   if (typeof authFetch !== "function") return;
+  // Phase 3a : SWR sur l'analyse satellite NDVI
+  const SAT_PATH = "/plantations/" + plantationId + "/satellite";
+  let data = null;
+  // 1. Tentative cache
   try {
-    const res = await authFetch("/plantations/" + plantationId + "/satellite");
-    if (!res.ok) return;
-    const data = await res.json();
+    const cached = await AVPOffline.cacheGet(SAT_PATH);
+    if (cached) data = cached;
+  } catch (e) {}
+  // 2. Refresh reseau (peut echouer si offline)
+  try {
+    const res = await authFetch(SAT_PATH);
+    if (res && res.ok) {
+      data = await res.json();
+      AVPOffline.cacheSet(SAT_PATH, data);
+    }
+  } catch (e) {
+    // Echec silencieux : si on a du cache, on continue avec; sinon on sort
+  }
+  try {
+    if (!data) return;
     if (data && data.confidence === "low" && data.warning_message) {
       const container = document.getElementById(recoContainerId || "recommendations");
       if (!container) return;
