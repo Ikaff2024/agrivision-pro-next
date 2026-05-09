@@ -602,6 +602,7 @@ function showTab(tab, el) {
   el.classList.add('active');
 }
 
+// Sprint Offline V1.6 - Phase 4 : runDiagnostic() offline-aware
 async function runDiagnostic() {
   const pid = document.getElementById('plantation-select').value;
   if (!pid) { toast('Veuillez sélectionner une plantation.', 'error'); return; }
@@ -621,21 +622,175 @@ async function runDiagnostic() {
     shade_tree_density_pct:+document.getElementById('shade').value,
   };
 
+  // Selection du nom de plantation pour le label de queue
+  const plantSelect = document.getElementById('plantation-select');
+  const plantLabel = plantSelect.options[plantSelect.selectedIndex]?.text || ('Plantation ' + pid);
+
   try {
-    const res = await authFetch(`/cacao/diagnostic?plantation_id=${pid}`, {
-      method: 'POST', body: JSON.stringify(inputs)
-    });
-    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Erreur diagnostic.'); }
+    // Detection offline : si navigator.onLine est false, on enqueue directement
+    if (!navigator.onLine) {
+      await _enqueueDiagnosticOffline(pid, inputs, plantLabel);
+      return;
+    }
+
+    // Tentative reseau
+    let res;
+    try {
+      res = await authFetch(`/cacao/diagnostic?plantation_id=${pid}`, {
+        method: 'POST', body: JSON.stringify(inputs)
+      });
+    } catch (netErr) {
+      // Echec reseau (DNS, timeout, fetch failed) = offline reel meme si navigator.onLine=true
+      console.warn('[Phase4] Network failed, falling back to queue:', netErr.message);
+      await _enqueueDiagnosticOffline(pid, inputs, plantLabel);
+      return;
+    }
+
+    // Phase 4 fix : verifier que res existe avant de lire ses proprietes
+    if (!res) {
+      // Cas extreme : authFetch a renvoye undefined (fix du bug observable en prod)
+      await _enqueueDiagnosticOffline(pid, inputs, plantLabel);
+      return;
+    }
+
+    if (!res.ok) {
+      // Erreur serveur reelle (validation, 500, etc.) — pas offline
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.detail || ('Erreur diagnostic (HTTP ' + res.status + ').'));
+    }
+
     const report = await res.json();
     showResult(report);
     toast('Diagnostic enregistré.');
   } catch(e) {
-    toast(e.message, 'error');
+    toast(e.message || 'Erreur lors du diagnostic.', 'error');
   } finally {
     btn.disabled=false;
     document.getElementById('run-spin').style.display='none';
     document.getElementById('run-txt').textContent='Lancer le diagnostic';
   }
+}
+
+// Sprint Offline V1.6 - Phase 4 : helper queue offline
+async function _enqueueDiagnosticOffline(pid, inputs, plantLabel) {
+  if (!window.AVPOffline || typeof window.AVPOffline.enqueueWrite !== 'function') {
+    toast('Hors ligne : module offline non disponible.', 'error');
+    return;
+  }
+  try {
+    const localId = await window.AVPOffline.enqueueWrite(
+      'POST',
+      '/cacao/diagnostic?plantation_id=' + pid,
+      inputs,
+      'Diagnostic - ' + plantLabel
+    );
+    _showOfflineDiagnosticStub(inputs, plantLabel, localId);
+    toast('✓ Diagnostic enregistré localement. Synchronisation auto à la reconnexion.', 'success');
+  } catch (e) {
+    console.error('[Phase4] enqueueWrite failed:', e);
+    toast('Échec enregistrement local. Réessayez.', 'error');
+  }
+}
+
+// Sprint Offline V1.6 - Phase 4 : affichage stub d'un diagnostic en attente
+function _showOfflineDiagnosticStub(inputs, plantLabel, localId) {
+  const card = document.getElementById('result-card');
+  if (!card) return;
+  card.style.display = '';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Header en jaune (couleur "en attente") au lieu des couleurs habituelles
+  const header = document.getElementById('r-header');
+  if (header) header.style.background = '#9a6200';
+
+  const scoreEl = document.getElementById('r-score');
+  if (scoreEl) scoreEl.textContent = '⏳';
+
+  const badgeEl = document.getElementById('r-badge');
+  if (badgeEl) {
+    badgeEl.innerHTML = '<span style="background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;font-size:12.5px">En attente de synchronisation</span>';
+  }
+
+  // Affichage des inputs saisis comme recapitulatif
+  const modules = document.getElementById('r-modules');
+  if (modules) {
+    modules.innerHTML = `
+      <div style="padding:16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;margin-bottom:16px">
+        <div style="font-weight:600;color:#78350f;margin-bottom:8px">📤 Saisie enregistrée localement</div>
+        <div style="font-size:13.5px;color:#78350f;line-height:1.6">
+          Vos données sont stockées sur votre appareil. Le rapport complet (scores, modules, recommandations)
+          sera disponible automatiquement dès que vous serez reconnecté à Internet.
+        </div>
+        <div style="font-size:11.5px;color:#78350f;opacity:0.8;margin-top:8px;font-family:monospace">ID local : ${localId}</div>
+      </div>
+      <div class="module-item">
+        <div class="module-header">
+          <span class="module-name">Récapitulatif des saisies</span>
+        </div>
+        <div class="module-reasons">
+          <div>• Plantation : ${esc(plantLabel)}</div>
+          <div>• Humidité : ${inputs.humidity_pct}%</div>
+          <div>• Pluviométrie : ${inputs.rainfall_mm_month} mm/mois</div>
+          <div>• Température : ${inputs.avg_temp_c}°C</div>
+          <div>• Âge plantation : ${inputs.plantation_age_years} ans</div>
+          <div>• Ombrage : ${inputs.shade_tree_density_pct}%</div>
+        </div>
+      </div>`;
+  }
+
+  // Pas de recommandations en mode stub
+  const recoWrap = document.getElementById('r-reco-wrap');
+  if (recoWrap) recoWrap.style.display = 'none';
+}
+
+// Sprint Offline V1.6 - Phase 4 : badge dynamique queue status
+function _updateQueueBadge() {
+  if (!window.AVPOffline || typeof window.AVPOffline.getQueueStats !== 'function') return;
+  window.AVPOffline.getQueueStats().then(stats => {
+    let badge = document.getElementById('avp-queue-badge');
+    const total = (stats.pending || 0) + (stats.syncing || 0) + (stats.errors || 0);
+    if (total === 0) {
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'avp-queue-badge';
+      badge.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;' +
+        'background:#1a4231;color:white;padding:10px 16px;border-radius:8px;' +
+        'box-shadow:0 4px 12px rgba(0,0,0,0.2);font-size:13px;font-weight:500;' +
+        'cursor:default;display:flex;align-items:center;gap:8px';
+      document.body.appendChild(badge);
+    }
+    badge.style.display = 'flex';
+    let icon = '📤';
+    let text = '';
+    if (stats.errors > 0) {
+      icon = '⚠️';
+      text = stats.errors + ' échec(s) de synchro';
+      badge.style.background = '#922b21';
+    } else if (stats.syncing > 0) {
+      icon = '🔄';
+      text = stats.syncing + ' en cours...';
+      badge.style.background = '#1a4231';
+    } else if (stats.pending > 0) {
+      icon = '📤';
+      text = stats.pending + ' action(s) en attente';
+      badge.style.background = '#9a6200';
+    }
+    badge.innerHTML = '<span>' + icon + '</span><span>' + text + '</span>';
+  }).catch(() => {});
+}
+
+// Listeners Phase 4
+window.addEventListener('avp-queue-changed', _updateQueueBadge);
+window.addEventListener('online', _updateQueueBadge);
+window.addEventListener('offline', _updateQueueBadge);
+// Init au chargement
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _updateQueueBadge);
+} else {
+  _updateQueueBadge();
 }
 
 const MODULE_NAMES = {
