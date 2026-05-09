@@ -212,33 +212,54 @@ async function init() {
   }
 
   // Charger les plantations
+  // Sprint Offline V1.6 - Phase 3b : SWR
+  const PLANT_PATH = "/plantations";
+  let cachedPlantations = null;
   try {
-    const r = await authFetch("/plantations");
-    if (!r || !r.ok) throw new Error("Impossible de charger les plantations");
-    plantations = await r.json();
-
-    const sel = document.getElementById("plantation-select");
-    if (plantations.length === 0) {
-      sel.innerHTML = '<option value="">Aucune plantation</option>';
-      document.getElementById("page-sub").textContent = "Aucune plantation dans votre cooperative.";
-      return;
+    cachedPlantations = await AVPOffline.cacheGet(PLANT_PATH);
+    if (cachedPlantations) {
+      plantations = cachedPlantations;
+      _renderPlantationsSelector();
     }
-
-    sel.innerHTML = '<option value="">-- S&eacute;lectionnez une plantation --</option>' +
-      plantations.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' &mdash; ' + esc(p.owner_name||'') + '</option>').join('');
-
-    // Pre-selection si plantation_id en URL
-    if (initialPlantationId) {
-      sel.value = initialPlantationId;
-      currentPlantationId = parseInt(initialPlantationId);
-      await loadHarvests();
+  } catch (e) {}
+  try {
+    const r = await authFetch(PLANT_PATH);
+    if (!r || !r.ok) {
+      if (!cachedPlantations) throw new Error("Impossible de charger les plantations");
+      // On a du cache, on continue avec
+    } else {
+      plantations = await r.json();
+      AVPOffline.cacheSet(PLANT_PATH, plantations);
     }
-
-    document.getElementById("page-sub").textContent = plantations.length + " plantation(s) disponible(s)";
+    _renderPlantationsSelector();
   } catch (e) {
-    document.getElementById("page-sub").textContent = "Erreur de chargement.";
-    console.error(e);
+    if (!cachedPlantations) {
+      document.getElementById("page-sub").textContent = "Erreur de chargement.";
+      console.error(e);
+    }
   }
+}
+
+function _renderPlantationsSelector() {
+  const sel = document.getElementById("plantation-select");
+  if (!sel) return;
+  if (plantations.length === 0) {
+    sel.innerHTML = '<option value="">Aucune plantation</option>';
+    document.getElementById("page-sub").textContent = "Aucune plantation dans votre cooperative.";
+    return;
+  }
+
+  sel.innerHTML = '<option value="">-- S&eacute;lectionnez une plantation --</option>' +
+    plantations.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' &mdash; ' + esc(p.owner_name||'') + '</option>').join('');
+
+  // Pre-selection si plantation_id en URL
+  if (initialPlantationId) {
+    sel.value = initialPlantationId;
+    currentPlantationId = parseInt(initialPlantationId);
+    loadHarvests();
+  }
+
+  document.getElementById("page-sub").textContent = plantations.length + " plantation(s) disponible(s)";
 }
 
 async function onPlantationChange() {
@@ -262,28 +283,66 @@ async function loadHarvests() {
   const area = document.getElementById("content-area");
   area.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Chargement...</div>';
 
+  // Sprint Offline V1.6 - Phase 3b : SWR sur harvests + stats
+  const HARV_PATH = "/plantations/" + currentPlantationId + "/harvests";
+  const STATS_PATH = "/plantations/" + currentPlantationId + "/harvests/stats";
+  let stats = null;
+  let renderedFromCache = false;
+  // 1. Tentative cache (rendu instantane)
+  try {
+    const [cH, cS] = await Promise.all([
+      AVPOffline.cacheGet(HARV_PATH),
+      AVPOffline.cacheGet(STATS_PATH),
+    ]);
+    if (cH && cS) {
+      allHarvests = cH;
+      stats = cS;
+      _populateYearSelector();
+      renderContent(stats);
+      renderedFromCache = true;
+    }
+  } catch (e) {}
+  // 2. Refresh reseau (peut echouer si offline)
   try {
     const [r1, r2] = await Promise.all([
-      authFetch("/plantations/" + currentPlantationId + "/harvests"),
-      authFetch("/plantations/" + currentPlantationId + "/harvests/stats")
+      authFetch(HARV_PATH),
+      authFetch(STATS_PATH)
     ]);
 
-    if (!r1 || !r1.ok) throw new Error("Erreur chargement recoltes");
-    if (!r2 || !r2.ok) throw new Error("Erreur chargement stats");
+    if (!r1 || !r1.ok) {
+      if (!renderedFromCache) throw new Error("Erreur chargement recoltes");
+      return;
+    }
+    if (!r2 || !r2.ok) {
+      if (!renderedFromCache) throw new Error("Erreur chargement stats");
+      return;
+    }
 
     allHarvests = await r1.json();
-    const stats = await r2.json();
+    stats = await r2.json();
+    AVPOffline.cacheSet(HARV_PATH, allHarvests);
+    AVPOffline.cacheSet(STATS_PATH, stats);
 
-    // Remplir le selecteur d'annees
-    const years = [...new Set(allHarvests.map(h => new Date(h.harvest_date).getFullYear()))].sort((a,b) => b-a);
-    const yearSel = document.getElementById("year-select");
-    yearSel.innerHTML = '<option value="">Toutes ann&eacute;es</option>' +
-      years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
-
+    _populateYearSelector();
     renderContent(stats);
   } catch (e) {
-    area.innerHTML = '<div style="text-align:center;padding:60px;color:#922b21">Erreur : ' + esc(e.message) + '</div>';
-    console.error(e);
+    if (!renderedFromCache) {
+      area.innerHTML = '<div style="text-align:center;padding:60px;color:#922b21">' +
+        '<div style="font-size:36px;margin-bottom:12px">📡</div>' +
+        '<div style="font-weight:600;margin-bottom:4px">Données non disponibles hors ligne</div>' +
+        '<div style="font-size:13px;color:var(--muted)">Reconnectez-vous pour synchroniser les récoltes.</div>' +
+        '</div>';
+      console.error(e);
+    }
+  }
+}
+
+function _populateYearSelector() {
+  const years = [...new Set(allHarvests.map(h => new Date(h.harvest_date).getFullYear()))].sort((a,b) => b-a);
+  const yearSel = document.getElementById("year-select");
+  if (yearSel) {
+    yearSel.innerHTML = '<option value="">Toutes ann&eacute;es</option>' +
+      years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
   }
 }
 

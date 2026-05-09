@@ -306,31 +306,48 @@ const LAYER_LABELS = {
   understory:   { label:'Sous-étage',    cls:'layer-und' },
 };
 
+// Sprint Offline V1.6 - Phase 3b : init() en mode SWR
 async function init() {
+  const PATH_PL = '/plantations?limit=200';
+  const PATH_SL = '/species-library';
+  const PATH_SUM = '/agroforestry/summary';
+
+  // 1. Tentative cache (rendu instantane)
+  try {
+    const [cP, cSL, cSum] = await Promise.all([
+      AVPOffline.cacheGet(PATH_PL),
+      AVPOffline.cacheGet(PATH_SL),
+      AVPOffline.cacheGet(PATH_SUM),
+    ]);
+    if (cP) allPlantations = cP;
+    if (cSL) speciesLibrary = cSL;
+    if (cSum) _renderCarbonBanner(cSum);
+    if (cP || cSL) {
+      renderPlantationList();
+      populateSpeciesSelect();
+    }
+  } catch(e) { console.warn('[Phase3b] cache read failed:', e); }
+
+  // 2. Refresh reseau (peut echouer si offline)
   try {
     const [r1, r2, r3] = await Promise.all([
-      authFetch('/plantations?limit=200'),
-      authFetch('/species-library'),
-      authFetch('/agroforestry/summary'),
+      authFetch(PATH_PL),
+      authFetch(PATH_SL),
+      authFetch(PATH_SUM),
     ]);
 
-    if (r1?.ok) allPlantations = await r1.json();
-    if (r2?.ok) speciesLibrary = await r2.json();
+    if (r1?.ok) {
+      allPlantations = await r1.json();
+      AVPOffline.cacheSet(PATH_PL, allPlantations);
+    }
+    if (r2?.ok) {
+      speciesLibrary = await r2.json();
+      AVPOffline.cacheSet(PATH_SL, speciesLibrary);
+    }
     if (r3?.ok) {
       const s = await r3.json();
-      // Stocker le nom de la cooperative pour le PDF
-      if (s.cooperative_name) window._coopName = s.cooperative_name;
-      if (s.plantations_with_inventory > 0) {
-        document.getElementById('carbon-banner').style.display = 'flex';
-        document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
-        document.getElementById('cb-trees').textContent = s.total_trees_estimated.toLocaleString('fr-FR');
-        document.getElementById('cb-species').textContent = s.unique_species_count;
-        document.getElementById('cb-pl').textContent = `${s.plantations_with_inventory} / ${s.total_plantations}`;
-        const conf = s.avg_conformity_score;
-        const confEl = document.getElementById('cb-conf');
-        confEl.textContent = conf + ' / 100';
-        confEl.className = 'carbon-stat-val ' + (conf >= 65 ? 'conf-high' : conf >= 35 ? 'conf-med' : 'conf-low');
-      }
+      AVPOffline.cacheSet(PATH_SUM, s);
+      _renderCarbonBanner(s);
     }
 
     renderPlantationList();
@@ -339,7 +356,24 @@ async function init() {
     // Auto-select depuis ?id= dans l'URL
     const pid = new URLSearchParams(location.search).get('id');
     if (pid) selectPlantation(parseInt(pid));
-  } catch(e) { console.error(e); }
+  } catch(e) { console.warn('[Phase3b] network refresh failed:', e); }
+}
+
+function _renderCarbonBanner(s) {
+  if (!s) return;
+  // Stocker le nom de la cooperative pour le PDF
+  if (s.cooperative_name) window._coopName = s.cooperative_name;
+  if (s.plantations_with_inventory > 0) {
+    document.getElementById('carbon-banner').style.display = 'flex';
+    document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
+    document.getElementById('cb-trees').textContent = s.total_trees_estimated.toLocaleString('fr-FR');
+    document.getElementById('cb-species').textContent = s.unique_species_count;
+    document.getElementById('cb-pl').textContent = `${s.plantations_with_inventory} / ${s.total_plantations}`;
+    const conf = s.avg_conformity_score;
+    const confEl = document.getElementById('cb-conf');
+    confEl.textContent = conf + ' / 100';
+    confEl.className = 'carbon-stat-val ' + (conf >= 65 ? 'conf-high' : conf >= 35 ? 'conf-med' : 'conf-low');
+  }
 }
 
 function renderPlantationList() {
@@ -401,18 +435,41 @@ async function selectPlantation(pid) {
   await loadInventory(pid);
 }
 
+// Sprint Offline V1.6 - Phase 3b : loadInventory en SWR
 async function loadInventory(pid) {
   document.getElementById('right-panel').innerHTML =
     '<div style="text-align:center;padding:40px;color:var(--muted)">Chargement…</div>';
 
+  const PATH = `/plantations/${pid}/agroforestry`;
+  let renderedFromCache = false;
+  // 1. Cache (instantane)
   try {
-    const res = await authFetch(`/plantations/${pid}/agroforestry`);
-    if (!res?.ok) throw new Error();
+    const cached = await AVPOffline.cacheGet(PATH);
+    if (cached) {
+      currentData = cached;
+      renderInventory(currentData);
+      renderedFromCache = true;
+    }
+  } catch(e) {}
+  // 2. Refresh reseau
+  try {
+    const res = await authFetch(PATH);
+    if (!res?.ok) {
+      if (!renderedFromCache) throw new Error();
+      return;
+    }
     currentData = await res.json();
+    AVPOffline.cacheSet(PATH, currentData);
     renderInventory(currentData);
   } catch(e) {
-    document.getElementById('right-panel').innerHTML =
-      '<div style="color:var(--high);padding:20px">Erreur de chargement.</div>';
+    if (!renderedFromCache) {
+      document.getElementById('right-panel').innerHTML =
+        '<div style="color:var(--high);padding:20px;text-align:center">' +
+        '<div style="font-size:36px;margin-bottom:12px">📡</div>' +
+        '<div style="font-weight:600;margin-bottom:4px">Inventaire non disponible hors ligne</div>' +
+        '<div style="font-size:13px;color:var(--muted)">Reconnectez-vous pour synchroniser.</div>' +
+        '</div>';
+    }
   }
 }
 
@@ -606,22 +663,14 @@ async function deleteRecord(recordId) {
   }
 }
 
+// Sprint Offline V1.6 - Phase 3b : refreshSummary met aussi a jour le cache
 async function refreshSummary() {
   try {
     const res = await authFetch('/agroforestry/summary');
     if (!res?.ok) return;
     const s = await res.json();
-    if (s.plantations_with_inventory > 0) {
-      document.getElementById('carbon-banner').style.display = 'flex';
-      document.getElementById('cb-carbon').textContent = s.total_carbon_tco2 + ' tCO₂';
-      document.getElementById('cb-trees').textContent = s.total_trees_estimated.toLocaleString('fr-FR');
-      document.getElementById('cb-species').textContent = s.unique_species_count;
-      document.getElementById('cb-pl').textContent = `${s.plantations_with_inventory} / ${s.total_plantations}`;
-      const confEl = document.getElementById('cb-conf');
-      const conf = s.avg_conformity_score;
-      confEl.textContent = conf + ' / 100';
-      confEl.className = 'carbon-stat-val ' + (conf >= 65 ? 'conf-high' : conf >= 35 ? 'conf-med' : 'conf-low');
-    }
+    AVPOffline.cacheSet('/agroforestry/summary', s);
+    _renderCarbonBanner(s);
   } catch(e) {}
 }
 

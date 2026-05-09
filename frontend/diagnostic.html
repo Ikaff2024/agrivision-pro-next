@@ -479,11 +479,33 @@ let currentPid = null;
 let _agroShade = null;   // ombrage calculé depuis l'inventaire (null si absent)
 
 // Load plantations into selects
+// Sprint Offline V1.6 - Phase 3b : SWR sur /plantations?limit=200
 async function loadPlantations() {
+  const PATH = '/plantations?limit=200';
+  // 1. Tentative cache (rendu instantane)
+  let pls = null;
   try {
-    const r = await authFetch('/plantations?limit=200');
+    const cached = await AVPOffline.cacheGet(PATH);
+    if (cached) {
+      pls = cached;
+      _renderPlantationsSelects(pls);
+    }
+  } catch (e) {}
+  // 2. Refresh reseau (peut echouer si offline)
+  try {
+    const r = await authFetch(PATH);
     if (!r?.ok) return;
-    const pls = await r.json();
+    pls = await r.json();
+    AVPOffline.cacheSet(PATH, pls);
+    _renderPlantationsSelects(pls);
+  } catch (e) {
+    // Hors ligne : si on a deja rendu depuis le cache, c'est OK; sinon on sort
+    if (!pls) return;
+  }
+}
+
+function _renderPlantationsSelects(pls) {
+  try {
     pls.forEach(function(p) { _coords[p.id] = { lat: p.latitude, lng: p.longitude, name: p.name }; });
     const html = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.region||p.country||'')})</option>`).join('');
     document.getElementById('plantation-select').innerHTML = '<option value="">— Choisir une plantation —</option>' + html;
@@ -517,10 +539,25 @@ async function loadAgroShade(pid) {
     return;
   }
 
+  // Sprint Offline V1.6 - Phase 3b : SWR sur agroforestry
+  const AGRO_PATH = `/plantations/${pid}/agroforestry`;
+  let data = null;
   try {
-    const r = await authFetch(`/plantations/${pid}/agroforestry`);
-    if (!r?.ok) throw new Error();
-    const data = await r.json();
+    const cached = await AVPOffline.cacheGet(AGRO_PATH);
+    if (cached) data = cached;
+  } catch (e) {}
+  try {
+    const r = await authFetch(AGRO_PATH);
+    if (r?.ok) {
+      data = await r.json();
+      AVPOffline.cacheSet(AGRO_PATH, data);
+    } else if (!data) {
+      throw new Error();
+    }
+  } catch (e) {
+    if (!data) throw new Error();
+  }
+  try {
 
     if (data.metrics && data.metrics.species_count > 0) {
       // Ombrage calculé depuis l'inventaire réel
