@@ -314,27 +314,70 @@ async function authFetch(endpoint, options = {}) {
 
 /* ── Sprint Honnetete-Offline : Bandeau reseau persistant ────────────── */
 
+// Bandeau reseau v2 - bottom : repositionne en bas avec version mobile compacte
+// Fix UX mobile (09/05/2026) : la version v1 cachait le menu burger sur petits ecrans.
 function avpUpdateNetworkBanner() {
   const existing = document.getElementById('avp-offline-banner');
   if (!navigator.onLine) {
     if (!existing) {
+      // Detection mobile via viewport (640px = breakpoint Tailwind sm)
+      const isMobile = window.innerWidth < 640;
+      const fullText = '📡 Vous êtes hors ligne — certaines fonctionnalités ne sont pas disponibles. ' +
+                       'Reconnectez-vous pour utiliser AgriVision Pro.';
+      const shortText = '📡 Hors ligne — fonctionnalités limitées';
+
       const banner = document.createElement('div');
       banner.id = 'avp-offline-banner';
-      banner.innerHTML = '📡 Vous êtes hors ligne — certaines fonctionnalités ne sont pas disponibles. ' +
-                         'Reconnectez-vous pour utiliser AgriVision Pro.';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;' +
-                             'padding:12px 16px;background:#fef3c7;color:#78350f;' +
-                             'border-bottom:2px solid #d97706;font-size:13.5px;' +
-                             'text-align:center;font-weight:500;line-height:1.4;' +
-                             'box-shadow:0 2px 8px rgba(0,0,0,0.08);';
-      document.body.prepend(banner);
-      // Decaler le contenu pour ne pas etre cache par le bandeau
-      document.body.style.paddingTop = (banner.offsetHeight) + 'px';
+      banner.innerHTML = isMobile ? shortText : fullText;
+      banner.setAttribute('role', 'status');
+      banner.setAttribute('aria-live', 'polite');
+      banner.style.cssText = [
+        'position:fixed',
+        'bottom:0',
+        'left:0',
+        'right:0',
+        'z-index:9999',
+        'padding:' + (isMobile ? '10px 14px' : '12px 16px'),
+        'background:#fef3c7',
+        'color:#78350f',
+        'border-top:2px solid #d97706',
+        'font-size:' + (isMobile ? '13px' : '13.5px'),
+        'text-align:center',
+        'font-weight:500',
+        'line-height:1.35',
+        'box-shadow:0 -2px 8px rgba(0,0,0,0.08)',
+        'transform:translateY(100%)',
+        'transition:transform 0.25s ease-out',
+        'pointer-events:none'  // ne bloque pas les clics
+      ].join(';');
+      document.body.appendChild(banner);
+
+      // Animation slide-up subtile
+      requestAnimationFrame(() => {
+        banner.style.transform = 'translateY(0)';
+      });
+
+      // Re-evaluer le texte si l'utilisateur tourne le telephone (orientation change)
+      window.addEventListener('resize', avpAdjustBannerText, { passive: true });
     }
   } else if (existing) {
-    existing.remove();
-    document.body.style.paddingTop = '';
+    // Animation slide-down avant suppression
+    existing.style.transform = 'translateY(100%)';
+    setTimeout(() => existing.remove(), 250);
+    window.removeEventListener('resize', avpAdjustBannerText);
   }
+}
+
+// Helper : ajuste le texte du bandeau si la taille d'ecran change (rotation)
+function avpAdjustBannerText() {
+  const banner = document.getElementById('avp-offline-banner');
+  if (!banner) return;
+  const isMobile = window.innerWidth < 640;
+  banner.innerHTML = isMobile
+    ? '📡 Hors ligne — fonctionnalités limitées'
+    : '📡 Vous êtes hors ligne — certaines fonctionnalités ne sont pas disponibles. Reconnectez-vous pour utiliser AgriVision Pro.';
+  banner.style.padding = isMobile ? '10px 14px' : '12px 16px';
+  banner.style.fontSize = isMobile ? '13px' : '13.5px';
 }
 
 function setupNetworkBanner() {
