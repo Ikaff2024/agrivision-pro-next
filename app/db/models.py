@@ -50,6 +50,7 @@ class Plantation(Base):
     cooperative  = relationship("Cooperative", back_populates="plantations")
     producer     = relationship("Producer", back_populates="plantations")
     certification_links = relationship("PlantationCertification", back_populates="plantation", cascade="all, delete-orphan")
+    inspections  = relationship("Inspection", back_populates="plantation", cascade="all, delete-orphan")
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
@@ -167,6 +168,8 @@ class Producer(Base):
 
     cooperative = relationship("Cooperative")
     plantations = relationship("Plantation", back_populates="producer")
+    household_members = relationship("HouseholdMember", back_populates="producer", cascade="all, delete-orphan")
+    formation_participations = relationship("FormationParticipant", back_populates="producer", cascade="all, delete-orphan")
 
 
 class Certification(Base):
@@ -226,3 +229,88 @@ class Campagne(Base):
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     cooperative = relationship("Cooperative")
+
+
+class HouseholdMember(Base):
+    """
+    Membre du menage d'un producteur. Permet de tracer la composition
+    familiale et de savoir qui travaille sur l'exploitation ou contribue
+    au revenu du menage. Donnees issues du Cocoa Farmer Income Tool
+    (Fairtrade) et utiles au suivi du travail des enfants.
+    """
+    __tablename__ = "household_members"
+
+    id                        = Column(Integer, primary_key=True, index=True)
+    producer_id               = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    nom                       = Column(String, nullable=True)
+    lien_famille              = Column(String, nullable=True)   # conjoint, enfant, frere, ...
+    age                       = Column(Integer, nullable=True)
+    sexe                      = Column(String, nullable=True)   # H | F
+    occupation                = Column(String, nullable=True)   # agriculteur, etudiant, ...
+    scolarise                 = Column(Boolean, nullable=True)
+    travaille_sur_exploitation = Column(Boolean, default=False, nullable=False)
+    pct_temps_agricole        = Column(Integer, nullable=True)  # 0-100 si travaille sur exploitation
+    contribue_revenu_menage   = Column(Boolean, default=False, nullable=False)
+    created_at                = Column(DateTime(timezone=True), server_default=func.now())
+
+    producer = relationship("Producer", back_populates="household_members")
+
+
+class Inspection(Base):
+    """
+    Inspection ou audit d'une plantation, interne ou externe,
+    rattachee a une certification donnee.
+    """
+    __tablename__ = "inspections"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    plantation_id    = Column(Integer, ForeignKey("plantations.id"), nullable=False, index=True)
+    certification_id = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    type             = Column(String, nullable=False, default="INTERNE")  # INTERNE | EXTERNE
+    date             = Column(DateTime(timezone=True), nullable=True)
+    inspecteur_nom   = Column(String, nullable=True)
+    resultat         = Column(String, nullable=True)   # CONFORME | NON_CONFORME | EN_ATTENTE | MAJEURE | MINEURE
+    commentaires     = Column(Text, nullable=True)
+    document_url     = Column(String, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation    = relationship("Plantation", back_populates="inspections")
+    certification = relationship("Certification")
+
+
+class FormationSession(Base):
+    """
+    Session de formation / sensibilisation organisee par la cooperative.
+    Correspond a la feuille "Registre Formation et Sensibilisation"
+    du registre YEYASSO.
+    """
+    __tablename__ = "formation_sessions"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    cooperative_id  = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    date            = Column(DateTime(timezone=True), nullable=True)
+    lieu            = Column(String, nullable=True)
+    thematique      = Column(String, nullable=True)   # ARS 1000, EUDR, travail enfants, GAP, ...
+    formateur_nom   = Column(String, nullable=True)
+    nb_participants = Column(Integer, nullable=True)
+    duree_heures    = Column(Float, nullable=True)
+    document_url    = Column(String, nullable=True)   # feuille de presence scannee
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    cooperative  = relationship("Cooperative")
+    participants = relationship("FormationParticipant", back_populates="session",
+                                cascade="all, delete-orphan")
+
+
+class FormationParticipant(Base):
+    """Lien M-N entre une session de formation et un producteur participant."""
+    __tablename__ = "formation_participants"
+
+    id                   = Column(Integer, primary_key=True, index=True)
+    formation_session_id = Column(Integer, ForeignKey("formation_sessions.id"), nullable=False, index=True)
+    producer_id          = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    signature_present    = Column(Boolean, default=False, nullable=False)
+    created_at           = Column(DateTime(timezone=True), server_default=func.now())
+
+    session  = relationship("FormationSession", back_populates="participants")
+    producer = relationship("Producer", back_populates="formation_participations")
