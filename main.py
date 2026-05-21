@@ -106,6 +106,18 @@ async def lifespan(app: FastAPI):
                 """))
                 conn.commit()
                 logger.info("Seed certifications : OK (FT, RA, EUDR, ARS_1000)")
+
+                # Sprint #0 - Phase 0.1.a-4 : colonnes commerciales sur harvests
+                for col_ddl in [
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS certification_id INTEGER REFERENCES certifications(id)",
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS campagne_id INTEGER REFERENCES campagnes(id)",
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS numero_recu_achat VARCHAR",
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS nbre_sacs INTEGER",
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS is_conventional BOOLEAN DEFAULT FALSE NOT NULL",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migrations Harvest : OK (certification_id, campagne_id, recu, sacs, conventional)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

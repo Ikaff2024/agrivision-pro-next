@@ -122,9 +122,17 @@ class Harvest(Base):
     is_historical      = Column(Boolean, default=False, nullable=False)
     created_at         = Column(DateTime(timezone=True), server_default=func.now())
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Sprint #0 - Phase 0.1.a-4 : champs commerciaux (livraison)
+    certification_id   = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    campagne_id        = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    numero_recu_achat  = Column(String, nullable=True)
+    nbre_sacs          = Column(Integer, nullable=True)
+    is_conventional    = Column(Boolean, default=False, nullable=False)
 
     plantation = relationship("Plantation", back_populates="harvests")
     created_by = relationship("User")
+    certification = relationship("Certification")
+    campagne      = relationship("Campagne")
 
 
 class Producer(Base):
@@ -170,6 +178,10 @@ class Producer(Base):
     plantations = relationship("Plantation", back_populates="producer")
     household_members = relationship("HouseholdMember", back_populates="producer", cascade="all, delete-orphan")
     formation_participations = relationship("FormationParticipant", back_populates="producer", cascade="all, delete-orphan")
+    income_records  = relationship("IncomeRecord", back_populates="producer", cascade="all, delete-orphan")
+    expense_records = relationship("ExpenseRecord", back_populates="producer", cascade="all, delete-orphan")
+    labor_records   = relationship("LaborRecord", back_populates="producer", cascade="all, delete-orphan")
+    input_costs     = relationship("InputCost", back_populates="producer", cascade="all, delete-orphan")
 
 
 class Certification(Base):
@@ -314,3 +326,99 @@ class FormationParticipant(Base):
 
     session  = relationship("FormationSession", back_populates="participants")
     producer = relationship("Producer", back_populates="formation_participations")
+
+
+class IncomeRecord(Base):
+    """
+    Revenu d'un producteur pour un mois donne et un type de produit.
+    Source : Cocoa Farmer Income Tool (Fairtrade), feuille "2.entrees".
+    La campagne agricole va d'Octobre (mois 10) a Septembre (mois 9).
+    """
+    __tablename__ = "income_records"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    producer_id    = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    campagne_id    = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    mois           = Column(Integer, nullable=True)    # 1-12 (campagne : 10,11,12,1..9)
+    type_revenu    = Column(String, nullable=False)    # CACAO|CAFE|AUTRE_CULTURE|ALIMENT_BASE|VIVRIERE|ELEVAGE|AUTRE
+    produit        = Column(String, nullable=True)     # "petit cola", "tomate", ...
+    unite_mesure   = Column(String, nullable=True)     # kg, sac, ...
+    quantite       = Column(Float, nullable=True)
+    prix_unitaire  = Column(Float, nullable=True)      # CFA
+    revenu         = Column(Float, nullable=True)      # CFA (quantite * prix_unitaire)
+    notes          = Column(Text, nullable=True)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    producer = relationship("Producer", back_populates="income_records")
+    campagne = relationship("Campagne")
+
+
+class ExpenseRecord(Base):
+    """
+    Depense du menage d'un producteur, par trimestre.
+    Source : Cocoa Farmer Income Tool, feuille "5.depenses du menage".
+    """
+    __tablename__ = "expense_records"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    producer_id  = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    campagne_id  = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    trimestre    = Column(Integer, nullable=True)      # 1-4
+    categorie    = Column(String, nullable=False)      # ALIMENTATION|EDUCATION|SANTE|AUTRE
+    montant_cfa  = Column(Float, nullable=True)
+    notes        = Column(Text, nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    producer = relationship("Producer", back_populates="expense_records")
+    campagne = relationship("Campagne")
+
+
+class LaborRecord(Base):
+    """
+    Main d'oeuvre mobilisee par un producteur pour un mois donne.
+    Source : Cocoa Farmer Income Tool, feuille "4.main d'oeuvre".
+    Distingue main d'oeuvre familiale et embauchee.
+    """
+    __tablename__ = "labor_records"
+
+    id                       = Column(Integer, primary_key=True, index=True)
+    producer_id              = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    campagne_id              = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    mois                     = Column(Integer, nullable=True)   # 1-12
+    journees_familial        = Column(Float, nullable=True)
+    journees_familial_cacao  = Column(Float, nullable=True)     # sous-ensemble dedie au cacao
+    journees_embauche        = Column(Float, nullable=True)
+    journees_embauche_cacao  = Column(Float, nullable=True)
+    salaire_journalier       = Column(Float, nullable=True)     # CFA
+    autres_services          = Column(String, nullable=True)
+    frais_service            = Column(Float, nullable=True)     # CFA
+    lies_cacao               = Column(Boolean, default=True, nullable=False)
+    created_at               = Column(DateTime(timezone=True), server_default=func.now())
+
+    producer = relationship("Producer", back_populates="labor_records")
+    campagne = relationship("Campagne")
+
+
+class InputCost(Base):
+    """
+    Cout d'un intrant, outil/equipement ou metayage pour un producteur.
+    Source : Cocoa Farmer Income Tool, feuille "3.couts".
+    """
+    __tablename__ = "input_costs"
+
+    id                    = Column(Integer, primary_key=True, index=True)
+    producer_id           = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    campagne_id           = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    categorie             = Column(String, nullable=False)   # INTRANT|OUTIL_EQUIPEMENT|METAYAGE|AUTRE_AGRICOLE
+    produit               = Column(String, nullable=True)    # engrais, fiente, machette, ...
+    unite_mesure          = Column(String, nullable=True)
+    quantite              = Column(Float, nullable=True)
+    cout_total            = Column(Float, nullable=True)     # CFA
+    valeur_subventionnee  = Column(Float, nullable=True)     # CFA, 0 si non subventionne
+    duree_vie_ans         = Column(Integer, nullable=True)   # pour outils uniquement
+    lies_cacao            = Column(Boolean, default=True, nullable=False)
+    notes                 = Column(Text, nullable=True)
+    created_at            = Column(DateTime(timezone=True), server_default=func.now())
+
+    producer = relationship("Producer", back_populates="input_costs")
+    campagne = relationship("Campagne")
