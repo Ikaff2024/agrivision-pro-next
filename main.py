@@ -92,6 +92,20 @@ async def lifespan(app: FastAPI):
                     "Migration donnees Producer : %d producteurs crees, %d plantations liees",
                     n_created, linked.rowcount
                 )
+
+                # Sprint #0 - Phase 0.1.a-2 : seed des certifications de base
+                # FT et RA sont seedees d'office (cooperative YEYASSO les utilise).
+                conn.execute(text("""
+                    INSERT INTO certifications (code, nom_complet, organisme, actif)
+                    VALUES
+                        ('FT', 'Fairtrade', 'FLOCERT', TRUE),
+                        ('RA', 'Rainforest Alliance', 'Rainforest Alliance', TRUE),
+                        ('EUDR', 'EU Deforestation Regulation', 'Union Europeenne', TRUE),
+                        ('ARS_1000', 'ARS 1000 - Cacao durable', 'Conseil Cafe-Cacao', TRUE)
+                    ON CONFLICT (code) DO NOTHING
+                """))
+                conn.commit()
+                logger.info("Seed certifications : OK (FT, RA, EUDR, ARS_1000)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

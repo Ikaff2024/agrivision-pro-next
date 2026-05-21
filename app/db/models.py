@@ -49,6 +49,7 @@ class Plantation(Base):
 
     cooperative  = relationship("Cooperative", back_populates="plantations")
     producer     = relationship("Producer", back_populates="plantations")
+    certification_links = relationship("PlantationCertification", back_populates="plantation", cascade="all, delete-orphan")
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
@@ -166,3 +167,62 @@ class Producer(Base):
 
     cooperative = relationship("Cooperative")
     plantations = relationship("Plantation", back_populates="producer")
+
+
+class Certification(Base):
+    """
+    Standard de conformite / certification (Fairtrade, Rainforest Alliance,
+    EUDR, ARS 1000, ...). Cree au Sprint #0 - Phase 0.1.a-2.
+
+    IMPORTANT : "FT-RA" dans les fichiers Excel n'est PAS une certification,
+    c'est une double certification. Une plantation FT-RA recoit 2 liens
+    PlantationCertification : un vers FT, un vers RA.
+    """
+    __tablename__ = "certifications"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    code         = Column(String, unique=True, nullable=False, index=True)  # FT, RA, EUDR, ARS_1000
+    nom_complet  = Column(String, nullable=False)                            # "Fairtrade", ...
+    organisme    = Column(String, nullable=True)                             # FLOCERT, ...
+    actif        = Column(Boolean, default=True, nullable=False)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation_links = relationship("PlantationCertification", back_populates="certification")
+
+
+class PlantationCertification(Base):
+    """
+    Table de liaison M-N entre Plantation et Certification.
+    Une plantation peut etre certifiee sous plusieurs standards simultanement.
+    """
+    __tablename__ = "plantation_certifications"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    plantation_id    = Column(Integer, ForeignKey("plantations.id"), nullable=False, index=True)
+    certification_id = Column(Integer, ForeignKey("certifications.id"), nullable=False, index=True)
+    date_obtention   = Column(DateTime(timezone=True), nullable=True)
+    date_expiration  = Column(DateTime(timezone=True), nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation    = relationship("Plantation", back_populates="certification_links")
+    certification = relationship("Certification", back_populates="plantation_links")
+
+
+class Campagne(Base):
+    """
+    Campagne agricole cacao (typiquement Octobre annee N -> Septembre N+1).
+    Permet d'organiser livraisons et donnees par campagne, et de gerer
+    l'import multi-campagnes (un registre Excel par campagne).
+    """
+    __tablename__ = "campagnes"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    libelle        = Column(String, nullable=False, index=True)   # ex: "2025-2026"
+    date_debut     = Column(DateTime(timezone=True), nullable=True)
+    date_fin       = Column(DateTime(timezone=True), nullable=True)
+    est_courante   = Column(Boolean, default=False, nullable=False)
+    fichier_source = Column(String, nullable=True)                 # nom du registre Excel importe
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    cooperative = relationship("Cooperative")
