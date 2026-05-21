@@ -46,8 +46,52 @@ async def lifespan(app: FastAPI):
                 conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
                 ))
+                # Sprint #0 - Phase 0.1.a-1 : entite Producer
+                conn.execute(text(
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS producer_id INTEGER REFERENCES producers(id)"
+                ))
                 conn.commit()
-                logger.info("Migrations colonnes : OK (is_active, plant_count)")
+                logger.info("Migrations colonnes : OK (is_active, plant_count, producer_id)")
+
+                # Sprint #0 - Phase 0.1.a-1 : migration de donnees owner_name -> Producer
+                # Pour chaque plantation ayant un owner_name mais pas de producer_id,
+                # creer un Producer et lier la plantation.
+                migrated = conn.execute(text("""
+                    WITH new_producers AS (
+                        INSERT INTO producers (nom_complet, cooperative_id, is_active)
+                        SELECT DISTINCT p.owner_name, p.cooperative_id, TRUE
+                        FROM plantations p
+                        WHERE p.owner_name IS NOT NULL
+                          AND p.owner_name <> ''
+                          AND p.producer_id IS NULL
+                          AND NOT EXISTS (
+                              SELECT 1 FROM producers pr
+                              WHERE pr.nom_complet = p.owner_name
+                                AND (pr.cooperative_id = p.cooperative_id
+                                     OR (pr.cooperative_id IS NULL AND p.cooperative_id IS NULL))
+                          )
+                        RETURNING id, nom_complet, cooperative_id
+                    )
+                    SELECT COUNT(*) FROM new_producers
+                """))
+                n_created = migrated.scalar() or 0
+
+                linked = conn.execute(text("""
+                    UPDATE plantations p
+                    SET producer_id = pr.id
+                    FROM producers pr
+                    WHERE p.producer_id IS NULL
+                      AND p.owner_name IS NOT NULL
+                      AND p.owner_name <> ''
+                      AND pr.nom_complet = p.owner_name
+                      AND (pr.cooperative_id = p.cooperative_id
+                           OR (pr.cooperative_id IS NULL AND p.cooperative_id IS NULL))
+                """))
+                conn.commit()
+                logger.info(
+                    "Migration donnees Producer : %d producteurs crees, %d plantations liees",
+                    n_created, linked.rowcount
+                )
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

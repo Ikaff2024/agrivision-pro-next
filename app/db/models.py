@@ -44,9 +44,11 @@ class Plantation(Base):
     hectares       = Column(Float, nullable=True)
     plant_count    = Column(Integer, nullable=True)
     cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True)
+    producer_id    = Column(Integer, ForeignKey("producers.id"), nullable=True, index=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     cooperative  = relationship("Cooperative", back_populates="plantations")
+    producer     = relationship("Producer", back_populates="plantations")
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
@@ -121,3 +123,46 @@ class Harvest(Base):
 
     plantation = relationship("Plantation", back_populates="harvests")
     created_by = relationship("User")
+
+
+class Producer(Base):
+    """
+    Producteur membre d'une cooperative cacao.
+    Entite creee au Sprint #0 (module cooperative). Avant ce sprint,
+    le proprietaire etait un simple champ texte Plantation.owner_name.
+    """
+    __tablename__ = "producers"
+
+    id                      = Column(Integer, primary_key=True, index=True)
+    cooperative_id          = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+
+    # Identite
+    nom_complet             = Column(String, nullable=False, index=True)
+    sexe                    = Column(String, nullable=True)          # "H" | "F" | None
+    date_naissance          = Column(DateTime(timezone=True), nullable=True)
+    telephone               = Column(String, nullable=True)
+
+    # Codes d'identification
+    code_yeyasso            = Column(String, nullable=True, index=True)   # code interne cooperative (universel)
+    code_saco               = Column(String, nullable=True)               # identifiant chez l'exportateur SACO
+    recepisse               = Column(String, nullable=True)               # recepisse reconnaissance
+
+    # Piece d'identite
+    piece_identite_numero   = Column(String, nullable=True)
+    piece_identite_nature   = Column(String, nullable=True)               # CNI, passeport, ...
+
+    # Rattachement geographique / organisationnel
+    section                 = Column(String, nullable=True)              # regroupement geographique niveau 2
+    localite                = Column(String, nullable=True)              # village
+    formateur_interne_nom   = Column(String, nullable=True)              # texte libre (resolution FK -> User differee)
+
+    # Geolocalisation domicile (optionnel)
+    latitude                = Column(Float, nullable=True)
+    longitude               = Column(Float, nullable=True)
+
+    # Metadonnees
+    is_active               = Column(Boolean, default=True, nullable=False)
+    created_at              = Column(DateTime(timezone=True), server_default=func.now())
+
+    cooperative = relationship("Cooperative")
+    plantations = relationship("Plantation", back_populates="producer")
