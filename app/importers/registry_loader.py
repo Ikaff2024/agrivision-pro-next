@@ -41,7 +41,9 @@ PROJET_CERTIFICATION_MAP = {
     "FT-GALLER":        ["FT"],          # Galler = programme acheteur, FT = certif
     "BIO":              ["BIO"],
     "CONVERSION BIO":   ["BIO"],         # en conversion : rattache a BIO
-    # "SI" et "ACT" : signification a confirmer par le gerant -> non mappes
+    # Clients/acheteurs sans certification (confirme par le gerant) :
+    "SI":               [],          # Shared Impact = client, ventes non certifiees
+    "ACT":              [],          # Action = client, ventes non certifiees
 }
 
 
