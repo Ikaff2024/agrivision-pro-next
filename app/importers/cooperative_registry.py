@@ -355,6 +355,12 @@ def _parse_plantations_sheet(ws, result: RegistryParseResult):
         )
         return
 
+    # Dans la feuille Plantations, la colonne PROJET n'a pas de libelle
+    # d'en-tete (cellule fusionnee vide). Fallback : c'est la colonne
+    # juste apres CODE PLANTATION (en general C3).
+    if col_projet is None and col_code_plant:
+        col_projet = col_code_plant + 1
+
     def get(row_tuple, col_idx):
         if col_idx is None:
             return None
@@ -362,6 +368,7 @@ def _parse_plantations_sheet(ws, result: RegistryParseResult):
         return row_tuple[i] if 0 <= i < len(row_tuple) else None
 
     row_idx = 6
+    last_code_producteur = None  # propagation des cellules fusionnees
     for row in ws.iter_rows(min_row=7, values_only=True):
         row_idx += 1
 
@@ -369,9 +376,21 @@ def _parse_plantations_sheet(ws, result: RegistryParseResult):
         if not code_plant:
             continue
 
+        # Cellules fusionnees : le code producteur n'apparait que sur la
+        # premiere ligne d'un groupe de plantations. On propage le dernier vu.
+        raw_code_prod = get(row, col_code_prod)
+        if raw_code_prod:
+            last_code_producteur = str(raw_code_prod).strip()
+        code_producteur = last_code_producteur
+
+        # Securite : si le code plantation contient le code producteur
+        # (ex "YEYAFT4453-P2"), on peut le deduire en cas de doute.
+        if not code_producteur and "-P" in str(code_plant):
+            code_producteur = str(code_plant).split("-P")[0].strip()
+
         plant = ParsedPlantation(
             code_plantation=str(code_plant).strip(),
-            code_producteur=str(get(row, col_code_prod)).strip() if get(row, col_code_prod) else None,
+            code_producteur=code_producteur,
             projet=str(get(row, col_projet)).strip() if get(row, col_projet) else None,
             superficie_ha=parse_float(get(row, col_superf)),
             latitude=parse_float(get(row, col_lat)),
