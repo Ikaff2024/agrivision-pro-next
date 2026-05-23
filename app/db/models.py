@@ -29,6 +29,9 @@ class User(Base):
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     cooperative = relationship("Cooperative", back_populates="users")
+    assigned_plantations = relationship("PlantationAssignment", foreign_keys="PlantationAssignment.technician_id", back_populates="technician")
+    substitutions_as_absent = relationship("TechnicianSubstitution", foreign_keys="TechnicianSubstitution.absent_technician_id", back_populates="absent_technician")
+    substitutions_as_substitute = relationship("TechnicianSubstitution", foreign_keys="TechnicianSubstitution.substitute_technician_id", back_populates="substitute_technician")
 
 
 class Plantation(Base):
@@ -51,6 +54,7 @@ class Plantation(Base):
     producer     = relationship("Producer", back_populates="plantations")
     certification_links = relationship("PlantationCertification", back_populates="plantation", cascade="all, delete-orphan")
     inspections  = relationship("Inspection", back_populates="plantation", cascade="all, delete-orphan")
+    assignment   = relationship("PlantationAssignment", back_populates="plantation", uselist=False, cascade="all, delete-orphan")
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
@@ -422,3 +426,56 @@ class InputCost(Base):
 
     producer = relationship("Producer", back_populates="input_costs")
     campagne = relationship("Campagne")
+
+
+class PlantationAssignment(Base):
+    """
+    Attribution d'une plantation a un technicien (Sprint #1).
+    Une plantation a au plus une attribution active a la fois.
+    L'attribution peut etre desactivee (is_active=False) sans etre
+    supprimee, pour conserver l'historique.
+    """
+    __tablename__ = "plantation_assignments"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    plantation_id  = Column(Integer, ForeignKey("plantations.id"), nullable=False, index=True)
+    technician_id  = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    assigned_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_at    = Column(DateTime(timezone=True), server_default=func.now())
+    is_active      = Column(Boolean, default=True, nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation  = relationship("Plantation", back_populates="assignment")
+    technician  = relationship("User", foreign_keys=[technician_id],
+                               back_populates="assigned_plantations")
+    assigned_by = relationship("User", foreign_keys=[assigned_by_id])
+
+
+class TechnicianSubstitution(Base):
+    """
+    Remplacement temporaire d'un technicien par un autre (Sprint #1).
+    Pendant la periode [date_debut, date_fin], le remplacant voit les
+    parcelles du technicien absent en plus des siennes.
+
+    Un remplacement est "actif" si is_active = True ET la date du jour
+    est comprise entre date_debut et date_fin.
+    """
+    __tablename__ = "technician_substitutions"
+
+    id                       = Column(Integer, primary_key=True, index=True)
+    cooperative_id           = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    absent_technician_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    substitute_technician_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    date_debut               = Column(DateTime(timezone=True), nullable=False)
+    date_fin                 = Column(DateTime(timezone=True), nullable=False)
+    motif                    = Column(String, nullable=True)
+    created_by_id            = Column(Integer, ForeignKey("users.id"), nullable=True)
+    is_active                = Column(Boolean, default=True, nullable=False)
+    created_at               = Column(DateTime(timezone=True), server_default=func.now())
+
+    cooperative          = relationship("Cooperative")
+    absent_technician    = relationship("User", foreign_keys=[absent_technician_id],
+                                        back_populates="substitutions_as_absent")
+    substitute_technician = relationship("User", foreign_keys=[substitute_technician_id],
+                                         back_populates="substitutions_as_substitute")
+    created_by           = relationship("User", foreign_keys=[created_by_id])
