@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import router as api_router
+from app.api.assignment_routes import router as assignment_router, sub_router as substitution_router
 from app.api.import_routes import router as import_router
 from app.auth.auth_routes import router as auth_router
 from app.db.database import engine, Base
@@ -169,4 +170,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(api_router)
+app.include_router(assignment_router)
+app.include_router(substitution_router)
 app.include_router(import_router)
