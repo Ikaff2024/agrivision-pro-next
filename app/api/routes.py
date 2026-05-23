@@ -1431,6 +1431,64 @@ def reset_member_password(
         "user_id": member.id,
     }
 
+class MemberCreate(BaseModel):
+    email: str
+    role: str = "technician"
+
+
+@router.post("/admin/members")
+def create_member(
+    payload: MemberCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Cree un nouveau membre de la cooperative (technicien, agronome, admin).
+    Genere un mot de passe temporaire a communiquer au membre.
+    Admin uniquement.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    email = (payload.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Adresse email invalide.")
+
+    role = (payload.role or "technician").strip().lower()
+    if role not in ("admin", "agronomist", "technician"):
+        raise HTTPException(status_code=400, detail="Role invalide.")
+
+    # Email deja utilise ?
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        raise HTTPException(status_code=409,
+                            detail="Un compte existe deja avec cette adresse email.")
+
+    # Mot de passe temporaire (meme format que reset-password)
+    import random, string
+    adjectives = ["Cacao", "Foret", "Soleil", "Pluie", "Terre", "Arbre", "Canne", "Feuil"]
+    adj = random.choice(adjectives)
+    digits = ''.join(random.choices(string.digits, k=4))
+    temp_password = f"{adj}-{digits}"
+
+    from app.auth.auth_service import get_password_hash
+    new_user = User(
+        email=email,
+        password_hash=get_password_hash(temp_password),
+        role=role,
+        cooperative_id=current_user.cooperative_id,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "message": f"Compte {email} cree.",
+        "temp_password": temp_password,
+        "user_id": new_user.id,
+        "role": new_user.role,
+    }
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # ─── Conseil IA Agronome ────────────────────────────────────────────────────
