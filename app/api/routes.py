@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from urllib.parse import quote
@@ -129,16 +129,147 @@ def create_plantation(
 def get_plantations(
     skip: int = 0,
     limit: int = 100,
+    search: Optional[str] = Query(None, description="Recherche nom producteur ou code plantation"),
+    technician_id: Optional[int] = Query(None, description="Filtre par technicien assigne"),
+    section: Optional[str] = Query(None, description="Filtre par section"),
+    certification: Optional[str] = Query(None, description="Filtre par code certification"),
+    diagnostic: Optional[str] = Query(None, description="diagnosed | not_diagnosed"),
+    page: Optional[int] = Query(None, ge=1, description="Numero de page (mode pagine)"),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page"),
+    paginated: bool = Query(False, description="Si true, renvoie un objet pagine"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Plantation)
-        .filter(Plantation.cooperative_id == current_user.cooperative_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
+    """
+    Liste des plantations de la cooperative, avec filtres et pagination.
+
+    Retro-compatible : sans 'paginated', renvoie une liste brute comme avant.
+    Avec 'paginated=true', renvoie {items, total, page, page_size, total_pages}.
+    """
+    from app.db.models import (
+        Producer, PlantationCertification, Certification, Diagnostic,
     )
+
+    q = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id
+    )
+
+    # --- Filtre recherche : code plantation (name) ou nom producteur ---
+    if search and isinstance(search, str) and search.strip():
+        like = f"%{search.strip()}%"
+        q = q.outerjoin(Producer, Plantation.producer_id == Producer.id).filter(
+            (Plantation.name.ilike(like)) |
+            (Plantation.owner_name.ilike(like)) |
+            (Producer.nom_complet.ilike(like)) |
+            (Producer.code_yeyasso.ilike(like))
+        )
+
+    # --- Filtre par technicien assigne ---
+    if technician_id is not None and isinstance(technician_id, int):
+        from app.db.models import PlantationAssignment
+        assigned_ids = [
+            a.plantation_id for a in db.query(PlantationAssignment).filter(
+                PlantationAssignment.technician_id == technician_id,
+                PlantationAssignment.is_active == True,
+            ).all()
+        ]
+        q = q.filter(Plantation.id.in_(assigned_ids or [-1]))
+
+    # --- Filtre par section (via le producteur) ---
+    if section and isinstance(section, str) and section.strip():
+        prod_ids = [
+            p.id for p in db.query(Producer).filter(
+                Producer.cooperative_id == current_user.cooperative_id,
+                Producer.section == section,
+            ).all()
+        ]
+        q = q.filter(Plantation.producer_id.in_(prod_ids or [-1]))
+
+    # --- Filtre par certification ---
+    if certification and isinstance(certification, str) and certification.strip():
+        cert = db.query(Certification).filter(
+            Certification.code == certification.strip().upper()
+        ).first()
+        if cert:
+            cert_plant_ids = [
+                pc.plantation_id for pc in db.query(PlantationCertification).filter(
+                    PlantationCertification.certification_id == cert.id
+                ).all()
+            ]
+            q = q.filter(Plantation.id.in_(cert_plant_ids or [-1]))
+        else:
+            q = q.filter(Plantation.id.in_([-1]))
+
+    # --- Filtre par etat de diagnostic ---
+    if diagnostic in ("diagnosed", "not_diagnosed"):
+        diagnosed_ids = [
+            d.plantation_id for d in db.query(Diagnostic.plantation_id).distinct().all()
+        ]
+        if diagnostic == "diagnosed":
+            q = q.filter(Plantation.id.in_(diagnosed_ids or [-1]))
+        else:
+            if diagnosed_ids:
+                q = q.filter(~Plantation.id.in_(diagnosed_ids))
+
+    # --- Mode pagine ou liste brute ---
+    if paginated or page is not None:
+        current_page = page or 1
+        total = q.count()
+        items = (
+            q.order_by(Plantation.id)
+            .offset((current_page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+        total_pages = (total + page_size - 1) // page_size if page_size else 1
+        return {
+            "items": items,
+            "total": total,
+            "page": current_page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
+
+    # --- Mode liste brute (retro-compatible) ---
+    return q.order_by(Plantation.id).offset(skip).limit(limit).all()
+
+
+@router.get("/plantations/filters-options")
+def get_plantations_filters_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Renvoie les valeurs disponibles pour alimenter les menus de filtres
+    de la liste des plantations : sections et techniciens de la cooperative.
+    """
+    from app.db.models import Producer
+
+    coop_id = current_user.cooperative_id
+
+    # Sections distinctes
+    sections = sorted({
+        p.section for p in db.query(Producer.section).filter(
+            Producer.cooperative_id == coop_id,
+            Producer.section.isnot(None),
+        ).distinct().all()
+        if p.section
+    })
+
+    # Techniciens de la cooperative
+    technicians = [
+        {"id": u.id, "email": u.email}
+        for u in db.query(User).filter(
+            User.cooperative_id == coop_id,
+            User.role == "technician",
+        ).all()
+    ]
+
+    return {
+        "sections": sections,
+        "technicians": technicians,
+        "certifications": ["FT", "RA", "BIO"],
+    }
 
 
 @router.get("/plantations/{plantation_id}")
