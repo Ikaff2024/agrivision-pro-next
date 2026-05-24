@@ -125,6 +125,39 @@ def create_plantation(
     return new_plantation
 
 
+
+
+def visible_plantation_ids(user, db):
+    """
+    Calcule l'ensemble des ids de plantations visibles par un technicien :
+    ses parcelles attribuees + les parcelles des techniciens qu'il remplace
+    actuellement (remplacement actif et dans sa periode).
+
+    Retourne une liste d'ids. Utilisee pour le cloisonnement par role.
+    Pour un admin, cette fonction n'a pas a etre appelee (admin voit tout).
+    """
+    from datetime import datetime
+    from app.db.models import PlantationAssignment, TechnicianSubstitution
+
+    technician_ids = {user.id}
+
+    # Techniciens que cet utilisateur remplace actuellement
+    now = datetime.utcnow()
+    subs = db.query(TechnicianSubstitution).filter(
+        TechnicianSubstitution.substitute_technician_id == user.id,
+        TechnicianSubstitution.is_active == True,
+    ).all()
+    for s in subs:
+        if s.date_debut <= now <= s.date_fin:
+            technician_ids.add(s.absent_technician_id)
+
+    # Plantations attribuees a l'un de ces techniciens
+    assignments = db.query(PlantationAssignment).filter(
+        PlantationAssignment.technician_id.in_(list(technician_ids)),
+        PlantationAssignment.is_active == True,
+    ).all()
+    return [a.plantation_id for a in assignments]
+
 @router.get("/plantations")
 def get_plantations(
     skip: int = 0,
@@ -153,6 +186,14 @@ def get_plantations(
     q = db.query(Plantation).filter(
         Plantation.cooperative_id == current_user.cooperative_id
     )
+
+    # --- Cloisonnement par role (Sprint #1 phase 1.4) ---
+    # Un technicien ne voit que ses parcelles attribuees + remplacements.
+    # admin et agronomist : comportement inchange (voient tout).
+    if getattr(current_user, "role", None) == "technician":
+        visible_ids = visible_plantation_ids(current_user, db)
+        q = q.filter(Plantation.id.in_(visible_ids or [-1]))
+
 
     # --- Filtre recherche : code plantation (name) ou nom producteur ---
     if search and isinstance(search, str) and search.strip():
