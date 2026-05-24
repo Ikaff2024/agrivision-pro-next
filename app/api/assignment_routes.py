@@ -313,6 +313,35 @@ def remove_assignment(
     db.commit()
     return {"status": "removed", "plantation_id": plantation_id}
 
+@router.delete("/technician/{technician_id}/all")
+def remove_all_assignments(
+    technician_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retire TOUTES les attributions actives d'un technicien en une fois.
+    Pendant logique de l'attribution en masse. Admin uniquement.
+    Les attributions sont desactivees (is_active=False), pas supprimees,
+    pour conserver l'historique.
+    """
+    _require_admin(current_user)
+    _check_technician(db, technician_id, current_user.cooperative_id)
+
+    assignments = db.query(PlantationAssignment).filter(
+        PlantationAssignment.technician_id == technician_id,
+        PlantationAssignment.is_active == True,
+    ).all()
+
+    count = 0
+    for a in assignments:
+        a.is_active = False
+        count += 1
+
+    db.commit()
+    return {"status": "all_removed", "technician_id": technician_id,
+            "removed": count}
+
 
 # ===========================================================================
 # Endpoints remplacement
