@@ -58,4 +58,4 @@ COPY . .
 # Demarrage : Railway injecte la variable PORT (typiquement 8080)
 # ──────────────────────────────────────────────────────────────────────────────
 EXPOSE 8080
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
