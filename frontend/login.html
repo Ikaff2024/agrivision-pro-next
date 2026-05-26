@@ -423,10 +423,59 @@
       <div class="auth-bottom">Pas encore de compte ? <a href="register.html">Créer un compte</a></div>
     </div>
   </div>
-
+  <script src="config.js"></script>
   <script>
-    // Authentification désactivée - accès direct au dashboard
-    window.location.href = 'index.html';
+    const API_BASE = window.AGRIVISION_API_BASE || window.CG_API_BASE || (
+      ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://127.0.0.1:8010'
+        : 'https://agrivision-api-production.up.railway.app'
+    );
+
+    function showError(message) {
+      const err = document.getElementById('err');
+      err.textContent = message || 'Connexion impossible.';
+      err.style.display = 'block';
+    }
+
+    function setLoading(isLoading) {
+      document.getElementById('btn').disabled = isLoading;
+      document.getElementById('btn-text').style.display = isLoading ? 'none' : '';
+      document.getElementById('spin').style.display = isLoading ? 'inline-block' : 'none';
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('pass').value;
+      document.getElementById('err').style.display = 'none';
+
+      if (!email || !password) {
+        showError('Email et mot de passe requis.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Identifiants incorrects.');
+
+        localStorage.setItem('avp_token', data.access_token);
+        localStorage.setItem('avp_refresh_token', data.refresh_token);
+        window.location.href = 'plantations.html';
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') doLogin();
+    });
   </script>
 </body>
 

@@ -68,6 +68,12 @@ window.API_BASE = API_BASE;
     .nav-link.active .ms{color:var(--sb-accent)}
     .sb-user{padding:14px 14px 18px;border-top:1px solid var(--sb-border);flex-shrink:0}
     .sb-user-inner{display:flex;align-items:center;gap:10px}
+    .sb-auth-actions{display:grid;gap:8px}
+    .sb-auth-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;transition:.15s}
+    .sb-auth-link.primary{background:rgba(82,183,136,.18);color:#fff;border:1px solid rgba(82,183,136,.35)}
+    .sb-auth-link.primary:hover{background:rgba(82,183,136,.26)}
+    .sb-auth-link.secondary{color:var(--sb-text-on);border:1px solid var(--sb-border)}
+    .sb-auth-link.secondary:hover{background:var(--sb-hover);color:#fff}
     .sb-avatar{width:34px;height:34px;border-radius:50%;background:rgba(82,183,136,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--sb-accent);flex-shrink:0;text-transform:uppercase;letter-spacing:.05em}
     .sb-user-info{flex:1;min-width:0}
     .sb-user-email{font-size:12px;font-weight:500;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -400,7 +406,6 @@ function renderSidebar(activePage) {
   const el = document.getElementById('sidebar');
   if (!el) return;
 
-  // ── Hamburger button (mobile) ─────────────────────────────────────────────
   if (!document.getElementById('avp-hamburger')) {
     const hamburger = document.createElement('button');
     hamburger.id = 'avp-hamburger';
@@ -409,13 +414,13 @@ function renderSidebar(activePage) {
     hamburger.onclick = toggleSidebar;
     document.body.appendChild(hamburger);
 
-    // Overlay pour fermer la sidebar en cliquant à côté
     const overlay = document.createElement('div');
     overlay.id = 'avp-overlay';
     overlay.className = 'sb-overlay';
     overlay.onclick = closeSidebar;
     document.body.appendChild(overlay);
   }
+
   const user = getCurrentUser();
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
   const links = [
@@ -438,10 +443,34 @@ function renderSidebar(activePage) {
     { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
   ];
-  // Lien admin uniquement visible pour les administrateurs
   if (user && user.role === 'admin') {
     links.push({ id: 'admin', href: 'admin.html', icon: 'admin_panel_settings', label: 'Administration' });
   }
+
+  const userBlock = user ? `
+    <div class="sb-user">
+      <div class="sb-user-inner">
+        <div class="sb-avatar">${init}</div>
+        <div class="sb-user-info">
+          <div class="sb-user-email">${user.email}</div>
+          <div class="sb-user-role">${user.role}</div>
+        </div>
+        <button class="sb-logout" onclick="logout()" title="Deconnexion">
+          <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+        </button>
+      </div>
+    </div>` : `
+    <div class="sb-user">
+      <div class="sb-auth-actions">
+        <a class="sb-auth-link primary" href="login.html" onclick="closeSidebar()">
+          <span class="material-symbols-outlined ms">login</span>Connexion admin
+        </a>
+        <a class="sb-auth-link secondary" href="register.html" onclick="closeSidebar()">
+          <span class="material-symbols-outlined ms">person_add</span>Creer un compte
+        </a>
+      </div>
+    </div>`;
+
   el.innerHTML = `
     <div class="sb-logo">
       <div class="sb-logo-row">
@@ -464,20 +493,8 @@ function renderSidebar(activePage) {
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`).join('')}
     </nav>
-    <div class="sb-user">
-      <div class="sb-user-inner">
-        <div class="sb-avatar">${init}</div>
-        <div class="sb-user-info">
-          <div class="sb-user-email">${user ? user.email : ''}</div>
-          <div class="sb-user-role">${user ? user.role : ''}</div>
-        </div>
-        <button class="sb-logout" onclick="logout()" title="Déconnexion">
-          <span class="material-symbols-outlined" style="font-size:18px">logout</span>
-        </button>
-      </div>
-    </div>`;
+    ${userBlock}`;
 }
-
 function initApp(page) {
   setupNetworkBanner();  // Sprint Honnetete-Offline
   if (!requireAuth()) return;
@@ -495,3 +512,4 @@ function fmtDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+

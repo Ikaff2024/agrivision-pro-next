@@ -192,9 +192,19 @@ function canCreatePlantation() {
 function initCreateButton() {
   const btn = document.getElementById('add-btn');
   if (!btn) return;
+  btn.classList.remove('btn-outline', 'btn-primary');
   if (canCreatePlantation()) {
     btn.style.display = '';
+    btn.classList.add('btn-primary');
+    btn.innerHTML = '<span class="material-symbols-outlined ms">add</span>Nouvelle plantation';
+    btn.onclick = openModal;
     btn.title = 'Creer une nouvelle plantation';
+  } else if (!CURRENT_USER) {
+    btn.style.display = '';
+    btn.classList.add('btn-outline');
+    btn.innerHTML = '<span class="material-symbols-outlined ms">login</span>Connexion admin';
+    btn.onclick = () => { location.href = 'login.html'; };
+    btn.title = 'Se connecter avec un compte admin';
   } else {
     btn.style.display = 'none';
   }

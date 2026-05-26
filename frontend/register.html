@@ -550,10 +550,93 @@
       <div class="auth-bottom">Déjà un compte ? <a href="login.html">Se connecter</a></div>
     </div>
   </div>
-
+  <script src="config.js"></script>
   <script>
-    // Authentification désactivée - accès direct au dashboard
-    window.location.href = 'index.html';
+    const API_BASE = window.AGRIVISION_API_BASE || window.CG_API_BASE || (
+      ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://127.0.0.1:8010'
+        : 'https://agrivision-api-production.up.railway.app'
+    );
+    let selectedRole = 'agronomist';
+
+    function showError(message) {
+      const err = document.getElementById('err');
+      err.textContent = message || 'Creation du compte impossible.';
+      err.style.display = 'block';
+      document.getElementById('ok').style.display = 'none';
+    }
+
+    function setLoading(isLoading) {
+      document.getElementById('btn').disabled = isLoading;
+      document.getElementById('btn-text').style.display = isLoading ? 'none' : '';
+      document.getElementById('spin').style.display = isLoading ? 'inline-block' : 'none';
+    }
+
+    function selectRole(role) {
+      selectedRole = role;
+      document.querySelectorAll('.role-opt').forEach(opt => opt.classList.remove('selected'));
+      const input = document.querySelector(`input[name="role"][value="${role}"]`);
+      if (input) {
+        input.checked = true;
+        input.closest('.role-opt')?.classList.add('selected');
+      }
+    }
+
+    function onCoopInput() {
+      const info = document.getElementById('coop-info');
+      const coop = document.getElementById('coop').value.trim();
+      info.textContent = coop ? 'Si cette cooperative est nouvelle, ce compte deviendra admin fondateur.' : '';
+      info.style.display = coop ? 'block' : 'none';
+    }
+
+    async function loginAfterRegister(email, password) {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Compte cree, mais connexion automatique impossible.');
+      localStorage.setItem('avp_token', data.access_token);
+      localStorage.setItem('avp_refresh_token', data.refresh_token);
+    }
+
+    async function doRegister() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('pass').value;
+      const cooperative_name = document.getElementById('coop').value.trim();
+      const country = document.getElementById('country').value;
+      document.getElementById('err').style.display = 'none';
+      document.getElementById('ok').style.display = 'none';
+
+      if (!email || !password || !cooperative_name) {
+        showError('Email, mot de passe et cooperative requis.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, role: selectedRole, cooperative_name, country })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Creation du compte impossible.');
+
+        document.getElementById('ok').style.display = 'block';
+        await loginAfterRegister(email, password);
+        window.location.href = data.role === 'admin' ? 'admin.html' : 'index.html';
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') doRegister();
+    });
   </script>
 </body>
 
