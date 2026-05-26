@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriVision Pro — Dashboard Propriétaire</title>
+<script src="config.js?v=staging1"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -212,7 +213,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </div>
 
 <script>
-const API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const API_BASE = window.AGRIVISION_API_BASE || 'https://agrivision-api-production.up.railway.app';
 let ownerKey = '';
 let allCoops = [];
 let currentFilter = 'all';
@@ -476,3 +477,4 @@ setInterval(() => { if (ownerKey) loadStats(); }, 5 * 60 * 1000);
 </script>
 </body>
 </html>
+

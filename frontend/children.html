@@ -6,7 +6,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1a4231">
   <title>AgriVision Pro - Enfants CacaoGuard</title>
-  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="config.js?v=staging1"></script>
   <script src="avp-offline.js?v=cg3"></script>
   <script src="auth.js?v=ssrte1"></script>
   <style>
@@ -152,9 +152,7 @@ let allChildren = [];
 let allProducers = [];
 const params = new URLSearchParams(location.search);
 const initialProducerId = params.get('producer_id');
-const CG_API = ['localhost','127.0.0.1'].includes(location.hostname)
-  ? 'http://127.0.0.1:8010'
-  : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
 
 async function cgFetch(endpoint, options = {}) {
   const token = typeof getToken === 'function' ? getToken() : null;
@@ -341,3 +339,4 @@ loadData();
 </script>
 </body>
 </html>
+

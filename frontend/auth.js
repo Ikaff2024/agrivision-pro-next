@@ -3,7 +3,7 @@
    Refresh token automatique + design system complet
    ============================================================ */
 
-const PROD_API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const PROD_API_BASE = window.AGRIVISION_API_BASE || 'https://agrivision-api-production.up.railway.app';
 const LOCAL_API_BASE = 'http://127.0.0.1:8010';
 const API_BASE = (
   window.CG_API_BASE ||

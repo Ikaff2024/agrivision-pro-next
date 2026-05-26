@@ -6,7 +6,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1a4231">
   <title>AgriVision Pro - Conformite CacaoGuard</title>
-  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="config.js?v=staging1"></script>
   <script src="avp-offline.js?v=cg3"></script>
   <script src="auth.js?v=ssrte1"></script>
   <style>
@@ -103,7 +103,7 @@
 <script>
 initApp('compliance');
 
-const CG_API = ['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:8010' : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
 const labels = {
   child_labor_case:'Cas travail enfant', pending_investigation:'Investigation', non_compliance:'Non-conformite',
   active:'Actif', resolved:'Resolue', escalated:'Escalade', expired:'Expire',
@@ -231,3 +231,4 @@ loadCompliance();
 </script>
 </body>
 </html>
+

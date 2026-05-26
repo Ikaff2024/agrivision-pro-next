@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v3.9-farmforce';
+const CACHE_VERSION = 'avp-v3.10-staging-api';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -44,6 +44,8 @@ const STATIC_ASSETS = [
   '/training.html',
   '/agroforestry.html',
   '/plantation_detail.html',
+  '/producer_profile.html',
+  '/config.js',
   '/auth.js',
   '/avp-offline.js',
   '/offline.html',
@@ -59,7 +61,7 @@ const NETWORK_FIRST_PATTERNS = [
 ];
 
 // Préfixes API Railway à mettre en cache pour le mode offline
-const API_ORIGIN = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const API_ORIGIN = 'https://agrivision-api-production.up.railway.app';
 const LOCAL_API_ORIGINS = new Set([
   'http://127.0.0.1:8010',
   'http://localhost:8010',
