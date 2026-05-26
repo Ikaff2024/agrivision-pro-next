@@ -2,7 +2,7 @@
 
 
 from app.auth.auth_service import create_access_token
-from app.db.models import Cooperative, Plantation, PlantationAssignment, User
+from app.db.models import Cooperative, Plantation, PlantationAssignment, Producer, User
 from tests.conftest import TestingSessionLocal
 
 
@@ -113,6 +113,42 @@ def test_plantations_limit_can_return_more_than_200(client, auth_headers):
     assert res.status_code == 200
     bulk_rows = [p for p in res.json() if p["name"].startswith("Bulk Plantation")]
     assert len(bulk_rows) == 230
+
+
+def test_plantations_can_filter_by_producer(client, auth_headers):
+    db = TestingSessionLocal()
+    try:
+        coop = db.query(Cooperative).filter(Cooperative.name == "Coop Test Fixture").first()
+        producer_a = Producer(cooperative_id=coop.id, nom_complet="Producteur A", is_active=True)
+        producer_b = Producer(cooperative_id=coop.id, nom_complet="Producteur B", is_active=True)
+        db.add_all([producer_a, producer_b])
+        db.commit()
+        p1 = Plantation(
+            name="Producer A Plot",
+            owner_name="Producteur A",
+            country="CI",
+            cooperative_id=coop.id,
+            producer_id=producer_a.id,
+        )
+        p2 = Plantation(
+            name="Producer B Plot",
+            owner_name="Producteur B",
+            country="CI",
+            cooperative_id=coop.id,
+            producer_id=producer_b.id,
+        )
+        db.add_all([p1, p2])
+        db.commit()
+        producer_a_id = producer_a.id
+    finally:
+        db.close()
+
+    res = client.get(f"/plantations?producer_id={producer_a_id}&limit=5000", headers=auth_headers)
+
+    assert res.status_code == 200, res.text
+    names = {p["name"] for p in res.json()}
+    assert "Producer A Plot" in names
+    assert "Producer B Plot" not in names
 
 
 def test_technician_only_sees_assigned_plantations(client, auth_headers):

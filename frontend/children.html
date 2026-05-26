@@ -150,6 +150,8 @@ initApp('children');
 
 let allChildren = [];
 let allProducers = [];
+const params = new URLSearchParams(location.search);
+const initialProducerId = params.get('producer_id');
 const CG_API = ['localhost','127.0.0.1'].includes(location.hostname)
   ? 'http://127.0.0.1:8010'
   : 'https://handsome-wisdom-production-d83b.up.railway.app';
@@ -192,8 +194,14 @@ async function loadChildren() {
     return;
   }
   allChildren = await res.json();
-  renderChildren(allChildren);
+  renderChildren(filteredChildren());
   updateKPIs();
+}
+
+function filteredChildren() {
+  let filtered = [...allChildren];
+  if (initialProducerId) filtered = filtered.filter(c => String(c.producer_id) === String(initialProducerId));
+  return filtered;
 }
 
 function renderChildren(children) {
@@ -231,6 +239,10 @@ function renderChildren(children) {
             <span class="material-symbols-outlined" style="font-size:15px">home_health</span>
             F1 menage
           </button>
+          <button class="child-action" onclick="event.stopPropagation(); openProducerProfile(${c.producer_id})">
+            <span class="material-symbols-outlined" style="font-size:15px">person</span>
+            Producteur
+          </button>
           <button class="child-action" onclick="event.stopPropagation(); viewChild(${c.id})">
             <span class="material-symbols-outlined" style="font-size:15px">fact_check</span>
             Evaluation
@@ -251,7 +263,7 @@ function applyFilters() {
   const risk = document.getElementById('filter-risk').value;
   const school = document.getElementById('filter-school').value;
   const village = document.getElementById('filter-village').value;
-  let filtered = [...allChildren];
+  let filtered = filteredChildren();
   if (risk) filtered = filtered.filter(c => c.risk_level === risk);
   if (school) filtered = filtered.filter(c => c.school_status === school);
   if (village) {
@@ -272,6 +284,10 @@ function viewChild(id) {
 
 function openHouseholdProfile(producerId) {
   window.location.href = `ssrte.html?tab=household&producer_id=${producerId}`;
+}
+
+function openProducerProfile(producerId) {
+  window.location.href = `producer_profile.html?id=${producerId}`;
 }
 
 function openModal() { document.getElementById('modal').style.display = 'flex'; }

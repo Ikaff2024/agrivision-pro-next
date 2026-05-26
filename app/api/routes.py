@@ -165,6 +165,7 @@ def get_plantations(
     search: Optional[str] = Query(None, description="Recherche nom producteur ou code plantation"),
     technician_id: Optional[int] = Query(None, description="Filtre par technicien assigne"),
     assigned_to_me: bool = Query(False, description="Technicien: filtre sur mes plantations attribuees"),
+    producer_id: Optional[int] = Query(None, description="Filtre par producteur"),
     section: Optional[str] = Query(None, description="Filtre par section"),
     certification: Optional[str] = Query(None, description="Filtre par code certification"),
     diagnostic: Optional[str] = Query(None, description="diagnosed | not_diagnosed"),
@@ -200,6 +201,9 @@ def get_plantations(
     if assigned_to_me and getattr(current_user, "role", None) == "technician":
         assigned_ids = visible_plantation_ids(current_user, db)
         q = q.filter(Plantation.id.in_(assigned_ids or [-1]))
+
+    if producer_id is not None:
+        q = q.filter(Plantation.producer_id == producer_id)
 
     # --- Filtre recherche : code plantation (name) ou nom producteur ---
     if search and isinstance(search, str) and search.strip():

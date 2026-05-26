@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -47,3 +47,14 @@ def list_producers(
         query = query.filter(Producer.section == section)
 
     return query.order_by(Producer.nom_complet.asc()).offset(skip).limit(limit).all()
+
+
+@router.get("/producers/{producer_id}", response_model=ProducerResponse)
+def get_producer(producer_id: int, db: Session = Depends(get_db)):
+    producer = db.query(Producer).filter(
+        Producer.id == producer_id,
+        Producer.is_active == True,
+    ).first()
+    if not producer:
+        raise HTTPException(status_code=404, detail="Producteur introuvable.")
+    return producer

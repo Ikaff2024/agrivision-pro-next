@@ -137,6 +137,16 @@ def test_list_producers_for_cacaoguard_forms(client):
     assert data[0]["localite"] == "Soubré"
 
 
+def test_get_producer_detail_for_enriched_profile(client):
+    producer_id, _user_id = _seed_producer_and_user()
+
+    response = client.get(f"/producers/{producer_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["id"] == producer_id
+    assert response.json()["nom_complet"] == "Kouassi Test"
+
+
 def test_create_risk_assessment_updates_child_and_dashboard(client):
     producer_id, user_id = _seed_producer_and_user()
     child = client.post("/children", json={

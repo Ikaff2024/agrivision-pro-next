@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Fiche producteur</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=producer1"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .profile-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .identity{display:grid;grid-template-columns:70px 1fr;gap:16px;align-items:center}
+    .avatar-lg{width:70px;height:70px;border-radius:18px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:25px;font-weight:700}
+    .identity-name{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1.1}
+    .identity-meta{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.5}
+    .quick-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:13px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:26px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .stack{display:grid;gap:12px}
+    .item{border:1px solid var(--border-l);background:#fff;border-radius:8px;padding:12px}
+    .item.danger{border-color:#fecaca;background:#fff7ed}
+    .item-title{font-weight:800;font-size:14px}
+    .item-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .section-head .section-title{margin:0}
+    @media(max-width:1050px){.profile-grid{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
+    @media(max-width:560px){.identity{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Fiche producteur</div>
+        <div class="page-sub">Famille, enfants, plantations, SSRTE et economie menage</div>
+      </div>
+      <button class="btn btn-outline" onclick="history.back()">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+        Retour
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div id="content" class="empty-state">Chargement...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('producer-profile');
+
+const params = new URLSearchParams(location.search);
+const producerId = Number(params.get('id') || params.get('producer_id'));
+const API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
+
+function tokenHeaders(json = false) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  return {
+    ...(json ? { 'Content-Type':'application/json' } : {}),
+    ...(token ? { 'Authorization':'Bearer ' + token } : {})
+  };
+}
+
+async function fetchJson(path) {
+  const res = await fetch(API + path, { cache:'no-store', headers: tokenHeaders() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function esc(value) {
+  const el = document.createElement('div');
+  el.textContent = value == null ? '' : String(value);
+  return el.innerHTML;
+}
+
+function money(value) {
+  return new Intl.NumberFormat('fr-FR').format(Math.round(Number(value || 0)));
+}
+
+function age(dob) {
+  if (!dob) return '-';
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+function initials(name) {
+  return (name || '?').split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase();
+}
+
+function childRiskClass(level) {
+  return ['high','critical'].includes(level) ? 'danger' : '';
+}
+
+function item(html, danger = false) {
+  return `<div class="item ${danger ? 'danger' : ''}">${html}</div>`;
+}
+
+function empty(text) {
+  return `<div class="empty-state" style="padding:24px">${text}</div>`;
+}
+
+function renderList(items, renderer, emptyText) {
+  return items && items.length ? items.map(renderer).join('') : empty(emptyText);
+}
+
+async function loadProfile() {
+  if (!producerId) {
+    document.getElementById('content').innerHTML = empty('Producteur non precise.');
+    return;
+  }
+
+  const [producer, children, households, visits, farmforce, plantations] = await Promise.all([
+    fetchJson(`/producers/${producerId}`),
+    fetchJson(`/children?producer_id=${producerId}&limit=500`),
+    fetchJson(`/ssrte/households?producer_id=${producerId}&limit=5`),
+    fetchJson(`/ssrte/plantation-visits?producer_id=${producerId}&limit=5`),
+    fetchJson(`/farmforce/assessments?producer_id=${producerId}&limit=5`),
+    fetchJson(`/plantations?producer_id=${producerId}&limit=5000`)
+  ]);
+
+  if (!producer) {
+    document.getElementById('content').innerHTML = empty('Producteur introuvable.');
+    return;
+  }
+
+  const childRows = children || [];
+  const householdRows = households || [];
+  const visitRows = visits || [];
+  const farmforceRows = farmforce || [];
+  const plantationRows = Array.isArray(plantations) ? plantations : [];
+  const highChildren = childRows.filter(c => ['high','critical'].includes(c.risk_level)).length;
+  const latestFarmforce = farmforceRows[0] || null;
+  const latestHousehold = householdRows[0] || null;
+  const profit = latestFarmforce ? Number(latestFarmforce.profit_cfa || 0) : null;
+
+  document.getElementById('content').innerHTML = `
+    <div class="profile-grid">
+      <main>
+        <div class="panel">
+          <div class="identity">
+            <div class="avatar-lg">${esc(initials(producer.nom_complet))}</div>
+            <div>
+              <div class="identity-name">${esc(producer.nom_complet)}</div>
+              <div class="identity-meta">
+                Code: ${esc(producer.code_yeyasso || '-')}<br>
+                Localite: ${esc(producer.localite || '-')} | Section: ${esc(producer.section || '-')}<br>
+                Telephone: ${esc(producer.telephone || '-')}
+              </div>
+              <div class="quick-row">
+                <button class="btn btn-primary btn-sm" onclick="location.href='children.html?producer_id=${producerId}'">
+                  <span class="material-symbols-outlined" style="font-size:16px">diversity_3</span> Enfant
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="location.href='ssrte.html?tab=household&producer_id=${producerId}'">
+                  <span class="material-symbols-outlined" style="font-size:16px">home_health</span> F1 menage
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="location.href='farmforce.html?producer_id=${producerId}'">
+                  <span class="material-symbols-outlined" style="font-size:16px">payments</span> FarmForce
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-row">
+          <div class="kpi"><strong>${plantationRows.length}</strong><span>Plantations</span></div>
+          <div class="kpi"><strong>${childRows.length}</strong><span>Enfants suivis</span></div>
+          <div class="kpi"><strong>${highChildren}</strong><span>Risque eleve</span></div>
+          <div class="kpi"><strong>${profit === null ? '-' : money(profit)}</strong><span>Dernier profit CFA</span></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:18px">
+          <div class="section-head">
+            <div class="section-title">Famille & enfants</div>
+            <button class="btn btn-outline btn-sm" onclick="location.href='children.html?producer_id=${producerId}'">Voir registre</button>
+          </div>
+          <div class="stack">
+            ${renderList(childRows, c => item(`
+              <div class="item-title">${esc(c.first_name)} ${esc(c.last_name)} - ${age(c.date_of_birth)} ans</div>
+              <div class="item-meta">Ecole: ${esc(c.school_status)} | Travail ferme: ${c.is_working_on_farm ? 'oui' : 'non'} | Risque ${esc(c.risk_level)} (${Math.round(c.risk_score || 0)}/100)</div>
+            `, childRiskClass(c.risk_level)), 'Aucun enfant rattache.')}
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <div class="section-title">Plantations</div>
+            <button class="btn btn-outline btn-sm" onclick="location.href='plantations.html?producer_id=${producerId}'">Filtrer</button>
+          </div>
+          <div class="stack">
+            ${renderList(plantationRows, p => item(`
+              <div class="item-title">${esc(p.name)}</div>
+              <div class="item-meta">${esc(p.region || p.country || '-')} | ${p.hectares || '-'} ha<br><a href="plantation_detail.html?id=${p.id}" style="color:var(--primary);font-weight:800">Ouvrir la plantation</a></div>
+            `), 'Aucune plantation rattachee ou acces non autorise.')}
+          </div>
+        </div>
+      </main>
+
+      <aside class="stack">
+        <div class="panel">
+          <div class="section-head">
+            <div class="section-title">SSRTE F1</div>
+            <button class="btn btn-outline btn-sm" onclick="location.href='ssrte.html?tab=household&producer_id=${producerId}'">Nouveau</button>
+          </div>
+          <div class="stack">
+            ${renderList(householdRows, h => item(`
+              <div class="item-title">${esc(h.interview_date)} - risque ${esc(h.risk_level)}</div>
+              <div class="item-meta">Score ${Math.round(h.risk_score || 0)}/100 | Vulnerabilites ${(h.vulnerabilities || []).length} | Contraintes scolaires ${(h.school_constraints || []).length}</div>
+            `, ['high','critical'].includes(h.risk_level)), 'Aucun F1 menage.')}
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <div class="section-title">Fiches C</div>
+            <button class="btn btn-outline btn-sm" onclick="location.href='ssrte.html?tab=visit&producer_id=${producerId}'">Voir</button>
+          </div>
+          <div class="stack">
+            ${renderList(visitRows, v => item(`
+              <div class="item-title">${esc(v.plantation_name)} - ${esc(v.visit_date)}</div>
+              <div class="item-meta">Suspicion: ${v.suspected_child_labor ? 'oui' : 'non'} | Taches dangereuses ${(v.dangerous_tasks_observed || []).length} | Photos ${(v.photos || []).length}</div>
+            `, v.suspected_child_labor), 'Aucune visite Fiche C.')}
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <div class="section-title">FarmForce</div>
+            <button class="btn btn-outline btn-sm" onclick="location.href='farmforce.html?producer_id=${producerId}'">Saisir</button>
+          </div>
+          <div class="stack">
+            ${renderList(farmforceRows, f => item(`
+              <div class="item-title">${esc(f.campaign_label)} - profit ${money(f.profit_cfa)} CFA</div>
+              <div class="item-meta">Revenus ${money(f.total_revenue_cfa)} | Couts ${money(f.total_cost_cfa)} | Retour/jour ${f.return_per_family_day_cfa == null ? '-' : money(f.return_per_family_day_cfa)}</div>
+            `, Number(f.profit_cfa || 0) < 0), 'Aucun compte FarmForce.')}
+          </div>
+        </div>
+      </aside>
+    </div>`;
+}
+
+loadProfile();
+</script>
+</body>
+</html>

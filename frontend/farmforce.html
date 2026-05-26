@@ -148,6 +148,8 @@ initApp('farmforce');
 
 const money = n => new Intl.NumberFormat('fr-FR').format(Math.round(Number(n || 0)));
 const monthOptions = ['Octobre','Novembre','Decembre','Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre'];
+const params = new URLSearchParams(location.search);
+const initialProducerId = params.get('producer_id');
 
 function apiBase() { return window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010'; }
 async function ffFetch(path, options = {}) {
@@ -229,6 +231,9 @@ async function loadProducers() {
   const res = await ffFetch('/producers?limit=1000');
   const data = res?.ok ? await res.json() : [];
   document.getElementById('producer').innerHTML = data.map(p => `<option value="${p.id}" data-localite="${p.localite || ''}" data-code="${p.code_yeyasso || ''}">${p.nom_complet}</option>`).join('');
+  if (initialProducerId && data.some(p => String(p.id) === String(initialProducerId))) {
+    document.getElementById('producer').value = initialProducerId;
+  }
   document.getElementById('producer').onchange = () => {
     const opt = document.getElementById('producer').selectedOptions[0];
     document.getElementById('localite').value = opt?.dataset.localite || '';
@@ -248,6 +253,7 @@ async function loadAssessments() {
       <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
       <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
       <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Retour/jour ${a.return_per_family_day_cfa == null ? '-' : money(a.return_per_family_day_cfa)}</div>
+      <div class="ff-item-meta"><a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Ouvrir fiche producteur</a></div>
     </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>';
 }
 

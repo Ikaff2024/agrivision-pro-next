@@ -180,6 +180,8 @@ let assignmentFilter = 'all';
 let page = 0;
 const PAGE_SIZE = 15;
 const PLANTATION_LIST_ENDPOINT = '/plantations?limit=5000';
+const PARAMS = new URLSearchParams(location.search);
+const PRODUCER_FILTER_ID = PARAMS.get('producer_id');
 const CURRENT_USER = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
 const CURRENT_ROLE = CURRENT_USER?.role || '';
 
@@ -232,11 +234,12 @@ function setAssignmentFilter(value) {
 }
 
 function plantationEndpoint() {
-  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true';
+  const producerFilter = PRODUCER_FILTER_ID ? '&producer_id=' + encodeURIComponent(PRODUCER_FILTER_ID) : '';
+  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true' + producerFilter;
   if (assignmentFilter.startsWith('tech:')) {
-    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5));
+    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5)) + producerFilter;
   }
-  return PLANTATION_LIST_ENDPOINT;
+  return PLANTATION_LIST_ENDPOINT + producerFilter;
 }
 
 // Sprint Offline V1.6 - Phase 2 : Stale-While-Revalidate sur les lectures
@@ -361,6 +364,9 @@ function render() {
           <button class="act-btn" onclick="goDiag(${p.id})" title="Lancer un diagnostic">
             <span class="material-symbols-outlined" style="font-size:15px">biotech</span>
           </button>
+          ${p.producer_id ? `<button class="act-btn" onclick="goProducer(${p.producer_id})" title="Fiche producteur">
+            <span class="material-symbols-outlined" style="font-size:15px">person</span>
+          </button>` : ''}
           <button class="act-btn" onclick="goSsrteVisit(${p.id})" title="Fiche C SSRTE">
             <span class="material-symbols-outlined" style="font-size:15px">clinical_notes</span>
           </button>
@@ -391,6 +397,7 @@ function changePage(d) { page += d; render(); }
 function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }
 function viewDetail(id) { location.href = `plantation_detail.html?id=${id}`; }
 function goDiag(id)     { location.href = `diagnostic.html?id=${id}`; }
+function goProducer(id) { location.href = `producer_profile.html?id=${id}`; }
 function goSsrteVisit(id) { location.href = `ssrte.html?tab=visit&plantation_id=${id}`; }
 
 function openModal()  { document.getElementById('modal').style.display = 'flex'; }
