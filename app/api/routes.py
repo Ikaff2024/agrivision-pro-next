@@ -161,14 +161,15 @@ def visible_plantation_ids(user, db):
 @router.get("/plantations")
 def get_plantations(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     search: Optional[str] = Query(None, description="Recherche nom producteur ou code plantation"),
     technician_id: Optional[int] = Query(None, description="Filtre par technicien assigne"),
+    assigned_to_me: bool = Query(False, description="Technicien: filtre sur mes plantations attribuees"),
     section: Optional[str] = Query(None, description="Filtre par section"),
     certification: Optional[str] = Query(None, description="Filtre par code certification"),
     diagnostic: Optional[str] = Query(None, description="diagnosed | not_diagnosed"),
     page: Optional[int] = Query(None, ge=1, description="Numero de page (mode pagine)"),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page"),
+    page_size: int = Query(100, ge=1, le=5000, description="Taille de page"),
     paginated: bool = Query(False, description="Si true, renvoie un objet pagine"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -194,6 +195,11 @@ def get_plantations(
         visible_ids = visible_plantation_ids(current_user, db)
         q = q.filter(Plantation.id.in_(visible_ids or [-1]))
 
+    # Filtre explicite "mes plantations" pour les profils techniciens.
+    # Pour admin/agronomist, le filtre est ignore afin de conserver leur vue cooperative.
+    if assigned_to_me and getattr(current_user, "role", None) == "technician":
+        assigned_ids = visible_plantation_ids(current_user, db)
+        q = q.filter(Plantation.id.in_(assigned_ids or [-1]))
 
     # --- Filtre recherche : code plantation (name) ou nom producteur ---
     if search and isinstance(search, str) and search.strip():

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Formation CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .train-layout{display:grid;grid-template-columns:380px 1fr;gap:20px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--sh)}
+    .session-list{display:grid;gap:12px}
+    .session-card{border:1px solid var(--border);border-radius:8px;padding:16px;background:var(--surface)}
+    .session-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+    .session-title{font-weight:700;font-size:14px}
+    .session-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:3px}
+    .topic-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+    .topic{font-size:11.5px;padding:3px 8px;border-radius:99px;background:var(--surface-warm);border:1px solid var(--border-l)}
+    .sync-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);background:var(--surface-warm);border-radius:8px;padding:10px 12px;margin-bottom:14px}
+    .sync-text{font-size:12.5px;color:var(--muted);line-height:1.35}
+    @media(max-width:960px){.train-layout{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Formation & sensibilisation</div>
+        <div class="page-sub">Sessions producteurs, emargement digital et quiz CacaoGuard</div>
+      </div>
+      <button class="btn btn-outline" onclick="location.href='cacaoguard.html'">
+        <span class="material-symbols-outlined" style="font-size:18px">verified_user</span>
+        CacaoGuard
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="train-layout">
+        <div class="panel">
+          <div class="section-title">Planifier une session</div>
+          <div class="form-group">
+            <label class="form-label">Titre</label>
+            <input class="form-input" id="title" value="Sensibilisation travail des enfants">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input class="form-input" id="date" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <select class="form-input" id="type">
+                <option value="child_protection">Protection enfant</option>
+                <option value="parenting">Parentalite</option>
+                <option value="legal_rights">Droits & loi</option>
+                <option value="economic_empowerment">Autonomisation</option>
+                <option value="other">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Lieu</label>
+              <input class="form-input" id="location" value="Salle cooperative">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Village</label>
+              <input class="form-input" id="village" placeholder="Village">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Participants attendus</label>
+            <input class="form-input" id="expected" type="number" min="0" value="25">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sujets couverts</label>
+            <textarea class="form-input" id="topics" rows="3">Age minimum, Taches dangereuses, Scolarisation, Procedure de remédiation</textarea>
+          </div>
+          <div id="err" style="display:none;color:var(--high);font-size:13px;margin-bottom:10px"></div>
+          <button class="btn btn-primary" onclick="createSession()" style="width:100%;justify-content:center">
+            <span class="material-symbols-outlined" style="font-size:18px">event</span>
+            Creer la session
+          </button>
+        </div>
+
+        <div class="panel">
+          <div class="flex items-center justify-between mb-4">
+            <div class="section-title" style="margin:0">Sessions recentes</div>
+            <button class="btn btn-sm btn-outline" onclick="loadSessions()">Actualiser</button>
+          </div>
+          <div class="sync-box">
+            <div>
+              <div class="session-title">Synchronisation terrain</div>
+              <div class="sync-text" id="sync-status">Verification des sessions locales...</div>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="syncOfflineQueue()">Synchroniser</button>
+          </div>
+          <div id="sessions" class="session-list">
+            <div class="empty-state" style="padding:32px">Chargement...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('training');
+
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:8010' : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const labels = {
+  child_protection:'Protection enfant', parenting:'Parentalite', legal_rights:'Droits & loi',
+  economic_empowerment:'Autonomisation', other:'Autre',
+  planned:'Planifiee', completed:'Terminee', cancelled:'Annulee', postponed:'Reportee'
+};
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache:'no-store',
+    headers:{
+      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {}),
+      ...(token ? { 'Authorization':'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function topicArray() {
+  return document.getElementById('topics').value.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+async function createSession() {
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  const payload = {
+    title: document.getElementById('title').value.trim(),
+    training_type: document.getElementById('type').value,
+    scheduled_date: document.getElementById('date').value || today(),
+    location: document.getElementById('location').value.trim(),
+    village: document.getElementById('village').value.trim() || null,
+    expected_participants: Number(document.getElementById('expected').value || 0),
+    topics_covered: topicArray(),
+    materials_used: { supports: true, quiz: true }
+  };
+  const res = await submitOffline('/training/sessions', payload, 'Session formation CacaoGuard');
+  if (res.queued) {
+    toast('Session gardee en local. Elle sera synchronisee au retour du reseau.', 'success');
+    await refreshQueueStatus();
+    return;
+  }
+  if (!res.response.ok) {
+    const e = await res.response.json().catch(() => ({}));
+    err.textContent = e.detail || 'Erreur creation session.';
+    err.style.display = 'block';
+    return;
+  }
+  toast('Session creee.');
+  await refreshQueueStatus();
+  await loadSessions();
+}
+
+async function loadSessions() {
+  const el = document.getElementById('sessions');
+  const res = await cgFetch('/training/sessions?limit=100');
+  if (!res.ok) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px">Impossible de charger les sessions.</div>';
+    return;
+  }
+  const sessions = await res.json();
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px">Aucune session planifiee.</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="session-card">
+      <div class="session-top">
+        <div>
+          <div class="session-title">${s.title}</div>
+          <div class="session-meta">${s.scheduled_date} - ${s.location}${s.village ? ' - ' + s.village : ''}</div>
+        </div>
+        <span class="badge ${s.status === 'completed' ? 'badge-low' : 'badge-med'}">${labels[s.status] || s.status}</span>
+      </div>
+      <div class="session-meta">${labels[s.training_type] || s.training_type} - ${s.actual_participants}/${s.expected_participants} participants</div>
+      <div class="topic-list">${(s.topics_covered || []).map(t => `<span class="topic">${t}</span>`).join('')}</div>
+      ${s.status !== 'completed' ? `<button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="completeSession(${s.id})">Emarger demo</button>` : `<div class="session-meta" style="margin-top:10px">Note efficacite: ${s.effectiveness_rating}/5</div>`}
+    </div>
+  `).join('');
+}
+
+async function completeSession(id) {
+  const payload = {
+    participants: [
+      { producer_id: 1, name: 'Kouassi Demo CacaoGuard', signature: true, evaluation_score: 82 }
+    ],
+    post_test_scores: { average: 82 },
+    effectiveness_rating: 4.2,
+    status: 'completed'
+  };
+  const res = await submitOffline(`/training/sessions/${id}/attendance`, payload, `Emargement session ${id}`);
+  if (res.queued) {
+    toast('Emargement garde en local. Synchronisation au retour du reseau.', 'success');
+    await refreshQueueStatus();
+    return;
+  }
+  if (!res.response.ok) {
+    toast('Emargement impossible.', 'error');
+    return;
+  }
+  toast('Presence enregistree.');
+  await refreshQueueStatus();
+  await loadSessions();
+}
+
+async function submitOffline(endpoint, payload, label) {
+  if (window.AVPOffline?.offlineFetch) {
+    return AVPOffline.offlineFetch(endpoint, {
+      method:'POST',
+      body:JSON.stringify(payload),
+      headers:{ 'Content-Type':'application/json' }
+    }, label, { module:'cacaoguard', page:'training' });
+  }
+  const response = await cgFetch(endpoint, { method:'POST', body:JSON.stringify(payload) });
+  return { queued:false, response };
+}
+
+async function refreshQueueStatus() {
+  if (!window.AVPOffline?.getQueue) return;
+  const queue = (await AVPOffline.getQueue()).filter(entry =>
+    String(entry.endpoint || '').startsWith('/training/')
+  );
+  const pending = queue.filter(e => e.status === 'pending').length;
+  const errors = queue.filter(e => e.status === 'error').length;
+  const syncing = queue.filter(e => e.status === 'syncing').length;
+  document.getElementById('sync-status').textContent =
+    `${pending} saisie(s) en attente, ${syncing} en cours, ${errors} en erreur.`;
+}
+
+async function syncOfflineQueue() {
+  if (!window.AVPOffline?.syncQueue) return;
+  const result = await AVPOffline.syncQueue();
+  if (result && !result.skipped) toast(`${result.synced || 0} saisie(s) synchronisee(s).`);
+  await refreshQueueStatus();
+  await loadSessions();
+}
+
+window.addEventListener('avp-queue-changed', refreshQueueStatus);
+window.addEventListener('online', refreshQueueStatus);
+document.getElementById('date').value = today();
+loadSessions();
+refreshQueueStatus();
+</script>
+</body>
+</html>

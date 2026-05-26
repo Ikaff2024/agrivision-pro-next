@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Importer un registre</title>
+<script src="avp-offline.js"></script>
+<script src="auth.js?v=ssrte1"></script>
+<style>
+/* ── Stepper ─────────────────────────────────────────────────── */
+.stepper{display:flex;align-items:center;gap:0;margin-bottom:24px}
+.step{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;
+  background:var(--border-l);color:var(--muted);transition:.2s}
+.step.active .step-num{background:var(--primary);color:#fff}
+.step.done .step-num{background:var(--low);color:#fff}
+.step-label{font-size:12.5px;font-weight:600;color:var(--muted);transition:.2s}
+.step.active .step-label{color:var(--text)}
+.step.done .step-label{color:var(--low)}
+.step-line{flex:1;height:2px;background:var(--border);margin:0 12px;min-width:24px}
+.step-line.done{background:var(--low)}
+
+/* ── Panneaux ────────────────────────────────────────────────── */
+.panel{display:none}
+.panel.active{display:block}
+
+/* ── Zone upload (complete .upload-zone du design system) ──────── */
+.upload-zone-inner{display:flex;flex-direction:column;align-items:center;gap:6px}
+.upload-icon{font-size:42px;line-height:1}
+.upload-main{font-size:15px;font-weight:600;color:var(--text)}
+.upload-sub{font-size:12.5px;color:var(--muted)}
+.upload-file{margin-top:14px;display:flex;align-items:center;gap:10px;
+  background:var(--low-bg);border:1px solid var(--low-b);border-radius:8px;
+  padding:10px 14px;font-size:13px}
+.upload-file .ms{font-size:18px;color:var(--low)}
+
+/* ── Encart d'information ────────────────────────────────────── */
+.info-box{background:#eef4fb;border:1px solid #cfe0f0;border-radius:8px;
+  padding:12px 16px;font-size:12.5px;color:#1e4a6e;line-height:1.6;
+  display:flex;gap:10px;align-items:flex-start;margin-top:16px}
+.info-box .ms{font-size:18px;flex-shrink:0;margin-top:1px}
+
+/* ── Resume apercu / rapport ─────────────────────────────────── */
+.recap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:12px;margin:18px 0}
+.recap-c{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;text-align:center}
+.recap-val{font-family:'Fraunces',serif;font-size:28px;font-weight:700;line-height:1;
+  color:var(--primary)}
+.recap-lbl{font-size:11.5px;color:var(--muted);margin-top:5px}
+
+.sample-table-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--border);
+  box-shadow:var(--sh);margin-top:8px}
+
+/* ── Barre de progression ────────────────────────────────────── */
+.progress-wrap{margin:28px 0;text-align:center}
+.progress-spinner{width:44px;height:44px;border:4px solid var(--border-l);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 16px}
+.progress-text{font-size:14px;font-weight:600;color:var(--text)}
+.progress-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+
+/* ── Avertissements ──────────────────────────────────────────── */
+.warn-box{background:var(--med-bg);border:1px solid var(--med-b);border-radius:8px;
+  padding:12px 16px;margin-top:16px}
+.warn-head{font-size:13px;font-weight:600;color:var(--med);margin-bottom:6px;
+  display:flex;align-items:center;gap:6px}
+.warn-list{font-size:12px;color:#7a4e00;line-height:1.7;max-height:160px;
+  overflow:auto;padding-left:4px}
+
+.result-banner{border-radius:var(--r);padding:16px 20px;display:flex;
+  align-items:center;gap:14px;margin-bottom:18px}
+.result-banner.ok{background:var(--low-bg);border:1px solid var(--low-b)}
+.result-banner.err{background:var(--high-bg);border:1px solid var(--high-b)}
+.result-banner .ms{font-size:28px;flex-shrink:0}
+.result-banner.ok .ms{color:var(--low)}
+.result-banner.err .ms{color:var(--high)}
+.result-title{font-family:'Fraunces',serif;font-size:17px;font-weight:700}
+.result-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+.panel-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;
+  padding-top:18px;border-top:1px solid var(--border)}
+
+@media(max-width:768px){
+  .step-label{display:none}
+  .recap-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Importer un registre</div>
+        <div class="page-sub">Chargez le registre Excel de votre coopérative</div>
+      </div>
+      <a href="admin.html" class="btn btn-outline">
+        <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+        Retour
+      </a>
+    </div>
+
+    <div class="avp-content">
+
+      <!-- Stepper -->
+      <div class="stepper">
+        <div class="step active" id="step-1">
+          <div class="step-num">1</div>
+          <div class="step-label">Sélection</div>
+        </div>
+        <div class="step-line" id="line-1"></div>
+        <div class="step active" id="step-2" style="opacity:.5">
+          <div class="step-num">2</div>
+          <div class="step-label">Aperçu</div>
+        </div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step active" id="step-3" style="opacity:.5">
+          <div class="step-num">3</div>
+          <div class="step-label">Rapport</div>
+        </div>
+      </div>
+
+      <div class="card">
+
+        <!-- ════ PANNEAU 1 : Selection du fichier ════ -->
+        <div class="panel active" id="panel-1">
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-zone-inner">
+              <div class="upload-icon">📊</div>
+              <div class="upload-main">Glissez votre fichier Excel ici</div>
+              <div class="upload-sub">ou cliquez pour parcourir — formats .xlsx, .xls (max 50 Mo)</div>
+            </div>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+
+          <div id="file-selected" style="display:none">
+            <div class="upload-file">
+              <span class="material-symbols-outlined">description</span>
+              <span id="file-name" style="font-weight:600"></span>
+              <span id="file-size" style="color:var(--muted)"></span>
+            </div>
+          </div>
+
+          <div class="info-box">
+            <span class="material-symbols-outlined">info</span>
+            <div>
+              <strong>L'aperçu ne modifie rien.</strong> Le fichier sera analysé et un
+              résumé vous sera présenté. Vous validerez vous-même avant tout enregistrement
+              en base. Réimporter le même fichier ne crée jamais de doublon.
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button class="btn btn-primary" id="btn-preview" disabled>
+              <span class="material-symbols-outlined" style="font-size:16px">visibility</span>
+              Analyser le fichier
+            </button>
+          </div>
+        </div>
+
+        <!-- ════ PANNEAU 2 : Apercu ════ -->
+        <div class="panel" id="panel-2">
+          <div id="preview-loading" class="progress-wrap">
+            <div class="progress-spinner"></div>
+            <div class="progress-text">Analyse du fichier en cours…</div>
+            <div class="progress-sub">Lecture des producteurs et plantations</div>
+          </div>
+
+          <div id="preview-result" style="display:none">
+            <div class="result-banner ok">
+              <span class="material-symbols-outlined">fact_check</span>
+              <div>
+                <div class="result-title">Fichier analysé avec succès</div>
+                <div class="result-sub" id="preview-campaign"></div>
+              </div>
+            </div>
+
+            <div class="recap-grid">
+              <div class="recap-c">
+                <div class="recap-val" id="prev-producers">—</div>
+                <div class="recap-lbl">Producteurs</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="prev-plantations">—</div>
+                <div class="recap-lbl">Plantations</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="prev-warnings">—</div>
+                <div class="recap-lbl">Avertissements</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="prev-errors">—</div>
+                <div class="recap-lbl">Erreurs</div>
+              </div>
+            </div>
+
+            <div class="section-title" style="font-size:13px;margin-top:8px">
+              Aperçu — 5 premiers producteurs
+            </div>
+            <div class="sample-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th><th>Nom</th><th>Sexe</th>
+                    <th>Projet</th><th>Section</th>
+                  </tr>
+                </thead>
+                <tbody id="sample-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="info-box" style="background:var(--med-bg);border-color:var(--med-b);color:#7a4e00">
+              <span class="material-symbols-outlined">warning</span>
+              <div>
+                L'étape suivante <strong>enregistre ces données en base</strong>.
+                Vérifiez le résumé ci-dessus avant de continuer.
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button class="btn btn-outline" onclick="resetWizard()">Annuler</button>
+            <button class="btn btn-primary" id="btn-import" disabled style="background:var(--high)">
+              <span class="material-symbols-outlined" style="font-size:16px">database</span>
+              Lancer l'import
+            </button>
+          </div>
+        </div>
+
+        <!-- ════ PANNEAU 3 : Rapport ════ -->
+        <div class="panel" id="panel-3">
+          <div id="import-loading" class="progress-wrap">
+            <div class="progress-spinner"></div>
+            <div class="progress-text">Import en cours…</div>
+            <div class="progress-sub">Enregistrement des producteurs et plantations — cela peut prendre une minute</div>
+          </div>
+
+          <div id="import-result" style="display:none">
+            <div class="result-banner ok" id="report-banner">
+              <span class="material-symbols-outlined">check_circle</span>
+              <div>
+                <div class="result-title" id="report-title">Import terminé</div>
+                <div class="result-sub" id="report-sub"></div>
+              </div>
+            </div>
+
+            <div class="recap-grid">
+              <div class="recap-c">
+                <div class="recap-val" id="rep-producers">—</div>
+                <div class="recap-lbl">Producteurs créés</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="rep-prod-upd">—</div>
+                <div class="recap-lbl">Producteurs mis à jour</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="rep-plantations">—</div>
+                <div class="recap-lbl">Plantations créées</div>
+              </div>
+              <div class="recap-c">
+                <div class="recap-val" id="rep-certs">—</div>
+                <div class="recap-lbl">Certifications liées</div>
+              </div>
+            </div>
+
+            <div class="warn-box" id="report-warnings" style="display:none">
+              <div class="warn-head">
+                <span class="material-symbols-outlined" style="font-size:16px">warning</span>
+                <span id="warn-count"></span>
+              </div>
+              <div class="warn-list" id="warn-list"></div>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button class="btn btn-outline" onclick="resetWizard()">
+              <span class="material-symbols-outlined" style="font-size:16px">restart_alt</span>
+              Nouvel import
+            </button>
+            <a href="admin.html" class="btn btn-primary">Retour à l'administration</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('import');
+
+var selectedFile = null;
+
+/* ── Selection de fichier ──────────────────────────────────── */
+var zone = document.getElementById('upload-zone');
+var fileInput = document.getElementById('file-input');
+
+zone.addEventListener('click', function() { fileInput.click(); });
+
+zone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  zone.classList.add('over');
+});
+zone.addEventListener('dragleave', function() { zone.classList.remove('over'); });
+zone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  zone.classList.remove('over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+fileInput.addEventListener('change', function() {
+  if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  var name = file.name.toLowerCase();
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+    toast('Format non supporté. Choisissez un fichier .xlsx ou .xls.', 'error');
+    return;
+  }
+  if (file.size > 50 * 1024 * 1024) {
+    toast('Fichier trop volumineux (max 50 Mo).', 'error');
+    return;
+  }
+  selectedFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent =
+    '(' + (file.size / 1024 / 1024).toFixed(1) + ' Mo)';
+  document.getElementById('file-selected').style.display = 'block';
+  document.getElementById('btn-preview').disabled = false;
+}
+
+/* ── Navigation entre etapes ───────────────────────────────── */
+function goToStep(n) {
+  for (var i = 1; i <= 3; i++) {
+    var panel = document.getElementById('panel-' + i);
+    var step = document.getElementById('step-' + i);
+    panel.classList.toggle('active', i === n);
+    step.classList.remove('active', 'done');
+    if (i < n) { step.classList.add('done'); step.style.opacity = '1'; }
+    else if (i === n) { step.classList.add('active'); step.style.opacity = '1'; }
+    else { step.style.opacity = '.5'; }
+  }
+  if (n >= 2) document.getElementById('line-1').classList.add('done');
+  else document.getElementById('line-1').classList.remove('done');
+  if (n >= 3) document.getElementById('line-2').classList.add('done');
+  else document.getElementById('line-2').classList.remove('done');
+}
+
+function resetWizard() {
+  selectedFile = null;
+  fileInput.value = '';
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('btn-preview').disabled = true;
+  document.getElementById('btn-import').disabled = true;
+  document.getElementById('preview-loading').style.display = 'block';
+  document.getElementById('preview-result').style.display = 'none';
+  document.getElementById('import-loading').style.display = 'block';
+  document.getElementById('import-result').style.display = 'none';
+  goToStep(1);
+}
+
+/* ── Upload (fetch direct : authFetch force application/json,
+       incompatible avec un envoi multipart/form-data) ───────── */
+function uploadFile(dryRun) {
+  var token = getToken();
+  if (!token) { window.location.href = 'login.html'; return Promise.reject(); }
+
+  var formData = new FormData();
+  formData.append('file', selectedFile);
+
+  var url = API_BASE + '/import/excel?dry_run=' + (dryRun ? 'true' : 'false');
+  // Pas de Content-Type manuel : le navigateur ajoute le boundary multipart.
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: formData
+  }).then(function(res) {
+    if (res.status === 401) {
+      toast('Session expirée. Reconnectez-vous.', 'error');
+      setTimeout(function() { window.location.href = 'login.html'; }, 1500);
+      return Promise.reject();
+    }
+    if (res.status === 403) {
+      toast('Accès réservé aux administrateurs.', 'error');
+      return Promise.reject();
+    }
+    return res.json();
+  });
+}
+
+/* ── Etape 2 : Apercu (dry_run=true) ───────────────────────── */
+document.getElementById('btn-preview').addEventListener('click', function() {
+  if (!selectedFile) return;
+  goToStep(2);
+  document.getElementById('preview-loading').style.display = 'block';
+  document.getElementById('preview-result').style.display = 'none';
+
+  uploadFile(true).then(function(data) {
+    if (!data) return;
+    if (data.status === 'error') {
+      toast('Le fichier contient des erreurs : ' + (data.errors || []).join(' ; '), 'error');
+      resetWizard();
+      return;
+    }
+    var s = data.summary || {};
+    document.getElementById('prev-producers').textContent = s.producers || 0;
+    document.getElementById('prev-plantations').textContent = s.plantations || 0;
+    document.getElementById('prev-warnings').textContent = s.warnings || 0;
+    document.getElementById('prev-errors').textContent = s.errors || 0;
+    document.getElementById('preview-campaign').textContent =
+      s.detected_campaign ? ('Campagne détectée : ' + s.detected_campaign) : 'Campagne non détectée';
+
+    var tb = document.getElementById('sample-tbody');
+    tb.innerHTML = (data.sample_producers || []).map(function(p) {
+      return '<tr>' +
+        '<td style="font-weight:600">' + esc(p.code_yeyasso) + '</td>' +
+        '<td>' + esc(p.nom_complet) + '</td>' +
+        '<td>' + esc(p.sexe || '—') + '</td>' +
+        '<td>' + esc(p.projet || '—') + '</td>' +
+        '<td>' + esc(p.section || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('preview-loading').style.display = 'none';
+    document.getElementById('preview-result').style.display = 'block';
+    document.getElementById('btn-import').disabled = false;
+  }).catch(function() {
+    resetWizard();
+  });
+});
+
+/* ── Etape 3 : Import reel (dry_run=false) ─────────────────── */
+document.getElementById('btn-import').addEventListener('click', function() {
+  goToStep(3);
+  document.getElementById('import-loading').style.display = 'block';
+  document.getElementById('import-result').style.display = 'none';
+
+  uploadFile(false).then(function(data) {
+    if (!data) return;
+    var rep = data.report || {};
+    var isOk = data.status === 'success';
+
+    var banner = document.getElementById('report-banner');
+    banner.className = 'result-banner ' + (isOk ? 'ok' : 'err');
+    banner.querySelector('.ms').textContent = isOk ? 'check_circle' : 'error';
+    document.getElementById('report-title').textContent =
+      isOk ? 'Import terminé avec succès' : 'Import terminé avec des erreurs';
+    document.getElementById('report-sub').textContent =
+      (rep.campaign ? 'Campagne ' + rep.campaign + ' — ' : '') +
+      'Durée : ' + (rep.duration_seconds || 0) + ' s';
+
+    document.getElementById('rep-producers').textContent = rep.producers_created || 0;
+    document.getElementById('rep-prod-upd').textContent = rep.producers_updated || 0;
+    document.getElementById('rep-plantations').textContent = rep.plantations_created || 0;
+    document.getElementById('rep-certs').textContent = rep.certifications_linked || 0;
+
+    var warnings = rep.warnings || [];
+    var warnTotal = rep.warnings_total || warnings.length;
+    if (warnTotal > 0) {
+      document.getElementById('report-warnings').style.display = 'block';
+      document.getElementById('warn-count').textContent =
+        warnTotal + ' avertissement' + (warnTotal > 1 ? 's' : '') +
+        (warnings.length < warnTotal ? ' (' + warnings.length + ' affichés)' : '');
+      document.getElementById('warn-list').innerHTML =
+        warnings.map(function(w) { return '• ' + esc(w); }).join('<br>');
+    }
+
+    document.getElementById('import-loading').style.display = 'none';
+    document.getElementById('import-result').style.display = 'block';
+
+    if (isOk) toast('Import réussi : ' + (rep.producers_created || 0) + ' producteurs.');
+    else toast('Import terminé avec des erreurs.', 'error');
+  }).catch(function() {
+    document.getElementById('import-loading').style.display = 'none';
+    toast("Erreur lors de l'import.", 'error');
+  });
+});
+
+function esc(s) {
+  var el = document.createElement('div');
+  el.textContent = (s === null || s === undefined) ? '' : String(s);
+  return el.innerHTML;
+}
+</script>
+</body>
+</html>

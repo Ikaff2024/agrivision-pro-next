@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriVision Pro — Administration</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
 <style>
 .member-table-wrap{overflow:auto;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh)}
 .role-select{padding:5px 10px;border:1.5px solid var(--border);border-radius:7px;
@@ -81,6 +81,20 @@
         <div class="page-title">Administration</div>
         <div class="page-sub" id="coop-sub">Gestion des membres de la coopérative</div>
       </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" onclick="openAddMember()">
+          <span class="material-symbols-outlined" style="font-size:16px">person_add</span>
+          Ajouter un membre
+        </button>
+        <a href="assignment.html" class="btn btn-outline">
+          <span class="material-symbols-outlined" style="font-size:16px">groups</span>
+          Attribuer les parcelles
+        </a>
+        <a href="import.html" class="btn btn-primary">
+          <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
+          Importer un registre
+        </a>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -133,6 +147,37 @@
 </div>
 
 <!-- Modal mot de passe temporaire -->
+<!-- Modale ajout de membre -->
+<div class="confirm-overlay" id="add-member-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Ajouter un membre</div>
+    <div class="confirm-body">
+      Le nouveau membre recevra un mot de passe temporaire a changer
+      a sa premiere connexion.
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin-bottom:5px">Adresse email</label>
+      <input type="email" id="new-member-email" placeholder="technicien@exemple.com"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;
+        font-family:inherit;font-size:13.5px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin-bottom:5px">Role</label>
+      <select id="new-member-role"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;
+        font-family:inherit;font-size:13.5px;outline:none;background:var(--surface);box-sizing:border-box">
+        <option value="technician">Technicien</option>
+        <option value="agronomist">Agronome</option>
+        <option value="admin">Administrateur</option>
+      </select>
+    </div>
+    <div class="confirm-footer">
+      <button class="btn btn-outline" onclick="closeAddMember()">Annuler</button>
+      <button class="btn btn-primary" id="add-member-ok" onclick="submitAddMember()">Creer le compte</button>
+    </div>
+  </div>
+</div>
+
 <div class="pwd-overlay" id="pwd-overlay">
   <div class="pwd-box">
     <div class="pwd-title">Mot de passe temporaire</div>
@@ -168,10 +213,14 @@ initApp('admin');
 
 const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien' };
 const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)' };
+let assignmentSummary = { technicians: [] };
 
 async function load() {
   try {
-    const r = await authFetch('/admin/members');
+    const [r, ra] = await Promise.all([
+      authFetch('/admin/members'),
+      authFetch('/assignments/summary')
+    ]);
     if (!r?.ok) {
       if (r?.status === 403) {
         document.querySelector('.avp-content').innerHTML = `
@@ -184,6 +233,7 @@ async function load() {
       }
       throw new Error('Erreur chargement membres');
     }
+    if (ra?.ok) assignmentSummary = await ra.json();
     const members = await r.json();
     renderStats(members);
     renderTable(members);
@@ -203,6 +253,8 @@ function renderTable(members) {
     tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Aucun membre trouvé.</td></tr>';
     return;
   }
+  const assignmentCounts = {};
+  (assignmentSummary.technicians || []).forEach(t => { assignmentCounts[t.id] = t.assigned_count || 0; });
   tb.innerHTML = members.map(m => `
     <tr>
       <td>
@@ -227,6 +279,11 @@ function renderTable(members) {
       <td class="mob-hide" style="color:var(--muted);font-size:13px">${fmtDate(m.created_at)}</td>
       <td class="mob-hide" style="text-align:right">
         ${m.is_current_user ? '<span style="color:var(--faint);font-size:12px">—</span>' : `
+        ${m.role === 'technician' ? `
+        <a class="reset-btn" href="assignment.html?tech=${m.id}" style="text-decoration:none;border-color:var(--accent);color:var(--primary)">
+          <span class="material-symbols-outlined" style="font-size:14px">assignment_ind</span>
+          Parcelles ${assignmentCounts[m.id] || 0}
+        </a>` : ''}
         <button class="reset-btn" onclick="doReset(${m.id}, '${esc(m.email)}')">
           <span class="material-symbols-outlined" style="font-size:14px">lock_reset</span>
           MDP
@@ -329,6 +386,54 @@ async function doRemove() {
 
 document.getElementById('confirm-overlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeConfirm();
+});
+
+// --- Ajout de membre (Sprint #1) -------------------------------------------
+function openAddMember() {
+  document.getElementById("new-member-email").value = "";
+  document.getElementById("new-member-role").value = "technician";
+  document.getElementById("add-member-overlay").style.display = "flex";
+}
+
+function closeAddMember() {
+  document.getElementById("add-member-overlay").style.display = "none";
+}
+
+async function submitAddMember() {
+  const email = document.getElementById("new-member-email").value.trim();
+  const role = document.getElementById("new-member-role").value;
+  if (!email || email.indexOf("@") === -1) {
+    toast("Adresse email invalide.", "error");
+    return;
+  }
+  const btn = document.getElementById("add-member-ok");
+  btn.disabled = true;
+  try {
+    const r = await authFetch("/admin/members", {
+      method: "POST",
+      body: JSON.stringify({ email: email, role: role }),
+    });
+    if (!r || !r.ok) {
+      const e = r ? await r.json().catch(function(){ return {}; }) : {};
+      throw new Error(e.detail || "Erreur lors de la creation du compte.");
+    }
+    const data = await r.json();
+    closeAddMember();
+    // Reutilise la modale pwd-overlay pour afficher le mot de passe
+    document.getElementById("pwd-body").textContent =
+      "Compte " + email + " cree avec succes.";
+    document.getElementById("pwd-code").textContent = data.temp_password;
+    document.getElementById("pwd-overlay").style.display = "flex";
+    load();
+  } catch(e) {
+    toast(e.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("add-member-overlay").addEventListener("click", function(e) {
+  if (e.target === e.currentTarget) closeAddMember();
 });
 
 function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }

@@ -13,6 +13,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.db.database import get_db
 from app.db.models import (
@@ -142,6 +143,76 @@ def get_technician_assignments(
         "technician_id": technician_id,
         "count": len(plantations),
         "plantations": plantations,
+    }
+
+
+@router.get("/unassigned")
+def get_unassigned_plantations(
+    search: Optional[str] = None,
+    limit: int = Query(1000, ge=1, le=5000),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Liste les plantations de la cooperative qui n'ont aucune attribution active.
+    Admin uniquement. Utilise par l'ecran d'attribution pour eviter les faux
+    "non attribuees" quand une plantation est deja affectee a un autre technicien.
+    """
+    _require_admin(current_user)
+
+    assigned_subquery = db.query(PlantationAssignment.plantation_id).filter(
+        PlantationAssignment.is_active == True,
+    )
+    query = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id,
+        ~Plantation.id.in_(assigned_subquery),
+    )
+    if search and search.strip():
+        like = f"%{search.strip()}%"
+        query = query.filter(
+            (Plantation.name.ilike(like)) |
+            (Plantation.owner_name.ilike(like)) |
+            (Plantation.region.ilike(like))
+        )
+
+    total = query.count()
+    plantations = query.order_by(Plantation.id).offset(skip).limit(limit).all()
+    return {"total": total, "items": plantations}
+
+
+@router.get("/summary")
+def get_assignment_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resume des attributions par technicien pour l'administration."""
+    _require_admin(current_user)
+    technicians = db.query(User).filter(
+        User.cooperative_id == current_user.cooperative_id,
+        User.role == "technician",
+    ).order_by(User.email.asc()).all()
+
+    total_plantations = db.query(func.count(Plantation.id)).filter(
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).scalar() or 0
+
+    active_assignments = db.query(PlantationAssignment).join(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id,
+        PlantationAssignment.is_active == True,
+    ).all()
+    counts = {}
+    for assignment in active_assignments:
+        counts[assignment.technician_id] = counts.get(assignment.technician_id, 0) + 1
+
+    return {
+        "total_plantations": total_plantations,
+        "assigned": len(active_assignments),
+        "unassigned": max(total_plantations - len(active_assignments), 0),
+        "technicians": [
+            {"id": tech.id, "email": tech.email, "assigned_count": counts.get(tech.id, 0)}
+            for tech in technicians
+        ],
     }
 
 

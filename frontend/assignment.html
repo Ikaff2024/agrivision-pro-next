@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision Pro — Attribution des parcelles</title>
+<script src="avp-offline.js"></script>
+<script src="auth.js?v=ssrte1"></script>
+<style>
+/* ── Selecteur de technicien ─────────────────────────────────── */
+.tech-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.tech-select{padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;
+  font-family:inherit;font-size:14px;background:var(--surface);color:var(--text);
+  outline:none;min-width:240px;cursor:pointer}
+.tech-select:focus{border-color:var(--accent)}
+.tech-count{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--primary)}
+
+/* ── Actions rapides ─────────────────────────────────────────── */
+.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;
+  padding:14px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)}
+.quick-actions .label{font-size:12.5px;color:var(--muted);align-self:center;
+  font-weight:600;margin-right:4px}
+
+/* ── Double panneau ──────────────────────────────────────────── */
+.dual-pane{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pane{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);
+  display:flex;flex-direction:column;min-height:420px;box-shadow:var(--sh)}
+.pane-head{padding:12px 14px;border-bottom:1px solid var(--border);
+  font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.pane-head.left{color:var(--muted)}
+.pane-head.right{color:var(--low)}
+.pane-search{margin:10px 14px}
+.pane-search input{width:100%;padding:8px 12px;border:1.5px solid var(--border);
+  border-radius:7px;font-family:inherit;font-size:13px;outline:none;box-sizing:border-box}
+.pane-search input:focus{border-color:var(--accent)}
+.pane-list{flex:1;overflow:auto;padding:4px 8px}
+.plant-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;
+  font-size:13px;cursor:pointer;transition:.12s}
+.plant-row:hover{background:var(--bg)}
+.plant-row input{cursor:pointer;flex-shrink:0}
+.plant-code{font-weight:600}
+.plant-owner{color:var(--muted);font-size:12px}
+.pane-foot{padding:10px 14px;border-top:1px solid var(--border)}
+.pane-empty{text-align:center;color:var(--muted);font-size:12.5px;padding:40px 12px}
+.pane-loading{text-align:center;color:var(--muted);font-size:12.5px;padding:40px 12px}
+
+@media(max-width:768px){
+  .dual-pane{grid-template-columns:1fr}
+  .pane{min-height:320px}
+}
+</style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Attribution des parcelles</div>
+        <div class="page-sub">Répartissez les plantations entre vos techniciens</div>
+      </div>
+      <a href="admin.html" class="btn btn-outline">
+        <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+        Retour
+      </a>
+    </div>
+
+    <div class="avp-content">
+
+      <!-- Selecteur de technicien -->
+      <div class="tech-bar">
+        <label style="font-size:13px;font-weight:600">Technicien :</label>
+        <select class="tech-select" id="tech-select">
+          <option value="">— Choisir un technicien —</option>
+        </select>
+        <span class="tech-count" id="tech-count"></span>
+      </div>
+
+      <!-- Actions rapides -->
+      <div class="quick-actions" id="quick-actions" style="display:none">
+        <span class="label">Actions rapides :</span>
+        <button class="btn btn-outline btn-sm" id="btn-from-registry">
+          <span class="material-symbols-outlined" style="font-size:15px">auto_fix_high</span>
+          Pré-remplir depuis le registre
+        </button>
+        <select class="tech-select" id="section-select" style="min-width:180px;padding:7px 10px;font-size:13px">
+          <option value="">— Attribuer une section —</option>
+        </select>
+        <button class="btn btn-outline btn-sm" id="btn-unassign-all"
+          style="color:var(--high);border-color:var(--high-b)">
+          <span class="material-symbols-outlined" style="font-size:15px">delete_sweep</span>
+          Tout retirer
+        </button>
+      </div>
+
+      <!-- Double panneau -->
+      <div class="dual-pane" id="dual-pane" style="display:none">
+
+        <!-- Panneau gauche : non attribuees -->
+        <div class="pane">
+          <div class="pane-head left">
+            <span>Parcelles non attribuées</span>
+            <span id="left-count">—</span>
+          </div>
+          <div class="pane-search">
+            <input type="text" id="left-search" placeholder="Rechercher un code ou un nom…">
+          </div>
+          <div class="pane-list" id="left-list">
+            <div class="pane-empty">Sélectionnez un technicien.</div>
+          </div>
+          <div class="pane-foot">
+            <button class="btn btn-primary btn-sm" id="btn-assign" disabled style="width:100%">
+              Attribuer la sélection →
+            </button>
+          </div>
+        </div>
+
+        <!-- Panneau droite : parcelles du technicien -->
+        <div class="pane">
+          <div class="pane-head right">
+            <span>Parcelles de ce technicien</span>
+            <span id="right-count">—</span>
+          </div>
+          <div class="pane-search">
+            <input type="text" id="right-search" placeholder="Rechercher un code ou un nom…">
+          </div>
+          <div class="pane-list" id="right-list">
+            <div class="pane-empty">Sélectionnez un technicien.</div>
+          </div>
+          <div class="pane-foot">
+            <button class="btn btn-outline btn-sm" id="btn-unassign" disabled
+              style="width:100%;color:var(--high);border-color:var(--high-b)">
+              ← Retirer la sélection
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('assignment');
+
+var currentTechId = null;
+var leftPlantations = [];   // non attribuees
+var rightPlantations = [];  // attribuees au technicien courant
+var initialTechId = new URLSearchParams(location.search).get("tech");
+
+/* ── Chargement initial : techniciens + sections ───────────────── */
+async function loadInitial() {
+  try {
+    // Techniciens (via la liste des membres)
+    var rm = await authFetch("/admin/members");
+    if (rm && rm.ok) {
+      var members = await rm.json();
+      var techs = members.filter(function(m) { return m.role === "technician"; });
+      var sel = document.getElementById("tech-select");
+      techs.forEach(function(t) {
+        var o = document.createElement("option");
+        o.value = t.id;
+        o.textContent = t.email;
+        sel.appendChild(o);
+      });
+      if (initialTechId) {
+        sel.value = initialTechId;
+        currentTechId = parseInt(initialTechId, 10);
+        if (currentTechId) {
+          document.getElementById("quick-actions").style.display = "flex";
+          document.getElementById("dual-pane").style.display = "grid";
+          loadTechnicianView();
+        }
+      }
+      if (!techs.length) {
+        toast("Aucun technicien. Créez-en via la page Administration.", "error");
+      }
+    }
+    // Sections
+    var rf = await authFetch("/plantations/filters-options");
+    if (rf && rf.ok) {
+      var opts = await rf.json();
+      var ssel = document.getElementById("section-select");
+      (opts.sections || []).forEach(function(s) {
+        var o = document.createElement("option");
+        o.value = s;
+        o.textContent = s;
+        ssel.appendChild(o);
+      });
+    }
+  } catch(e) {
+    console.error(e);
+    toast("Erreur de chargement.", "error");
+  }
+}
+
+/* ── Changement de technicien ──────────────────────────────────── */
+document.getElementById("tech-select").addEventListener("change", function() {
+  currentTechId = this.value ? parseInt(this.value, 10) : null;
+  if (currentTechId) {
+    document.getElementById("quick-actions").style.display = "flex";
+    document.getElementById("dual-pane").style.display = "grid";
+    loadTechnicianView();
+  } else {
+    document.getElementById("quick-actions").style.display = "none";
+    document.getElementById("dual-pane").style.display = "none";
+  }
+});
+
+/* ── Charger les 2 panneaux ────────────────────────────────────── */
+async function loadTechnicianView() {
+  if (!currentTechId) return;
+  document.getElementById("left-list").innerHTML = '<div class="pane-loading">Chargement…</div>';
+  document.getElementById("right-list").innerHTML = '<div class="pane-loading">Chargement…</div>';
+
+  try {
+    // Parcelles du technicien
+    var rr = await authFetch("/assignments/technician/" + currentTechId);
+    if (rr && rr.ok) {
+      var data = await rr.json();
+      rightPlantations = data.plantations || [];
+      document.getElementById("tech-count").textContent =
+        rightPlantations.length + " parcelle" + (rightPlantations.length > 1 ? "s" : "");
+    }
+    // Vraies parcelles non attribuees, sans plafond 200.
+    var rl = await authFetch("/assignments/unassigned?limit=5000");
+    if (rl && rl.ok) {
+      var pdata = await rl.json();
+      leftPlantations = pdata.items || [];
+    }
+    renderPane("left");
+    renderPane("right");
+  } catch(e) {
+    console.error(e);
+    toast("Erreur de chargement des parcelles.", "error");
+  }
+}
+
+/* ── Rendu d'un panneau ────────────────────────────────────────── */
+function renderPane(side) {
+  var list = side === "left" ? leftPlantations : rightPlantations;
+  var searchVal = document.getElementById(side + "-search").value.trim().toLowerCase();
+  var filtered = list.filter(function(p) {
+    if (!searchVal) return true;
+    var hay = ((p.name || "") + " " + (p.owner_name || "")).toLowerCase();
+    return hay.indexOf(searchVal) !== -1;
+  });
+
+  document.getElementById(side + "-count").textContent = filtered.length;
+  var container = document.getElementById(side + "-list");
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="pane-empty">' +
+      (searchVal ? "Aucun résultat." :
+       (side === "left" ? "Aucune parcelle non attribuée."
+                        : "Ce technicien n'a aucune parcelle.")) + '</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(function(p) {
+    return '<label class="plant-row">' +
+      '<input type="checkbox" class="' + side + '-check" value="' + p.id + '">' +
+      '<span><span class="plant-code">' + esc(p.name || ("#" + p.id)) + '</span>' +
+      (p.owner_name ? ' <span class="plant-owner">' + esc(p.owner_name) + '</span>' : '') +
+      '</span></label>';
+  }).join("");
+
+  // Activer/desactiver les boutons selon la selection
+  container.querySelectorAll("." + side + "-check").forEach(function(cb) {
+    cb.addEventListener("change", function() { updateButtons(side); });
+  });
+}
+
+function updateButtons(side) {
+  var checked = document.querySelectorAll("." + side + "-check:checked").length;
+  if (side === "left") {
+    document.getElementById("btn-assign").disabled = checked === 0;
+  } else {
+    document.getElementById("btn-unassign").disabled = checked === 0;
+  }
+}
+
+/* ── Recherche dans les panneaux ───────────────────────────────── */
+document.getElementById("left-search").addEventListener("input", function() { renderPane("left"); });
+document.getElementById("right-search").addEventListener("input", function() { renderPane("right"); });
+
+/* ── Attribuer la selection ────────────────────────────────────── */
+document.getElementById("btn-assign").addEventListener("click", function() {
+  var ids = Array.prototype.slice.call(
+    document.querySelectorAll(".left-check:checked")
+  ).map(function(cb) { return parseInt(cb.value, 10); });
+  if (!ids.length || !currentTechId) return;
+
+  var btn = this;
+  btn.disabled = true;
+  authFetch("/assignments/bulk", {
+    method: "POST",
+    body: JSON.stringify({ plantation_ids: ids, technician_id: currentTechId }),
+  }).then(function(r) {
+    if (!r || !r.ok) throw new Error("Erreur d'attribution.");
+    return r.json();
+  }).then(function(data) {
+    toast(data.total + " parcelle(s) attribuée(s).");
+    loadTechnicianView();
+  }).catch(function(e) {
+    toast(e.message, "error");
+  }).finally(function() {
+    btn.disabled = false;
+  });
+});
+
+/* ── Retirer la selection ──────────────────────────────────────── */
+document.getElementById("btn-unassign").addEventListener("click", function() {
+  var ids = Array.prototype.slice.call(
+    document.querySelectorAll(".right-check:checked")
+  ).map(function(cb) { return parseInt(cb.value, 10); });
+  if (!ids.length) return;
+
+  var btn = this;
+  btn.disabled = true;
+  // Retrait un par un (DELETE /assignments/{plantation_id})
+  var done = 0, errors = 0;
+  var chain = Promise.resolve();
+  ids.forEach(function(pid) {
+    chain = chain.then(function() {
+      return authFetch("/assignments/" + pid, { method: "DELETE" })
+        .then(function(r) { if (r && r.ok) done++; else errors++; })
+        .catch(function() { errors++; });
+    });
+  });
+  chain.then(function() {
+    toast(done + " parcelle(s) retirée(s)" + (errors ? ", " + errors + " erreur(s)" : "") + ".");
+    loadTechnicianView();
+    btn.disabled = false;
+  });
+});
+
+/* ── Pré-remplir depuis le registre ────────────────────────────── */
+document.getElementById("btn-from-registry").addEventListener("click", function() {
+  if (!currentTechId) return;
+  var sel = document.getElementById("tech-select");
+  var email = sel.options[sel.selectedIndex].textContent;
+  var formateur = prompt(
+    "Pré-remplissage depuis le registre.\n\n" +
+    "Saisissez le nom du formateur tel qu'il apparaît dans le registre Excel.\n" +
+    "Toutes les plantations de ce formateur seront attribuées à ce technicien.",
+    ""
+  );
+  if (!formateur || !formateur.trim()) return;
+
+  var btn = this;
+  btn.disabled = true;
+  authFetch("/assignments/from-registry", {
+    method: "POST",
+    body: JSON.stringify({ technician_id: currentTechId, formateur_nom: formateur.trim() }),
+  }).then(function(r) {
+    if (!r || !r.ok) throw new Error("Erreur de pré-remplissage.");
+    return r.json();
+  }).then(function(data) {
+    if (data.status === "no_match") {
+      toast("Aucune plantation trouvée pour ce formateur.", "error");
+    } else {
+      toast(data.total + " parcelle(s) attribuée(s) depuis le registre.");
+      loadTechnicianView();
+    }
+  }).catch(function(e) {
+    toast(e.message, "error");
+  }).finally(function() {
+    btn.disabled = false;
+  });
+});
+
+/* ── Attribuer une section ─────────────────────────────────────── */
+document.getElementById("section-select").addEventListener("change", function() {
+  var section = this.value;
+  if (!section || !currentTechId) return;
+  var sectionSel = this;
+
+  if (!confirm("Attribuer toutes les plantations de la section \"" + section +
+               "\" à ce technicien ?")) {
+    sectionSel.value = "";
+    return;
+  }
+
+  authFetch("/assignments/by-section", {
+    method: "POST",
+    body: JSON.stringify({ section: section, technician_id: currentTechId }),
+  }).then(function(r) {
+    if (!r || !r.ok) throw new Error("Erreur d'attribution par section.");
+    return r.json();
+  }).then(function(data) {
+    toast(data.total + " parcelle(s) de la section " + section + " attribuée(s).");
+    loadTechnicianView();
+  }).catch(function(e) {
+    toast(e.message, "error");
+  }).finally(function() {
+    sectionSel.value = "";
+  });
+});
+
+/* ── Tout retirer pour ce technicien ───────────────────────────── */
+document.getElementById("btn-unassign-all").addEventListener("click", function() {
+  if (!currentTechId) return;
+  var sel = document.getElementById("tech-select");
+  var email = sel.options[sel.selectedIndex].textContent;
+  var count = rightPlantations.length;
+  if (!count) {
+    toast("Ce technicien n'a aucune parcelle a retirer.", "error");
+    return;
+  }
+  if (!confirm("Retirer TOUTES les " + count + " parcelles de " + email + " ?\n\n" +
+               "Les parcelles redeviendront non attribuees. Cette action est en masse.")) {
+    return;
+  }
+  var btn = this;
+  btn.disabled = true;
+  authFetch("/assignments/technician/" + currentTechId + "/all", { method: "DELETE" })
+    .then(function(r) {
+      if (!r || !r.ok) throw new Error("Erreur lors du retrait.");
+      return r.json();
+    })
+    .then(function(data) {
+      toast(data.removed + " parcelle(s) retiree(s).");
+      loadTechnicianView();
+    })
+    .catch(function(e) {
+      toast(e.message, "error");
+    })
+    .finally(function() {
+      btn.disabled = false;
+    });
+});
+
+function esc(s) {
+  var el = document.createElement("div");
+  el.textContent = (s === null || s === undefined) ? "" : String(s);
+  return el.innerHTML;
+}
+
+loadInitial();
+</script>
+</body>
+</html>

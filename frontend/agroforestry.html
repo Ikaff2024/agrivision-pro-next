@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriVision Pro — Agroforesterie</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
 <style>
 .agro-layout{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
 @media(max-width:1050px){.agro-layout{grid-template-columns:1fr}}
@@ -308,7 +308,7 @@ const LAYER_LABELS = {
 
 // Sprint Offline V1.6 - Phase 3b : init() en mode SWR
 async function init() {
-  const PATH_PL = '/plantations?limit=200';
+  const PATH_PL = '/plantations?limit=5000';
   const PATH_SL = '/species-library';
   const PATH_SUM = '/agroforestry/summary';
 

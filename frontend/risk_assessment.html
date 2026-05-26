@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Evaluation risque CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .assessment-layout{display:grid;grid-template-columns:1fr 360px;gap:20px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--sh)}
+    .question{padding:16px 0;border-bottom:1px solid var(--border-l)}
+    .question:last-child{border-bottom:none}
+    .q-title{font-weight:700;font-size:14px;margin-bottom:8px}
+    .q-help{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+    .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .choice{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface-warm);font-size:13px}
+    .score-ring{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:10px auto 18px;background:conic-gradient(var(--low) 0deg, var(--border-l) 0deg)}
+    .score-inner{width:118px;height:118px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--border)}
+    .score-val{font-family:'Fraunces',serif;font-size:36px;font-weight:700;line-height:1}
+    .score-label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.05em}
+    .factor-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-l);font-size:13px}
+    .factor-row:last-child{border-bottom:none}
+    .selected-child{font-size:13px;color:var(--muted);margin-top:6px}
+    .sync-box{border:1px solid var(--border);background:var(--surface-warm);border-radius:8px;padding:12px;margin-top:14px;font-size:12.5px;color:var(--muted);line-height:1.4}
+    @media(max-width:900px){.assessment-layout{grid-template-columns:1fr}.choice-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Evaluation risque</div>
+        <div class="page-sub">Questionnaire terrain CacaoGuard - travail des enfants</div>
+      </div>
+      <button class="btn btn-outline" onclick="location.href='children.html'">
+        <span class="material-symbols-outlined" style="font-size:18px">diversity_3</span>
+        Enfants
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="assessment-layout">
+        <div class="panel">
+          <div class="form-group">
+            <label class="form-label">Enfant a evaluer</label>
+            <select class="form-input" id="child-select" onchange="selectChild()">
+              <option value="">Selectionner un enfant...</option>
+            </select>
+            <div class="selected-child" id="child-meta">Chargez ou creez d'abord un enfant dans le module CacaoGuard.</div>
+          </div>
+
+          <div class="question">
+            <div class="q-title">1. Statut scolaire</div>
+            <div class="q-help">La descolarisation et l'absence d'inscription augmentent fortement le risque.</div>
+            <select class="form-input" id="school" onchange="recompute()">
+              <option value="enrolled">Scolarise</option>
+              <option value="dropped_out">Descolarise</option>
+              <option value="never_enrolled">Jamais scolarise</option>
+              <option value="not_school_age">Pas age scolaire</option>
+            </select>
+          </div>
+
+          <div class="question">
+            <div class="q-title">2. Distance a l'ecole</div>
+            <div class="q-help">Une ecole eloignee augmente le risque d'abandon ou de presence en plantation.</div>
+            <select class="form-input" id="distance" onchange="recompute()">
+              <option value="near">Moins de 3 km</option>
+              <option value="medium">3 a 5 km</option>
+              <option value="far">Plus de 5 km</option>
+              <option value="unknown">Inconnue</option>
+            </select>
+          </div>
+
+          <div class="question">
+            <div class="q-title">3. Travail sur la ferme</div>
+            <div class="q-help">Indiquez la frequence observee ou declaree.</div>
+            <select class="form-input" id="workfreq" onchange="recompute()">
+              <option value="never">Jamais</option>
+              <option value="occasional">Occasionnel</option>
+              <option value="regular">Regulier</option>
+              <option value="daily">Quotidien</option>
+            </select>
+          </div>
+
+          <div class="question">
+            <div class="q-title">4. Taches dangereuses</div>
+            <div class="q-help">Ces taches declenchent une priorite de suivi.</div>
+            <div class="choice-grid">
+              <label class="choice"><input type="checkbox" class="task" value="machete_use" onchange="recompute()"> Machette</label>
+              <label class="choice"><input type="checkbox" class="task" value="pesticide_application" onchange="recompute()"> Pesticides</label>
+              <label class="choice"><input type="checkbox" class="task" value="heavy_load" onchange="recompute()"> Charges lourdes</label>
+              <label class="choice"><input type="checkbox" class="task" value="night_work" onchange="recompute()"> Travail de nuit</label>
+            </div>
+          </div>
+
+          <div class="question">
+            <div class="q-title">5. Menage et besoin de main-d'oeuvre</div>
+            <div class="q-help">Un besoin eleve de main-d'oeuvre familiale augmente le risque social.</div>
+            <select class="form-input" id="laborneed" onchange="recompute()">
+              <option value="low">Faible</option>
+              <option value="medium">Moyen</option>
+              <option value="high">Eleve</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top:18px">
+            <label class="form-label">Notes agent terrain</label>
+            <textarea class="form-input" id="notes" rows="3" placeholder="Observation, entretien parent/enfant, contexte..."></textarea>
+          </div>
+
+          <div id="save-err" style="display:none;color:var(--high);font-size:13px;margin-bottom:12px"></div>
+          <button class="btn btn-primary" id="save-btn" onclick="saveAssessment()" style="width:100%;justify-content:center">
+            <span class="material-symbols-outlined" style="font-size:18px">save</span>
+            Enregistrer l'evaluation
+          </button>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">Score automatique</div>
+          <div class="score-ring" id="score-ring">
+            <div class="score-inner">
+              <div class="score-val" id="score-val">0</div>
+              <div class="score-label" id="score-label">Aucun</div>
+            </div>
+          </div>
+          <div id="factor-list"></div>
+          <div class="divider"></div>
+          <div class="text-sm text-muted" style="line-height:1.45">
+            Ce score aide a prioriser les visites. La decision finale reste humaine et doit etre documentee.
+          </div>
+          <div class="sync-box">
+            <strong style="color:var(--text)">Synchronisation terrain</strong>
+            <div id="sync-status">Verification des evaluations locales...</div>
+            <button class="btn btn-sm btn-outline" style="margin-top:10px" onclick="syncOfflineQueue()">Synchroniser</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('risk-assessment');
+
+let children = [];
+let selectedChild = null;
+let currentScore = 0;
+let currentLevel = 'none';
+let currentFactors = {};
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname)
+  ? 'http://127.0.0.1:8010'
+  : 'https://handsome-wisdom-production-d83b.up.railway.app';
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      ...(method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+async function loadChildren() {
+  const res = await cgFetch('/children?limit=500');
+  if (!res || !res.ok) return;
+  children = await res.json();
+  const select = document.getElementById('child-select');
+  select.innerHTML = '<option value="">Selectionner un enfant...</option>' +
+    children.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name} - ${calculateAge(c.date_of_birth)} ans</option>`).join('');
+  const params = new URLSearchParams(window.location.search);
+  const childId = params.get('child_id');
+  if (childId) {
+    select.value = childId;
+    selectChild();
+  }
+}
+
+function selectChild() {
+  const id = parseInt(document.getElementById('child-select').value);
+  selectedChild = children.find(c => c.id === id) || null;
+  if (!selectedChild) {
+    document.getElementById('child-meta').textContent = 'Selectionnez un enfant pour pre-remplir le questionnaire.';
+    return;
+  }
+  document.getElementById('child-meta').textContent =
+    `${selectedChild.first_name} ${selectedChild.last_name} - ${calculateAge(selectedChild.date_of_birth)} ans`;
+  document.getElementById('school').value = selectedChild.school_status || 'enrolled';
+  document.getElementById('workfreq').value = selectedChild.work_frequency || 'never';
+  document.querySelectorAll('.task').forEach(el => {
+    el.checked = (selectedChild.dangerous_tasks_performed || []).includes(el.value);
+  });
+  recompute();
+}
+
+function calculateAge(dob) {
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+function recompute() {
+  const age = selectedChild ? calculateAge(selectedChild.date_of_birth) : 18;
+  const factors = { age: 0, school: 0, distance: 0, work: 0, dangerous_tasks: 0, labor_need: 0 };
+
+  if (age < 12) factors.age = 25;
+  else if (age < 15) factors.age = 18;
+  else if (age < 18) factors.age = 8;
+
+  const school = document.getElementById('school').value;
+  if (school === 'never_enrolled') factors.school = 25;
+  else if (school === 'dropped_out') factors.school = 20;
+  else if (school === 'not_school_age') factors.school = 4;
+
+  const distance = document.getElementById('distance').value;
+  if (distance === 'medium') factors.distance = 8;
+  else if (distance === 'far') factors.distance = 15;
+  else if (distance === 'unknown') factors.distance = 6;
+
+  const work = document.getElementById('workfreq').value;
+  if (work === 'occasional') factors.work = 10;
+  else if (work === 'regular') factors.work = 22;
+  else if (work === 'daily') factors.work = 32;
+
+  const tasks = Array.from(document.querySelectorAll('.task:checked')).map(el => el.value);
+  factors.dangerous_tasks = Math.min(tasks.length * 12, 30);
+
+  const labor = document.getElementById('laborneed').value;
+  if (labor === 'medium') factors.labor_need = 8;
+  else if (labor === 'high') factors.labor_need = 16;
+
+  currentScore = Math.min(Object.values(factors).reduce((a, b) => a + b, 0), 100);
+  currentLevel = levelFromScore(currentScore);
+  currentFactors = { ...factors, tasks, distance_to_school: distance };
+  renderScore();
+}
+
+function levelFromScore(score) {
+  if (score >= 80) return 'critical';
+  if (score >= 60) return 'high';
+  if (score >= 40) return 'medium';
+  if (score >= 20) return 'low';
+  return 'none';
+}
+
+function renderScore() {
+  const color = currentScore >= 60 ? 'var(--high)' : currentScore >= 40 ? 'var(--med)' : 'var(--low)';
+  const deg = Math.round(currentScore / 100 * 360);
+  const label = { none:'Aucun', low:'Faible', medium:'Moyen', high:'Eleve', critical:'Critique' }[currentLevel];
+  document.getElementById('score-ring').style.background = `conic-gradient(${color} ${deg}deg, var(--border-l) ${deg}deg)`;
+  document.getElementById('score-val').textContent = currentScore;
+  document.getElementById('score-val').style.color = color;
+  document.getElementById('score-label').textContent = label;
+  document.getElementById('factor-list').innerHTML = [
+    ['Age', currentFactors.age],
+    ['Scolarisation', currentFactors.school],
+    ['Distance ecole', currentFactors.distance],
+    ['Travail ferme', currentFactors.work],
+    ['Taches dangereuses', currentFactors.dangerous_tasks],
+    ['Besoin main-doeuvre', currentFactors.labor_need],
+  ].map(([k, v]) => `<div class="factor-row"><span>${k}</span><strong>${v}</strong></div>`).join('');
+}
+
+async function saveAssessment() {
+  const err = document.getElementById('save-err');
+  err.style.display = 'none';
+  if (!selectedChild) {
+    err.textContent = 'Selectionnez un enfant avant d enregistrer.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+  try {
+    const payload = {
+        child_id: selectedChild.id,
+        assessment_type: 'follow_up',
+        overall_risk_score: currentScore,
+        overall_risk_level: currentLevel,
+        risk_factors: currentFactors,
+        notes: document.getElementById('notes').value.trim() || null
+      };
+    const res = await submitOffline('/children/assessments', payload, `Evaluation risque enfant ${selectedChild.id}`);
+    if (res.queued) {
+      toast('Evaluation gardee en local. Elle sera synchronisee au retour du reseau.', 'success');
+      document.getElementById('notes').value = '';
+      await refreshQueueStatus();
+      return;
+    }
+    if (!res.response || !res.response.ok) {
+      const e = await res.response?.json().catch(() => ({}));
+      throw new Error(e.detail || 'Erreur enregistrement.');
+    }
+    toast('Evaluation enregistree.');
+    await loadChildren();
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">save</span> Enregistrer l evaluation';
+  }
+}
+
+async function submitOffline(endpoint, payload, label) {
+  if (window.AVPOffline?.offlineFetch) {
+    return AVPOffline.offlineFetch(endpoint, {
+      method:'POST',
+      body:JSON.stringify(payload),
+      headers:{ 'Content-Type':'application/json' }
+    }, label, { module:'cacaoguard', page:'risk_assessment' });
+  }
+  const response = await cgFetch(endpoint, { method:'POST', body:JSON.stringify(payload) });
+  return { queued:false, response };
+}
+
+async function refreshQueueStatus() {
+  if (!window.AVPOffline?.getQueueByEndpoint) return;
+  const queue = await AVPOffline.getQueueByEndpoint('/children/assessments');
+  const pending = queue.filter(e => e.status === 'pending').length;
+  const errors = queue.filter(e => e.status === 'error').length;
+  const syncing = queue.filter(e => e.status === 'syncing').length;
+  document.getElementById('sync-status').textContent =
+    `${pending} evaluation(s) en attente, ${syncing} en cours, ${errors} en erreur.`;
+}
+
+async function syncOfflineQueue() {
+  if (!window.AVPOffline?.syncQueue) return;
+  const result = await AVPOffline.syncQueue();
+  if (result && !result.skipped) toast(`${result.synced || 0} saisie(s) synchronisee(s).`);
+  await refreshQueueStatus();
+  await loadChildren();
+}
+
+window.addEventListener('avp-queue-changed', refreshQueueStatus);
+window.addEventListener('online', refreshQueueStatus);
+recompute();
+loadChildren();
+refreshQueueStatus();
+</script>
+</body>
+</html>

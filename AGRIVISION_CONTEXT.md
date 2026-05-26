@@ -44,7 +44,8 @@ Je m'appelle **YEO ISSA**, propriétaire de **IKAFFANAN LTD** (Côte d'Ivoire). 
 
 ## ✅ Modules fonctionnels en production
 
-1. **Authentification** : login, register, refresh token, JWT
+1. **Authentification** : login, register, refresh token, JWT (désactivée - accès libre)
+2. **Protection de l'enfant (CacaoGuard)** : gestion des enfants, évaluation des risques, alertes, statistiques
 2. **Plantations** : CRUD, GPS, plant_count, propriétaire — **garde-fou superficie 0.25 ≤ ha ≤ 500** (R1d)
 3. **Diagnostics agronomiques** : 4 modules (maladies, âge, pluviométrie, ombrage), score global, historique
 4. **Recommandations actionables** : `recommendations.py` avec priorités Urgent/Important/Conseil

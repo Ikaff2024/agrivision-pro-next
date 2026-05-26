@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - FarmForce</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=farmforce1"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .ff-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
+    .ff-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .ff-section{margin-top:14px;border-top:1px solid var(--border-l);padding-top:14px}
+    .ff-section:first-child{margin-top:0;border-top:none;padding-top:0}
+    .ff-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+    .ff-section-title{font-weight:800;font-size:14px;color:var(--ink)}
+    .ff-row{display:grid;grid-template-columns:1.1fr .8fr .8fr .8fr 42px;gap:8px;align-items:end;margin-bottom:8px}
+    .ff-row.ff-house{grid-template-columns:1.2fr .55fr .55fr 1fr 42px}
+    .ff-row.ff-parcel{grid-template-columns:1fr 1fr .7fr .7fr 42px}
+    .ff-row.ff-labor{grid-template-columns:1fr .75fr .75fr .75fr 42px}
+    .ff-kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+    .ff-kpi{border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--surface-warm)}
+    .ff-kpi strong{display:block;font-family:'Fraunces',serif;font-size:22px;line-height:1}
+    .ff-kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:700;margin-top:6px}
+    .ff-list{display:grid;gap:10px}
+    .ff-item{border:1px solid var(--border-l);border-radius:8px;padding:12px;background:#fff}
+    .ff-item-title{font-weight:800;font-size:13px}
+    .ff-item-meta{color:var(--muted);font-size:12px;margin-top:4px}
+    .icon-btn{width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .icon-btn:hover{border-color:var(--accent);background:var(--surface-warm)}
+    .muted{color:var(--muted);font-size:12px;line-height:1.4}
+    @media(max-width:1050px){.ff-grid{grid-template-columns:1fr}.ff-row,.ff-row.ff-house,.ff-row.ff-parcel,.ff-row.ff-labor{grid-template-columns:1fr 1fr}.icon-btn{width:100%}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">FarmForce</div>
+        <div class="page-sub">Compte d'exploitation producteur issu du formulaire client</div>
+      </div>
+      <button class="btn btn-primary" onclick="saveAssessment()">
+        <span class="material-symbols-outlined" style="font-size:18px">save</span>
+        Enregistrer
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="ff-grid">
+        <div class="ff-panel">
+          <div class="ff-section">
+            <div class="ff-section-head"><div class="ff-section-title">Identification</div></div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="producer"></select></div>
+              <div class="form-group"><label class="form-label">Campagne</label><input class="form-input" id="campaign" value="2025-2026"></div>
+              <div class="form-group"><label class="form-label">PR</label><input class="form-input" id="pr-code" placeholder="Identifiant PR"></div>
+              <div class="form-group"><label class="form-label">Localite / zone</label><input class="form-input" id="localite" placeholder="Village ou section"></div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+              <input type="file" id="excel-import" accept=".xlsx,.xls,.xlsm" style="display:none" onchange="importExcel(this.files[0])">
+              <button class="btn btn-outline" onclick="document.getElementById('excel-import').click()">
+                <span class="material-symbols-outlined" style="font-size:18px">upload_file</span>
+                Importer Excel Fairtrade
+              </button>
+              <span class="muted" id="import-status"></span>
+            </div>
+          </div>
+
+          <div class="ff-section" data-section="household">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Menage</div><div class="muted">Nom, age, sexe et role des membres du menage.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('household')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="household-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="parcels">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Parcelles</div><div class="muted">Distribution des parcelles, cultures, surface et age.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('parcels')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="parcels-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="revenues">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Rentreess / ventes</div><div class="muted">Cacao, cafe, hevea, vivrier, betail et autres activites.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('revenues')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="revenues-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="costs">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Couts agricoles</div><div class="muted">Outils, intrants, emballages, transport et autres depenses.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('costs')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="costs-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="familyLabor">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Travail familial</div><div class="muted">Journees du producteur, conjoint et autres membres.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('familyLabor')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="familyLabor-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="hiredLabor">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Main-d'oeuvre embauchee</div><div class="muted">Travailleurs, journees et salaire journalier.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('hiredLabor')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="hiredLabor-rows"></div>
+          </div>
+
+          <div class="ff-section">
+            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="notes" rows="3" placeholder="Observations terrain"></textarea></div>
+          </div>
+        </div>
+
+        <aside class="ff-panel">
+          <div class="section-title">Resultat calcule</div>
+          <div class="ff-kpis">
+            <div class="ff-kpi"><strong id="k-revenue">0</strong><span>Rentreess CFA</span></div>
+            <div class="ff-kpi"><strong id="k-cost">0</strong><span>Couts CFA</span></div>
+            <div class="ff-kpi"><strong id="k-profit">0</strong><span>Profit CFA</span></div>
+            <div class="ff-kpi"><strong id="k-return">-</strong><span>Retour / jour</span></div>
+          </div>
+          <button class="btn btn-outline" style="width:100%;margin-bottom:16px" onclick="loadAssessments()">
+            <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+            Actualiser historique
+          </button>
+          <div class="section-title">Historique</div>
+          <div class="ff-list" id="history"></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('farmforce');
+
+const money = n => new Intl.NumberFormat('fr-FR').format(Math.round(Number(n || 0)));
+const monthOptions = ['Octobre','Novembre','Decembre','Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre'];
+
+function apiBase() { return window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010'; }
+async function ffFetch(path, options = {}) {
+  const url = path.startsWith('http') ? path : apiBase() + path;
+  return fetch(url, options);
+}
+
+function input(cls, placeholder, type='text', value='') {
+  return `<input class="form-input ${cls}" type="${type}" placeholder="${placeholder}" value="${value}" oninput="recalc()">`;
+}
+function selectMonth(cls) {
+  return `<select class="form-input ${cls}" onchange="recalc()">${monthOptions.map(m => `<option>${m}</option>`).join('')}</select>`;
+}
+function removeBtn() {
+  return `<button class="icon-btn" title="Supprimer la ligne" onclick="this.closest('.ff-row').remove();recalc()"><span class="material-symbols-outlined">delete</span></button>`;
+}
+
+function addRow(type, values = {}) {
+  const wrap = document.getElementById(`${type}-rows`);
+  let html = '';
+  if (type === 'household') {
+    html = `<div class="ff-row ff-house">${input('name','Nom et prenoms','text',values.name||'')}${input('age','Age','number',values.age||'')}${input('gender','M/F','text',values.gender||'')}${input('role','Lien / occupation','text',values.role||'')}${removeBtn()}</div>`;
+  } else if (type === 'parcels') {
+    html = `<div class="ff-row ff-parcel">${input('parcel','Parcelle','text',values.parcel||'')}${input('crop','Culture','text',values.crop||'Cacao')}${input('surface','Surface ha','number',values.surface||'')}${input('age','Age','number',values.age||'')}${removeBtn()}</div>`;
+  } else if (type === 'revenues') {
+    html = `<div class="ff-row">${selectMonth('month')}${input('product','Produit','text',values.product||'Cacao')}${input('quantity','Quantite','number',values.quantity||'')}${input('unit_price_cfa','Prix/unite','number',values.unit_price_cfa||'')}${removeBtn()}</div>`;
+  } else if (type === 'costs') {
+    html = `<div class="ff-row">${selectMonth('date')}${input('category','Categorie','text',values.category||'Intrant')}${input('product','Produit / depense','text',values.product||'')}${input('cost_cfa','Cout total','number',values.cost_cfa||'')}${removeBtn()}</div>`;
+  } else if (type === 'familyLabor') {
+    html = `<div class="ff-row ff-labor">${selectMonth('month')}${input('producer_days','Producteur','number',values.producer_days||'')}${input('spouse_days','Conjoint','number',values.spouse_days||'')}${input('other_family_days','Autres famille','number',values.other_family_days||'')}${removeBtn()}</div>`;
+  } else if (type === 'hiredLabor') {
+    html = `<div class="ff-row ff-labor">${selectMonth('month')}${input('workers','Travailleurs','number',values.workers||'')}${input('days_per_worker','Jours/travailleur','number',values.days_per_worker||'')}${input('daily_wage_cfa','Salaire/jour','number',values.daily_wage_cfa||'')}${removeBtn()}</div>`;
+  }
+  wrap.insertAdjacentHTML('beforeend', html);
+  recalc();
+}
+
+function rows(type, mapper) {
+  return [...document.querySelectorAll(`#${type}-rows .ff-row`)].map(mapper).filter(Boolean);
+}
+function val(row, cls) { return row.querySelector(`.${cls}`)?.value?.trim() || ''; }
+function num(v) { return Number(v || 0) || 0; }
+
+function payload() {
+  return {
+    producer_id: Number(document.getElementById('producer').value),
+    campaign_label: document.getElementById('campaign').value.trim() || '2025-2026',
+    pr_code: document.getElementById('pr-code').value.trim() || null,
+    localite: document.getElementById('localite').value.trim() || null,
+    household_members: rows('household', r => ({ name:val(r,'name'), age:num(val(r,'age')), gender:val(r,'gender'), role:val(r,'role') })),
+    parcels: rows('parcels', r => ({ parcel:val(r,'parcel'), crop:val(r,'crop'), surface_ha:num(val(r,'surface')), age_years:num(val(r,'age')) })),
+    revenue_items: rows('revenues', r => ({ month:val(r,'month'), product:val(r,'product'), quantity:num(val(r,'quantity')), unit_price_cfa:num(val(r,'unit_price_cfa')) })),
+    cost_items: rows('costs', r => ({ date:val(r,'date'), category:val(r,'category'), product:val(r,'product'), cost_cfa:num(val(r,'cost_cfa')) })),
+    family_labor_items: rows('familyLabor', r => ({ month:val(r,'month'), producer_days:num(val(r,'producer_days')), spouse_days:num(val(r,'spouse_days')), other_family_days:num(val(r,'other_family_days')) })),
+    hired_labor_items: rows('hiredLabor', r => ({ month:val(r,'month'), workers:num(val(r,'workers')), days_per_worker:num(val(r,'days_per_worker')), daily_wage_cfa:num(val(r,'daily_wage_cfa')) })),
+    food_security_items: [],
+    notes: document.getElementById('notes').value.trim() || null
+  };
+}
+
+function calc(p) {
+  const revenue = p.revenue_items.reduce((s,i) => s + i.quantity * i.unit_price_cfa, 0);
+  const costs = p.cost_items.reduce((s,i) => s + i.cost_cfa, 0);
+  const hired = p.hired_labor_items.reduce((s,i) => s + i.workers * i.days_per_worker * i.daily_wage_cfa, 0);
+  const familyDays = p.family_labor_items.reduce((s,i) => s + i.producer_days + i.spouse_days + i.other_family_days, 0);
+  const profit = revenue - costs - hired;
+  return { revenue, costs: costs + hired, profit, familyDays, ret: familyDays ? profit / familyDays : null };
+}
+
+function recalc() {
+  const c = calc(payload());
+  document.getElementById('k-revenue').textContent = money(c.revenue);
+  document.getElementById('k-cost').textContent = money(c.costs);
+  document.getElementById('k-profit').textContent = money(c.profit);
+  document.getElementById('k-return').textContent = c.ret === null ? '-' : money(c.ret);
+}
+
+async function loadProducers() {
+  const res = await ffFetch('/producers?limit=1000');
+  const data = res?.ok ? await res.json() : [];
+  document.getElementById('producer').innerHTML = data.map(p => `<option value="${p.id}" data-localite="${p.localite || ''}" data-code="${p.code_yeyasso || ''}">${p.nom_complet}</option>`).join('');
+  document.getElementById('producer').onchange = () => {
+    const opt = document.getElementById('producer').selectedOptions[0];
+    document.getElementById('localite').value = opt?.dataset.localite || '';
+    document.getElementById('pr-code').value = opt?.dataset.code || '';
+    loadAssessments();
+  };
+  document.getElementById('producer').onchange();
+}
+
+async function loadAssessments() {
+  const producerId = Number(document.getElementById('producer').value);
+  const path = producerId ? `/farmforce/assessments?producer_id=${producerId}` : '/farmforce/assessments';
+  const res = await ffFetch(path);
+  const data = res?.ok ? await res.json() : [];
+  document.getElementById('history').innerHTML = data.length ? data.map(a => `
+    <div class="ff-item">
+      <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
+      <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
+      <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Retour/jour ${a.return_per_family_day_cfa == null ? '-' : money(a.return_per_family_day_cfa)}</div>
+    </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>';
+}
+
+async function saveAssessment() {
+  const body = payload();
+  if (!body.producer_id) return alert('Selectionne un producteur.');
+  const res = await ffFetch('/farmforce/assessments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) return alert('Enregistrement impossible.');
+  const saved = await res.json();
+  alert(`Formulaire FarmForce enregistre. Profit: ${money(saved.profit_cfa)} CFA`);
+  loadAssessments();
+}
+
+async function importExcel(file) {
+  if (!file) return;
+  const producerId = Number(document.getElementById('producer').value);
+  const status = document.getElementById('import-status');
+  status.textContent = 'Import en cours...';
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(`${apiBase()}/farmforce/import/excel?producer_id=${producerId}`, {
+      method: 'POST',
+      body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status === 'error') throw new Error(data.detail || (data.errors || ['Import impossible']).join(', '));
+    status.textContent = `Import OK: ${data.preview?.counts?.revenue_items || 0} rentrees, ${data.preview?.counts?.cost_items || 0} couts.`;
+    await loadAssessments();
+  } catch (e) {
+    status.textContent = '';
+    alert(e.message || 'Import impossible.');
+  } finally {
+    document.getElementById('excel-import').value = '';
+  }
+}
+
+['household','parcels','revenues','costs','familyLabor','hiredLabor'].forEach(t => addRow(t));
+loadProducers();
+</script>
+</body>
+</html>

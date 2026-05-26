@@ -1,325 +1,560 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgriVision Pro — Créer un compte</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--sb:#0c2018;--primary:#1a4231;--accent:#52b788;--bg:#f8f4ee;
-  --surface:#fff;--border:#e6ddd0;--text:#1a2218;--muted:#6a7d64;--faint:#b0c4b0;--r:10px}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriVision Pro — Créer un compte</title>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
 
-.panel-l{width:44%;background:var(--sb);display:flex;flex-direction:column;
-  flex-shrink:0;position:relative;overflow:hidden}
-@media(max-width:840px){.panel-l{display:none}}
-.panel-l::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 340px 500px at 15% 25%,rgba(82,183,136,.13) 0%,transparent 65%),
-    radial-gradient(ellipse 250px 350px at 85% 75%,rgba(82,183,136,.09) 0%,transparent 60%)}
-.leaf-bg{position:absolute;right:-80px;bottom:-60px;width:420px;opacity:.055}
-.p-inner{position:relative;z-index:1;padding:44px;display:flex;flex-direction:column;height:100%}
-.p-brand{display:flex;align-items:center;gap:12px}
-.p-brand-icon{width:42px;height:42px;background:rgba(82,183,136,.16);border-radius:12px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.p-brand-name{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px}
-.p-brand-sub{font-size:10.5px;color:rgba(255,255,255,.4);margin-top:2px}
-.p-hero{margin:auto 0;padding:32px 0}
-.p-tagline{font-family:'Fraunces',serif;font-size:30px;font-weight:700;color:#fff;
-  line-height:1.25;letter-spacing:-.5px;margin-bottom:14px}
-.p-tagline em{color:var(--accent);font-style:normal}
-.p-desc{font-size:14px;color:rgba(255,255,255,.5);line-height:1.75;max-width:310px;margin-bottom:28px}
-.step-list{display:flex;flex-direction:column;gap:18px}
-.step{display:flex;align-items:flex-start;gap:14px}
-.step-num{width:28px;height:28px;background:rgba(82,183,136,.18);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
-  color:var(--accent);flex-shrink:0;margin-top:1px}
-.step-title{font-size:13px;font-weight:600;color:rgba(255,255,255,.82);margin-bottom:2px}
-.step-body{font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.5}
-.p-footer{font-size:11px;color:rgba(255,255,255,.22);padding-top:20px;border-top:1px solid rgba(255,255,255,.07)}
+    :root {
+      --sb: #0c2018;
+      --primary: #1a4231;
+      --accent: #52b788;
+      --bg: #f8f4ee;
+      --surface: #fff;
+      --border: #e6ddd0;
+      --text: #1a2218;
+      --muted: #6a7d64;
+      --faint: #b0c4b0;
+      --r: 10px
+    }
 
-.panel-r{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 32px}
-.auth-box{width:100%;max-width:420px}
-.auth-title{font-family:'Fraunces',serif;font-size:27px;font-weight:700;letter-spacing:-.4px;margin-bottom:6px}
-.auth-sub{font-size:13.5px;color:var(--muted);margin-bottom:28px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.form-group{margin-bottom:14px}
-.form-label{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:6px}
-.form-input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);
-  font-size:14px;color:var(--text);background:var(--surface);outline:none;
-  font-family:'DM Sans',sans-serif;transition:.15s}
-.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.13)}
-.form-input::placeholder{color:var(--faint)}
-select.form-input{cursor:pointer}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex
+    }
 
-.role-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px}
-.role-opt{border:1.5px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;
-  cursor:pointer;transition:.15s;background:var(--surface)}
-.role-opt:hover{border-color:var(--accent);background:#f0faf5}
-.role-opt.selected{border-color:var(--accent);background:#f0faf5;box-shadow:0 0 0 2px rgba(82,183,136,.2)}
-.role-opt input{display:none}
-.role-icon{font-size:20px;margin-bottom:4px}
-.role-name{font-size:12px;font-weight:600;color:var(--text)}
-.role-desc{font-size:10.5px;color:var(--muted);margin-top:1px}
+    .panel-l {
+      width: 44%;
+      background: var(--sb);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden
+    }
 
-.btn-go{width:100%;padding:12px;border-radius:var(--r);border:none;cursor:pointer;
-  background:var(--primary);color:#fff;font-size:15px;font-weight:600;
-  font-family:'DM Sans',sans-serif;transition:.2s;display:flex;align-items:center;
-  justify-content:center;gap:8px;margin-top:6px}
-.btn-go:hover{background:var(--sb)}
-.btn-go:disabled{opacity:.55;cursor:not-allowed}
-.spinner{width:17px;height:17px;border:2px solid rgba(255,255,255,.3);
-  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
-@keyframes spin{to{transform:rotate(360deg)}}
-.error-box{background:#fdedec;border:1px solid #f1948a;border-radius:var(--r);
-  padding:10px 14px;font-size:13px;color:#922b21;margin-bottom:14px;display:none;line-height:1.5}
-.success-box{background:#eafaf1;border:1px solid #a8d8bb;border-radius:var(--r);
-  padding:10px 14px;font-size:13px;color:#1a6b3a;margin-bottom:14px;display:none}
-.auth-bottom{text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);
-  font-size:13.5px;color:var(--muted)}
-.auth-bottom a{color:var(--primary);font-weight:600}
-.section-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;
-  letter-spacing:.06em;margin-bottom:10px;margin-top:4px}
-.coop-info{display:none;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;
-  font-size:12.5px;line-height:1.5;margin-top:6px}
-.coop-info.new-coop{background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a}
-.coop-info.exist-coop{background:#fef8ec;border:1px solid #f0c97a;color:#7a4e00}
-.role-opt.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
-</style>
+    @media(max-width:840px) {
+      .panel-l {
+        display: none
+      }
+    }
+
+    .panel-l::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 340px 500px at 15% 25%, rgba(82, 183, 136, .13) 0%, transparent 65%),
+        radial-gradient(ellipse 250px 350px at 85% 75%, rgba(82, 183, 136, .09) 0%, transparent 60%)
+    }
+
+    .leaf-bg {
+      position: absolute;
+      right: -80px;
+      bottom: -60px;
+      width: 420px;
+      opacity: .055
+    }
+
+    .p-inner {
+      position: relative;
+      z-index: 1;
+      padding: 44px;
+      display: flex;
+      flex-direction: column;
+      height: 100%
+    }
+
+    .p-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .p-brand-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(82, 183, 136, .16);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0
+    }
+
+    .p-brand-name {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -.3px
+    }
+
+    .p-brand-sub {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, .4);
+      margin-top: 2px
+    }
+
+    .p-hero {
+      margin: auto 0;
+      padding: 32px 0
+    }
+
+    .p-tagline {
+      font-family: 'Fraunces', serif;
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.25;
+      letter-spacing: -.5px;
+      margin-bottom: 14px
+    }
+
+    .p-tagline em {
+      color: var(--accent);
+      font-style: normal
+    }
+
+    .p-desc {
+      font-size: 14px;
+      color: rgba(255, 255, 255, .5);
+      line-height: 1.75;
+      max-width: 310px;
+      margin-bottom: 28px
+    }
+
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      background: rgba(82, 183, 136, .18);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px
+    }
+
+    .step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .82);
+      margin-bottom: 2px
+    }
+
+    .step-body {
+      font-size: 12.5px;
+      color: rgba(255, 255, 255, .45);
+      line-height: 1.5
+    }
+
+    .p-footer {
+      font-size: 11px;
+      color: rgba(255, 255, 255, .22);
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, .07)
+    }
+
+    .panel-r {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 420px
+    }
+
+    .auth-title {
+      font-family: 'Fraunces', serif;
+      font-size: 27px;
+      font-weight: 700;
+      letter-spacing: -.4px;
+      margin-bottom: 6px
+    }
+
+    .auth-sub {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 28px
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .form-group {
+      margin-bottom: 14px
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      font-size: 14px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: .15s
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(82, 183, 136, .13)
+    }
+
+    .form-input::placeholder {
+      color: var(--faint)
+    }
+
+    select.form-input {
+      cursor: pointer
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px
+    }
+
+    .role-opt {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: .15s;
+      background: var(--surface)
+    }
+
+    .role-opt:hover {
+      border-color: var(--accent);
+      background: #f0faf5
+    }
+
+    .role-opt.selected {
+      border-color: var(--accent);
+      background: #f0faf5;
+      box-shadow: 0 0 0 2px rgba(82, 183, 136, .2)
+    }
+
+    .role-opt input {
+      display: none
+    }
+
+    .role-icon {
+      font-size: 20px;
+      margin-bottom: 4px
+    }
+
+    .role-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text)
+    }
+
+    .role-desc {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 1px
+    }
+
+    .btn-go {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--r);
+      border: none;
+      cursor: pointer;
+      background: var(--primary);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      transition: .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 6px
+    }
+
+    .btn-go:hover {
+      background: var(--sb)
+    }
+
+    .btn-go:disabled {
+      opacity: .55;
+      cursor: not-allowed
+    }
+
+    .spinner {
+      width: 17px;
+      height: 17px;
+      border: 2px solid rgba(255, 255, 255, .3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .error-box {
+      background: #fdedec;
+      border: 1px solid #f1948a;
+      border-radius: var(--r);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #922b21;
+      margin-bottom: 14px;
+      display: none;
+      line-height: 1.5
+    }
+
+    .success-box {
+      background: #eafaf1;
+      border: 1px solid #a8d8bb;
+      border-radius: var(--r);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #1a6b3a;
+      margin-bottom: 14px;
+      display: none
+    }
+
+    .auth-bottom {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13.5px;
+      color: var(--muted)
+    }
+
+    .auth-bottom a {
+      color: var(--primary);
+      font-weight: 600
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 10px;
+      margin-top: 4px
+    }
+
+    .coop-info {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin-top: 6px
+    }
+
+    .coop-info.new-coop {
+      background: #eafaf1;
+      border: 1px solid #a8d8bb;
+      color: #1a6b3a
+    }
+
+    .coop-info.exist-coop {
+      background: #fef8ec;
+      border: 1px solid #f0c97a;
+      color: #7a4e00
+    }
+
+    .role-opt.disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      pointer-events: none
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="panel-l">
-  <svg class="leaf-bg" viewBox="0 0 420 420" fill="white">
-    <path d="M210 400C110 310 20 200 60 90C100-20 320-20 360 90C400 200 310 310 210 400Z"/>
-    <path d="M210 400L210 50" stroke="#0c2018" stroke-width="4" fill="none"/>
-    <path d="M210 200C160 155 130 115 150 70" stroke="#0c2018" stroke-width="2.5" fill="none"/>
-    <path d="M210 270C260 225 290 185 270 140" stroke="#0c2018" stroke-width="2.5" fill="none"/>
-    <path d="M210 330C170 305 150 275 165 245" stroke="#0c2018" stroke-width="2" fill="none"/>
-    <path d="M210 330C250 305 270 275 255 245" stroke="#0c2018" stroke-width="2" fill="none"/>
-  </svg>
-  <div class="p-inner">
-    <div class="p-brand">
-      <div class="p-brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#52b788" stroke-width="1.8" stroke-linecap="round">
-          <path d="M12 2C8 2 4 6 4 11c0 3.5 1.8 6.5 4.5 8.2V22h7v-2.8C18.2 17.5 20 14.5 20 11c0-5-4-9-8-9z"/>
-          <path d="M12 2v20"/><path d="M8 8c2 1 4 2 4 5"/><path d="M16 8c-2 1-4 2-4 5"/>
-        </svg>
-      </div>
-      <div><div class="p-brand-name">AgriVision Pro</div><div class="p-brand-sub">Plateforme agronomique</div></div>
-    </div>
-    <div class="p-hero">
-      <p class="p-tagline">Rejoignez votre<br><em>coopérative</em> en ligne</p>
-      <p class="p-desc">3 étapes pour démarrer la gestion intelligente de vos plantations de cacao.</p>
-      <div class="step-list">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div><div class="step-title">Créer votre compte</div><div class="step-body">Email, mot de passe et rôle dans la coopérative</div></div>
+  <div class="panel-l">
+    <svg class="leaf-bg" viewBox="0 0 420 420" fill="white">
+      <path d="M210 400C110 310 20 200 60 90C100-20 320-20 360 90C400 200 310 310 210 400Z" />
+      <path d="M210 400L210 50" stroke="#0c2018" stroke-width="4" fill="none" />
+      <path d="M210 200C160 155 130 115 150 70" stroke="#0c2018" stroke-width="2.5" fill="none" />
+      <path d="M210 270C260 225 290 185 270 140" stroke="#0c2018" stroke-width="2.5" fill="none" />
+      <path d="M210 330C170 305 150 275 165 245" stroke="#0c2018" stroke-width="2" fill="none" />
+      <path d="M210 330C250 305 270 275 255 245" stroke="#0c2018" stroke-width="2" fill="none" />
+    </svg>
+    <div class="p-inner">
+      <div class="p-brand">
+        <div class="p-brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#52b788" stroke-width="1.8" stroke-linecap="round">
+            <path d="M12 2C8 2 4 6 4 11c0 3.5 1.8 6.5 4.5 8.2V22h7v-2.8C18.2 17.5 20 14.5 20 11c0-5-4-9-8-9z" />
+            <path d="M12 2v20" />
+            <path d="M8 8c2 1 4 2 4 5" />
+            <path d="M16 8c-2 1-4 2-4 5" />
+          </svg>
         </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div><div class="step-title">Enregistrer vos plantations</div><div class="step-body">Coordonnées GPS, superficie, propriétaire</div></div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div><div class="step-title">Lancer votre premier diagnostic</div><div class="step-body">Obtenez un rapport agronomique en quelques secondes</div></div>
+        <div>
+          <div class="p-brand-name">AgriVision Pro</div>
+          <div class="p-brand-sub">Plateforme agronomique</div>
         </div>
       </div>
+      <div class="p-hero">
+        <p class="p-tagline">Rejoignez votre<br><em>coopérative</em> en ligne</p>
+        <p class="p-desc">3 étapes pour démarrer la gestion intelligente de vos plantations de cacao.</p>
+        <div class="step-list">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-title">Créer votre compte</div>
+              <div class="step-body">Email, mot de passe et rôle dans la coopérative</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-title">Enregistrer vos plantations</div>
+              <div class="step-body">Coordonnées GPS, superficie, propriétaire</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-title">Lancer votre premier diagnostic</div>
+              <div class="step-body">Obtenez un rapport agronomique en quelques secondes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="p-footer">© 2026 IKAFFANAN LTD — AgriVision Pro</div>
     </div>
-    <div class="p-footer">© 2026 IKAFFANAN LTD — AgriVision Pro</div>
   </div>
-</div>
 
-<div class="panel-r">
-  <div class="auth-box">
-    <h1 class="auth-title">Créer un compte</h1>
-    <p class="auth-sub">Rejoignez votre coopérative agricole</p>
+  <div class="panel-r">
+    <div class="auth-box">
+      <h1 class="auth-title">Créer un compte</h1>
+      <p class="auth-sub">Rejoignez votre coopérative agricole</p>
 
-    <div class="error-box" id="err"></div>
-    <div class="success-box" id="ok">✓ Compte créé avec succès ! Redirection…</div>
+      <div class="error-box" id="err"></div>
+      <div class="success-box" id="ok">✓ Compte créé avec succès ! Redirection…</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="email" type="email" placeholder="vous@coop.ci">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="email" type="email" placeholder="vous@coop.ci">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mot de passe</label>
+          <input class="form-input" id="pass" type="password" placeholder="min. 8 caractères">
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Mot de passe</label>
-        <input class="form-input" id="pass" type="password" placeholder="min. 8 caractères">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nom de la coopérative</label>
+          <input class="form-input" id="coop" type="text" placeholder="Coop Soubré" oninput="onCoopInput()">
+          <div class="coop-info" id="coop-info"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pays</label>
+          <select class="form-input" id="country">
+            <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+            <option value="Ghana">Ghana</option>
+            <option value="Cameroun">Cameroun</option>
+            <option value="Nigeria">Nigeria</option>
+          </select>
+        </div>
       </div>
+
+      <div class="form-group">
+        <div class="section-label">Votre rôle</div>
+        <div class="role-grid" id="role-grid">
+          <label class="role-opt" onclick="selectRole('admin')" id="role-admin">
+            <input type="radio" name="role" value="admin">
+            <div class="role-icon">👤</div>
+            <div class="role-name">Admin</div>
+            <div class="role-desc">Gestion complète</div>
+          </label>
+          <label class="role-opt selected" onclick="selectRole('agronomist')">
+            <input type="radio" name="role" value="agronomist" checked>
+            <div class="role-icon">🔬</div>
+            <div class="role-name">Agronome</div>
+            <div class="role-desc">Diagnostics</div>
+          </label>
+          <label class="role-opt" onclick="selectRole('technician')">
+            <input type="radio" name="role" value="technician">
+            <div class="role-icon">📷</div>
+            <div class="role-name">Technicien</div>
+            <div class="role-desc">Analyse image</div>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn-go" id="btn" onclick="doRegister()">
+        <span id="btn-text">Créer mon compte</span>
+        <div class="spinner" id="spin"></div>
+      </button>
+
+      <div class="auth-bottom">Déjà un compte ? <a href="login.html">Se connecter</a></div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Nom de la coopérative</label>
-        <input class="form-input" id="coop" type="text" placeholder="Coop Soubré" oninput="onCoopInput()">
-        <div class="coop-info" id="coop-info"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Pays</label>
-        <select class="form-input" id="country">
-          <option value="Côte d'Ivoire">Côte d'Ivoire</option>
-          <option value="Ghana">Ghana</option>
-          <option value="Cameroun">Cameroun</option>
-          <option value="Nigeria">Nigeria</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <div class="section-label">Votre rôle</div>
-      <div class="role-grid" id="role-grid">
-        <label class="role-opt" onclick="selectRole('admin')" id="role-admin">
-          <input type="radio" name="role" value="admin">
-          <div class="role-icon">👤</div>
-          <div class="role-name">Admin</div>
-          <div class="role-desc">Gestion complète</div>
-        </label>
-        <label class="role-opt selected" onclick="selectRole('agronomist')">
-          <input type="radio" name="role" value="agronomist" checked>
-          <div class="role-icon">🔬</div>
-          <div class="role-name">Agronome</div>
-          <div class="role-desc">Diagnostics</div>
-        </label>
-        <label class="role-opt" onclick="selectRole('technician')">
-          <input type="radio" name="role" value="technician">
-          <div class="role-icon">📷</div>
-          <div class="role-name">Technicien</div>
-          <div class="role-desc">Analyse image</div>
-        </label>
-      </div>
-    </div>
-
-    <button class="btn-go" id="btn" onclick="doRegister()">
-      <span id="btn-text">Créer mon compte</span>
-      <div class="spinner" id="spin"></div>
-    </button>
-
-    <div class="auth-bottom">Déjà un compte ? <a href="login.html">Se connecter</a></div>
   </div>
-</div>
 
-<script>
-const API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
-let selectedRole = 'agronomist';
-let coopExists = false;
-let coopDebounce = null;
-
-function selectRole(role) {
-  selectedRole = role;
-  document.querySelectorAll('.role-opt').forEach(el => {
-    el.classList.toggle('selected', el.querySelector('input').value === role);
-  });
-}
-
-// ── Détection dynamique de la coopérative ───────────────────────────────────
-function onCoopInput() {
-  clearTimeout(coopDebounce);
-  const name = document.getElementById('coop').value.trim();
-  const infoEl = document.getElementById('coop-info');
-
-  if (!name) {
-    infoEl.style.display = 'none';
-    setAdminAvailable(true);
-    return;
-  }
-
-  coopDebounce = setTimeout(() => checkCoopExists(name), 600);
-}
-
-async function checkCoopExists(name) {
-  const infoEl = document.getElementById('coop-info');
-  try {
-    // On tente un register fictif juste pour savoir si la coop existe.
-    // On utilise une route dédiée si dispo, sinon on se base sur l'UX backend.
-    // Ici : on affiche un message préventif selon la logique métier.
-    // (Le backend confirmera au moment du vrai register.)
-    // Pour l'instant on affiche toujours le message "nouvelle coop possible"
-    // et on adapte dynamiquement si le backend renvoie 403.
-    infoEl.className = 'coop-info new-coop';
-    infoEl.innerHTML = '✦ Si cette coop&eacute;rative n&apos;existe pas encore, vous en serez automatiquement l&apos;<strong>Administrateur</strong>.';
-    infoEl.style.display = 'flex';
-    setAdminAvailable(true);
-  } catch {}
-}
-
-function setAdminAvailable(available) {
-  const adminLabel = document.getElementById('role-admin');
-  if (!adminLabel) return;
-  if (!available) {
-    adminLabel.classList.add('disabled');
-    // Si admin était sélectionné, basculer sur agronomist
-    if (selectedRole === 'admin') selectRole('agronomist');
-  } else {
-    adminLabel.classList.remove('disabled');
-  }
-}
-
-// ── Inscription ─────────────────────────────────────────────────────────────
-async function doRegister() {
-  const email   = document.getElementById('email').value.trim();
-  const pass    = document.getElementById('pass').value;
-  const coop    = document.getElementById('coop').value.trim();
-  const country = document.getElementById('country').value;
-  const err     = document.getElementById('err');
-  const ok      = document.getElementById('ok');
-  const btn     = document.getElementById('btn');
-  const spin    = document.getElementById('spin');
-  const txt     = document.getElementById('btn-text');
-
-  err.style.display = 'none'; ok.style.display = 'none';
-  if (!email || !pass || !coop) {
-    err.textContent = 'Veuillez remplir tous les champs.';
-    err.style.display = 'block'; return;
-  }
-  if (pass.length < 6) {
-    err.textContent = 'Le mot de passe doit comporter au moins 6 caractères.';
-    err.style.display = 'block'; return;
-  }
-
-  btn.disabled = true; spin.style.display = 'block'; txt.textContent = 'Création…';
-
-  try {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ email, password: pass, role: selectedRole, cooperative_name: coop, country })
-    });
-
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      // Si le backend refuse Admin sur coop existante → adapter l'UI
-      if (res.status === 403 && e.detail?.includes('Admin')) {
-        setAdminAvailable(false);
-        const infoEl = document.getElementById('coop-info');
-        infoEl.className = 'coop-info exist-coop';
-        infoEl.innerHTML = '⚠ Cette coopérative existe déjà. Le rôle Admin ne peut pas être auto-attribué — choisissez Agronome ou Technicien.';
-        infoEl.style.display = 'flex';
-      }
-      throw new Error(e.detail || 'Erreur lors de la création.');
-    }
-
-    const data = await res.json();
-    // Connexion automatique si le backend retourne un token
-    if (data.access_token) {
-      localStorage.setItem('avp_token', data.access_token);
-      if (data.refresh_token) localStorage.setItem('avp_refresh_token', data.refresh_token);
-      const roleLabel = data.role === 'admin' ? 'Administrateur' : data.role;
-      ok.textContent = `✓ Compte créé ! Rôle : ${roleLabel}. Redirection…`;
-      ok.style.display = 'block';
-      setTimeout(() => window.location.href = 'index.html', 1500);
-    } else {
-      // Pas de token dans la réponse → rediriger vers login
-      ok.textContent = '✓ Compte créé avec succès ! Connectez-vous pour continuer.';
-      ok.style.display = 'block';
-      setTimeout(() => window.location.href = 'login.html', 2000);
-    }
-  } catch(e) {
-    err.textContent = e.message; err.style.display = 'block';
-    btn.disabled = false; spin.style.display = 'none'; txt.textContent = 'Créer mon compte';
-  }
-}
-
-// Init
-document.getElementById('coop').addEventListener('input', onCoopInput);
-</script>
+  <script>
+    // Authentification désactivée - accès direct au dashboard
+    window.location.href = 'index.html';
+  </script>
 </body>
+
 </html>

@@ -1,0 +1,114 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
+from app.db.models import FarmForceAssessment, Plantation, Producer
+from app.db.models_social import (
+    Alert,
+    AlertStatus,
+    MonitoringVisit,
+    RemediationPlan,
+    RemediationStatus,
+    Child,
+    RiskLevel,
+    SchoolStatus,
+    SsrteHouseholdProfile,
+    SsrtePlantationVisit,
+    TraceabilityBlock,
+    BlockStatus,
+    VisitStatus,
+)
+
+router = APIRouter(prefix="/cacaoguard", tags=["CacaoGuard"])
+
+
+@router.get("/summary")
+def get_cacaoguard_summary(db: Session = Depends(get_db)):
+    total_producers = db.query(func.count(Producer.id)).filter(Producer.is_active == True).scalar() or 0
+    total_plantations = db.query(func.count(Plantation.id)).scalar() or 0
+    total_children = db.query(func.count(Child.id)).filter(Child.is_active == True).scalar() or 0
+
+    high_risk_children = db.query(func.count(Child.id)).filter(
+        Child.is_active == True,
+        Child.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+    ).scalar() or 0
+    medium_risk_children = db.query(func.count(Child.id)).filter(
+        Child.is_active == True,
+        Child.risk_level == RiskLevel.MEDIUM,
+    ).scalar() or 0
+    enrolled_children = db.query(func.count(Child.id)).filter(
+        Child.is_active == True,
+        Child.school_status == SchoolStatus.ENROLLED,
+    ).scalar() or 0
+    working_children = db.query(func.count(Child.id)).filter(
+        Child.is_active == True,
+        Child.is_working_on_farm == True,
+    ).scalar() or 0
+    active_alerts = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED).scalar() or 0
+    traceability_blocks = db.query(func.count(TraceabilityBlock.id)).filter(
+        TraceabilityBlock.status == BlockStatus.ACTIVE,
+    ).scalar() or 0
+    scheduled_visits = db.query(func.count(MonitoringVisit.id)).filter(
+        MonitoringVisit.status == VisitStatus.SCHEDULED,
+    ).scalar() or 0
+    active_remediation_plans = db.query(func.count(RemediationPlan.id)).filter(
+        RemediationPlan.status.in_([
+            RemediationStatus.DRAFT,
+            RemediationStatus.PENDING_APPROVAL,
+            RemediationStatus.APPROVED,
+            RemediationStatus.IN_PROGRESS,
+            RemediationStatus.ESCALATED,
+        ]),
+    ).scalar() or 0
+    ssrte_households = db.query(func.count(SsrteHouseholdProfile.id)).scalar() or 0
+    ssrte_plantation_visits = db.query(func.count(SsrtePlantationVisit.id)).scalar() or 0
+    ssrte_suspicions = db.query(func.count(SsrtePlantationVisit.id)).filter(
+        SsrtePlantationVisit.suspected_child_labor == True,
+    ).scalar() or 0
+    farmforce_assessments = db.query(func.count(FarmForceAssessment.id)).scalar() or 0
+    farmforce_profit = db.query(
+        func.coalesce(func.sum(FarmForceAssessment.profit_cfa), 0),
+    ).scalar() or 0
+    farmforce_avg_return = db.query(
+        func.avg(FarmForceAssessment.return_per_family_day_cfa),
+    ).scalar()
+    farmforce_negative_profit = db.query(func.count(FarmForceAssessment.id)).filter(
+        FarmForceAssessment.profit_cfa < 0,
+    ).scalar() or 0
+
+    by_risk = {}
+    for level in RiskLevel:
+        count = db.query(func.count(Child.id)).filter(
+            Child.is_active == True,
+            Child.risk_level == level,
+        ).scalar() or 0
+        by_risk[level.value] = count
+
+    return {
+        "brand": "CacaoGuard",
+        "positioning": "Plateforme cacao: protection enfant, tracabilite et suivi terrain.",
+        "total_producers": total_producers,
+        "total_plantations": total_plantations,
+        "total_children": total_children,
+        "high_risk_children": high_risk_children,
+        "medium_risk_children": medium_risk_children,
+        "school_enrollment_rate": round(enrolled_children / total_children * 100, 1)
+        if total_children
+        else 0,
+        "children_working": working_children,
+        "active_alerts": active_alerts,
+        "traceability_blocks": traceability_blocks,
+        "scheduled_visits": scheduled_visits,
+        "active_remediation_plans": active_remediation_plans,
+        "ssrte_household_profiles": ssrte_households,
+        "ssrte_plantation_visits": ssrte_plantation_visits,
+        "ssrte_suspected_child_labor_visits": ssrte_suspicions,
+        "farmforce_assessments": farmforce_assessments,
+        "farmforce_total_profit_cfa": float(farmforce_profit or 0),
+        "farmforce_average_return_per_family_day_cfa": round(float(farmforce_avg_return), 2)
+        if farmforce_avg_return is not None
+        else None,
+        "farmforce_negative_profit_assessments": farmforce_negative_profit,
+        "by_risk_level": by_risk,
+    }

@@ -77,6 +77,15 @@ class ParsedPlantation:
 
 
 @dataclass
+class ParsedFormation:
+    code_producteur: str
+    thematique: str
+    value: Optional[str] = None
+    row_index: int = 0
+    column_index: int = 0
+
+
+@dataclass
 class ParseWarning:
     sheet: str
     row_index: int
@@ -87,6 +96,7 @@ class ParseWarning:
 class RegistryParseResult:
     producers: list = field(default_factory=list)
     plantations: list = field(default_factory=list)
+    formations: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     detected_campaign: Optional[str] = None
     errors: list = field(default_factory=list)
@@ -95,6 +105,7 @@ class RegistryParseResult:
         return {
             "producers": len(self.producers),
             "plantations": len(self.plantations),
+            "formations": len(self.formations),
             "deliveries": sum(len(p.deliveries) for p in self.plantations),
             "warnings": len(self.warnings),
             "errors": len(self.errors),
@@ -428,6 +439,58 @@ def _parse_plantations_sheet(ws, result: RegistryParseResult):
 
 
 # ===========================================================================
+# Parsing de la feuille Formations / Sensibilisations
+# ===========================================================================
+
+def _parse_formations_sheet(ws, result: RegistryParseResult):
+    """
+    Parse la matrice Formation/Sensibilisation.
+
+    Le registre YEYASSO 2025-2026 met les codes producteurs en colonne A et
+    les thematiques en ligne 5. Les cellules de participation peuvent etre
+    vides, cochees ou porter une valeur. Les lignes vides sont ignorees.
+    """
+    headers = {}
+    header_row = None
+    for idx, row in enumerate(ws.iter_rows(min_row=1, max_row=12, values_only=True), 1):
+        first = _norm(row[0] if row else None)
+        if "code" in first and "producteur" in first:
+            header_row = idx
+            for col_idx, value in enumerate(row, 1):
+                label = " ".join(str(value).split()) if value is not None else ""
+                if col_idx > 1 and label:
+                    headers[col_idx] = label
+            break
+
+    if not header_row:
+        result.warnings.append(ParseWarning(
+            "Formations", 0, "En-tete CODE PRODUCTEURS introuvable."
+        ))
+        return
+
+    row_idx = header_row
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+        row_idx += 1
+        code = row[0] if row else None
+        if not code:
+            continue
+        code_s = str(code).strip()
+        if not code_s or not any(c.isalnum() for c in code_s):
+            continue
+        for col_idx, theme in headers.items():
+            value = row[col_idx - 1] if col_idx - 1 < len(row) else None
+            if value in (None, "", 0, "0"):
+                continue
+            result.formations.append(ParsedFormation(
+                code_producteur=code_s,
+                thematique=theme,
+                value=str(value).strip(),
+                row_index=row_idx,
+                column_index=col_idx,
+            ))
+
+
+# ===========================================================================
 # Detection de la campagne
 # ===========================================================================
 
@@ -497,6 +560,7 @@ def parse_registry(file_path: str, filename: str = None) -> RegistryParseResult:
 
         sheet_prod = find_sheet(wb, SHEET_PRODUCERS_HINTS)
         sheet_plant = find_sheet(wb, SHEET_PLANTATIONS_HINTS)
+        sheet_form = find_sheet(wb, SHEET_FORMATIONS_HINTS)
 
         if sheet_prod:
             logger.info("Parsing feuille producteurs : %s", sheet_prod)
@@ -510,6 +574,14 @@ def parse_registry(file_path: str, filename: str = None) -> RegistryParseResult:
         else:
             result.warnings.append(ParseWarning(
                 "global", 0, "Aucune feuille 'plantations' detectee."
+            ))
+
+        if sheet_form:
+            logger.info("Parsing feuille formations : %s", sheet_form)
+            _parse_formations_sheet(wb[sheet_form], result)
+        else:
+            result.warnings.append(ParseWarning(
+                "global", 0, "Aucune feuille 'formations/sensibilisations' detectee."
             ))
 
     finally:

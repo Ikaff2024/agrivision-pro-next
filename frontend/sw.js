@@ -20,19 +20,28 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v3.5';
+const CACHE_VERSION = 'avp-v3.9-farmforce';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
 // Assets statiques à précacher à l'installation
 const STATIC_ASSETS = [
   '/',
+  '/cacaoguard.html',
+  '/children.html',
+  '/compliance.html',
+  '/farmforce.html',
   '/index.html',
+  '/monitoring.html',
   '/plantations.html',
+  '/remediation.html',
+  '/reports_cacaoguard.html',
+  '/risk_assessment.html',
   '/diagnostic.html',
   '/map.html',
   '/analytics.html',
   '/satellite.html',
+  '/training.html',
   '/agroforestry.html',
   '/plantation_detail.html',
   '/auth.js',
@@ -51,12 +60,24 @@ const NETWORK_FIRST_PATTERNS = [
 
 // Préfixes API Railway à mettre en cache pour le mode offline
 const API_ORIGIN = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const LOCAL_API_ORIGINS = new Set([
+  'http://127.0.0.1:8010',
+  'http://localhost:8010',
+]);
 const CACHEABLE_API_PATHS = [
   '/plantations',
   '/map/plantations',
   '/map/stats',
   '/diagnostics',
   '/agroforestry/summary',
+  '/children',
+  '/monitoring/visits',
+  '/producers',
+  '/cacaoguard/summary',
+  '/compliance/traceability',
+  '/compliance/report',
+  '/remediation/plans',
+  '/training/sessions',
 ];
 
 // ── Helper : mise en cache silencieuse (v3.0 fix #2) ──────────────────────
@@ -123,6 +144,11 @@ self.addEventListener('fetch', event => {
   // v3.0 fix #1 : ignorer les schemes non-HTTP (chrome-extension, data, blob, etc.)
   // Le SW ne peut rien faire d'utile avec ces requêtes et cache.put plante dessus.
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
+  if (LOCAL_API_ORIGINS.has(url.origin)) {
+    event.respondWith(fetch(request));
     return;
   }
 

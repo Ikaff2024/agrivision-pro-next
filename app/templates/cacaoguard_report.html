@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport CacaoGuard - Due diligence</title>
+<style>
+  :root {
+    --green: #166534;
+    --green-soft: #dcfce7;
+    --orange: #f97316;
+    --orange-soft: #ffedd5;
+    --red: #dc2626;
+    --ink: #111827;
+    --text: #374151;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --soft: #f9fafb;
+  }
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm 14mm;
+    @bottom-left {
+      content: "AgriVision Pro - Module CacaoGuard";
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 8pt;
+      color: #6b7280;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 8pt;
+      color: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  h1, h2, h3 { color: var(--ink); margin: 0; }
+  h1 { font-size: 28pt; line-height: 1.05; color: white; }
+  h2 {
+    font-size: 14pt;
+    margin-top: 16pt;
+    margin-bottom: 8pt;
+    padding-bottom: 4pt;
+    border-bottom: 2pt solid var(--green);
+    color: var(--green);
+  }
+  h3 { font-size: 10.5pt; margin-bottom: 4pt; color: var(--green); }
+  table { width: 100%; border-collapse: collapse; margin-top: 6pt; }
+  th {
+    background: var(--green);
+    color: white;
+    padding: 6pt;
+    text-align: left;
+    font-size: 8pt;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 5pt 6pt;
+    border-bottom: 0.5pt solid var(--line);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--soft); }
+  .cover {
+    background: linear-gradient(135deg, #166534 0%, #1f2937 100%);
+    color: white;
+    padding: 22mm 18mm;
+    min-height: 95mm;
+    margin: -14mm -14mm 12mm -14mm;
+  }
+  .brand { font-size: 13pt; font-weight: 700; margin-bottom: 22mm; }
+  .eyebrow {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 1.8pt;
+    opacity: 0.85;
+    margin-bottom: 4pt;
+  }
+  .subtitle { font-size: 11pt; opacity: 0.88; margin-top: 6pt; max-width: 145mm; }
+  .meta { margin-top: 16pt; font-size: 9pt; opacity: 0.8; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7pt; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 7pt; }
+  .kpi {
+    border: 1pt solid var(--line);
+    border-radius: 3mm;
+    padding: 8pt;
+    background: var(--soft);
+  }
+  .kpi strong { display: block; font-size: 18pt; line-height: 1; color: var(--ink); }
+  .kpi span {
+    display: block;
+    margin-top: 4pt;
+    color: var(--muted);
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+  }
+  .good { background: var(--green-soft); border-color: #86efac; }
+  .warn { background: var(--orange-soft); border-color: #fdba74; }
+  .danger { background: #fef2f2; border-color: #fecaca; }
+  .badge {
+    display: inline-block;
+    padding: 2pt 6pt;
+    border-radius: 10pt;
+    color: white;
+    background: var(--green);
+    font-size: 8pt;
+    font-weight: 700;
+  }
+  .badge.warn { background: var(--orange); }
+  .badge.danger { background: var(--red); }
+  .note {
+    border-left: 3pt solid var(--orange);
+    background: var(--orange-soft);
+    padding: 7pt 9pt;
+    margin: 8pt 0;
+  }
+  .small { color: var(--muted); font-size: 8pt; }
+  .page-break { page-break-before: always; }
+  .empty {
+    color: var(--muted);
+    border: 1pt dashed var(--line);
+    padding: 10pt;
+    background: var(--soft);
+  }
+</style>
+</head>
+<body>
+  {% set r = report %}
+  {% set i = r.indicators %}
+  {% set c = r.coverage %}
+  <section class="cover">
+    <div class="brand">AgriVision Pro / CacaoGuard</div>
+    <div class="eyebrow">Rapport officiel de conformite sociale</div>
+    <h1>Due diligence<br>travail des enfants</h1>
+    <div class="subtitle">
+      Synthese prevention, detection, remediation, preuves terrain et blocages
+      de tracabilite pour les exigences acheteurs, certifications et audit.
+    </div>
+    <div class="meta">Genere le {{ generated_at.strftime('%d/%m/%Y a %H:%M') }} UTC</div>
+  </section>
+
+  <h2>Resume executif</h2>
+  <div class="grid-4">
+    <div class="kpi"><strong>{{ c.producers }}</strong><span>Producteurs</span></div>
+    <div class="kpi"><strong>{{ c.children }}</strong><span>Enfants suivis</span></div>
+    <div class="kpi warn"><strong>{{ i.children_working }}</strong><span>Travail ferme</span></div>
+    <div class="kpi good"><strong>{{ i.school_enrollment_rate }}%</strong><span>Scolarisation</span></div>
+  </div>
+  <div class="grid-4" style="margin-top:7pt">
+    <div class="kpi"><strong>{{ i.monitoring_visits_completed }}</strong><span>Visites realisees</span></div>
+    <div class="kpi"><strong>{{ i.training_participants }}</strong><span>Participants formes</span></div>
+    <div class="kpi warn"><strong>{{ i.active_remediation_plans }}</strong><span>Plans actifs</span></div>
+    <div class="kpi danger"><strong>{{ i.active_traceability_blocks }}</strong><span>Blocages actifs</span></div>
+  </div>
+  <div class="grid-4" style="margin-top:7pt">
+    <div class="kpi"><strong>{{ i.ssrte_community_profiles or 0 }}</strong><span>Fiches A</span></div>
+    <div class="kpi"><strong>{{ i.ssrte_household_profiles or 0 }}</strong><span>F1 menage</span></div>
+    <div class="kpi"><strong>{{ i.ssrte_plantation_visits or 0 }}</strong><span>Fiches C</span></div>
+    <div class="kpi danger"><strong>{{ i.ssrte_suspected_child_labor_visits or 0 }}</strong><span>Suspicions SSRTE</span></div>
+  </div>
+  <div class="grid-4" style="margin-top:7pt">
+    <div class="kpi"><strong>{{ i.farmforce_assessments or 0 }}</strong><span>Comptes FarmForce</span></div>
+    <div class="kpi"><strong>{{ i.farmforce_total_profit_cfa or 0 }}</strong><span>Profit net CFA</span></div>
+    <div class="kpi warn"><strong>{{ i.farmforce_negative_profit_assessments or 0 }}</strong><span>Marges negatives</span></div>
+    <div class="kpi"><strong>{{ i.farmforce_average_return_per_family_day_cfa or '-' }}</strong><span>Retour / jour</span></div>
+  </div>
+
+  <div class="note">
+    Ce rapport ne publie pas les donnees sensibles des enfants au-dela des
+    elements strictement necessaires a l'audit. L'acces PDF est reserve aux
+    profils superviseurs autorises.
+  </div>
+
+  <h2>Distribution des risques</h2>
+  <table>
+    <thead><tr><th>Niveau</th><th>Nombre</th><th>Commentaire audit</th></tr></thead>
+    <tbody>
+      {% for level, count in i.risk_distribution.items() %}
+      <tr>
+        <td>{{ level }}</td>
+        <td>{{ count }}</td>
+        <td>{% if level in ['high', 'critical'] and count %}Suivi renforce requis{% else %}Suivi standard{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Preuves disponibles</h2>
+  <div class="grid-3">
+    <div class="kpi"><strong>{{ i.monitoring_visits_total }}</strong><span>Visites planifiees</span></div>
+    <div class="kpi good"><strong>{{ i.monitoring_visits_with_photos }}</strong><span>Visites avec photos</span></div>
+    <div class="kpi good"><strong>{{ i.monitoring_visits_with_consent }}</strong><span>Consentements</span></div>
+  </div>
+  <table>
+    <thead><tr><th>Registre</th><th>Lien API interne</th></tr></thead>
+    <tbody>
+      {% for name, link in r.audit_evidence.items() %}
+      <tr><td>{{ name }}</td><td>{{ link }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+  <h2>Cas critiques</h2>
+  {% if r.critical_cases %}
+  <table>
+    <thead><tr><th>Enfant</th><th>Producteur</th><th>Risque</th><th>Statut scolaire</th><th>Taches dangereuses</th></tr></thead>
+    <tbody>
+      {% for child in r.critical_cases %}
+      <tr>
+        <td>{{ child.child_name }}</td>
+        <td>{{ child.producer_name }}</td>
+        <td><span class="badge danger">{{ child.risk_score }}/100</span></td>
+        <td>{{ child.school_status }}</td>
+        <td>{{ child.dangerous_tasks | join(', ') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucun cas critique actif.</div>
+  {% endif %}
+
+  <h2>Plans de remediation actifs</h2>
+  {% if r.active_remediation_plans %}
+  <table>
+    <thead><tr><th>Reference</th><th>Enfant</th><th>Producteur</th><th>Priorite</th><th>Objectif</th></tr></thead>
+    <tbody>
+      {% for plan in r.active_remediation_plans %}
+      <tr>
+        <td>{{ plan.plan_reference }}</td>
+        <td>{{ plan.child_name }}</td>
+        <td>{{ plan.producer_name }}</td>
+        <td>{{ plan.priority }}</td>
+        <td>{{ plan.main_objective }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucun plan actif.</div>
+  {% endif %}
+
+  <h2>Monitoring terrain recent</h2>
+  {% if r.recent_visits %}
+  <table>
+    <thead><tr><th>Date</th><th>Producteur</th><th>Statut</th><th>Lieu</th><th>Preuves</th></tr></thead>
+    <tbody>
+      {% for visit in r.recent_visits %}
+      <tr>
+        <td>{{ visit.scheduled_date }}</td>
+        <td>{{ visit.producer_name }}</td>
+        <td>{{ visit.status }}</td>
+        <td>{{ visit.visit_location or 'Non renseigne' }}</td>
+        <td>{{ visit.photos | length }} photo(s), consentement {{ 'oui' if visit.consent_given else 'non' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucune visite recente.</div>
+  {% endif %}
+
+  <h2>Fiches SSRTE terrain</h2>
+  <h3>F1 profilage menage</h3>
+  {% if r.recent_ssrte_households %}
+  <table>
+    <thead><tr><th>Date</th><th>Producteur</th><th>Risque</th><th>Vulnerabilites</th><th>Contraintes scolaires</th></tr></thead>
+    <tbody>
+      {% for row in r.recent_ssrte_households %}
+      <tr>
+        <td>{{ row.interview_date }}</td>
+        <td>{{ row.producer_name }}</td>
+        <td><span class="badge {% if row.risk_level in ['high', 'critical'] %}danger{% elif row.risk_level == 'medium' %}warn{% endif %}">{{ row.risk_score }}/100</span></td>
+        <td>{{ row.vulnerabilities | join(', ') }}</td>
+        <td>{{ row.school_constraints | join(', ') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucun profilage menage SSRTE.</div>
+  {% endif %}
+
+  <h3>Fiche C visites plantation</h3>
+  {% if r.recent_ssrte_plantation_visits %}
+  <table>
+    <thead><tr><th>Date</th><th>Plantation</th><th>Producteur</th><th>Suspicion</th><th>Preuves</th></tr></thead>
+    <tbody>
+      {% for row in r.recent_ssrte_plantation_visits %}
+      <tr>
+        <td>{{ row.visit_date }}</td>
+        <td>{{ row.plantation_name }}</td>
+        <td>{{ row.producer_name }}</td>
+        <td>{% if row.suspected_child_labor %}<span class="badge danger">oui</span>{% else %}non{% endif %}</td>
+        <td>{{ row.dangerous_tasks_observed | length }} tache(s), {{ row.photos | length }} photo(s), consentement {{ 'oui' if row.consent_given else 'non' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucune visite plantation SSRTE.</div>
+  {% endif %}
+
+  <h2>FarmForce economie menage</h2>
+  {% if r.recent_farmforce_assessments %}
+  <table>
+    <thead><tr><th>Producteur</th><th>Campagne</th><th>Revenus</th><th>Couts</th><th>Profit</th><th>Retour/jour</th></tr></thead>
+    <tbody>
+      {% for row in r.recent_farmforce_assessments %}
+      <tr>
+        <td>{{ row.producer_name }}</td>
+        <td>{{ row.campaign_label }}</td>
+        <td>{{ row.total_revenue_cfa }}</td>
+        <td>{{ row.total_cost_cfa }}</td>
+        <td><span class="badge {% if row.profit_cfa < 0 %}danger{% endif %}">{{ row.profit_cfa }}</span></td>
+        <td>{{ row.return_per_family_day_cfa or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucun compte FarmForce.</div>
+  {% endif %}
+
+  <h2>Formation et sensibilisation</h2>
+  {% if r.recent_training_sessions %}
+  <table>
+    <thead><tr><th>Date</th><th>Session</th><th>Lieu</th><th>Participants</th><th>Evaluation</th></tr></thead>
+    <tbody>
+      {% for training in r.recent_training_sessions %}
+      <tr>
+        <td>{{ training.scheduled_date }}</td>
+        <td>{{ training.title }}</td>
+        <td>{{ training.location }}</td>
+        <td>{{ training.actual_participants }}/{{ training.expected_participants }}</td>
+        <td>{{ training.effectiveness_rating }}/5</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucune session de formation.</div>
+  {% endif %}
+
+  <h2>Tracabilite</h2>
+  {% if r.traceability_blocks %}
+  <table>
+    <thead><tr><th>Producteur</th><th>Motif</th><th>Statut</th><th>Description</th></tr></thead>
+    <tbody>
+      {% for block in r.traceability_blocks %}
+      <tr>
+        <td>{{ block.producer_name }}</td>
+        <td>{{ block.block_reason }}</td>
+        <td><span class="badge danger">{{ block.status }}</span></td>
+        <td>{{ block.block_description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Aucun blocage tracabilite actif.</div>
+  {% endif %}
+</body>
+</html>

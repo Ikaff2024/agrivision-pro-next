@@ -8,6 +8,7 @@ load_dotenv()
 
 from app.db.database import Base
 import app.db.models  # noqa: F401
+import app.db.models_social  # noqa: F401
 
 config = context.config
 

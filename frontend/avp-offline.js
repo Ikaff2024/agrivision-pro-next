@@ -194,7 +194,7 @@
    * @param {string} label    Description humaine pour l'UI ("Diagnostic Plantation Soubre")
    * @returns {Promise<string>} local_id genere pour cet element
    */
-  async function enqueueWrite(method, endpoint, body, label) {
+  async function enqueueWrite(method, endpoint, body, label, meta) {
     const local_id = generateUUID();
     const entry = {
       local_id: local_id,
@@ -202,6 +202,7 @@
       endpoint: endpoint,
       body: body,
       label: label || endpoint,
+      meta: meta || {},
       status: 'pending',                    // pending | syncing | error
       error_message: null,
       created_at: Date.now(),
@@ -221,9 +222,44 @@
     return local_id;
   }
 
+  async function offlineFetch(endpoint, options = {}, label, meta) {
+    const method = (options.method || 'GET').toUpperCase();
+    if (method === 'GET') {
+      return swrFetch(endpoint, options).fresh;
+    }
+
+    let body = options.body || null;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) {}
+    }
+
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      const fetcher = typeof window.authFetch === 'function' ? window.authFetch : fetch;
+      const res = await fetcher(endpoint, options);
+      if (res && !res.ok && res.status < 500) {
+        return { queued: false, response: res };
+      }
+      if (!res || !res.ok) {
+        throw new Error(`HTTP ${res ? res.status : 'no response'}`);
+      }
+      return { queued: false, response: res };
+    } catch (err) {
+      const local_id = await enqueueWrite(method, endpoint, body, label, meta);
+      return { queued: true, local_id, error: err.message || String(err) };
+    }
+  }
+
   async function getQueue() {
     const store = await tx(STORES.QUEUE_WRITES, 'readonly');
     return reqAsPromise(store.getAll());
+  }
+
+  async function getQueueByEndpoint(prefix) {
+    const queue = await getQueue();
+    return queue
+      .filter((entry) => !prefix || String(entry.endpoint || '').startsWith(prefix))
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }
 
   async function getQueueStats() {
@@ -266,7 +302,7 @@
     syncInProgress = true;
     try {
       const queue = await getQueue();
-      const pending = queue.filter((e) => e.status === 'pending');
+      const pending = queue.filter((e) => e.status === 'pending' || e.status === 'error');
 
       if (pending.length === 0) {
         return { synced: 0, errors: 0, skipped: false };
@@ -279,11 +315,10 @@
         await updateQueueEntry(entry.local_id, { status: 'syncing' });
 
         try {
-          if (typeof window.authFetch !== 'function') {
-            throw new Error('authFetch not available');
-          }
-          const res = await window.authFetch(entry.endpoint, {
+          const fetcher = typeof window.authFetch === 'function' ? window.authFetch : fetch;
+          const res = await fetcher(entry.endpoint, {
             method: entry.method,
+            headers: { 'Content-Type': 'application/json' },
             body: entry.body ? JSON.stringify(entry.body) : undefined,
           });
           if (!res || !res.ok) {
@@ -422,6 +457,7 @@
           window.toast(`${result.synced} saisie(s) envoyee(s) au serveur.`, 'success');
         }
       }
+      window.dispatchEvent(new CustomEvent('avp-queue-changed'));
     });
   });
 
@@ -437,8 +473,10 @@
     // Ecritures
     enqueueWrite: enqueueWrite,
     getQueue: getQueue,
+    getQueueByEndpoint: getQueueByEndpoint,
     getQueueStats: getQueueStats,
     syncQueue: syncQueue,
+    offlineFetch: offlineFetch,
 
     // Photos
     compressImage: compressImage,

@@ -56,6 +56,7 @@ class ImportReport:
     plantations_updated: int = 0
     certifications_linked: int = 0
     deliveries_created: int = 0
+    formation_participations_created: int = 0
     rows_skipped: int = 0
     warnings: list = field(default_factory=list)
     errors: list = field(default_factory=list)
@@ -70,6 +71,7 @@ class ImportReport:
             "plantations_updated": self.plantations_updated,
             "certifications_linked": self.certifications_linked,
             "deliveries_created": self.deliveries_created,
+            "formation_participations_created": self.formation_participations_created,
             "rows_skipped": self.rows_skipped,
             "warnings": self.warnings[:50],   # limite la taille de la reponse
             "warnings_total": len(self.warnings),
@@ -116,7 +118,7 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
     import time
     from app.db.models import (
         Producer, Plantation, Campagne, Certification,
-        PlantationCertification,
+        PlantationCertification, FormationSession, FormationParticipant,
     )
 
     t0 = time.time()
@@ -316,6 +318,53 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
                         certification_id=cert.id,
                     ))
                     report.certifications_linked += 1
+
+    # --- Vague 4 : Formations / sensibilisations ---------------------------
+    if getattr(parse_result, "formations", None):
+        session_by_theme = {}
+        existing_participations = {
+            (fp.formation_session_id, fp.producer_id)
+            for fp in db.query(FormationParticipant)
+            .join(FormationSession)
+            .filter(FormationSession.cooperative_id == cooperative_id)
+            .all()
+        }
+        for pf in parse_result.formations:
+            producer = producer_by_code.get(pf.code_producteur)
+            if not producer:
+                report.warnings.append(
+                    f"Formation ligne {pf.row_index}: producteur {pf.code_producteur} introuvable"
+                )
+                continue
+            theme_key = " ".join(str(pf.thematique).split())
+            session = session_by_theme.get(theme_key)
+            if not session:
+                session = db.query(FormationSession).filter(
+                    FormationSession.cooperative_id == cooperative_id,
+                    FormationSession.thematique == theme_key,
+                    FormationSession.document_url == fichier_source,
+                ).first()
+                if not session:
+                    session = FormationSession(
+                        cooperative_id=cooperative_id,
+                        thematique=theme_key,
+                        lieu="Registre import",
+                        formateur_nom="Registre YEYASSO",
+                        document_url=fichier_source,
+                    )
+                    db.add(session)
+                    db.flush()
+                session_by_theme[theme_key] = session
+            key = (session.id, producer.id)
+            if key in existing_participations:
+                continue
+            db.add(FormationParticipant(
+                formation_session_id=session.id,
+                producer_id=producer.id,
+                signature_present=True,
+            ))
+            existing_participations.add(key)
+            report.formation_participations_created += 1
 
     db.commit()
     report.duration_seconds = time.time() - t0

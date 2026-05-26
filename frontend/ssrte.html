@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Fiches SSRTE</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=ssrte1"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .ssrte-grid{display:grid;grid-template-columns:390px 1fr;gap:18px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:24px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .tab{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:9px 11px;font-weight:800;font-size:13px;cursor:pointer}
+    .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .form-block{display:none}
+    .form-block.active{display:block}
+    .check-list{display:grid;gap:8px}
+    .check-row{display:flex;align-items:center;gap:8px;border:1px solid var(--border-l);border-radius:8px;background:var(--surface-warm);padding:9px;font-size:13px}
+    .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .history{display:grid;gap:10px}
+    .item{border:1px solid var(--border-l);border-radius:8px;background:#fff;padding:12px}
+    .item-title{font-weight:800;font-size:14px}
+    .item-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+    .sync-note{display:none;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:8px;padding:10px 12px;font-size:12.5px;font-weight:700;margin-bottom:14px;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .sync-note.active{display:block}
+    .sync-note.active{display:flex}
+    .sync-btn{border:1px solid #fdba74;background:#fff;color:#9a3412;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}
+    @media(max-width:1080px){.ssrte-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){.mini-row,.kpis{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Fiches SSRTE</div>
+        <div class="page-sub">Fiche A localite, F1 menage et Fiche C visite plantation</div>
+      </div>
+      <button class="btn btn-outline" onclick="location.href='cacaoguard.html'">
+        <span class="material-symbols-outlined" style="font-size:18px">verified_user</span>
+        CacaoGuard
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpis">
+        <div class="kpi"><strong id="k-community">0</strong><span>Localites</span></div>
+        <div class="kpi"><strong id="k-households">0</strong><span>Menages</span></div>
+        <div class="kpi"><strong id="k-visits">0</strong><span>Visites</span></div>
+        <div class="kpi"><strong id="k-suspected">0</strong><span>Suspicions</span></div>
+        <div class="kpi"><strong id="k-risk">0</strong><span>Menages risque</span></div>
+        <div class="kpi"><strong id="k-queue">0</strong><span>A synchroniser</span></div>
+      </div>
+      <div class="sync-note" id="sync-note">Des fiches SSRTE sont conservees hors ligne et seront envoyees automatiquement.</div>
+
+      <div class="ssrte-grid">
+        <div class="panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="community" onclick="setTab('community')">Fiche A</button>
+            <button class="tab" data-tab="household" onclick="setTab('household')">F1 Menage</button>
+            <button class="tab" data-tab="visit" onclick="setTab('visit')">Fiche C</button>
+          </div>
+
+          <div class="form-block active" id="block-community">
+            <div class="section-title">Profil localite</div>
+            <div class="form-group"><label class="form-label">Localite</label><input class="form-input" id="community-locality"></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Section</label><input class="form-input" id="community-section"></div>
+              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="community-date"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Repondant</label><input class="form-input" id="respondent-name"></div>
+              <div class="form-group"><label class="form-label">Role</label><input class="form-input" id="respondent-role"></div>
+            </div>
+            <div class="mini-row">
+              <label class="check-row"><input type="checkbox" id="school-available"> Ecole disponible</label>
+              <label class="check-row"><input type="checkbox" id="committee"> Comite protection enfant</label>
+            </div>
+            <div class="form-group"><label class="form-label">Distance ecole la plus proche (km)</label><input class="form-input" type="number" min="0" step="0.1" id="school-distance"></div>
+            <div class="form-group"><label class="form-label">Risques identifies</label><input class="form-input" id="community-risks" placeholder="Descolarisation, migration, travaux dangereux..."></div>
+            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
+            <button class="btn btn-primary" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
+          </div>
+
+          <div class="form-block" id="block-household">
+            <div class="section-title">Profilage menage</div>
+            <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="producer"></select></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="household-date"></div>
+              <div class="form-group"><label class="form-label">Agent</label><input class="form-input" id="household-agent"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Taille menage</label><input class="form-input" type="number" min="0" id="household-size"></div>
+              <div class="form-group"><label class="form-label">Nombre enfants</label><input class="form-input" type="number" min="0" id="children-count"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Enfants age scolaire</label><input class="form-input" type="number" min="0" id="school-age-count"></div>
+              <div class="form-group"><label class="form-label">Enfants scolarises</label><input class="form-input" type="number" min="0" id="enrolled-count"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Vulnerabilites</label><input class="form-input" id="vulnerabilities" placeholder="Veuvage, maladie, revenu faible..."></div>
+            <div class="form-group"><label class="form-label">Declarations travail enfant</label><input class="form-input" id="work-declarations" placeholder="Nom:tache, Nom:tache dangereuse"></div>
+            <div class="form-group"><label class="form-label">Contraintes scolaires</label><input class="form-input" id="school-constraints" placeholder="Distance, frais, absence d'acte..."></div>
+            <label class="check-row"><input type="checkbox" id="household-consent"> Consentement obtenu</label>
+            <div class="form-group"><label class="form-label">Signature parent/producteur</label><input class="form-input" id="household-signature"></div>
+            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="household-notes" rows="3"></textarea></div>
+            <button class="btn btn-primary" onclick="saveHousehold()" style="width:100%;justify-content:center">Enregistrer F1</button>
+          </div>
+
+          <div class="form-block" id="block-visit">
+            <div class="section-title">Visite plantation</div>
+            <div class="form-group"><label class="form-label">Plantation</label><select class="form-input" id="plantation"></select></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="visit-date"></div>
+              <div class="form-group"><label class="form-label">Agent</label><input class="form-input" id="visit-agent"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">GPS / lieu</label>
+              <div style="display:flex;gap:8px">
+                <input class="form-input" id="visit-gps">
+                <button class="btn btn-outline btn-icon" onclick="grabGPS()" type="button" title="Capturer GPS"><span class="material-symbols-outlined" style="font-size:18px">my_location</span></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Checklist</label>
+              <div class="check-list">
+                <label class="check-row"><input type="checkbox" class="visit-check" value="children_observed"> Enfants observes</label>
+                <label class="check-row"><input type="checkbox" class="visit-check" value="parent_interview"> Entretien parent</label>
+                <label class="check-row"><input type="checkbox" class="visit-check" value="tasks_checked"> Taches verifiees</label>
+                <label class="check-row"><input type="checkbox" class="visit-check" value="school_discussed"> Scolarisation discutee</label>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Enfants observes</label><input class="form-input" id="children-observed" placeholder="Nom-age-observation; Nom-age-observation"></div>
+            <div class="form-group"><label class="form-label">Taches dangereuses observees</label><input class="form-input" id="dangerous-tasks" placeholder="Machette, pesticides, charges lourdes..."></div>
+            <label class="check-row"><input type="checkbox" id="suspected"> Suspicion travail enfant</label>
+            <div class="form-group"><label class="form-label">Actions immediates</label><textarea class="form-input" id="immediate-actions" rows="2"></textarea></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Reference photo</label><input class="form-input" id="photo-ref"></div>
+              <label class="check-row"><input type="checkbox" id="visit-consent"> Consentement preuves</label>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Signature producteur</label><input class="form-input" id="producer-signature"></div>
+              <div class="form-group"><label class="form-label">Signature agent</label><input class="form-input" id="assessor-signature"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="visit-notes" rows="3"></textarea></div>
+            <button class="btn btn-primary" onclick="saveVisit()" style="width:100%;justify-content:center">Enregistrer Fiche C</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="flex items-center justify-between mb-4">
+            <div class="section-title" style="margin:0">Saisies recentes</div>
+            <button class="btn btn-sm btn-outline" onclick="loadAll()">Actualiser</button>
+          </div>
+          <div class="history" id="history"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('ssrte');
+
+const API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
+let gpsAccuracy = null;
+const params = new URLSearchParams(location.search);
+
+function apiFetch(path, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(API + path, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {}),
+      ...(token ? { 'Authorization':'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+function today(){ return new Date().toISOString().slice(0, 10); }
+function num(id){ const v = document.getElementById(id).value; return v === '' ? null : Number(v); }
+function val(id){ return document.getElementById(id).value.trim(); }
+function csv(id){ return val(id).split(',').map(x => x.trim()).filter(Boolean); }
+
+async function postSsrte(path, body, label) {
+  const options = { method:'POST', body:JSON.stringify(body) };
+  if (window.AVPOffline && typeof window.AVPOffline.offlineFetch === 'function') {
+    const result = await window.AVPOffline.offlineFetch(path, options, label, { module:'ssrte' });
+    await updateOfflineQueueStatus();
+    return result;
+  }
+  return { queued:false, response: await apiFetch(path, options) };
+}
+
+async function updateOfflineQueueStatus() {
+  if (!window.AVPOffline || typeof window.AVPOffline.getQueueByEndpoint !== 'function') return;
+  try {
+    const queue = await window.AVPOffline.getQueueByEndpoint('/ssrte');
+    const pending = queue.filter(item => item.status === 'pending' || item.status === 'error');
+    const count = pending.length;
+    const kpi = document.getElementById('k-queue');
+    const note = document.getElementById('sync-note');
+    if (kpi) kpi.textContent = count;
+    if (note) {
+      note.classList.toggle('active', count > 0);
+      note.innerHTML = count > 0
+        ? `<span>${count} fiche(s) SSRTE conservee(s) hors ligne. Synchronisation automatique au retour du reseau.</span><button class="sync-btn" onclick="syncSsrteQueue()">Synchroniser maintenant</button>`
+        : '';
+    }
+  } catch (e) {}
+}
+
+async function syncSsrteQueue() {
+  if (!window.AVPOffline || typeof window.AVPOffline.syncQueue !== 'function') return;
+  const result = await window.AVPOffline.syncQueue();
+  await updateOfflineQueueStatus();
+  if (result && result.synced) {
+    await loadAll();
+    alert(`${result.synced} fiche(s) synchronisee(s).`);
+  } else if (result && result.errors) {
+    alert('Certaines fiches restent en attente. Verifiez la connexion ou les champs requis.');
+  } else {
+    alert('Aucune fiche SSRTE en attente.');
+  }
+}
+
+function setTab(name) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.form-block').forEach(b => b.classList.remove('active'));
+  document.getElementById('block-' + name).classList.add('active');
+}
+
+async function loadRefs() {
+  const producersRes = await apiFetch('/producers?limit=5000');
+  const producers = producersRes.ok ? await producersRes.json() : [];
+  document.getElementById('producer').innerHTML = producers.map(p => `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`).join('');
+
+  const plantationsRes = await apiFetch('/plantations?limit=5000');
+  const plantations = plantationsRes.ok ? await plantationsRes.json() : [];
+  document.getElementById('plantation').innerHTML = plantations.map(p => `<option value="${p.id}">${p.name}${p.owner_name ? ' - ' + p.owner_name : ''}</option>`).join('');
+  applyDeepLink();
+}
+
+function applyDeepLink() {
+  const tab = params.get('tab');
+  const producerId = params.get('producer_id');
+  const plantationId = params.get('plantation_id');
+  if (tab && ['community', 'household', 'visit'].includes(tab)) setTab(tab);
+  if (producerId && document.querySelector(`#producer option[value="${CSS.escape(producerId)}"]`)) {
+    document.getElementById('producer').value = producerId;
+    setTab('household');
+  }
+  if (plantationId && document.querySelector(`#plantation option[value="${CSS.escape(plantationId)}"]`)) {
+    document.getElementById('plantation').value = plantationId;
+    setTab('visit');
+  }
+}
+
+async function loadSummary() {
+  const res = await apiFetch('/ssrte/summary');
+  const s = res.ok ? await res.json() : {};
+  document.getElementById('k-community').textContent = s.community_profiles || 0;
+  document.getElementById('k-households').textContent = s.household_profiles || 0;
+  document.getElementById('k-visits').textContent = s.plantation_visits || 0;
+  document.getElementById('k-suspected').textContent = s.suspected_child_labor_visits || 0;
+  document.getElementById('k-risk').textContent = s.high_risk_households || 0;
+}
+
+async function loadHistory() {
+  const [communitiesRes, householdsRes, visitsRes] = await Promise.all([
+    apiFetch('/ssrte/communities?limit=5'),
+    apiFetch('/ssrte/households?limit=5'),
+    apiFetch('/ssrte/plantation-visits?limit=8')
+  ]);
+  const communities = communitiesRes.ok ? await communitiesRes.json() : [];
+  const households = householdsRes.ok ? await householdsRes.json() : [];
+  const visits = visitsRes.ok ? await visitsRes.json() : [];
+  const rows = [
+    ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)` })),
+    ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})` })),
+    ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}` }))
+  ];
+  document.getElementById('history').innerHTML = rows.length ? rows.map(r => `
+    <div class="item">
+      <div class="item-title">${r.kind} - ${r.title || 'Sans nom'}</div>
+      <div class="item-meta">${r.meta}</div>
+    </div>`).join('') : '<div class="empty-state" style="padding:32px">Aucune fiche SSRTE enregistree.</div>';
+}
+
+async function loadAll(){ await Promise.all([loadSummary(), loadHistory()]); }
+
+async function saveCommunity() {
+  const body = {
+    locality: val('community-locality'),
+    section: val('community-section') || null,
+    interview_date: val('community-date') || today(),
+    respondent_name: val('respondent-name') || null,
+    respondent_role: val('respondent-role') || null,
+    school_available: document.getElementById('school-available').checked,
+    nearest_school_distance_km: num('school-distance'),
+    has_child_protection_committee: document.getElementById('committee').checked,
+    risks_identified: csv('community-risks'),
+    services_available: {},
+    notes: val('community-notes') || null
+  };
+  if (!body.locality) return alert('Localite obligatoire.');
+  const result = await postSsrte('/ssrte/communities', body, `SSRTE Fiche A - ${body.locality}`);
+  if (result.queued) return alert('Fiche A conservee hors ligne. Elle sera synchronisee automatiquement.');
+  const res = result.response;
+  if (!res.ok) return alert('Enregistrement Fiche A impossible.');
+  await loadAll();
+  alert('Fiche A enregistree.');
+}
+
+function workRows() {
+  return val('work-declarations').split(';').map(raw => raw.trim()).filter(Boolean).map(raw => {
+    const parts = raw.split(':');
+    const task = (parts[1] || raw).trim();
+    return { child: (parts[0] || '').trim(), task, dangerous: /dangereuse|machette|pesticide|charge/i.test(task) };
+  });
+}
+
+async function saveHousehold() {
+  const body = {
+    producer_id: Number(document.getElementById('producer').value),
+    interview_date: val('household-date') || today(),
+    interviewer_name: val('household-agent') || null,
+    household_size: num('household-size'),
+    children_count: num('children-count'),
+    school_age_children_count: num('school-age-count'),
+    enrolled_children_count: num('enrolled-count'),
+    household_members: [],
+    vulnerabilities: csv('vulnerabilities'),
+    child_work_declarations: workRows(),
+    school_constraints: csv('school-constraints'),
+    consent_given: document.getElementById('household-consent').checked,
+    signature_data: val('household-signature') ? { signed_by: val('household-signature'), signed_at: new Date().toISOString() } : null,
+    notes: val('household-notes') || null
+  };
+  if (!body.producer_id) return alert('Producteur obligatoire.');
+  const producerLabel = document.getElementById('producer').selectedOptions[0]?.textContent || 'producteur';
+  const result = await postSsrte('/ssrte/households', body, `SSRTE F1 - ${producerLabel}`);
+  if (result.queued) return alert('F1 conservee hors ligne. Elle sera synchronisee automatiquement.');
+  const res = result.response;
+  if (!res.ok) return alert('Enregistrement F1 impossible.');
+  const saved = await res.json();
+  await loadAll();
+  alert(`F1 enregistree. Risque: ${saved.risk_level} (${saved.risk_score}).`);
+}
+
+function visitChecklist() {
+  const data = {};
+  document.querySelectorAll('.visit-check').forEach(el => data[el.value] = el.checked);
+  return data;
+}
+
+function observedChildren() {
+  return val('children-observed').split(';').map(raw => raw.trim()).filter(Boolean).map(raw => {
+    const parts = raw.split('-');
+    return { name: parts[0] || '', age: parts[1] || '', observation: parts.slice(2).join('-') || '' };
+  });
+}
+
+async function saveVisit() {
+  const photo = val('photo-ref');
+  const body = {
+    plantation_id: Number(document.getElementById('plantation').value),
+    visit_date: val('visit-date') || today(),
+    interviewer_name: val('visit-agent') || null,
+    gps_location: val('visit-gps') || null,
+    gps_accuracy: gpsAccuracy,
+    checklist_data: visitChecklist(),
+    children_observed: observedChildren(),
+    dangerous_tasks_observed: csv('dangerous-tasks'),
+    suspected_child_labor: document.getElementById('suspected').checked,
+    immediate_actions_taken: val('immediate-actions') || null,
+    photos: photo ? [{ reference: photo, captured_at: new Date().toISOString() }] : [],
+    consent_given: document.getElementById('visit-consent').checked,
+    producer_signature_data: val('producer-signature') ? { signed_by: val('producer-signature'), signed_at: new Date().toISOString() } : null,
+    assessor_signature_data: val('assessor-signature') ? { signed_by: val('assessor-signature'), signed_at: new Date().toISOString() } : null,
+    notes: val('visit-notes') || null
+  };
+  if (!body.plantation_id) return alert('Plantation obligatoire.');
+  const plantationLabel = document.getElementById('plantation').selectedOptions[0]?.textContent || 'plantation';
+  const result = await postSsrte('/ssrte/plantation-visits', body, `SSRTE Fiche C - ${plantationLabel}`);
+  if (result.queued) return alert('Fiche C conservee hors ligne. Elle sera synchronisee automatiquement.');
+  const res = result.response;
+  if (!res.ok) return alert('Enregistrement Fiche C impossible.');
+  await loadAll();
+  alert('Fiche C enregistree.');
+}
+
+function grabGPS() {
+  if (!navigator.geolocation) return alert('GPS indisponible sur cet appareil.');
+  navigator.geolocation.getCurrentPosition(pos => {
+    gpsAccuracy = pos.coords.accuracy;
+    document.getElementById('visit-gps').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+  }, () => alert('Capture GPS impossible.'));
+}
+
+['community-date','household-date','visit-date'].forEach(id => document.getElementById(id).value = today());
+window.addEventListener('avp-queue-changed', updateOfflineQueueStatus);
+loadRefs().then(loadAll);
+updateOfflineQueueStatus();
+</script>
+</body>
+</html>

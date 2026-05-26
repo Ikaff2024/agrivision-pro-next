@@ -296,8 +296,108 @@ def generate_plantation_pdf(context: dict) -> bytes:
     return pdf_bytes
 
 
+def generate_cacaoguard_pdf(context: dict) -> bytes:
+    """
+    Genere le PDF officiel CacaoGuard.
+
+    Le contexte est le rapport de due diligence deja agrege par l'API
+    compliance. WeasyPrint reste importe au moment de l'appel pour garder
+    les tests et environnements Windows legers.
+    """
+    template = _jinja_env.get_template("cacaoguard_report.html")
+    html_content = template.render(**context)
+    try:
+        from weasyprint import HTML  # import differe
+        return HTML(string=html_content).write_pdf()
+    except (ImportError, OSError):
+        return _generate_cacaoguard_fallback_pdf(context)
+
+
+def _pdf_escape(text: object) -> str:
+    value = str(text if text is not None else "")
+    value = value.encode("latin-1", "replace").decode("latin-1")
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _generate_cacaoguard_fallback_pdf(context: dict) -> bytes:
+    """
+    PDF minimal sans dependance native.
+
+    Utile sur Windows local quand WeasyPrint est installe mais que Cairo/Pango
+    ne le sont pas. Le rendu premium reste fourni par WeasyPrint quand il est
+    disponible.
+    """
+    report = context.get("report", {})
+    coverage = report.get("coverage", {})
+    indicators = report.get("indicators", {})
+    lines = [
+        "AgriVision Pro / CacaoGuard",
+        "Rapport officiel de due diligence travail des enfants",
+        f"Type: {report.get('report_type', 'CacaoGuard due diligence')}",
+        f"Producteurs: {coverage.get('producers', 0)}",
+        f"Plantations: {coverage.get('plantations', 0)}",
+        f"Enfants suivis: {coverage.get('children', 0)}",
+        f"Enfants en travail ferme: {indicators.get('children_working', 0)}",
+        f"Scolarisation: {indicators.get('school_enrollment_rate', 0)}%",
+        f"Visites completees: {indicators.get('monitoring_visits_completed', 0)}",
+        f"Visites avec photos: {indicators.get('monitoring_visits_with_photos', 0)}",
+        f"Consentements: {indicators.get('monitoring_visits_with_consent', 0)}",
+        f"Sessions formation: {indicators.get('training_sessions_completed', 0)}",
+        f"Participants formes: {indicators.get('training_participants', 0)}",
+        f"Fiches A SSRTE: {indicators.get('ssrte_community_profiles', 0)}",
+        f"F1 menage SSRTE: {indicators.get('ssrte_household_profiles', 0)}",
+        f"Fiches C SSRTE: {indicators.get('ssrte_plantation_visits', 0)}",
+        f"Suspicions SSRTE: {indicators.get('ssrte_suspected_child_labor_visits', 0)}",
+        f"Comptes FarmForce: {indicators.get('farmforce_assessments', 0)}",
+        f"Profit net FarmForce: {indicators.get('farmforce_total_profit_cfa', 0)} CFA",
+        f"Marges negatives FarmForce: {indicators.get('farmforce_negative_profit_assessments', 0)}",
+        f"Plans actifs: {indicators.get('active_remediation_plans', 0)}",
+        f"Blocages tracabilite: {indicators.get('active_traceability_blocks', 0)}",
+        "",
+        "Ce PDF minimal est genere sans WeasyPrint. Installer Cairo/Pango",
+        "active la version graphique complete du rapport.",
+    ]
+    stream_lines = ["BT", "/F1 12 Tf", "50 790 Td", "14 TL"]
+    for index, line in enumerate(lines):
+        prefix = "" if index == 0 else "T* "
+        stream_lines.append(f"{prefix}({_pdf_escape(line)}) Tj")
+    stream_lines.append("ET")
+    stream = "\n".join(stream_lines).encode("latin-1", "replace")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream",
+    ]
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{number} 0 obj\n".encode("ascii"))
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref_offset}\n%%EOF".encode("ascii")
+    )
+    return bytes(pdf)
+
+
 def report_filename(plantation: Plantation) -> str:
     """Nom de fichier propre : Rapport_Plantation_<slug>_<YYYY-MM-DD>.pdf"""
     slug = slugify(plantation.name)
     today = datetime.now().strftime("%Y-%m-%d")
     return f"Rapport_Plantation_{slug}_{today}.pdf"
+
+
+def cacaoguard_report_filename() -> str:
+    """Nom de fichier propre pour le rapport due diligence CacaoGuard."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    return f"Rapport_CacaoGuard_Due_Diligence_{today}.pdf"

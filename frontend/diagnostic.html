@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#1a4231">
 <title>AgriVision Pro — Diagnostic</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
 <style>
 .diag-layout{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
 @media(max-width:1100px){.diag-layout{grid-template-columns:1fr}}
@@ -479,9 +479,9 @@ let currentPid = null;
 let _agroShade = null;   // ombrage calculé depuis l'inventaire (null si absent)
 
 // Load plantations into selects
-// Sprint Offline V1.6 - Phase 3b : SWR sur /plantations?limit=200
+// Sprint Offline V1.6 - Phase 3b : SWR sur /plantations?limit=5000
 async function loadPlantations() {
-  const PATH = '/plantations?limit=200';
+  const PATH = '/plantations?limit=5000';
   // 1. Tentative cache (rendu instantane)
   let pls = null;
   try {

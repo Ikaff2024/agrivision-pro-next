@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#1a4231">
 <title>AgriVision Pro — Dashboard</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
 <style>
 .stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:16px;margin-bottom:28px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
@@ -214,9 +214,11 @@ initApp('dashboard');
 const user = getCurrentUser();
 if (user) {
   document.getElementById('coop-name').textContent = `Coopérative · ${user.role}`;
-  if (user.role === 'admin') {
-    document.getElementById('add-btn').style.display = '';
-  }
+}
+
+if (!user || user.role === 'admin') {
+  document.getElementById('add-btn').style.display = '';
+  document.getElementById('add-btn').title = 'Creer une nouvelle plantation';
 }
 
 // Cache des noms de plantations
@@ -225,7 +227,7 @@ let _plantationNames = {};
 async function loadDashboard() {
   // Charger plantations en parallèle pour avoir les vrais noms
   try {
-    const rp = await authFetch('/plantations?limit=200');
+    const rp = await authFetch('/plantations?limit=5000');
     if (rp?.ok) {
       const pls = await rp.json();
       pls.forEach(p => { _plantationNames[p.id] = p.name; });

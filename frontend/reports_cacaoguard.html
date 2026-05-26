@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Rapports CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .report-wrap{max-width:1120px;margin:0 auto}
+    .report-head{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;box-shadow:var(--sh);margin-bottom:20px}
+    .report-title{font-family:'Fraunces',serif;font-size:28px;font-weight:700;line-height:1.1}
+    .report-sub{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:20px 0}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+    .kpi-val{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1}
+    .kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:6px}
+    .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh)}
+    .evidence-list{display:grid;gap:10px}
+    .evidence-row{border-bottom:1px solid var(--border-l);padding:10px 0;font-size:13px;line-height:1.45}
+    .evidence-row:last-child{border-bottom:none}
+    .risk-bars{display:grid;gap:9px}
+    .risk-row{display:grid;grid-template-columns:86px 1fr 32px;gap:10px;align-items:center;font-size:13px}
+    .bar{height:8px;border-radius:99px;background:var(--border-l);overflow:hidden}
+    .fill{height:100%;border-radius:99px;background:var(--primary)}
+    @media(max-width:900px){.report-grid{grid-template-columns:1fr}}
+    @media print{
+      #sidebar,.avp-header,.hamburger,.sb-overlay,.no-print{display:none!important}
+      .avp-layout,.avp-main{display:block!important;height:auto!important;overflow:visible!important}
+      .avp-content{padding:0!important;background:#fff!important}
+      body{background:#fff!important}
+      .report-wrap{max-width:none}
+      .panel,.report-head,.kpi{box-shadow:none!important;break-inside:avoid}
+    }
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Rapports CacaoGuard</div>
+        <div class="page-sub">Audit certification, due diligence acheteur et preuves sociales</div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-outline" onclick="location.href='cacaoguard.html'">
+          <span class="material-symbols-outlined" style="font-size:18px">verified_user</span>
+          CacaoGuard
+        </button>
+        <button class="btn btn-outline" onclick="downloadOfficialPdf()">
+          <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
+          PDF officiel
+        </button>
+        <button class="btn btn-primary" onclick="window.print()">
+          <span class="material-symbols-outlined" style="font-size:18px">print</span>
+          Imprimer
+        </button>
+      </div>
+    </div>
+
+    <div class="avp-content">
+      <div class="report-wrap" id="report">
+        <div class="report-head">
+          <div class="report-title">Rapport de due diligence CacaoGuard</div>
+          <div class="report-sub" id="generated">Generation en cours...</div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-val" id="k-producers">-</div><div class="kpi-lbl">Producteurs</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-children">-</div><div class="kpi-lbl">Enfants suivis</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-working">-</div><div class="kpi-lbl">Travail ferme</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-training">-</div><div class="kpi-lbl">Formations</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-participants">-</div><div class="kpi-lbl">Participants</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-proof">-</div><div class="kpi-lbl">Preuves photo</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-privacy">-</div><div class="kpi-lbl">Acces sensibles</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ai">-</div><div class="kpi-lbl">Incoherences IA</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ssrte-a">-</div><div class="kpi-lbl">Fiches A</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ssrte-f1">-</div><div class="kpi-lbl">F1 menage</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ssrte-c">-</div><div class="kpi-lbl">Fiches C</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ssrte-sus">-</div><div class="kpi-lbl">Suspicions SSRTE</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ff-count">-</div><div class="kpi-lbl">FarmForce</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ff-profit">-</div><div class="kpi-lbl">Profit net CFA</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ff-risk">-</div><div class="kpi-lbl">Marges negatives</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-plans">-</div><div class="kpi-lbl">Plans actifs</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-blocks">-</div><div class="kpi-lbl">Blocages</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-alerts">-</div><div class="kpi-lbl">Alertes ouvertes</div></div>
+        </div>
+
+        <div class="report-grid">
+          <div class="panel">
+            <div class="section-title">Distribution des risques</div>
+            <div id="risk-bars" class="risk-bars"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Preuves disponibles</div>
+            <div class="evidence-list" id="evidence"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Incoherences IA</div>
+            <div class="evidence-list" id="ai"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Cas critiques</div>
+            <div class="evidence-list" id="critical"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Plans de remediation actifs</div>
+            <div class="evidence-list" id="plans"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Visites recentes</div>
+            <div class="evidence-list" id="visits"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">F1 profilage menage</div>
+            <div class="evidence-list" id="ssrte-households"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Fiche C visites plantation</div>
+            <div class="evidence-list" id="ssrte-visits"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">FarmForce economie menage</div>
+            <div class="evidence-list" id="farmforce"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Formations & sensibilisation</div>
+            <div class="evidence-list" id="trainings"></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Blocages tracabilite</div>
+            <div class="evidence-list" id="blocks"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('reports-cacaoguard');
+
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:8010' : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const labels = {
+  none:'Aucun', low:'Faible', medium:'Moyen', high:'Eleve', critical:'Critique',
+  enrolled:'Scolarise', dropped_out:'Descolarise', never_enrolled:'Jamais scolarise',
+  child_protection:'Protection enfant', parenting:'Parentalite', legal_rights:'Droits & loi',
+  economic_empowerment:'Autonomisation',
+  scheduled:'Planifiee', completed:'Terminee', in_progress:'En cours',
+  active:'Actif', child_labor_case:'Cas travail enfant'
+};
+
+async function cgFetch(endpoint) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const sep = endpoint.includes('?') ? '&' : '?';
+  return fetch(`${CG_API}${endpoint}${sep}_=${Date.now()}`, {
+    cache:'no-store',
+    headers: token ? { 'Authorization':'Bearer ' + token } : {}
+  });
+}
+
+async function downloadOfficialPdf() {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const res = await fetch(`${CG_API}/compliance/report.pdf?_=${Date.now()}`, {
+    cache:'no-store',
+    headers: token ? { 'Authorization':'Bearer ' + token } : {}
+  });
+  if (!res.ok) {
+    toast(res.status === 403 ? 'PDF reserve aux superviseurs.' : 'PDF indisponible.', 'error');
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'Rapport_CacaoGuard_Due_Diligence.pdf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function row(html) {
+  return `<div class="evidence-row">${html}</div>`;
+}
+
+function money(value) {
+  return new Intl.NumberFormat('fr-FR').format(Math.round(Number(value || 0)));
+}
+
+function empty(text) {
+  return `<div class="empty-state" style="padding:20px">${text}</div>`;
+}
+
+function setRows(id, items, renderer, emptyText) {
+  document.getElementById(id).innerHTML = items.length ? items.map(renderer).join('') : empty(emptyText);
+}
+
+function renderRiskBars(dist) {
+  const total = Object.values(dist).reduce((a, b) => a + Number(b || 0), 0) || 1;
+  const colors = { none:'var(--low)', low:'var(--low)', medium:'var(--med)', high:'var(--high)', critical:'var(--high)' };
+  document.getElementById('risk-bars').innerHTML = ['none','low','medium','high','critical'].map(level => {
+    const count = Number(dist[level] || 0);
+    const pct = Math.round(count / total * 100);
+    return `<div class="risk-row"><strong>${labels[level]}</strong><div class="bar"><div class="fill" style="width:${pct}%;background:${colors[level]}"></div></div><span>${count}</span></div>`;
+  }).join('');
+}
+
+async function loadReport() {
+  const res = await cgFetch('/compliance/report');
+  if (!res.ok) {
+    toast('Rapport indisponible.', 'error');
+    return;
+  }
+  const r = await res.json();
+  document.getElementById('generated').textContent = `Genere le ${new Date(r.generated_at).toLocaleString()} - ${r.report_type}`;
+  document.getElementById('k-producers').textContent = r.coverage.producers;
+  document.getElementById('k-children').textContent = r.coverage.children;
+  document.getElementById('k-working').textContent = r.indicators.children_working;
+  document.getElementById('k-training').textContent = r.indicators.training_sessions_completed || 0;
+  document.getElementById('k-participants').textContent = r.indicators.training_participants || 0;
+  document.getElementById('k-proof').textContent = r.indicators.monitoring_visits_with_photos || 0;
+  document.getElementById('k-privacy').textContent = r.indicators.privacy_access_logs || 0;
+  document.getElementById('k-ai').textContent = r.indicators.ai_inconsistencies || 0;
+  document.getElementById('k-ssrte-a').textContent = r.indicators.ssrte_community_profiles || 0;
+  document.getElementById('k-ssrte-f1').textContent = r.indicators.ssrte_household_profiles || 0;
+  document.getElementById('k-ssrte-c').textContent = r.indicators.ssrte_plantation_visits || 0;
+  document.getElementById('k-ssrte-sus').textContent = r.indicators.ssrte_suspected_child_labor_visits || 0;
+  document.getElementById('k-ff-count').textContent = r.indicators.farmforce_assessments || 0;
+  document.getElementById('k-ff-profit').textContent = money(r.indicators.farmforce_total_profit_cfa || 0);
+  document.getElementById('k-ff-risk').textContent = r.indicators.farmforce_negative_profit_assessments || 0;
+  document.getElementById('k-plans').textContent = r.indicators.active_remediation_plans;
+  document.getElementById('k-blocks').textContent = r.indicators.active_traceability_blocks;
+  document.getElementById('k-alerts').textContent = r.indicators.open_alerts;
+  renderRiskBars(r.indicators.risk_distribution || {});
+  setRows('evidence', Object.entries(r.audit_evidence || {}), ([k, v]) => row(`<strong>${k}</strong><br><span class="text-muted">${v}</span>`), 'Aucune preuve referencee.');
+  setRows('ai', r.ai_inconsistencies || [], i => row(`<strong>${i.severity} - ${i.code}</strong><br>${i.message}`), 'Aucune incoherence detectee.');
+  setRows('critical', r.critical_cases || [], c => row(`<strong>${c.child_name}</strong> - ${c.producer_name}<br>Risque ${Math.round(c.risk_score)}/100 - ${labels[c.school_status] || c.school_status}`), 'Aucun cas critique.');
+  setRows('plans', r.active_remediation_plans || [], p => row(`<strong>${p.plan_reference}</strong> - ${p.child_name}<br>${p.main_objective}`), 'Aucun plan actif.');
+  setRows('visits', r.recent_visits || [], v => row(`<strong>${v.producer_name}</strong> - ${v.scheduled_date}<br>${labels[v.status] || v.status} - ${v.visit_location || 'Lieu non renseigne'}`), 'Aucune visite.');
+  setRows('ssrte-households', r.recent_ssrte_households || [], h => row(`<strong>${h.producer_name}</strong> - ${h.interview_date}<br>Risque ${h.risk_level} (${Math.round(h.risk_score || 0)}/100) - ${h.vulnerabilities.length} vulnerabilite(s)`), 'Aucun profilage menage.');
+  setRows('ssrte-visits', r.recent_ssrte_plantation_visits || [], v => row(`<strong>${v.plantation_name}</strong> - ${v.visit_date}<br>Suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s) dangereuse(s) - preuves ${(v.photos || []).length}`), 'Aucune visite SSRTE.');
+  setRows('farmforce', r.recent_farmforce_assessments || [], f => row(`<strong>${f.producer_name}</strong> - ${f.campaign_label}<br>Revenus ${money(f.total_revenue_cfa)} CFA | Couts ${money(f.total_cost_cfa)} CFA<br>Profit ${money(f.profit_cfa)} CFA | Retour/jour ${f.return_per_family_day_cfa == null ? '-' : money(f.return_per_family_day_cfa)}`), 'Aucun compte FarmForce.');
+  setRows('trainings', r.recent_training_sessions || [], t => row(`<strong>${t.title}</strong> - ${t.scheduled_date}<br>${labels[t.training_type] || t.training_type} - ${t.actual_participants}/${t.expected_participants} participants - note ${t.effectiveness_rating}/5`), 'Aucune formation.');
+  setRows('blocks', r.traceability_blocks || [], b => row(`<strong>${b.producer_name}</strong> - ${labels[b.block_reason] || b.block_reason}<br>${b.block_description}`), 'Aucun blocage actif.');
+}
+
+loadReport();
+</script>
+</body>
+</html>

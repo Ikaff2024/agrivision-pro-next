@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Monitoring CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .ops-layout{display:grid;grid-template-columns:380px 1fr;gap:20px}
+    .ops-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--sh)}
+    .visit-list{display:grid;gap:12px}
+    .visit-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+    .visit-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+    .visit-title{font-weight:700;font-size:14px}
+    .visit-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:3px}
+    .check-grid{display:grid;gap:8px;margin-top:8px}
+    .check-row{display:flex;align-items:center;gap:8px;background:var(--surface-warm);border:1px solid var(--border-l);border-radius:8px;padding:9px;font-size:13px}
+    .actions-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .proof-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .proof-note{font-size:12px;color:var(--muted);line-height:1.4;margin-top:6px}
+    .sync-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);background:var(--surface-warm);border-radius:8px;padding:10px 12px;margin-bottom:14px}
+    .sync-text{font-size:12.5px;color:var(--muted);line-height:1.35}
+    @media(max-width:960px){.ops-layout{grid-template-columns:1fr}}
+    @media(max-width:520px){.proof-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Monitoring terrain</div>
+        <div class="page-sub">Visites planifiees, checklist et constats CacaoGuard</div>
+      </div>
+      <button class="btn btn-outline" onclick="location.href='cacaoguard.html'">
+        <span class="material-symbols-outlined" style="font-size:18px">verified_user</span>
+        CacaoGuard
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="ops-layout">
+        <div class="ops-panel">
+          <div class="section-title">Planifier une visite</div>
+          <div class="form-group">
+            <label class="form-label">Producteur</label>
+            <select class="form-input" id="producer"></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input class="form-input" id="scheduled-date" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priorite</label>
+              <select class="form-input" id="priority">
+                <option value="medium">Moyenne</option>
+                <option value="high">Elevee</option>
+                <option value="urgent">Urgente</option>
+                <option value="low">Faible</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lieu / GPS</label>
+            <div style="display:flex;gap:8px">
+              <input class="form-input" id="location" placeholder="Village, coordonnees GPS...">
+              <button class="btn btn-outline btn-icon" type="button" onclick="grabGPS()" title="Utiliser GPS">
+                <span class="material-symbols-outlined" style="font-size:18px">my_location</span>
+              </button>
+            </div>
+            <div class="proof-note" id="gps-note">GPS non capture.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Checklist rapide</label>
+            <div class="check-grid">
+              <label class="check-row"><input type="checkbox" class="check" value="children_observed"> Observation enfants</label>
+              <label class="check-row"><input type="checkbox" class="check" value="parent_interview"> Entretien parent</label>
+              <label class="check-row"><input type="checkbox" class="check" value="school_verified"> Ecole verifiee</label>
+              <label class="check-row"><input type="checkbox" class="check" value="dangerous_tasks_checked"> Taches dangereuses verifiees</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observations</label>
+            <textarea class="form-input" id="observations" rows="3" placeholder="Constats terrain, entretien, preuves..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="check-row"><input type="checkbox" id="consent"> Consentement parent/producteur obtenu pour les preuves</label>
+            <div class="proof-note">Les photos et signatures ne doivent etre collectees qu'avec consentement explicite.</div>
+          </div>
+          <div class="proof-grid">
+            <div class="form-group">
+              <label class="form-label">Reference photo</label>
+              <input class="form-input" id="photo-ref" placeholder="IMG_001.jpg, dossier...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Signature producteur</label>
+              <input class="form-input" id="producer-signature" placeholder="Nom ou signature texte">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Signature agent</label>
+            <input class="form-input" id="assessor-signature" placeholder="Nom agent terrain">
+          </div>
+          <div id="err" style="display:none;color:var(--high);font-size:13px;margin-bottom:10px"></div>
+          <button class="btn btn-primary" onclick="createVisit()" style="width:100%;justify-content:center">
+            <span class="material-symbols-outlined" style="font-size:18px">event_available</span>
+            Enregistrer la visite
+          </button>
+        </div>
+
+        <div class="ops-panel">
+          <div class="flex items-center justify-between mb-4">
+            <div class="section-title" style="margin:0">Visites recentes</div>
+            <button class="btn btn-sm btn-outline" onclick="loadVisits()">Actualiser</button>
+          </div>
+          <div class="sync-box">
+            <div>
+              <div class="visit-title">Synchronisation terrain</div>
+              <div class="sync-text" id="sync-status">Verification des saisies locales...</div>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="syncOfflineQueue()">Synchroniser</button>
+          </div>
+          <div id="visits" class="visit-list">
+            <div class="empty-state" style="padding:32px">Chargement...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('monitoring');
+
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:8010' : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const labels = {
+  scheduled:'Planifiee', completed:'Terminee', in_progress:'En cours', cancelled:'Annulee',
+  low:'Faible', medium:'Moyenne', high:'Elevee', urgent:'Urgente'
+};
+let gpsAccuracy = null;
+const cgDeviceId = localStorage.getItem('cg_device_id') || (() => {
+  const id = 'cg-device-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  localStorage.setItem('cg_device_id', id);
+  return id;
+})();
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache:'no-store',
+    headers:{
+      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {}),
+      ...(token ? { 'Authorization':'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function loadProducers() {
+  const res = await cgFetch('/producers?limit=500');
+  const producers = res.ok ? await res.json() : [];
+  document.getElementById('producer').innerHTML = producers.map(p =>
+    `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`
+  ).join('');
+}
+
+async function loadVisits() {
+  const el = document.getElementById('visits');
+  const res = await cgFetch('/monitoring/visits?limit=100');
+  if (!res.ok) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px">Impossible de charger les visites.</div>';
+    return;
+  }
+  const visits = await res.json();
+  if (!visits.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px">Aucune visite planifiee.</div>';
+    return;
+  }
+  el.innerHTML = visits.map(v => `
+    <div class="visit-card">
+      <div class="visit-top">
+        <div>
+          <div class="visit-title">${v.producer_name}</div>
+          <div class="visit-meta">${v.scheduled_date} - ${v.visit_location || 'Lieu non renseigne'}</div>
+        </div>
+        <span class="badge ${v.priority === 'urgent' || v.priority === 'high' ? 'badge-high' : 'badge-med'}">${labels[v.priority] || v.priority}</span>
+      </div>
+      <div class="visit-meta">Statut: ${labels[v.status] || v.status}</div>
+      <div class="visit-meta">Preuves: GPS ${v.visit_location ? 'oui' : 'non'}${v.gps_accuracy ? ' (' + Math.round(v.gps_accuracy) + 'm)' : ''} - consentement ${v.consent_given ? 'oui' : 'non'} - photos ${(v.photos || []).length}</div>
+      ${v.observations ? `<div class="visit-meta">Observation: ${v.observations}</div>` : ''}
+      <div class="actions-row">
+        ${v.status !== 'completed' ? `<button class="btn btn-sm btn-primary" onclick="completeVisit(${v.id})">Cloturer</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function checklistData() {
+  const data = {};
+  document.querySelectorAll('.check').forEach(el => data[el.value] = el.checked);
+  return data;
+}
+
+function proofPayload() {
+  const photoRef = document.getElementById('photo-ref').value.trim();
+  const producerSignature = document.getElementById('producer-signature').value.trim();
+  const assessorSignature = document.getElementById('assessor-signature').value.trim();
+  const consent = document.getElementById('consent').checked;
+  return {
+    consent_given: consent,
+    photos: photoRef && consent ? [{ reference: photoRef, consent: true, captured_at: new Date().toISOString() }] : [],
+    producer_signature_data: producerSignature ? signaturePayload(producerSignature, 'producer', consent) : null,
+    assessor_signature_data: assessorSignature ? signaturePayload(assessorSignature, 'assessor', consent) : null,
+    gps_accuracy: gpsAccuracy
+  };
+}
+
+function signaturePayload(signedBy, role, consent) {
+  return {
+    signed_by: signedBy,
+    role,
+    signed_at: new Date().toISOString(),
+    consent,
+    method: 'typed_name',
+    device_id: cgDeviceId,
+    app_context: 'AgriVision Pro CacaoGuard'
+  };
+}
+
+function grabGPS() {
+  const note = document.getElementById('gps-note');
+  if (!navigator.geolocation) {
+    note.textContent = 'GPS non disponible sur cet appareil.';
+    return;
+  }
+  note.textContent = 'Capture GPS...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude.toFixed(6);
+    const lng = pos.coords.longitude.toFixed(6);
+    gpsAccuracy = pos.coords.accuracy || null;
+    document.getElementById('location').value = `${lat},${lng}`;
+    note.textContent = `GPS capture - precision ${Math.round(gpsAccuracy || 0)}m`;
+  }, () => {
+    note.textContent = 'GPS refuse ou indisponible.';
+  }, { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
+async function createVisit() {
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  const producerId = Number(document.getElementById('producer').value);
+  if (!producerId) {
+    err.textContent = 'Selectionnez un producteur.';
+    err.style.display = 'block';
+    return;
+  }
+  const payload = {
+    producer_id: producerId,
+    scheduled_date: document.getElementById('scheduled-date').value || today(),
+    priority: document.getElementById('priority').value,
+    visit_location: document.getElementById('location').value.trim() || null,
+    checklist_data: checklistData(),
+    observations: document.getElementById('observations').value.trim() || null,
+    ...proofPayload()
+  };
+  const res = await submitOffline('/monitoring/visits', payload, 'Visite monitoring CacaoGuard');
+  if (res.queued) {
+    toast('Visite gardee en local. Elle sera synchronisee au retour du reseau.', 'success');
+    clearVisitForm();
+    await refreshQueueStatus();
+    return;
+  }
+  if (!res.response.ok) {
+    const e = await res.response.json().catch(() => ({}));
+    err.textContent = e.detail || 'Erreur enregistrement visite.';
+    err.style.display = 'block';
+    return;
+  }
+  toast('Visite enregistree.');
+  clearVisitForm();
+  await refreshQueueStatus();
+  await loadVisits();
+}
+
+async function completeVisit(id) {
+  const payload = {
+    actual_date: today(),
+    checklist_data: checklistData(),
+    visit_location: document.getElementById('location').value.trim() || null,
+    observations: document.getElementById('observations').value.trim() || 'Visite cloturee depuis le module terrain.',
+    dangerous_tasks_observed: document.querySelector('[value="dangerous_tasks_checked"]').checked ? ['dangerous_tasks_checked'] : [],
+    ...proofPayload()
+  };
+  const res = await submitOffline(`/monitoring/visits/${id}/complete`, payload, `Cloture visite ${id}`);
+  if (res.queued) {
+    toast('Cloture gardee en local. Synchronisation au retour du reseau.', 'success');
+    await refreshQueueStatus();
+    return;
+  }
+  if (!res.response.ok) {
+    toast('Impossible de cloturer la visite.', 'error');
+    return;
+  }
+  toast('Visite cloturee.');
+  await refreshQueueStatus();
+  await loadVisits();
+}
+
+async function submitOffline(endpoint, payload, label) {
+  if (window.AVPOffline?.offlineFetch) {
+    return AVPOffline.offlineFetch(endpoint, {
+      method:'POST',
+      body:JSON.stringify(payload),
+      headers:{ 'Content-Type':'application/json' }
+    }, label, { module:'cacaoguard', page:'monitoring' });
+  }
+  const response = await cgFetch(endpoint, { method:'POST', body:JSON.stringify(payload) });
+  return { queued:false, response };
+}
+
+function clearVisitForm() {
+  document.getElementById('observations').value = '';
+  document.getElementById('photo-ref').value = '';
+  document.getElementById('producer-signature').value = '';
+  document.getElementById('assessor-signature').value = '';
+  document.querySelectorAll('.check').forEach(el => el.checked = false);
+}
+
+async function refreshQueueStatus() {
+  if (!window.AVPOffline?.getQueueByEndpoint) return;
+  const queue = await AVPOffline.getQueueByEndpoint('/monitoring/');
+  const pending = queue.filter(e => e.status === 'pending').length;
+  const errors = queue.filter(e => e.status === 'error').length;
+  const syncing = queue.filter(e => e.status === 'syncing').length;
+  document.getElementById('sync-status').textContent =
+    `${pending} en attente, ${syncing} en cours, ${errors} en erreur.`;
+}
+
+async function syncOfflineQueue() {
+  if (!window.AVPOffline?.syncQueue) return;
+  const result = await AVPOffline.syncQueue();
+  if (result && !result.skipped) toast(`${result.synced || 0} saisie(s) synchronisee(s).`);
+  await refreshQueueStatus();
+  await loadVisits();
+}
+
+window.addEventListener('avp-queue-changed', refreshQueueStatus);
+window.addEventListener('online', refreshQueueStatus);
+document.getElementById('scheduled-date').value = today();
+loadProducers();
+loadVisits();
+refreshQueueStatus();
+</script>
+</body>
+</html>

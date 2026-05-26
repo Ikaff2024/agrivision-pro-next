@@ -3,7 +3,13 @@
    Refresh token automatique + design system complet
    ============================================================ */
 
- const API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const PROD_API_BASE = 'https://handsome-wisdom-production-d83b.up.railway.app';
+const LOCAL_API_BASE = 'http://127.0.0.1:8010';
+const API_BASE = (
+  window.CG_API_BASE ||
+  (['localhost', '127.0.0.1'].includes(window.location.hostname) ? LOCAL_API_BASE : PROD_API_BASE)
+);
+window.API_BASE = API_BASE;
 
 /* ── Inject shared fonts + design system ───────────────────── */
 (function injectDesignSystem() {
@@ -213,12 +219,12 @@ function toast(msg, type = 'success') {
   el.textContent = msg;
   const c = document.getElementById('avp-toast');
   if (c) c.appendChild(el);
-  setTimeout(() => { el.style.transition='opacity .4s'; el.style.opacity='0'; }, 2800);
+  setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; }, 2800);
   setTimeout(() => el.remove(), 3300);
 }
 
 /* ── Token storage ──────────────────────────────────────────── */
-function getToken()        { return localStorage.getItem('avp_token'); }
+function getToken() { return localStorage.getItem('avp_token'); }
 function getRefreshToken() { return localStorage.getItem('avp_refresh_token'); }
 
 function saveTokens(access, refresh) {
@@ -231,7 +237,7 @@ function getCurrentUser() {
   if (!token) return null;
   try {
     const p = JSON.parse(atob(token.split('.')[1]));
-    return { email: p.sub||'', role: p.role||'', coop_id: p.coop_id||null, exp: p.exp||0 };
+    return { email: p.sub || '', role: p.role || '', coop_id: p.coop_id || null, exp: p.exp || 0 };
   } catch { return null; }
 }
 
@@ -262,47 +268,29 @@ async function refreshAccessToken() {
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 function requireAuth() {
-  const u = getCurrentUser();
-  if (!u) { window.location.href = 'login.html'; return false; }
-  if (u.exp && Date.now() / 1000 > u.exp) { logout(); return false; }
+  // Authentification désactivée - accès libre
   return true;
 }
 
-function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+function logout() { localStorage.clear(); window.location.href = 'index.html'; }
 
 /* ── API wrapper avec refresh automatique ───────────────────── */
 async function authFetch(endpoint, options = {}) {
-  let token = getToken();
-  if (!token) { window.location.href = 'login.html'; return; }
-
-  // Rafraîchir si le token expire bientôt
-  if (isTokenExpired(token)) {
-    const refreshed = await refreshAccessToken();
-    if (!refreshed) { logout(); return; }
-    token = getToken();
-  }
-
+  const token = getToken();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  // Authentification désactivée - pas de token requis
   try {
     const res = await fetch(API_BASE + endpoint, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
         ...(options.headers || {})
       }
     });
-
-    // Si 401 même après refresh, déconnecter
-    if (res.status === 401) {
-      const refreshed = await refreshAccessToken();
-      if (!refreshed) { logout(); return; }
-      // Retry avec le nouveau token
-      return authFetch(endpoint, options);
-    }
-
     return res;
-  } catch {
-    // Differencier hors ligne vs probleme serveur (Sprint Honnetete-Offline)
+  } catch (e) {
+    console.warn('[authFetch] request failed', endpoint, API_BASE, e);
     if (!navigator.onLine) {
       toast('Hors ligne — Reconnectez-vous pour accéder à vos données.', 'error');
     } else {
@@ -323,7 +311,7 @@ function avpUpdateNetworkBanner() {
       // Detection mobile via viewport (640px = breakpoint Tailwind sm)
       const isMobile = window.innerWidth < 640;
       const fullText = '📡 Vous êtes hors ligne — certaines fonctionnalités ne sont pas disponibles. ' +
-                       'Reconnectez-vous pour utiliser AgriVision Pro.';
+        'Reconnectez-vous pour utiliser AgriVision Pro.';
       const shortText = '📡 Hors ligne — fonctionnalités limitées';
 
       const banner = document.createElement('div');
@@ -391,9 +379,9 @@ function setupNetworkBanner() {
 /* ── Sidebar ─────────────────────────────────────────────────── */
 
 function toggleSidebar() {
-  const sb  = document.getElementById('sidebar');
-  const ov  = document.getElementById('avp-overlay');
-  const hb  = document.getElementById('avp-hamburger');
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('avp-overlay');
+  const hb = document.getElementById('avp-hamburger');
   const open = sb && sb.classList.toggle('open');
   if (ov) ov.classList.toggle('open', open);
   if (hb) hb.querySelector('.ms').textContent = open ? 'close' : 'menu';
@@ -431,18 +419,28 @@ function renderSidebar(activePage) {
   const user = getCurrentUser();
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
   const links = [
-    { id:'dashboard',   href:'index.html',        icon:'dashboard',        label:'Dashboard' },
-    { id:'plantations', href:'plantations.html',   icon:'park',             label:'Plantations' },
-    { id:'diagnostic',  href:'diagnostic.html',    icon:'biotech',          label:'Diagnostic' },
-    { id:'map',         href:'map.html',            icon:'map',              label:'Carte' },
-    { id:'analytics',   href:'analytics.html',     icon:'bar_chart_4_bars', label:'Analytique' },
-    { id:'satellite',   href:'satellite.html',     icon:'satellite_alt',    label:'Satellite' },
-    { id:'agroforestry', href:'agroforestry.html',  icon:'forest',           label:'Agroforesterie' },
-    { id:'harvests',    href:'harvests.html',       icon:'agriculture',      label:'Recoltes' },
+    { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard' },
+    { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations' },
+    { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
+    { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },
+    { id: 'analytics', href: 'analytics.html', icon: 'bar_chart_4_bars', label: 'Analytique' },
+    { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
+    { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie' },
+    { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },
+    { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce' },
+    { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard' },
+    { id: 'children', href: 'children.html', icon: 'diversity_3', label: 'Protection enfant' },
+    { id: 'risk-assessment', href: 'risk_assessment.html', icon: 'fact_check', label: 'Evaluation risque' },
+    { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring' },
+    { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE' },
+    { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation' },
+    { id: 'training', href: 'training.html', icon: 'school', label: 'Formation' },
+    { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite' },
+    { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
   ];
   // Lien admin uniquement visible pour les administrateurs
   if (user && user.role === 'admin') {
-    links.push({ id:'admin', href:'admin.html', icon:'admin_panel_settings', label:'Administration' });
+    links.push({ id: 'admin', href: 'admin.html', icon: 'admin_panel_settings', label: 'Administration' });
   }
   el.innerHTML = `
     <div class="sb-logo">
@@ -455,14 +453,14 @@ function renderSidebar(activePage) {
         </div>
         <div>
           <div class="sb-logo-name">AgriVision Pro</div>
-          <div class="sb-logo-sub">Gestion cacaoyère</div>
+          <div class="sb-logo-sub">Plateforme cacao</div>
         </div>
       </div>
     </div>
     <nav class="sb-nav">
       <div class="sb-sec">Navigation</div>
       ${links.map(l => `
-        <a href="${l.href}" class="nav-link ${activePage===l.id?'active':''}" onclick="closeSidebar()">
+        <a href="${l.href}" class="nav-link ${activePage === l.id ? 'active' : ''}" onclick="closeSidebar()">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`).join('')}
     </nav>
@@ -470,8 +468,8 @@ function renderSidebar(activePage) {
       <div class="sb-user-inner">
         <div class="sb-avatar">${init}</div>
         <div class="sb-user-info">
-          <div class="sb-user-email">${user?user.email:''}</div>
-          <div class="sb-user-role">${user?user.role:''}</div>
+          <div class="sb-user-email">${user ? user.email : ''}</div>
+          <div class="sb-user-role">${user ? user.role : ''}</div>
         </div>
         <button class="sb-logout" onclick="logout()" title="Déconnexion">
           <span class="material-symbols-outlined" style="font-size:18px">logout</span>
@@ -488,12 +486,12 @@ function initApp(page) {
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 function riskBadge(level) {
-  const cls={LOW:'badge-low',MEDIUM:'badge-med',HIGH:'badge-high'};
-  const lbl={LOW:'Faible',MEDIUM:'Moyen',HIGH:'Élevé'};
-  return `<span class="badge ${cls[level]||'badge-med'}">${lbl[level]||level}</span>`;
+  const cls = { LOW: 'badge-low', MEDIUM: 'badge-med', HIGH: 'badge-high' };
+  const lbl = { LOW: 'Faible', MEDIUM: 'Moyen', HIGH: 'Élevé' };
+  return `<span class="badge ${cls[level] || 'badge-med'}">${lbl[level] || level}</span>`;
 }
-function scoreColor(s) { return s>=70?'#922b21':s>=35?'#9a6200':'#1a6b3a'; }
+function scoreColor(s) { return s >= 70 ? '#922b21' : s >= 35 ? '#9a6200' : '#1a6b3a'; }
 function fmtDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }

@@ -1,7 +1,12 @@
 ﻿from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy import JSON
 from sqlalchemy.sql import func
 from app.db.database import Base
+
+# Import des modèles sociaux (CacaoGuard) pour les relations
+# Les modèles sont définis dans models_social.py mais les relations
+# sont ajoutées ici pour éviter les imports circulaires
 
 
 class Cooperative(Base):
@@ -59,6 +64,7 @@ class Plantation(Base):
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
     harvests     = relationship("Harvest", back_populates="plantation", cascade="all, delete-orphan")
+    ssrte_visits = relationship("SsrtePlantationVisit", back_populates="plantation", cascade="all, delete-orphan")
 
 
 class Diagnostic(Base):
@@ -186,6 +192,18 @@ class Producer(Base):
     expense_records = relationship("ExpenseRecord", back_populates="producer", cascade="all, delete-orphan")
     labor_records   = relationship("LaborRecord", back_populates="producer", cascade="all, delete-orphan")
     input_costs     = relationship("InputCost", back_populates="producer", cascade="all, delete-orphan")
+    farmforce_assessments = relationship("FarmForceAssessment", back_populates="producer", cascade="all, delete-orphan")
+
+    # Relations sociales (CacaoGuard) - defined here to avoid circular imports
+    # These relationships link Producer to the social monitoring models in models_social.py
+    children = relationship("Child", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    risk_assessments = relationship("RiskAssessment", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    monitoring_visits = relationship("MonitoringVisit", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    remediation_plans = relationship("RemediationPlan", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    traceability_blocks = relationship("TraceabilityBlock", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    complaints = relationship("Complaint", back_populates="producer", lazy="select")
+    ssrte_household_profiles = relationship("SsrteHouseholdProfile", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+    ssrte_plantation_visits = relationship("SsrtePlantationVisit", back_populates="producer", cascade="all, delete-orphan", lazy="select")
 
 
 class Certification(Base):
@@ -425,6 +443,46 @@ class InputCost(Base):
     created_at            = Column(DateTime(timezone=True), server_default=func.now())
 
     producer = relationship("Producer", back_populates="input_costs")
+    campagne = relationship("Campagne")
+
+
+class FarmForceAssessment(Base):
+    """
+    Formulaire annuel Farm Force / compte d'exploitation producteur.
+
+    Le PDF client couvre menage, parcelles, ventes, couts, vivrier, betail,
+    travail familial, main-d'oeuvre embauchee et resultat. Les lignes restent
+    en JSON structure pour conserver la fidelite au formulaire papier.
+    """
+    __tablename__ = "farmforce_assessments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    producer_id = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    campagne_id = Column(Integer, ForeignKey("campagnes.id"), nullable=True, index=True)
+    campaign_label = Column(String, nullable=False, index=True)
+    localite = Column(String, nullable=True)
+    pr_code = Column(String, nullable=True)
+
+    household_members = Column(JSON, nullable=True)
+    parcels = Column(JSON, nullable=True)
+    revenue_items = Column(JSON, nullable=True)
+    cost_items = Column(JSON, nullable=True)
+    family_labor_items = Column(JSON, nullable=True)
+    hired_labor_items = Column(JSON, nullable=True)
+    food_security_items = Column(JSON, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    total_revenue_cfa = Column(Float, default=0, nullable=False)
+    total_cost_cfa = Column(Float, default=0, nullable=False)
+    profit_cfa = Column(Float, default=0, nullable=False)
+    family_labor_days = Column(Float, default=0, nullable=False)
+    hired_labor_days = Column(Float, default=0, nullable=False)
+    return_per_family_day_cfa = Column(Float, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    producer = relationship("Producer", back_populates="farmforce_assessments")
     campagne = relationship("Campagne")
 
 

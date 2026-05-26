@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Conformite CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .comp-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:16px;margin-bottom:22px}
+    .comp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+    .comp-val{font-family:'Fraunces',serif;font-size:34px;font-weight:700;line-height:1}
+    .comp-lbl{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:7px}
+    .comp-layout{display:grid;grid-template-columns:1fr 380px;gap:20px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--sh)}
+    .block-list{display:grid;gap:12px}
+    .block-card{border:1px solid var(--border);border-radius:8px;padding:16px;background:var(--surface)}
+    .block-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+    .block-title{font-weight:700;font-size:14px}
+    .block-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:3px}
+    .batch-table{width:100%;border-collapse:collapse}
+    .review-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border-bottom:1px solid var(--border-l);padding:12px 0}
+    .review-row:last-child{border-bottom:none}
+    @media(max-width:980px){.comp-layout{grid-template-columns:1fr}.comp-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Conformite sociale</div>
+        <div class="page-sub">Blocage tracabilite, lots impactes et preuves audit CacaoGuard</div>
+      </div>
+      <button class="btn btn-outline" onclick="location.href='cacaoguard.html'">
+        <span class="material-symbols-outlined" style="font-size:18px">verified_user</span>
+        CacaoGuard
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="comp-grid">
+        <div class="comp-card">
+          <div class="comp-val" id="k-blocks" style="color:var(--high)">-</div>
+          <div class="comp-lbl">Blocages actifs</div>
+        </div>
+        <div class="comp-card">
+          <div class="comp-val" id="k-review" style="color:var(--med)">-</div>
+          <div class="comp-lbl">Producteurs a revoir</div>
+        </div>
+        <div class="comp-card">
+          <div class="comp-val" id="k-batches">-</div>
+          <div class="comp-lbl">Lots impactes</div>
+        </div>
+      </div>
+
+      <div class="comp-layout">
+        <div class="panel">
+          <div class="flex items-center justify-between mb-4">
+            <div class="section-title" style="margin:0">Blocages tracabilite</div>
+            <button class="btn btn-sm btn-outline" onclick="loadCompliance()">Actualiser</button>
+          </div>
+          <div id="blocks" class="block-list">
+            <div class="empty-state" style="padding:32px">Chargement...</div>
+          </div>
+          <div class="divider"></div>
+          <div class="section-title">Lots/recoltes impactes</div>
+          <div class="table-wrap">
+            <table class="batch-table">
+              <thead>
+                <tr>
+                  <th>Producteur</th>
+                  <th>Plantation</th>
+                  <th>Date</th>
+                  <th>Kg</th>
+                  <th>Qualite</th>
+                </tr>
+              </thead>
+              <tbody id="batches"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">Producteurs a examiner</div>
+          <div id="review-list">
+            <div class="empty-state" style="padding:24px">Chargement...</div>
+          </div>
+          <div class="divider"></div>
+          <div class="text-sm text-muted" style="line-height:1.45">
+            Les cas critiques ouvrent un blocage automatique. Les cas eleves restent a examiner par un responsable conformite.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('compliance');
+
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:8010' : 'https://handsome-wisdom-production-d83b.up.railway.app';
+const labels = {
+  child_labor_case:'Cas travail enfant', pending_investigation:'Investigation', non_compliance:'Non-conformite',
+  active:'Actif', resolved:'Resolue', escalated:'Escalade', expired:'Expire',
+  high:'Eleve', critical:'Critique', medium:'Moyen'
+};
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache:'no-store',
+    headers:{
+      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {}),
+      ...(token ? { 'Authorization':'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+async function loadCompliance() {
+  const res = await cgFetch('/compliance/traceability');
+  if (!res.ok) {
+    toast('Impossible de charger la conformite.', 'error');
+    return;
+  }
+  const data = await res.json();
+  document.getElementById('k-blocks').textContent = data.summary.active_blocks;
+  document.getElementById('k-review').textContent = data.summary.producers_to_review;
+  document.getElementById('k-batches').textContent = data.summary.impacted_batches;
+  renderBlocks(data.active_blocks || []);
+  renderBatches(data.impacted_batches || []);
+  renderReview(data.producers_to_review || []);
+}
+
+function renderBlocks(blocks) {
+  const el = document.getElementById('blocks');
+  if (!blocks.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px">Aucun blocage actif.</div>';
+    return;
+  }
+  el.innerHTML = blocks.map(b => `
+    <div class="block-card">
+      <div class="block-top">
+        <div>
+          <div class="block-title">${b.producer_name}</div>
+          <div class="block-meta">${labels[b.block_reason] || b.block_reason} - echeance ${b.expected_resolution_date || 'non definie'}</div>
+        </div>
+        <span class="badge badge-high">${labels[b.status] || b.status}</span>
+      </div>
+      <div class="block-meta">${b.block_description}</div>
+      <button class="btn btn-sm btn-outline" style="margin-top:12px" onclick="resolveBlock(${b.id})">Lever blocage</button>
+    </div>
+  `).join('');
+}
+
+function renderBatches(batches) {
+  const el = document.getElementById('batches');
+  if (!batches.length) {
+    el.innerHTML = '<tr><td colspan="5" class="empty-state" style="padding:24px">Aucun lot/recolte impacte.</td></tr>';
+    return;
+  }
+  el.innerHTML = batches.map(b => `
+    <tr>
+      <td>${b.producer_name || '-'}</td>
+      <td>${b.plantation_name || '-'}</td>
+      <td>${(b.harvest_date || '').slice(0, 10)}</td>
+      <td>${Math.round(Number(b.quantity_kg || 0))}</td>
+      <td>${b.quality || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderReview(rows) {
+  const el = document.getElementById('review-list');
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px">Aucun producteur en attente de decision.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(r => `
+    <div class="review-row">
+      <div>
+        <div class="block-title">${r.producer_name}</div>
+        <div class="block-meta">${r.child_name} - risque ${labels[r.risk_level] || r.risk_level} (${Math.round(r.risk_score)}/100)</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="createBlock(${r.producer_id}, ${r.child_id})">Bloquer</button>
+    </div>
+  `).join('');
+}
+
+async function createBlock(producerId, childId) {
+  const res = await cgFetch('/compliance/blocks', {
+    method:'POST',
+    body: JSON.stringify({
+      producer_id: producerId,
+      related_case_id: childId,
+      block_reason: 'child_labor_case',
+      block_description: 'Blocage manuel CacaoGuard: cas enfant non resolu.'
+    })
+  });
+  if (!res.ok) {
+    toast('Blocage impossible.', 'error');
+    return;
+  }
+  toast('Blocage cree.');
+  await loadCompliance();
+}
+
+async function resolveBlock(id) {
+  const notes = prompt('Note de resolution du blocage');
+  if (!notes) return;
+  const res = await cgFetch(`/compliance/blocks/${id}/resolve`, {
+    method:'POST',
+    body: JSON.stringify({ resolution_notes: notes })
+  });
+  if (!res.ok) {
+    toast('Resolution impossible.', 'error');
+    return;
+  }
+  toast('Blocage leve.');
+  await loadCompliance();
+}
+
+loadCompliance();
+</script>
+</body>
+</html>

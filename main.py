@@ -9,10 +9,17 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import router as api_router
 from app.api.assignment_routes import router as assignment_router, sub_router as substitution_router
+from app.api.cacaoguard_routes import router as cacaoguard_router
+from app.api.cacaoguard_ops_routes import router as cacaoguard_ops_router
+from app.api.farmforce_routes import router as farmforce_router
 from app.api.import_routes import router as import_router
+from app.api.producer_routes import router as producer_router
+from app.api.social_routes import router as social_router
+from app.api.ssrte_routes import router as ssrte_router
 from app.auth.auth_routes import router as auth_router
 from app.db.database import engine, Base
 from app.db import models  # noqa: F401
+from app.db import models_social  # noqa: F401
 
 load_dotenv()
 
@@ -138,8 +145,21 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500")
+_raw = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5500,http://127.0.0.1:5500,"
+    "http://localhost:5510,http://127.0.0.1:5510,"
+    "http://localhost:5520,http://127.0.0.1:5520",
+)
 allowed_origins = [o.strip() for o in _raw.split(",") if o.strip()]
+for local_origin in (
+    "http://localhost:5510",
+    "http://127.0.0.1:5510",
+    "http://localhost:5520",
+    "http://127.0.0.1:5520",
+):
+    if local_origin not in allowed_origins:
+        allowed_origins.append(local_origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -173,3 +193,9 @@ app.include_router(api_router)
 app.include_router(assignment_router)
 app.include_router(substitution_router)
 app.include_router(import_router)
+app.include_router(producer_router)
+app.include_router(farmforce_router)
+app.include_router(social_router)
+app.include_router(cacaoguard_router)
+app.include_router(cacaoguard_ops_router)
+app.include_router(ssrte_router)

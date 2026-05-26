@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Enfants CacaoGuard</title>
+  <script>if (['localhost','127.0.0.1'].includes(location.hostname)) window.CG_API_BASE = 'http://127.0.0.1:8010';</script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .kpi-row{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+    .kpi-value{font-family:'Fraunces',serif;font-size:32px;font-weight:700;line-height:1}
+    .kpi-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:7px}
+    .filter-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+    .filter-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px;min-width:170px}
+    .child-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+    .child-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh);cursor:pointer;transition:.15s}
+    .child-card:hover{border-color:var(--accent);box-shadow:var(--sh-md)}
+    .child-header{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+    .child-avatar{width:42px;height:42px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);flex-shrink:0}
+    .child-name{font-family:'Fraunces',serif;font-size:17px;font-weight:700}
+    .child-age{font-size:12px;color:var(--muted);margin-top:2px}
+    .child-info{display:flex;flex-direction:column;gap:8px;font-size:13px}
+    .child-row{display:grid;grid-template-columns:92px 1fr;gap:8px}
+    .child-label{color:var(--muted);font-size:12px}
+    .child-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    .child-action{border:1px solid var(--border);background:var(--bg);color:var(--primary);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+    .child-action:hover{border-color:var(--accent);background:var(--surface-warm)}
+    .form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .modal-lg{max-width:720px}
+    .task-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}
+    @media(max-width:760px){.kpi-row{grid-template-columns:1fr 1fr}.form-row2,.form-row3,.task-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Enfants</div>
+        <div class="page-sub">Module CacaoGuard - Famille, scolarisation et risque social</div>
+      </div>
+      <button class="btn btn-primary" id="add-btn" onclick="openModal()">
+        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+        Nouvel enfant
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total enfants</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-school" style="color:var(--low)">-</div><div class="kpi-label">Scolarises</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-risk" style="color:var(--high)">-</div><div class="kpi-label">A risque</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-work" style="color:var(--med)">-</div><div class="kpi-label">Travail ferme</div></div>
+      </div>
+
+      <div class="filter-bar">
+        <select class="filter-select" id="filter-risk" onchange="applyFilters()">
+          <option value="">Tous risques</option>
+          <option value="none">Aucun</option>
+          <option value="low">Faible</option>
+          <option value="medium">Moyen</option>
+          <option value="high">Eleve</option>
+          <option value="critical">Critique</option>
+        </select>
+        <select class="filter-select" id="filter-school" onchange="applyFilters()">
+          <option value="">Tous statuts scolaires</option>
+          <option value="enrolled">Scolarise</option>
+          <option value="dropped_out">Descolarise</option>
+          <option value="never_enrolled">Jamais scolarise</option>
+        </select>
+        <select class="filter-select" id="filter-village" onchange="applyFilters()">
+          <option value="">Tous villages</option>
+        </select>
+      </div>
+
+      <div class="child-grid" id="children-grid">
+        <div class="empty-state" style="grid-column:1/-1">Chargement...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal modal-lg">
+    <div class="modal-title">Nouvel enfant</div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Prenom *</label><input class="form-input" id="m-firstname" placeholder="Awa"></div>
+      <div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="m-lastname" placeholder="Kouassi"></div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group"><label class="form-label">Date de naissance *</label><input class="form-input" id="m-dob" type="date"></div>
+      <div class="form-group"><label class="form-label">Genre *</label>
+        <select class="form-input" id="m-gender"><option value="M">Masculin</option><option value="F">Feminin</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Acte naissance</label><input class="form-input" id="m-birthcert" placeholder="CI-2020-..."></div>
+    </div>
+    <div class="form-group"><label class="form-label">Producteur parent *</label>
+      <select class="form-input" id="m-producer"><option value="">Selectionner un producteur...</option></select>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Statut scolaire</label>
+        <select class="form-input" id="m-schoolstatus">
+          <option value="not_school_age">Pas age scolaire</option>
+          <option value="enrolled">Scolarise</option>
+          <option value="dropped_out">Descolarise</option>
+          <option value="never_enrolled">Jamais scolarise</option>
+          <option value="completed">Cycle termine</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Ecole</label><input class="form-input" id="m-schoolname" placeholder="Groupe scolaire"></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Travaille sur la ferme ?</label>
+        <select class="form-input" id="m-working"><option value="false">Non</option><option value="true">Oui</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Frequence travail</label>
+        <select class="form-input" id="m-workfreq">
+          <option value="never">Jamais</option>
+          <option value="occasional">Occasionnel</option>
+          <option value="regular">Regulier</option>
+          <option value="daily">Quotidien</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Taches dangereuses</label>
+      <div class="task-grid">
+        <label><input type="checkbox" class="danger-task" value="machete_use"> Machette</label>
+        <label><input type="checkbox" class="danger-task" value="pesticide_application"> Pesticides</label>
+        <label><input type="checkbox" class="danger-task" value="heavy_load"> Charges lourdes</label>
+        <label><input type="checkbox" class="danger-task" value="night_work"> Travail de nuit</label>
+      </div>
+    </div>
+    <div id="m-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="m-btn" onclick="createChild()">Creer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('children');
+
+let allChildren = [];
+let allProducers = [];
+const CG_API = ['localhost','127.0.0.1'].includes(location.hostname)
+  ? 'http://127.0.0.1:8010'
+  : 'https://handsome-wisdom-production-d83b.up.railway.app';
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      ...(method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+async function loadData() {
+  await loadProducers();
+  await loadChildren();
+}
+
+async function loadProducers() {
+  const res = await cgFetch('/producers?limit=1000');
+  if (!res || !res.ok) return;
+  allProducers = await res.json();
+  document.getElementById('m-producer').innerHTML =
+    '<option value="">Selectionner un producteur...</option>' +
+    allProducers.map(p => `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`).join('');
+  const villages = [...new Set(allProducers.map(p => p.localite).filter(Boolean))].sort();
+  document.getElementById('filter-village').innerHTML =
+    '<option value="">Tous villages</option>' + villages.map(v => `<option value="${v}">${v}</option>`).join('');
+}
+
+async function loadChildren() {
+  const res = await cgFetch('/children?limit=500');
+  if (!res || !res.ok) {
+    document.getElementById('children-grid').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Impossible de charger les enfants.</div>';
+    return;
+  }
+  allChildren = await res.json();
+  renderChildren(allChildren);
+  updateKPIs();
+}
+
+function renderChildren(children) {
+  const grid = document.getElementById('children-grid');
+  if (!children.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Aucun enfant enregistre.</div>';
+    return;
+  }
+
+  grid.innerHTML = children.map(c => {
+    const age = calculateAge(c.date_of_birth);
+    const producer = allProducers.find(p => p.id === c.producer_id);
+    const riskCls = { none:'badge-low', low:'badge-low', medium:'badge-med', high:'badge-high', critical:'badge-high' }[c.risk_level] || 'badge-low';
+    const riskLbl = { none:'Aucun', low:'Faible', medium:'Moyen', high:'Eleve', critical:'Critique' }[c.risk_level] || c.risk_level;
+    const tasks = c.dangerous_tasks_performed?.length ? c.dangerous_tasks_performed.length + ' tache(s)' : 'Aucune';
+    return `
+      <div class="child-card" onclick="viewChild(${c.id})">
+        <div class="child-header">
+          <div class="child-avatar">${(c.first_name || '?')[0]}${(c.last_name || '?')[0]}</div>
+          <div>
+            <div class="child-name">${c.first_name} ${c.last_name}</div>
+            <div class="child-age">${age} ans - score ${Math.round(c.risk_score || 0)}/100</div>
+          </div>
+        </div>
+        <div class="child-info">
+          <div class="child-row"><span class="child-label">Parent</span><span>${producer?.nom_complet || '-'}</span></div>
+          <div class="child-row"><span class="child-label">Village</span><span>${producer?.localite || '-'}</span></div>
+          <div class="child-row"><span class="child-label">Ecole</span><span>${c.school_status === 'enrolled' ? (c.school_name || 'Scolarise') : 'Non scolarise'}</span></div>
+          <div class="child-row"><span class="child-label">Travail</span><span>${c.is_working_on_farm ? 'Oui - ' + c.work_frequency : 'Non'}</span></div>
+          <div class="child-row"><span class="child-label">Taches</span><span>${tasks}</span></div>
+          <div class="child-row"><span class="child-label">Risque</span><span class="badge ${riskCls}">${riskLbl}</span></div>
+        </div>
+        <div class="child-actions">
+          <button class="child-action" onclick="event.stopPropagation(); openHouseholdProfile(${c.producer_id})">
+            <span class="material-symbols-outlined" style="font-size:15px">home_health</span>
+            F1 menage
+          </button>
+          <button class="child-action" onclick="event.stopPropagation(); viewChild(${c.id})">
+            <span class="material-symbols-outlined" style="font-size:15px">fact_check</span>
+            Evaluation
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateKPIs() {
+  document.getElementById('kpi-total').textContent = allChildren.length;
+  document.getElementById('kpi-school').textContent = allChildren.filter(c => c.school_status === 'enrolled').length;
+  document.getElementById('kpi-risk').textContent = allChildren.filter(c => ['medium','high','critical'].includes(c.risk_level)).length;
+  document.getElementById('kpi-work').textContent = allChildren.filter(c => c.is_working_on_farm).length;
+}
+
+function applyFilters() {
+  const risk = document.getElementById('filter-risk').value;
+  const school = document.getElementById('filter-school').value;
+  const village = document.getElementById('filter-village').value;
+  let filtered = [...allChildren];
+  if (risk) filtered = filtered.filter(c => c.risk_level === risk);
+  if (school) filtered = filtered.filter(c => c.school_status === school);
+  if (village) {
+    const ids = allProducers.filter(p => p.localite === village).map(p => p.id);
+    filtered = filtered.filter(c => ids.includes(c.producer_id));
+  }
+  renderChildren(filtered);
+}
+
+function calculateAge(dob) {
+  if (!dob) return '-';
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+function viewChild(id) {
+  window.location.href = `risk_assessment.html?child_id=${id}`;
+}
+
+function openHouseholdProfile(producerId) {
+  window.location.href = `ssrte.html?tab=household&producer_id=${producerId}`;
+}
+
+function openModal() { document.getElementById('modal').style.display = 'flex'; }
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+async function createChild() {
+  const errEl = document.getElementById('m-err');
+  errEl.style.display = 'none';
+  const body = {
+    producer_id: parseInt(document.getElementById('m-producer').value),
+    first_name: document.getElementById('m-firstname').value.trim(),
+    last_name: document.getElementById('m-lastname').value.trim(),
+    date_of_birth: document.getElementById('m-dob').value,
+    gender: document.getElementById('m-gender').value,
+    birth_certificate_number: document.getElementById('m-birthcert').value.trim() || null,
+    school_status: document.getElementById('m-schoolstatus').value,
+    school_name: document.getElementById('m-schoolname').value.trim() || null,
+    is_working_on_farm: document.getElementById('m-working').value === 'true',
+    work_frequency: document.getElementById('m-workfreq').value,
+    dangerous_tasks_performed: Array.from(document.querySelectorAll('.danger-task:checked')).map(el => el.value)
+  };
+  if (!body.producer_id || !body.first_name || !body.last_name || !body.date_of_birth) {
+    errEl.textContent = 'Prenom, nom, date de naissance et producteur requis.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('m-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creation...';
+  try {
+    const res = await cgFetch('/children', { method: 'POST', body: JSON.stringify(body) });
+    if (!res || !res.ok) {
+      const e = await res?.json().catch(() => ({}));
+      throw new Error(e.detail || 'Erreur creation.');
+    }
+    closeModal();
+    toast('Enfant cree avec succes.');
+    await loadData();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Creer';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

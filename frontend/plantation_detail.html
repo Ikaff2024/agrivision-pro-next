@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriVision Pro — Détail plantation</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
   <script src="ai-advice.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -160,6 +160,17 @@
 .harvest-metric-lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .harvest-empty{text-align:center;padding:24px 12px;color:var(--muted);font-size:13px}
 .harvest-empty-icon{font-size:36px;opacity:.3;margin-bottom:8px}
+.ssrte-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid #f97316;border-radius:var(--r);padding:18px 20px;margin-bottom:16px}
+.ssrte-card-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.ssrte-card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.ssrte-list{display:grid;gap:8px}
+.ssrte-item{border:1px solid var(--border-l);background:var(--bg);border-radius:8px;padding:10px}
+.ssrte-item.ssrte-danger{border-color:#fed7aa;background:#fff7ed}
+.ssrte-item-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.ssrte-item-title{font-size:13px;font-weight:700;color:var(--text)}
+.ssrte-badge{font-size:11px;font-weight:700;border-radius:99px;padding:3px 8px;background:#dcfce7;color:#166534;white-space:nowrap}
+.ssrte-badge.danger{background:#fee2e2;color:#991b1b}
+.ssrte-item-meta{font-size:12px;color:var(--muted);line-height:1.45}
 
 /* Modale de saisie */
 #harvest-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
@@ -189,6 +200,10 @@
         <button class="btn btn-outline" id="pdf-report-btn" onclick="downloadPlantationReport()" style="display:none">
           <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
           <span id="pdf-btn-label">Generer le rapport PDF</span>
+        </button>
+        <button class="btn btn-outline" onclick="goSsrteVisit()">
+          <span class="material-symbols-outlined" style="font-size:18px">clinical_notes</span>
+          Fiche C SSRTE
         </button>
         <button class="btn btn-primary" id="diag-btn" onclick="goDiag()" style="display:none">
           <span class="material-symbols-outlined" style="font-size:18px">biotech</span>
@@ -411,6 +426,7 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
       <div>
         <div id="prod-container"></div>
         <div id="harvest-container"></div>
+        <div id="ssrte-container"></div>
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
@@ -543,6 +559,9 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
 
     // Carte Recoltes (charge depuis l'API)
     renderHarvestCard(plantation);
+
+    // Historique SSRTE Fiche C lie a cette plantation
+    renderSsrteCard(plantation);
 
     // Draw chart if enough data
     if (history.length >= 1) {
@@ -726,6 +745,67 @@ async function renderHarvestCard(p) {
     '</div>';
 }
 
+async function renderSsrteCard(p) {
+  const container = document.getElementById("ssrte-container");
+  if (!container) return;
+
+  const createUrl = "ssrte.html?tab=visit&plantation_id=" + encodeURIComponent(pid);
+  try {
+    const r = await authFetch("/ssrte/plantation-visits?plantation_id=" + encodeURIComponent(pid) + "&limit=5");
+    const visits = (r && r.ok) ? await r.json() : [];
+
+    const header =
+      '<div class="ssrte-card-header">' +
+        '<div class="ssrte-card-title"><span class="material-symbols-outlined" style="font-size:16px">clinical_notes</span> Suivi SSRTE</div>' +
+        '<a class="harvest-link" href="' + createUrl + '">Nouvelle Fiche C &rarr;</a>' +
+      '</div>';
+
+    if (!visits.length) {
+      container.innerHTML =
+        '<div class="ssrte-card">' +
+          header +
+          '<div class="harvest-empty">' +
+            '<div class="harvest-empty-icon"><span class="material-symbols-outlined" style="font-size:36px">assignment</span></div>' +
+            '<div>Aucune visite SSRTE Fiche C pour cette plantation.</div>' +
+            '<div style="font-size:12px;margin-top:6px">Demarrez une visite terrain depuis ce raccourci.</div>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+
+    const dateFmt = (value) => {
+      if (!value) return "-";
+      if (typeof fmtDate === "function") return fmtDate(value);
+      return String(value).slice(0, 10);
+    };
+
+    const body = visits.map(v => {
+      const dangerous = Array.isArray(v.dangerous_tasks_observed) ? v.dangerous_tasks_observed : [];
+      const photos = Array.isArray(v.photos) ? v.photos : [];
+      const suspect = !!v.suspected_child_labor;
+      const action = v.immediate_actions_taken ? '<div class="ssrte-item-meta"><b>Action:</b> ' + esc(v.immediate_actions_taken) + '</div>' : '';
+      const notes = v.notes ? '<div class="ssrte-item-meta"><b>Notes:</b> ' + esc(v.notes) + '</div>' : '';
+      return '<div class="ssrte-item ' + (suspect ? 'ssrte-danger' : '') + '">' +
+        '<div class="ssrte-item-top">' +
+          '<div class="ssrte-item-title">Fiche C - ' + esc(dateFmt(v.visit_date)) + '</div>' +
+          '<span class="ssrte-badge ' + (suspect ? 'danger' : '') + '">' + (suspect ? 'Suspicion' : 'OK') + '</span>' +
+        '</div>' +
+        '<div class="ssrte-item-meta">Taches dangereuses: ' + dangerous.length + ' | Photos: ' + photos.length + ' | Consentement: ' + (v.consent_given ? 'oui' : 'non') + '</div>' +
+        action +
+        notes +
+      '</div>';
+    }).join("");
+
+    container.innerHTML =
+      '<div class="ssrte-card">' +
+        header +
+        '<div class="ssrte-list">' + body + '</div>' +
+      '</div>';
+  } catch (e) {
+    container.innerHTML = "";
+  }
+}
+
 function openHarvestModal() {
   document.getElementById("harvest-modal-overlay").classList.add("open");
   // Date par defaut = aujourd'hui
@@ -793,6 +873,7 @@ async function submitHarvest() {
 function goDiag() { location.href = `diagnostic.html?id=${pid}`; }
 function goSat()  { location.href = `satellite.html?id=${pid}`; }
 function goAgro() { location.href = `agroforestry.html?id=${pid}`; }
+function goSsrteVisit() { location.href = `ssrte.html?tab=visit&plantation_id=${pid}`; }
 function esc(s)   { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
 load();

@@ -55,7 +55,10 @@ rapport_*_smoke_test*.pdf
 # Patchers temporaires (livres dans /mnt/user-data/outputs, executes localement puis supprimes)
 patch_*_r1*.py
 patch_sprint_*.py
+patch_*.py
+frontend/patch_*.py
 patch_pdf_template_*.py
+test_parser_cooperative.py
 
 # Doublon parasite du .dockerignore (sans le point initial)
 /dockerignore

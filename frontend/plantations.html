@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#1a4231">
 <title>AgriVision Pro — Plantations</title>
 <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=ssrte1"></script>
 <style>
 .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
 .search-wrap{position:relative;flex:1;min-width:200px;max-width:340px}
@@ -24,6 +24,10 @@
   background:transparent;font-family:'DM Sans',sans-serif;color:var(--muted);transition:.15s}
 .ftab:hover{background:var(--bg)}
 .ftab.active{background:var(--primary);color:#fff}
+.filter-select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;
+  background:var(--surface);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);
+  outline:none;min-width:190px}
+.filter-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.12)}
 
 .plantation-name{display:flex;align-items:center;gap:10px}
 .p-avatar{width:34px;height:34px;border-radius:9px;background:var(--bg);
@@ -99,6 +103,7 @@ tr:hover .action-btns{opacity:1}
           <button class="ftab" data-filter="MEDIUM" onclick="setFilter('MEDIUM',this)">Moyen</button>
           <button class="ftab" data-filter="HIGH" onclick="setFilter('HIGH',this)">Élevé</button>
         </div>
+        <select class="filter-select" id="assignment-filter" onchange="setAssignmentFilter(this.value)" style="display:none"></select>
       </div>
 
       <div class="table-wrap">
@@ -168,28 +173,78 @@ tr:hover .action-btns{opacity:1}
 initApp('plantations');
 
 // Afficher le bouton création uniquement pour les admins
-(function() {
-  try {
-    const token = getToken();
-    if (!token) return;
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    if (payload.role === 'admin') {
-      document.getElementById('add-btn').style.display = '';
-    }
-  } catch(e) {}
-})();
-
 let allPlantations = [];
 let mapData = {};
 let currentFilter = 'all';
+let assignmentFilter = 'all';
 let page = 0;
 const PAGE_SIZE = 15;
+const PLANTATION_LIST_ENDPOINT = '/plantations?limit=5000';
+const CURRENT_USER = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+const CURRENT_ROLE = CURRENT_USER?.role || '';
+
+function canCreatePlantation() {
+  return !CURRENT_USER || CURRENT_ROLE === 'admin';
+}
+
+function initCreateButton() {
+  const btn = document.getElementById('add-btn');
+  if (!btn) return;
+  if (canCreatePlantation()) {
+    btn.style.display = '';
+    btn.title = 'Creer une nouvelle plantation';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function initAssignmentFilter() {
+  const select = document.getElementById('assignment-filter');
+  if (!select) return;
+  if (CURRENT_ROLE === 'technician') {
+    select.innerHTML = `
+      <option value="all">Mes plantations accessibles</option>
+      <option value="mine">Mes plantations attribuees</option>`;
+    select.style.display = '';
+    return;
+  }
+  if (CURRENT_ROLE === 'admin' || CURRENT_ROLE === 'agronomist') {
+    select.innerHTML = '<option value="all">Tous les techniciens</option>';
+    authFetch('/plantations/filters-options')
+      .then(r => r?.ok ? r.json() : null)
+      .then(opts => {
+        (opts?.technicians || []).forEach(t => {
+          const option = document.createElement('option');
+          option.value = 'tech:' + t.id;
+          option.textContent = t.email;
+          select.appendChild(option);
+        });
+        select.style.display = (opts?.technicians || []).length ? '' : 'none';
+      })
+      .catch(() => {});
+  }
+}
+
+function setAssignmentFilter(value) {
+  assignmentFilter = value || 'all';
+  page = 0;
+  load();
+}
+
+function plantationEndpoint() {
+  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true';
+  if (assignmentFilter.startsWith('tech:')) {
+    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5));
+  }
+  return PLANTATION_LIST_ENDPOINT;
+}
 
 // Sprint Offline V1.6 - Phase 2 : Stale-While-Revalidate sur les lectures
 async function load() {
+  const endpoint = plantationEndpoint();
   // 1. Affichage instantane depuis le cache IndexedDB (si dispo)
   const [cachedP, cachedM] = await Promise.all([
-    AVPOffline.cacheGet('/plantations?limit=200'),
+    AVPOffline.cacheGet(endpoint),
     AVPOffline.cacheGet('/map/plantations'),
   ]);
   let hasCachedData = false;
@@ -204,13 +259,13 @@ async function load() {
   // 2. Refresh reseau en arriere-plan (peut echouer si offline)
   try {
     const [r1, r2] = await Promise.all([
-      authFetch('/plantations?limit=200'),
+      authFetch(endpoint),
       authFetch('/map/plantations')
     ]);
     if (r1?.ok) {
       const data = await r1.json();
       allPlantations = data;
-      AVPOffline.cacheSet('/plantations?limit=200', data);
+      AVPOffline.cacheSet(endpoint, data);
     }
     if (r2?.ok) {
       const md = await r2.json();
@@ -306,6 +361,9 @@ function render() {
           <button class="act-btn" onclick="goDiag(${p.id})" title="Lancer un diagnostic">
             <span class="material-symbols-outlined" style="font-size:15px">biotech</span>
           </button>
+          <button class="act-btn" onclick="goSsrteVisit(${p.id})" title="Fiche C SSRTE">
+            <span class="material-symbols-outlined" style="font-size:15px">clinical_notes</span>
+          </button>
         </div>
       </td>
     </tr>`;
@@ -333,6 +391,7 @@ function changePage(d) { page += d; render(); }
 function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }
 function viewDetail(id) { location.href = `plantation_detail.html?id=${id}`; }
 function goDiag(id)     { location.href = `diagnostic.html?id=${id}`; }
+function goSsrteVisit(id) { location.href = `ssrte.html?tab=visit&plantation_id=${id}`; }
 
 function openModal()  { document.getElementById('modal').style.display = 'flex'; }
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
@@ -407,6 +466,8 @@ function grabGPS() {
   );
 }
 
+initAssignmentFilter();
+initCreateButton();
 load();
 </script>
 
