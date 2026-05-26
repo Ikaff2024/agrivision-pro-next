@@ -186,7 +186,7 @@ const CURRENT_USER = typeof getCurrentUser === 'function' ? getCurrentUser() : n
 const CURRENT_ROLE = CURRENT_USER?.role || '';
 
 function canCreatePlantation() {
-  return !CURRENT_USER || CURRENT_ROLE === 'admin';
+  return CURRENT_ROLE === 'admin';
 }
 
 function initCreateButton() {
@@ -400,11 +400,24 @@ function goDiag(id)     { location.href = `diagnostic.html?id=${id}`; }
 function goProducer(id) { location.href = `producer_profile.html?id=${id}`; }
 function goSsrteVisit(id) { location.href = `ssrte.html?tab=visit&plantation_id=${id}`; }
 
-function openModal()  { document.getElementById('modal').style.display = 'flex'; }
+function openModal()  {
+  if (!canCreatePlantation()) {
+    toast(CURRENT_USER ? 'Creation reservee aux administrateurs.' : 'Connecte-toi avec un compte admin pour creer une plantation.', 'error');
+    if (!CURRENT_USER) setTimeout(() => { location.href = 'login.html'; }, 900);
+    return;
+  }
+  document.getElementById('modal').style.display = 'flex';
+}
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
 document.getElementById('modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
 
 async function createPlantation() {
+  if (!canCreatePlantation()) {
+    const errEl = document.getElementById('m-err');
+    errEl.textContent = CURRENT_USER ? 'Creation reservee aux administrateurs.' : 'Connexion admin requise.';
+    errEl.style.display = 'block';
+    return;
+  }
   const name   = document.getElementById('m-name').value.trim();
   const owner  = document.getElementById('m-owner').value.trim();
   const country= document.getElementById('m-country').value;
