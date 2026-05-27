@@ -132,8 +132,17 @@
           <div id="factor-list"></div>
           <div class="divider"></div>
           <div class="text-sm text-muted" style="line-height:1.45">
-            Ce score aide a prioriser les visites. La decision finale reste humaine et doit etre documentee.
+            Score local : estimation intrinseque (facteurs observables sur l'enfant).
+            Le score authoritatif integre FarmForce (economic), SSRTE communaute
+            (geographic) et l'historique d'evaluations (history).
           </div>
+          <button class="btn btn-sm btn-outline" id="server-recalc-btn"
+                  style="margin-top:10px;width:100%;justify-content:center"
+                  onclick="recomputeFromServer()">
+            Recalculer cote serveur
+          </button>
+          <div id="server-score" style="display:none;margin-top:10px;padding:10px;
+                                        background:var(--bg-elev);border-radius:6px"></div>
           <div class="sync-box">
             <strong style="color:var(--text)">Synchronisation terrain</strong>
             <div id="sync-status">Verification des evaluations locales...</div>
@@ -205,9 +214,17 @@ function calculateAge(dob) {
   return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
 }
 
+// Aligne avec backend scoring v2.0 (6 facteurs, total 100 pts) :
+//   age (0-25) + school (0-25) + work (0-20) + dangerous_tasks (0-10)
+//   + geographic (0-5) ← rempli ci-dessous a partir de la distance ecole
+//   + economic (0-10) ← server-only (FarmForce)
+//   + history  (0-5)  ← server-only (assessments anterieures)
+// Le simulateur JS donne une estimation intrinseque (max 85). Le score
+// authoritatif (avec contexte) est disponible via /children/{id}/calculate-risk
+// (bouton "Recalculer cote serveur" ci-dessous).
 function recompute() {
   const age = selectedChild ? calculateAge(selectedChild.date_of_birth) : 18;
-  const factors = { age: 0, school: 0, distance: 0, work: 0, dangerous_tasks: 0, labor_need: 0 };
+  const factors = { age: 0, school: 0, work: 0, dangerous_tasks: 0, geographic: 0, labor_need: 0 };
 
   if (age < 12) factors.age = 25;
   else if (age < 15) factors.age = 18;
@@ -219,34 +236,68 @@ function recompute() {
   else if (school === 'not_school_age') factors.school = 4;
 
   const distance = document.getElementById('distance').value;
-  if (distance === 'medium') factors.distance = 8;
-  else if (distance === 'far') factors.distance = 15;
-  else if (distance === 'unknown') factors.distance = 6;
+  // Aligne sur backend _compute_geographic_risk : 0-5 pts max
+  if (distance === 'medium') factors.geographic = 3;      // 3-5 km -> 3 pts
+  else if (distance === 'far') factors.geographic = 5;    // > 5 km -> 5 pts
+  // "near" (< 3 km) et "unknown" -> 0 pt (backend ne penalise pas l'inconnu)
 
   const work = document.getElementById('workfreq').value;
-  if (work === 'occasional') factors.work = 10;
-  else if (work === 'regular') factors.work = 22;
-  else if (work === 'daily') factors.work = 32;
+  // Aligne sur backend : base 5 + frequency
+  if (work === 'occasional') factors.work = 10;  // 5 + 5
+  else if (work === 'regular') factors.work = 15; // 5 + 10
+  else if (work === 'daily') factors.work = 20;   // 5 + 15
 
   const tasks = Array.from(document.querySelectorAll('.task:checked')).map(el => el.value);
-  factors.dangerous_tasks = Math.min(tasks.length * 12, 30);
+  factors.dangerous_tasks = Math.min(tasks.length * 5, 10); // cap 10
 
+  // labor_need : champ contextuel, n'entre PAS dans le scoring backend.
+  // Conserve dans currentFactors pour information mais score = 0.
   const labor = document.getElementById('laborneed').value;
-  if (labor === 'medium') factors.labor_need = 8;
-  else if (labor === 'high') factors.labor_need = 16;
+  factors.labor_need = 0;
 
   currentScore = Math.min(Object.values(factors).reduce((a, b) => a + b, 0), 100);
   currentLevel = levelFromScore(currentScore);
-  currentFactors = { ...factors, tasks, distance_to_school: distance };
+  currentFactors = { ...factors, tasks, distance_to_school: distance, labor_need_context: labor };
   renderScore();
 }
 
+// Aligne avec backend v2.0 risk_level_from_score (seuils -5/-10/-15 vs v1.x)
 function levelFromScore(score) {
-  if (score >= 80) return 'critical';
-  if (score >= 60) return 'high';
-  if (score >= 40) return 'medium';
-  if (score >= 20) return 'low';
+  if (score >= 70) return 'critical';
+  if (score >= 50) return 'high';
+  if (score >= 30) return 'medium';
+  if (score >= 15) return 'low';
   return 'none';
+}
+
+async function recomputeFromServer() {
+  if (!selectedChild) return;
+  const btn = document.getElementById('server-recalc-btn');
+  const out = document.getElementById('server-score');
+  btn.disabled = true;
+  btn.textContent = 'Calcul...';
+  try {
+    const res = await cgFetch(`/children/${selectedChild.id}/calculate-risk`, { method: 'POST' });
+    if (!res.ok) throw new Error('Echec calcul serveur (HTTP ' + res.status + ')');
+    const body = await res.json();
+    const f = body.risk_factors || {};
+    out.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+        <strong style="font-size:20px">${body.risk_score}</strong>
+        <span class="text-sm text-muted">${body.risk_level} (methodologie ${body.methodology_version})</span>
+      </div>
+      <div class="text-sm text-muted">Ecart vs UI : ${body.drift > 0 ? '+' : ''}${body.drift}</div>
+      <div class="text-sm" style="margin-top:6px">
+        Contexte serveur : economic=${f.economic}, geographic=${f.geographic}, history=${f.history}
+      </div>`;
+    out.style.display = 'block';
+  } catch (e) {
+    out.textContent = e.message;
+    out.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Recalculer cote serveur';
+  }
 }
 
 function renderScore() {
@@ -260,10 +311,10 @@ function renderScore() {
   document.getElementById('factor-list').innerHTML = [
     ['Age', currentFactors.age],
     ['Scolarisation', currentFactors.school],
-    ['Distance ecole', currentFactors.distance],
+    ['Distance ecole (geographic)', currentFactors.geographic],
     ['Travail ferme', currentFactors.work],
     ['Taches dangereuses', currentFactors.dangerous_tasks],
-    ['Besoin main-doeuvre', currentFactors.labor_need],
+    ['Contexte main-doeuvre (non scoré)', currentFactors.labor_need],
   ].map(([k, v]) => `<div class="factor-row"><span>${k}</span><strong>${v}</strong></div>`).join('');
 }
 

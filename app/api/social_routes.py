@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import Producer, User
+from app.db.models import FarmForceAssessment, Producer, User
 from app.auth.auth_service import decode_token
 from app.db.models_social import (
     Alert,
@@ -20,8 +21,11 @@ from app.db.models_social import (
     RiskAssessment,
     RiskLevel,
     SchoolStatus,
+    SsrteCommunityProfile,
     WorkFrequency,
 )
+
+SCORING_METHODOLOGY_VERSION = "2.0"
 from app.api.cacaoguard_ops_routes import ensure_remediation_plan_for_child
 from app.api.cacaoguard_ops_routes import record_privacy_access
 
@@ -62,6 +66,7 @@ class ChildCreate(BaseModel):
     birth_certificate_number: Optional[str] = Field(None, max_length=100)
     school_status: SchoolStatus = SchoolStatus.NOT_SCHOOL_AGE
     school_name: Optional[str] = Field(None, max_length=200)
+    school_distance_km: Optional[float] = Field(None, ge=0, le=100)
     is_working_on_farm: bool = False
     work_frequency: WorkFrequency = WorkFrequency.NEVER
     dangerous_tasks_performed: Optional[List[str]] = None
@@ -75,6 +80,7 @@ class ChildUpdate(BaseModel):
     birth_certificate_number: Optional[str] = Field(None, max_length=100)
     school_status: Optional[SchoolStatus] = None
     school_name: Optional[str] = Field(None, max_length=200)
+    school_distance_km: Optional[float] = Field(None, ge=0, le=100)
     is_working_on_farm: Optional[bool] = None
     work_frequency: Optional[WorkFrequency] = None
     dangerous_tasks_performed: Optional[List[str]] = None
@@ -90,11 +96,13 @@ class ChildResponse(BaseModel):
     birth_certificate_number: Optional[str]
     school_status: SchoolStatus
     school_name: Optional[str]
+    school_distance_km: Optional[float] = None
     is_working_on_farm: bool
     work_frequency: WorkFrequency
     dangerous_tasks_performed: Optional[List[str]]
     risk_score: float
     risk_level: RiskLevel
+    risk_factors: Optional[dict] = None
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -128,12 +136,131 @@ def _age_years(dob: date) -> float:
     return (date.today() - dob).days / 365.25
 
 
-def calculate_risk_score(child: ChildCreate) -> tuple[float, dict]:
+def _compute_economic_risk(db: Session, producer_id: int) -> int:
+    """0-10 pts derives du dernier FarmForceAssessment du producteur.
+
+    - profit_cfa negatif -> 10 pts (exploitation deficitaire, pression maximale)
+    - rendement quotidien familial < 1000 FCFA/jour -> 7 pts (sous seuil pauvrete)
+    - rendement quotidien familial < 2500 FCFA/jour -> 4 pts (sous SMIG ivoirien)
+    - sinon ou pas de donnees -> 0 pts (pas de signal, on ne penalise pas)
+    """
+    if not producer_id:
+        return 0
+    assessment = (
+        db.query(FarmForceAssessment)
+        .filter(FarmForceAssessment.producer_id == producer_id)
+        .order_by(FarmForceAssessment.created_at.desc())
+        .first()
+    )
+    if not assessment:
+        return 0
+    if assessment.profit_cfa is not None and float(assessment.profit_cfa) < 0:
+        return 10
+    rpd = assessment.return_per_family_day_cfa
+    if rpd is None:
+        return 0
+    rpd_value = float(rpd)
+    if rpd_value < 1000:
+        return 7
+    if rpd_value < 2500:
+        return 4
+    return 0
+
+
+def _compute_geographic_risk(
+    school_distance_km: Optional[float],
+    db: Session,
+    producer_id: int,
+) -> int:
+    """0-5 pts derives de la distance ecole.
+
+    Priorite : distance saisie sur l'enfant > profil communaute SSRTE de la localite.
+    - aucune ecole disponible dans la communaute -> 5 pts
+    - distance > 5 km -> 5 pts
+    - distance > 3 km -> 3 pts
+    - distance > 1.5 km -> 1 pt
+    - sinon -> 0 pts
+    """
+    distance = school_distance_km
+    if distance is None and producer_id:
+        producer = db.query(Producer).filter(Producer.id == producer_id).first()
+        if producer and producer.localite:
+            profile = (
+                db.query(SsrteCommunityProfile)
+                .filter(SsrteCommunityProfile.locality == producer.localite)
+                .order_by(SsrteCommunityProfile.interview_date.desc())
+                .first()
+            )
+            if profile:
+                if not profile.school_available:
+                    return 5
+                if profile.nearest_school_distance_km is not None:
+                    distance = float(profile.nearest_school_distance_km)
+    if distance is None:
+        return 0
+    if distance > 5:
+        return 5
+    if distance > 3:
+        return 3
+    if distance > 1.5:
+        return 1
+    return 0
+
+
+def _compute_history_risk(db: Session, child_id: Optional[int]) -> int:
+    """0-5 pts derives de l'historique d'evaluations de l'enfant.
+
+    - >= 2 evaluations HIGH/CRITICAL anterieures -> 5 pts (risque recurrent)
+    - 1 evaluation HIGH/CRITICAL anterieure -> 3 pts
+    - sinon -> 0 pts (premiere evaluation ou historique sain)
+    """
+    if not child_id:
+        return 0
+    count = (
+        db.query(RiskAssessment)
+        .filter(
+            RiskAssessment.child_id == child_id,
+            RiskAssessment.overall_risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+        )
+        .count()
+    )
+    if count >= 2:
+        return 5
+    if count == 1:
+        return 3
+    return 0
+
+
+def calculate_risk_score(
+    child: ChildCreate,
+    *,
+    db: Optional[Session] = None,
+    producer_id: Optional[int] = None,
+    child_id: Optional[int] = None,
+) -> tuple[float, dict]:
+    """Calcule le score de risque CacaoGuard sur 6 facteurs (methodologie v2.0).
+
+    Total max 100 :
+      - age (0-25) : age critique pour travail enfant
+      - school (0-25) : statut scolaire de l'enfant
+      - work (0-20) : statut + frequence de travail sur ferme
+      - dangerous_tasks (0-10) : taches dangereuses observees
+      - economic (0-10) : pression economique du menage (FarmForce)
+      - geographic (0-5) : eloignement de l'ecole (Child / SSRTE communaute)
+      - history (0-5) : recurrence du risque sur evaluations precedentes
+
+    Les 3 facteurs de contexte (economic/geographic/history) sont calcules a 0
+    si db n'est pas fourni, ce qui garde le scoring deterministe et testable
+    en isolation.
+    """
     factors = {
         "age": 0,
         "school": 0,
         "work": 0,
         "dangerous_tasks": 0,
+        "economic": 0,
+        "geographic": 0,
+        "history": 0,
     }
 
     age = _age_years(child.date_of_birth)
@@ -152,29 +279,46 @@ def calculate_risk_score(child: ChildCreate) -> tuple[float, dict]:
         factors["school"] = 4
 
     if child.is_working_on_farm:
-        factors["work"] = 12
+        work_score = 5
         if child.work_frequency == WorkFrequency.OCCASIONAL:
-            factors["work"] += 5
+            work_score += 5
         elif child.work_frequency == WorkFrequency.REGULAR:
-            factors["work"] += 12
+            work_score += 10
         elif child.work_frequency == WorkFrequency.DAILY:
-            factors["work"] += 20
+            work_score += 15
+        factors["work"] = min(work_score, 20)
 
     dangerous_tasks = child.dangerous_tasks_performed or []
-    factors["dangerous_tasks"] = min(len(dangerous_tasks) * 10, 25)
+    factors["dangerous_tasks"] = min(len(dangerous_tasks) * 5, 10)
+
+    if db is not None:
+        resolved_producer = producer_id or child.producer_id
+        factors["economic"] = _compute_economic_risk(db, resolved_producer)
+        factors["geographic"] = _compute_geographic_risk(
+            child.school_distance_km, db, resolved_producer
+        )
+        factors["history"] = _compute_history_risk(db, child_id)
 
     score = min(sum(factors.values()), 100)
     return float(score), factors
 
 
 def risk_level_from_score(score: float) -> RiskLevel:
-    if score >= 80:
+    """Seuils alignes sur la methodologie v2.0 (6 facteurs).
+
+    Le score intrinseque max (sans contexte) plafonne a 80 (25+25+20+10),
+    donc un cas intrinsequement critique doit pouvoir basculer CRITICAL
+    sans dependre des facteurs de contexte (qui peuvent etre absents en
+    debut de programme). Les seuils sont 5-15 pts plus bas que l'ancienne
+    methodologie (v1.x) pour refleter cela.
+    """
+    if score >= 70:
         return RiskLevel.CRITICAL
-    if score >= 60:
+    if score >= 50:
         return RiskLevel.HIGH
-    if score >= 40:
+    if score >= 30:
         return RiskLevel.MEDIUM
-    if score >= 20:
+    if score >= 15:
         return RiskLevel.LOW
     return RiskLevel.NONE
 
@@ -382,7 +526,9 @@ def create_child(
     if not producer:
         raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
-    score, factors = calculate_risk_score(child_data)
+    score, factors = calculate_risk_score(
+        child_data, db=db, producer_id=child_data.producer_id, child_id=None
+    )
     risk_level = risk_level_from_score(score)
 
     child = Child(
@@ -394,6 +540,9 @@ def create_child(
         birth_certificate_number=child_data.birth_certificate_number,
         school_status=child_data.school_status,
         school_name=child_data.school_name,
+        school_distance_km=Decimal(str(child_data.school_distance_km))
+        if child_data.school_distance_km is not None
+        else None,
         is_working_on_farm=child_data.is_working_on_farm,
         work_frequency=child_data.work_frequency,
         dangerous_tasks_performed=child_data.dangerous_tasks_performed,
@@ -425,6 +574,8 @@ def update_child(
 
     update_data = child_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
+        if field == "school_distance_km" and value is not None:
+            value = Decimal(str(value))
         setattr(child, field, value)
 
     if any(
@@ -432,6 +583,7 @@ def update_child(
         for field in (
             "date_of_birth",
             "school_status",
+            "school_distance_km",
             "is_working_on_farm",
             "work_frequency",
             "dangerous_tasks_performed",
@@ -446,11 +598,16 @@ def update_child(
             birth_certificate_number=child.birth_certificate_number,
             school_status=child.school_status,
             school_name=child.school_name,
+            school_distance_km=float(child.school_distance_km)
+            if child.school_distance_km is not None
+            else None,
             is_working_on_farm=child.is_working_on_farm,
             work_frequency=child.work_frequency,
             dangerous_tasks_performed=child.dangerous_tasks_performed,
         )
-        score, factors = calculate_risk_score(temp)
+        score, factors = calculate_risk_score(
+            temp, db=db, producer_id=child.producer_id, child_id=child.id
+        )
         child.risk_score = score
         child.risk_level = risk_level_from_score(score)
         child.risk_factors = factors
@@ -508,6 +665,7 @@ def create_assessment(
         overall_risk_level=data.overall_risk_level,
         risk_factors=risk_factors,
         assessor_id=assessor_id,
+        methodology_version=SCORING_METHODOLOGY_VERSION,
         status=AssessmentStatus.COMPLETED,
     )
 
@@ -524,3 +682,51 @@ def create_assessment(
     db.refresh(assessment)
 
     return {"message": "Evaluation creee", "assessment_id": assessment.id}
+
+
+@router.post("/{child_id:int}/calculate-risk")
+def recompute_child_risk(
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Recalcule le score sur l'etat courant en base sans persister.
+
+    Utile pour l'auditeur et le frontend : permet de verifier le score
+    avec la methodologie courante apres mise a jour FarmForce/SSRTE,
+    sans declencher d'alerte ou de plan de remediation.
+    """
+    require_role(current_user, {"admin", "agronomist", "technician"})
+    child = db.query(Child).filter(Child.id == child_id, Child.is_active == True).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="Enfant non trouve.")
+
+    snapshot = ChildCreate(
+        producer_id=child.producer_id,
+        first_name=child.first_name,
+        last_name=child.last_name,
+        date_of_birth=child.date_of_birth,
+        gender=child.gender,
+        birth_certificate_number=child.birth_certificate_number,
+        school_status=child.school_status,
+        school_name=child.school_name,
+        school_distance_km=float(child.school_distance_km)
+        if child.school_distance_km is not None
+        else None,
+        is_working_on_farm=child.is_working_on_farm,
+        work_frequency=child.work_frequency,
+        dangerous_tasks_performed=child.dangerous_tasks_performed,
+    )
+    score, factors = calculate_risk_score(
+        snapshot, db=db, producer_id=child.producer_id, child_id=child.id
+    )
+    return {
+        "child_id": child.id,
+        "methodology_version": SCORING_METHODOLOGY_VERSION,
+        "risk_score": score,
+        "risk_level": risk_level_from_score(score).value,
+        "risk_factors": factors,
+        "persisted_risk_score": float(child.risk_score or 0),
+        "persisted_risk_level": child.risk_level.value if child.risk_level else None,
+        "drift": round(score - float(child.risk_score or 0), 2),
+    }
