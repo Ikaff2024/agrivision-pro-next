@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import router as api_router
 from app.api.assignment_routes import router as assignment_router, sub_router as substitution_router
+from app.api.audit_trail_routes import router as audit_trail_router
 from app.api.cacaoguard_routes import router as cacaoguard_router
 from app.api.cacaoguard_ops_routes import router as cacaoguard_ops_router
 from app.api.complaint_routes import router as complaint_router
@@ -202,4 +203,5 @@ app.include_router(cacaoguard_router)
 app.include_router(cacaoguard_ops_router)
 app.include_router(complaint_router)
 app.include_router(remediation_router)
+app.include_router(audit_trail_router)
 app.include_router(ssrte_router)
