@@ -705,3 +705,108 @@ Découpage proposé en 3 sous-sprints :
 **Effort total** : ~2.5 semaines, en 3 livraisons valorisables séparément.
 
 **Pourquoi c'est le bon prochain sprint** : c'est l'argument commercial #1 pour signer des coopératives avant la deadline EUDR du 30/12/2026 (grandes entreprises) / 30/06/2027 (PME). Le sprint Offline rendait le produit utilisable terrain ; le sprint EUDR le rend vendable.
+
+# ===========================================================================
+# SPRINT CACAOGUARD P0 + P1 — CLÔTURE OFFICIELLE (27 mai 2026)
+# ===========================================================================
+#
+# Tag Git : cacaoguard-p0-p1-complete-2026-05-27
+# Branche : codex/cacaoguard-fusion (agrivision-pro-next)
+# Voir aussi : LIVRAISON_CACAOGUARD_P1.md à la racine
+# ===========================================================================
+
+## 🛡️ Sprint CacaoGuard P0 + P1 — LIVRÉ ✅
+
+**Date de clôture** : 27 mai 2026
+**Statut** : Backend déployé Railway, frontend prêt zip Netlify, 280 tests verts
+**Périmètre** : Mise en conformité totale du module CacaoGuard avec la spec
+client `IMPLEMENTATION_ROADMAP.md` (section 5.1)
+
+### 7 chantiers livrés
+
+| ID | Chantier | Backend | Frontend |
+|---|---|---|---|
+| CG-1.3 | Scoring risque 6 facteurs v2.0 (vs 4 facteurs v1) | ✅ | ✅ (simulateur + bouton "Recalculer cote serveur") |
+| CG-1.1 | Module Complaints / Signalements EUDR | ✅ 5 endpoints | ✅ Nouvelle page complaints.html |
+| CG-1.2 | Workflow remediation complet (approve/complete/escalate + actions CRUD) | ✅ 9 endpoints | ✅ 5 modales dans remediation.html |
+| CG-1.4 | Audit trail consolidé | ✅ 2 endpoints | ✅ Section dans compliance.html |
+| CG-2.1 | Producer drill-down (6 endpoints) | ✅ | ✅ Panneau synthese dans producer_profile.html |
+| CG-2.2 | Notifications in-app | ✅ 6 endpoints + table | ✅ Badge global dans auth.js |
+| CG-2.3 | Sync mobile (idempotent par op_id) | ✅ 4 endpoints + table | ⚠️ Stub frontend (Idempotency-Key UUID) |
+
+### Nouveaux endpoints API (30 au total)
+
+Visibles dans https://agrivision-api-production.up.railway.app/docs (111 endpoints au total apres livraison) :
+- `/complaints` (5 routes) — hotline signalement
+- `/cacaoguard/reports/audit-trail` + `/summary` — chronologie pour audit
+- `/cacaoguard/notifications/*` (6 routes) — feed in-app
+- `/cacaoguard/sync/*` (4 routes) — pull/push offline avec idempotence
+- `/remediation/plans/{id}/{approve,complete,escalate}` + actions CRUD (8 routes)
+- `/children/{id}/calculate-risk` — recalcul live (admin/auditeur)
+- `/producers/{id}/{children,assessments,visits,remediation-plans,complaints,traceability-status,calculate-risk}` (7 routes)
+
+### Nouveaux modeles SQL
+
+- `notifications` (UniqueConstraint user_id+alert_id, idempotence)
+- `sync_operation_logs` (UNIQUE op_id, idempotence stricte)
+
+### Migrations Alembic
+
+- `0005_notifications.py`
+- `0006_sync_operation_logs.py` (renumerotee depuis 0005 lors de l'integration)
+- Chaine finale : `0001 -> ... -> 0004_ssrte_forms -> 0005_notifications -> 0006_sync_operation_logs`
+
+### Methodologie scoring v2.0
+
+7 facteurs sur 100 pts (vs 4 facteurs mal calibres en v1) :
+- age (0-25), school (0-25), work (0-20), dangerous_tasks (0-10) — intrinseques
+- economic (0-10) — derive de `FarmForceAssessment.return_per_family_day_cfa` / `profit_cfa`
+- geographic (0-5) — derive de `Child.school_distance_km` ou fallback `SsrteCommunityProfile.nearest_school_distance_km`
+- history (0-5) — derive du nombre d'evaluations HIGH/CRITICAL anterieures pour l'enfant
+
+Seuils risk_level (alignes avec la spec et descendu de 5-15 pts vs v1) :
+- CRITICAL >= 70, HIGH >= 50, MEDIUM >= 30, LOW >= 15
+
+Stamp `methodology_version="2.0"` sur chaque RiskAssessment cree apres cette PR.
+
+### Patterns / decisions architecturales
+
+1. **Audit trail sans double-log** : reconstruit la chronologie a partir des sources existantes (PrivacyAccessLog + RemediationPlan.approved_at + Alert.escalated_at + TraceabilityBlock.created_at + Child.created_at). Pas de table dediee, pas de risque de desynchronisation.
+
+2. **Notifications avec fan-out lazy** : NotificationItem creee a la demande au prochain GET, avec UniqueConstraint user_id+alert_id pour idempotence. Pas de queue de notification a l'emission Alert (decoupage propre).
+
+3. **Sync mobile pull/push** :
+   - Pull avec delta optionnel (`last_sync_at`)
+   - Push idempotent par op_id (UUID client). Permet rejouer un /sync/push sans dupliquer cote serveur.
+   - 4 op_types supportes : create_visit, complete_visit, create_complaint, complete_action
+   - conflict/resolve : MVP server_wins, client doit refetch
+
+4. **Frontend global notifications widget** : ajoute dans auth.js, visible sur TOUTES les pages CacaoGuard via initApp(). Polling 60s sur /notifications/unread-count.
+
+### Service Worker
+
+Bumped `avp-v3.10-staging-api` -> `avp-v4.0-cacaoguard-p1`. Ajout de `/complaints.html` aux STATIC_ASSETS precaches.
+
+### Frontend deploy
+
+Zip pret a deposer : `agrivision-frontend-cacaoguard-p1.zip` (225 KB, 60+ fichiers) a la racine.
+
+### Backlog ouvert post-CG-P1
+
+| ID | Titre | Sévérité | Effort |
+|---|---|---|---|
+| `FEATURE-CG-REPORTS-01` | Rapports avances (child-labor-summary, training-effectiveness, export Excel) | Moyenne | 1-2 jours |
+| `FEATURE-CG-SCOPING-01` | Filtrage fin par cooperative sur notifications/sync (multi-tenant) | Moyenne | 0.5 jour |
+| `FEATURE-CG-MOBILE-01` | App mobile native Capacitor pour exploiter `/sync/*` | Haute (V2) | 1 semaine |
+| `CHORE-CG-ALEMBIC-01` | Migration Alembic dediee au lieu de Base.metadata.create_all pour les 2 nouvelles tables | Faible | 0.5 jour |
+| `FEATURE-CG-COMPLAINTS-OFFLINE-01` | Etendre la queue offline a /complaints (signalement terrain) | Moyenne | 0.5 jour |
+
+### Tests
+
+- 280 tests pytest verts (106 nouveaux pour CG-P0+P1)
+- 3 tests test_agroforestry.py pre-casses (chip spawned, sans rapport CacaoGuard)
+- Mojibake check OK sur tous les fichiers livres
+
+### Prochain sprint recommande
+
+**EPIC EUDR-01** comme prevu dans le backlog initial. Toutes les briques CacaoGuard sont en place pour supporter le module EUDR (audit trail + tracabilite + chaine de responsabilite).
