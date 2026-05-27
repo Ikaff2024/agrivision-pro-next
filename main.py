@@ -20,6 +20,7 @@ from app.api.producer_routes import router as producer_router
 from app.api.remediation_routes import router as remediation_router
 from app.api.social_routes import router as social_router
 from app.api.ssrte_routes import router as ssrte_router
+from app.api.sync_routes import router as sync_router
 from app.auth.auth_routes import router as auth_router
 from app.db.database import engine, Base
 from app.db import models  # noqa: F401
@@ -206,4 +207,5 @@ app.include_router(complaint_router)
 app.include_router(remediation_router)
 app.include_router(audit_trail_router)
 app.include_router(notification_router)
+app.include_router(sync_router)
 app.include_router(ssrte_router)

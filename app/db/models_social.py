@@ -828,3 +828,32 @@ class NotificationItem(Base):
 
     def __repr__(self):
         return f"<NotificationItem(id={self.id}, user={self.user_id}, alert={self.alert_id}, read={self.read_at is not None})>"
+
+
+class SyncOperationLog(Base):
+    """
+    Trace des operations synchronisees depuis un client offline.
+
+    Chaque op_id (genere cote client) est unique : idempotence stricte.
+    Permet de rejouer un /sync/push sans dupliquer un enregistrement
+    cote serveur si le client perd la reponse reseau.
+    """
+    __tablename__ = "sync_operation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    op_id = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    op_type = Column(String(50), nullable=False, index=True)
+    entity_type = Column(String(50), nullable=False, index=True)
+    payload = Column(JSON, nullable=True)
+    result = Column(JSON, nullable=True)
+    status = Column(String(20), nullable=False, index=True)  # success | duplicate | conflict | error
+    server_entity_id = Column(Integer, nullable=True, index=True)
+    error_message = Column(Text, nullable=True)
+    client_timestamp = Column(DateTime(timezone=True), nullable=True)
+    applied_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<SyncOperationLog(op_id={self.op_id}, type={self.op_type}, status={self.status})>"
