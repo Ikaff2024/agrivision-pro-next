@@ -19,6 +19,16 @@
     .plan-meta{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:3px}
     .action-list{margin-top:10px;display:grid;gap:7px}
     .action-item{font-size:12.5px;background:var(--surface-warm);border:1px solid var(--border-l);border-radius:8px;padding:8px}
+    .action-item-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .plan-actions-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-l)}
+    .plan-action-btn{border:1px solid var(--border);background:var(--bg);color:var(--primary);border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+    .plan-action-btn:hover{border-color:var(--accent);background:var(--surface-warm)}
+    .plan-action-btn.success{color:#1a6b3a}.plan-action-btn.success:hover{border-color:#a8d8bb}
+    .plan-action-btn.danger{color:#922b21}.plan-action-btn.danger:hover{border-color:#f1948a}
+    .plan-action-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .plan-action-btn.primary:hover{background:var(--primary-dark)}
+    .action-mini-btn{border:1px solid var(--border);background:#fff;border-radius:4px;padding:3px 7px;font-size:10.5px;font-weight:600;cursor:pointer;color:var(--primary)}
+    .action-mini-btn:hover{border-color:var(--accent)}
     .sync-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);background:var(--surface-warm);border-radius:8px;padding:10px 12px;margin-bottom:14px}
     .sync-text{font-size:12.5px;color:var(--muted);line-height:1.35}
     @media(max-width:960px){.rem-layout{grid-template-columns:1fr}}
@@ -91,8 +101,133 @@
   </div>
 </div>
 
+<!-- Modal: Approbation -->
+<div class="modal-overlay" id="m-approve">
+  <div class="modal">
+    <div class="modal-title">Approuver le plan</div>
+    <div class="form-group">
+      <label class="form-label">Commentaire d'approbation *</label>
+      <textarea class="form-input" id="ap-comments" rows="3" placeholder="Justification de l'approbation..."></textarea>
+    </div>
+    <div id="ap-err" style="display:none;color:var(--high);font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeApprove()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitApprove()">Approuver</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cloture -->
+<div class="modal-overlay" id="m-complete">
+  <div class="modal">
+    <div class="modal-title">Cloturer le plan</div>
+    <div class="form-group">
+      <label class="form-label">Resultat *</label>
+      <select class="form-input" id="cp-outcome">
+        <option value="successful">Reussi - cas resolu</option>
+        <option value="partial_success">Reussite partielle</option>
+        <option value="failed">Echec</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description du resultat *</label>
+      <textarea class="form-input" id="cp-desc" rows="3" placeholder="Bilan, preuves, suite donnee..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><input type="checkbox" id="cp-close"> Cloturer definitivement (CLOSED)</label>
+    </div>
+    <div id="cp-err" style="display:none;color:var(--high);font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeComplete()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitComplete()">Cloturer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Escalade -->
+<div class="modal-overlay" id="m-escalate">
+  <div class="modal">
+    <div class="modal-title">Escalader le plan</div>
+    <div class="form-group">
+      <label class="form-label">Motif de l'escalade *</label>
+      <textarea class="form-input" id="es-reason" rows="3" placeholder="Producteur non cooperatif, suspicion confirmee..."></textarea>
+    </div>
+    <div id="es-err" style="display:none;color:var(--high);font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeEscalate()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitEscalate()">Escalader</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ajout action -->
+<div class="modal-overlay" id="m-add-action">
+  <div class="modal">
+    <div class="modal-title">Ajouter une action</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type *</label>
+        <select class="form-input" id="aa-type">
+          <option value="education">Education</option>
+          <option value="economic_support">Soutien economique</option>
+          <option value="awareness">Sensibilisation</option>
+          <option value="health">Sante</option>
+          <option value="legal">Juridique</option>
+          <option value="other">Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Echeance *</label>
+        <input class="form-input" id="aa-date" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description *</label>
+      <textarea class="form-input" id="aa-desc" rows="3" placeholder="Ce qui doit etre fait..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Organisation responsable</label>
+      <input class="form-input" id="aa-org" placeholder="Ex: ONG, ecole, centre de sante...">
+    </div>
+    <div id="aa-err" style="display:none;color:var(--high);font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAddAction()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitAddAction()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cloturer action -->
+<div class="modal-overlay" id="m-complete-action">
+  <div class="modal">
+    <div class="modal-title">Cloturer l'action</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">
+      Une preuve est obligatoire (document, photo ou signature).
+    </p>
+    <div class="form-group">
+      <label class="form-label">Document(s) de preuve (un par ligne)</label>
+      <textarea class="form-input" id="ca-documents" rows="2" placeholder="Acte d'inscription scolaire&#10;Recu kit scolaire"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Photo(s) (un nom de fichier par ligne)</label>
+      <textarea class="form-input" id="ca-photos" rows="2" placeholder="photo_terrain_1.jpg"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Evaluation d'impact</label>
+      <textarea class="form-input" id="ca-impact" rows="2" placeholder="Ce que ca a change pour l'enfant..."></textarea>
+    </div>
+    <div id="ca-err" style="display:none;color:var(--high);font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCompleteAction()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitCompleteAction()">Cloturer l'action</button>
+    </div>
+  </div>
+</div>
+
 <script>
 initApp('remediation');
+let _currentPlanId = null;
+let _currentActionId = null;
 
 const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
 const labels = {
@@ -137,7 +272,15 @@ async function loadPlans() {
     el.innerHTML = '<div class="empty-state" style="padding:32px">Aucun plan de remediation ouvert.</div>';
     return;
   }
-  el.innerHTML = plans.map(p => `
+  el.innerHTML = plans.map(p => renderPlanCard(p)).join('');
+}
+
+function renderPlanCard(p) {
+  const canApprove = ['draft', 'pending_approval'].includes(p.status);
+  const canComplete = ['approved', 'in_progress'].includes(p.status);
+  const canEscalate = ['draft', 'pending_approval', 'approved', 'in_progress'].includes(p.status);
+  const isFinal = ['completed', 'closed'].includes(p.status);
+  return `
     <div class="plan-card">
       <div class="plan-top">
         <div>
@@ -146,17 +289,46 @@ async function loadPlans() {
         </div>
         <span class="badge ${p.priority === 'urgent' || p.priority === 'high' ? 'badge-high' : 'badge-med'}">${labels[p.priority] || p.priority}</span>
       </div>
-      <div class="plan-meta">Statut: ${labels[p.status] || p.status}</div>
+      <div class="plan-meta">Statut: <strong>${labels[p.status] || p.status}</strong></div>
       <div class="plan-meta">${p.main_objective}</div>
       <div class="action-list">
-        ${(p.actions || []).map(a => `<div class="action-item">${labels[a.action_type] || a.action_type}: ${a.description} - ${a.planned_date}</div>`).join('')}
+        ${(p.actions || []).map(a => `
+          <div class="action-item">
+            <div class="action-item-row">
+              <div>
+                <strong>${labels[a.action_type] || a.action_type}</strong>: ${a.description}
+                <div style="font-size:11px;color:var(--muted);margin-top:3px">
+                  Prevue ${a.planned_date} - ${labels[a.status] || a.status}${a.completed_date ? ' (le ' + a.completed_date + ')' : ''}
+                </div>
+              </div>
+              ${a.status !== 'completed' && a.status !== 'cancelled' ? `
+                <button class="action-mini-btn" onclick="openCompleteAction(${a.id})">
+                  Cloturer
+                </button>` : ''}
+            </div>
+          </div>`).join('') || '<div class="action-item" style="text-align:center;color:var(--muted)">Aucune action planifiee.</div>'}
       </div>
-      <div class="form-group" style="margin-top:12px">
-        <input class="form-input" id="note-${p.id}" placeholder="Note de suivi mensuel...">
+      ${!isFinal ? `
+        <div class="form-group" style="margin-top:12px">
+          <input class="form-input" id="note-${p.id}" placeholder="Note de suivi mensuel...">
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="addProgress(${p.id})">Ajouter suivi</button>` : ''}
+      <div class="plan-actions-bar">
+        <button class="plan-action-btn" onclick="openAddAction(${p.id})">
+          <span class="material-symbols-outlined" style="font-size:14px">add_task</span>Ajouter action
+        </button>
+        ${canApprove ? `<button class="plan-action-btn primary" onclick="openApprove(${p.id})">
+          <span class="material-symbols-outlined" style="font-size:14px">verified</span>Approuver
+        </button>` : ''}
+        ${canComplete ? `<button class="plan-action-btn success" onclick="openComplete(${p.id})">
+          <span class="material-symbols-outlined" style="font-size:14px">task_alt</span>Cloturer
+        </button>` : ''}
+        ${canEscalate ? `<button class="plan-action-btn danger" onclick="openEscalate(${p.id})">
+          <span class="material-symbols-outlined" style="font-size:14px">priority_high</span>Escalader
+        </button>` : ''}
       </div>
-      <button class="btn btn-sm btn-primary" onclick="addProgress(${p.id})">Ajouter suivi</button>
     </div>
-  `).join('');
+  `;
 }
 
 async function createPlan() {
@@ -242,6 +414,147 @@ async function syncOfflineQueue() {
   if (result && !result.skipped) toast(`${result.synced || 0} saisie(s) synchronisee(s).`);
   await refreshQueueStatus();
   await loadPlans();
+}
+
+/* ========== Workflow transitions ========== */
+function openApprove(id) { _currentPlanId = id; document.getElementById('ap-err').style.display='none'; document.getElementById('ap-comments').value=''; document.getElementById('m-approve').classList.add('active'); }
+function closeApprove() { document.getElementById('m-approve').classList.remove('active'); }
+async function submitApprove() {
+  const err = document.getElementById('ap-err'); err.style.display = 'none';
+  const c = document.getElementById('ap-comments').value.trim();
+  if (c.length < 4) { err.textContent = 'Le commentaire est obligatoire (4 caracteres min).'; err.style.display = 'block'; return; }
+  try {
+    const res = await cgFetch(`/remediation/plans/${_currentPlanId}/approve`, {
+      method:'POST', body: JSON.stringify({ approval_comments: c })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur approbation.');
+    toast('Plan approuve.');
+    closeApprove();
+    await loadPlans();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+function openComplete(id) {
+  _currentPlanId = id;
+  document.getElementById('cp-err').style.display='none';
+  document.getElementById('cp-desc').value='';
+  document.getElementById('cp-close').checked=false;
+  document.getElementById('m-complete').classList.add('active');
+}
+function closeComplete() { document.getElementById('m-complete').classList.remove('active'); }
+async function submitComplete() {
+  const err = document.getElementById('cp-err'); err.style.display = 'none';
+  const d = document.getElementById('cp-desc').value.trim();
+  if (d.length < 4) { err.textContent = 'La description est obligatoire.'; err.style.display = 'block'; return; }
+  try {
+    const res = await cgFetch(`/remediation/plans/${_currentPlanId}/complete`, {
+      method:'POST',
+      body: JSON.stringify({
+        outcome: document.getElementById('cp-outcome').value,
+        outcome_description: d,
+        close_after: document.getElementById('cp-close').checked,
+      })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur cloture.');
+    toast('Plan cloture.');
+    closeComplete();
+    await loadPlans();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+function openEscalate(id) {
+  _currentPlanId = id;
+  document.getElementById('es-err').style.display='none';
+  document.getElementById('es-reason').value='';
+  document.getElementById('m-escalate').classList.add('active');
+}
+function closeEscalate() { document.getElementById('m-escalate').classList.remove('active'); }
+async function submitEscalate() {
+  const err = document.getElementById('es-err'); err.style.display = 'none';
+  const r = document.getElementById('es-reason').value.trim();
+  if (r.length < 4) { err.textContent = 'Le motif est obligatoire.'; err.style.display = 'block'; return; }
+  try {
+    const res = await cgFetch(`/remediation/plans/${_currentPlanId}/escalate`, {
+      method:'POST', body: JSON.stringify({ reason: r })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur escalade.');
+    toast('Plan escalade.');
+    closeEscalate();
+    await loadPlans();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+/* ========== Actions CRUD ========== */
+function openAddAction(planId) {
+  _currentPlanId = planId;
+  document.getElementById('aa-err').style.display='none';
+  document.getElementById('aa-desc').value='';
+  document.getElementById('aa-org').value='';
+  const d = new Date(); d.setDate(d.getDate() + 14);
+  document.getElementById('aa-date').value = d.toISOString().slice(0, 10);
+  document.getElementById('m-add-action').classList.add('active');
+}
+function closeAddAction() { document.getElementById('m-add-action').classList.remove('active'); }
+async function submitAddAction() {
+  const err = document.getElementById('aa-err'); err.style.display = 'none';
+  const desc = document.getElementById('aa-desc').value.trim();
+  const date = document.getElementById('aa-date').value;
+  if (desc.length < 4) { err.textContent = 'Description obligatoire.'; err.style.display = 'block'; return; }
+  if (!date) { err.textContent = 'Date echeance obligatoire.'; err.style.display = 'block'; return; }
+  try {
+    const res = await cgFetch(`/remediation/plans/${_currentPlanId}/actions`, {
+      method:'POST',
+      body: JSON.stringify({
+        action_type: document.getElementById('aa-type').value,
+        description: desc,
+        planned_date: date,
+        responsible_organization: document.getElementById('aa-org').value.trim() || null,
+      })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur ajout action.');
+    toast('Action ajoutee.');
+    closeAddAction();
+    await loadPlans();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+function openCompleteAction(actionId) {
+  _currentActionId = actionId;
+  document.getElementById('ca-err').style.display='none';
+  document.getElementById('ca-documents').value='';
+  document.getElementById('ca-photos').value='';
+  document.getElementById('ca-impact').value='';
+  document.getElementById('m-complete-action').classList.add('active');
+}
+function closeCompleteAction() { document.getElementById('m-complete-action').classList.remove('active'); }
+async function submitCompleteAction() {
+  const err = document.getElementById('ca-err'); err.style.display = 'none';
+  const docs = document.getElementById('ca-documents').value.trim().split('\n').filter(Boolean);
+  const photos = document.getElementById('ca-photos').value.trim().split('\n').filter(Boolean);
+  const evidence = {};
+  if (docs.length) evidence.documents = docs;
+  if (photos.length) evidence.photos = photos;
+  if (Object.keys(evidence).length === 0) {
+    err.textContent = 'Au moins une preuve (document ou photo) est obligatoire.'; err.style.display = 'block'; return;
+  }
+  try {
+    const res = await cgFetch(`/remediation/actions/${_currentActionId}/complete`, {
+      method:'POST',
+      body: JSON.stringify({
+        evidence,
+        impact_assessment: document.getElementById('ca-impact').value.trim() || null,
+      })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur cloture action.');
+    toast('Action cloturee.');
+    closeCompleteAction();
+    await loadPlans();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
 }
 
 window.addEventListener('avp-queue-changed', refreshQueueStatus);

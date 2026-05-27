@@ -24,7 +24,20 @@
     .batch-table{width:100%;border-collapse:collapse}
     .review-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border-bottom:1px solid var(--border-l);padding:12px 0}
     .review-row:last-child{border-bottom:none}
-    @media(max-width:980px){.comp-layout{grid-template-columns:1fr}.comp-grid{grid-template-columns:1fr}}
+    .audit-section{margin-top:28px}
+    .audit-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+    .audit-filters select,.audit-filters input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;background:var(--surface)}
+    .audit-event{padding:10px 12px;border-bottom:1px solid var(--border-l);font-size:13px;display:grid;grid-template-columns:120px 110px 1fr 140px;gap:12px;align-items:center}
+    .audit-event:last-child{border-bottom:none}
+    .audit-event:hover{background:var(--surface-warm)}
+    .audit-time{font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono','Courier New',monospace}
+    .audit-cat-access{color:#1e4a6e}.audit-cat-remediation{color:var(--primary)}.audit-cat-alert{color:#9a6200}.audit-cat-compliance{color:#922b21}.audit-cat-child{color:#5b3a8e}
+    .audit-cat{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+    .audit-action{font-weight:500;color:var(--text)}
+    .audit-entity{font-size:11px;color:var(--muted)}
+    .audit-pagination{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12.5px;color:var(--muted)}
+    @media(max-width:980px){.comp-layout{grid-template-columns:1fr}.comp-grid{grid-template-columns:1fr}
+      .audit-event{grid-template-columns:1fr;gap:4px;padding:12px}}
   </style>
 </head>
 <body>
@@ -55,6 +68,48 @@
         <div class="comp-card">
           <div class="comp-val" id="k-batches">-</div>
           <div class="comp-lbl">Lots impactes</div>
+        </div>
+      </div>
+
+      <div class="audit-section">
+        <div class="panel">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="section-title" style="margin:0">Journal d'audit complet</div>
+              <div class="text-sm text-muted">Chronologie consolidée pour les auditeurs externes (EUDR / Fairtrade / Rainforest Alliance)</div>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="loadAuditTrail()">Actualiser</button>
+          </div>
+          <div class="audit-filters">
+            <input type="date" id="af-from" onchange="loadAuditTrail()" title="Date début">
+            <input type="date" id="af-to" onchange="loadAuditTrail()" title="Date fin">
+            <select id="af-cat" onchange="loadAuditTrail()">
+              <option value="">Toutes catégories</option>
+              <option value="access">Accès données</option>
+              <option value="remediation">Remediation</option>
+              <option value="alert">Alertes</option>
+              <option value="compliance">Conformité</option>
+              <option value="child">Enfants</option>
+            </select>
+            <select id="af-entity" onchange="loadAuditTrail()">
+              <option value="">Toutes entités</option>
+              <option value="children">Enfants</option>
+              <option value="remediation_plans">Plans remediation</option>
+              <option value="alerts">Alertes</option>
+              <option value="traceability_blocks">Blocages</option>
+              <option value="complaints">Signalements</option>
+            </select>
+          </div>
+          <div id="audit-list" style="border-top:1px solid var(--border-l);max-height:520px;overflow-y:auto">
+            <div class="empty-state" style="padding:32px">Chargement du journal...</div>
+          </div>
+          <div class="audit-pagination">
+            <span id="audit-total">—</span>
+            <div>
+              <button class="btn btn-sm btn-outline" id="audit-prev" onclick="auditPage(-1)">‹ Précédent</button>
+              <button class="btn btn-sm btn-outline" id="audit-next" onclick="auditPage(1)">Suivant ›</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -227,7 +282,67 @@ async function resolveBlock(id) {
   await loadCompliance();
 }
 
+/* ========== Journal d'audit ========== */
+let _auditSkip = 0;
+const _auditLimit = 50;
+
+async function loadAuditTrail() {
+  const list = document.getElementById('audit-list');
+  list.innerHTML = '<div class="empty-state" style="padding:24px">Chargement...</div>';
+  const params = new URLSearchParams();
+  params.set('limit', _auditLimit);
+  params.set('skip', _auditSkip);
+  const from = document.getElementById('af-from').value;
+  const to = document.getElementById('af-to').value;
+  const cat = document.getElementById('af-cat').value;
+  const entity = document.getElementById('af-entity').value;
+  if (from) params.set('from_date', from);
+  if (to) params.set('to_date', to);
+  if (cat) params.set('category', cat);
+  if (entity) params.set('entity_type', entity);
+  try {
+    const res = await cgFetch('/cacaoguard/reports/audit-trail?' + params.toString());
+    if (!res.ok) {
+      list.innerHTML = '<div class="empty-state" style="padding:24px;color:var(--high)">Accès refusé (rôle admin/agronome requis).</div>';
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('audit-total').textContent =
+      `${data.total} événement(s) — affichage ${_auditSkip + 1}-${Math.min(_auditSkip + _auditLimit, data.total)}`;
+    if (!data.events?.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:24px">Aucun événement.</div>';
+      return;
+    }
+    list.innerHTML = data.events.map(e => {
+      const t = e.timestamp ? new Date(e.timestamp).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      const catCls = 'audit-cat-' + (e.category || 'access');
+      return `
+        <div class="audit-event">
+          <div class="audit-time">${t}</div>
+          <div class="audit-cat ${catCls}">${e.category || '?'}</div>
+          <div>
+            <div class="audit-action">${e.action || ''}</div>
+            <div class="audit-entity">${e.entity_type || ''}#${e.entity_id || '?'}${e.entity_reference ? ' (' + e.entity_reference + ')' : ''}</div>
+          </div>
+          <div class="audit-entity">${e.user_role || ''}${e.user_id ? ' #' + e.user_id : ''}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('audit-prev').disabled = _auditSkip === 0;
+    document.getElementById('audit-next').disabled = (_auditSkip + _auditLimit) >= data.total;
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state" style="padding:24px;color:var(--high)">${e.message}</div>`;
+  }
+}
+
+function auditPage(dir) {
+  const next = _auditSkip + dir * _auditLimit;
+  if (next < 0) return;
+  _auditSkip = next;
+  loadAuditTrail();
+}
+
 loadCompliance();
+loadAuditTrail();
 </script>
 </body>
 </html>

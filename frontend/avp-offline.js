@@ -316,9 +316,17 @@
 
         try {
           const fetcher = typeof window.authFetch === 'function' ? window.authFetch : fetch;
+          // Sprint P1 : envoyer un Idempotency-Key UUID v4 pour permettre au
+          // backend de dedupliquer si la reponse reseau est perdue. Le serveur
+          // peut choisir d'honorer ou d'ignorer cet en-tete. Pour les routes
+          // qui ne le gerent pas, c'est un no-op cote serveur.
+          const op_id = entry.op_id || ('local-' + (crypto.randomUUID ? crypto.randomUUID() : entry.local_id));
+          if (!entry.op_id) {
+            await updateQueueEntry(entry.local_id, { op_id });
+          }
           const res = await fetcher(entry.endpoint, {
             method: entry.method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Idempotency-Key': op_id },
             body: entry.body ? JSON.stringify(entry.body) : undefined,
           });
           if (!res || !res.ok) {

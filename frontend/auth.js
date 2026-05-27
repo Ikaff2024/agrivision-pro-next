@@ -439,6 +439,7 @@ function renderSidebar(activePage) {
     { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring' },
     { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE' },
     { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation' },
+    { id: 'complaints', href: 'complaints.html', icon: 'report', label: 'Signalements' },
     { id: 'training', href: 'training.html', icon: 'school', label: 'Formation' },
     { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
@@ -499,6 +500,169 @@ function initApp(page) {
   setupNetworkBanner();  // Sprint Honnetete-Offline
   if (!requireAuth()) return;
   renderSidebar(page);
+  setupNotificationWidget();  // Sprint P1 - notifications in-app
+}
+
+/* ── Notifications in-app (Sprint P1) ────────────────────────── */
+function setupNotificationWidget() {
+  // Inject CSS une seule fois
+  if (!document.getElementById('avp-notif-styles')) {
+    const css = document.createElement('style');
+    css.id = 'avp-notif-styles';
+    css.textContent = `
+      .avp-notif-bell{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;
+        background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.18);z-index:8500;transition:.15s}
+      .avp-notif-bell:hover{background:var(--primary-dark);transform:scale(1.05)}
+      .avp-notif-bell .ms{color:#fff;font-size:22px}
+      .avp-notif-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;
+        background:#dc2626;color:#fff;border-radius:99px;font-size:11px;font-weight:700;display:flex;
+        align-items:center;justify-content:center;border:2px solid var(--surface);box-sizing:content-box}
+      .avp-notif-badge.hidden{display:none}
+      .avp-notif-panel{position:fixed;bottom:84px;right:24px;width:380px;max-width:calc(100vw - 32px);
+        max-height:calc(100vh - 140px);background:var(--surface);border:1px solid var(--border);
+        border-radius:var(--rl);box-shadow:0 12px 32px rgba(0,0,0,.18);z-index:8499;display:none;
+        flex-direction:column;overflow:hidden}
+      .avp-notif-panel.open{display:flex}
+      .avp-notif-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;
+        align-items:center;justify-content:space-between;background:var(--surface-warm)}
+      .avp-notif-title{font-family:'Fraunces',serif;font-size:15px;font-weight:700}
+      .avp-notif-actions{display:flex;gap:8px}
+      .avp-notif-mark-all{background:none;border:none;color:var(--primary);font-size:11.5px;
+        font-weight:600;cursor:pointer;padding:4px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em}
+      .avp-notif-mark-all:hover{background:rgba(82,183,136,.1)}
+      .avp-notif-list{flex:1;overflow-y:auto;padding:6px}
+      .avp-notif-item{padding:12px;border-radius:8px;cursor:pointer;border-left:3px solid transparent;
+        margin-bottom:4px;transition:.1s}
+      .avp-notif-item:hover{background:var(--surface-warm)}
+      .avp-notif-item.unread{border-left-color:var(--accent);background:rgba(82,183,136,.06)}
+      .avp-notif-item-title{font-weight:600;font-size:13px;margin-bottom:3px;color:var(--text)}
+      .avp-notif-item-msg{font-size:12px;color:var(--muted);line-height:1.4}
+      .avp-notif-item-meta{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--faint)}
+      .avp-notif-prio-urgent{color:#dc2626;font-weight:700}
+      .avp-notif-prio-high{color:#9a6200;font-weight:600}
+      .avp-notif-empty{padding:32px 16px;text-align:center;color:var(--muted);font-size:13px}
+      @media(max-width:480px){.avp-notif-panel{left:8px;right:8px;width:auto;bottom:78px}
+        .avp-notif-bell{bottom:16px;right:16px}}
+    `;
+    document.head.appendChild(css);
+  }
+
+  // Inject bell + panel une seule fois
+  if (!document.getElementById('avp-notif-bell')) {
+    const bell = document.createElement('button');
+    bell.id = 'avp-notif-bell';
+    bell.className = 'avp-notif-bell';
+    bell.title = 'Notifications';
+    bell.innerHTML = `
+      <span class="material-symbols-outlined ms">notifications</span>
+      <span class="avp-notif-badge hidden" id="avp-notif-badge">0</span>`;
+    bell.onclick = toggleNotifPanel;
+
+    const panel = document.createElement('div');
+    panel.id = 'avp-notif-panel';
+    panel.className = 'avp-notif-panel';
+    panel.innerHTML = `
+      <div class="avp-notif-head">
+        <span class="avp-notif-title">Notifications</span>
+        <div class="avp-notif-actions">
+          <button class="avp-notif-mark-all" onclick="markAllNotifsRead()">Tout marquer lu</button>
+        </div>
+      </div>
+      <div class="avp-notif-list" id="avp-notif-list">
+        <div class="avp-notif-empty">Chargement...</div>
+      </div>`;
+
+    const attach = () => {
+      document.body.appendChild(bell);
+      document.body.appendChild(panel);
+    };
+    if (document.body) attach();
+    else document.addEventListener('DOMContentLoaded', attach);
+  }
+
+  // Polling unread count
+  refreshNotifBadge();
+  if (window.__avpNotifPollId) clearInterval(window.__avpNotifPollId);
+  window.__avpNotifPollId = setInterval(refreshNotifBadge, 60000);
+}
+
+async function refreshNotifBadge() {
+  try {
+    const res = await authFetch('/notifications/unread-count');
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const badge = document.getElementById('avp-notif-badge');
+    if (!badge) return;
+    const n = data.unread_count || 0;
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.classList.toggle('hidden', n === 0);
+  } catch (_) { /* silent */ }
+}
+
+async function toggleNotifPanel() {
+  const panel = document.getElementById('avp-notif-panel');
+  if (!panel) return;
+  const opening = !panel.classList.contains('open');
+  panel.classList.toggle('open');
+  if (opening) await loadNotifList();
+}
+
+async function loadNotifList() {
+  const list = document.getElementById('avp-notif-list');
+  if (!list) return;
+  list.innerHTML = '<div class="avp-notif-empty">Chargement...</div>';
+  try {
+    const res = await authFetch('/notifications?limit=30');
+    if (!res || !res.ok) {
+      list.innerHTML = '<div class="avp-notif-empty">Connexion requise pour voir les notifications.</div>';
+      return;
+    }
+    const data = await res.json();
+    if (!data.items || data.items.length === 0) {
+      list.innerHTML = '<div class="avp-notif-empty">Aucune notification pour le moment.</div>';
+      return;
+    }
+    list.innerHTML = data.items.map(n => {
+      const unread = !n.read_at;
+      const prioCls = n.priority === 'urgent' ? 'avp-notif-prio-urgent'
+        : n.priority === 'high' ? 'avp-notif-prio-high' : '';
+      const time = n.created_at ? new Date(n.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="avp-notif-item ${unread ? 'unread' : ''}" onclick="onClickNotif(${n.id})">
+          <div class="avp-notif-item-title">${escapeHtml(n.title || '(sans titre)')}</div>
+          <div class="avp-notif-item-msg">${escapeHtml((n.message || '').slice(0, 200))}</div>
+          <div class="avp-notif-item-meta">
+            <span class="${prioCls}">${n.priority || ''}</span>
+            <span>${time}</span>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="avp-notif-empty">Erreur de chargement.</div>';
+  }
+}
+
+async function onClickNotif(id) {
+  try {
+    await authFetch(`/notifications/${id}/read`, { method: 'POST' });
+    refreshNotifBadge();
+    loadNotifList();
+  } catch (_) { /* silent */ }
+}
+
+async function markAllNotifsRead() {
+  try {
+    await authFetch('/notifications/mark-all-read', { method: 'POST' });
+    refreshNotifBadge();
+    loadNotifList();
+    if (typeof toast === 'function') toast('Notifications marquées comme lues.');
+  } catch (_) { /* silent */ }
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
 /* ── Helpers ─────────────────────────────────────────────────── */

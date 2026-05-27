@@ -68,8 +68,15 @@ function tokenHeaders(json = false) {
   };
 }
 
-async function fetchJson(path) {
-  const res = await fetch(API + path, { cache:'no-store', headers: tokenHeaders() });
+async function fetchJson(path, opts = {}) {
+  const init = { cache:'no-store', headers: tokenHeaders(false), ...opts };
+  const res = await fetch(API + path, init);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function postJson(path) {
+  const res = await fetch(API + path, { method:'POST', cache:'no-store', headers: tokenHeaders(true) });
   if (!res.ok) return null;
   return res.json();
 }
@@ -97,6 +104,67 @@ function childRiskClass(level) {
   return ['high','critical'].includes(level) ? 'danger' : '';
 }
 
+const RISK_LBL = { none:'Aucun', low:'Faible', medium:'Moyen', high:'Eleve', critical:'Critique' };
+const PLAN_STATUS_LBL = { draft:'Brouillon', pending_approval:'En attente', approved:'Approuve', in_progress:'En cours', completed:'Termine', closed:'Clos', escalated:'Escalade' };
+const CMP_SEV_LBL = { low:'Faible', medium:'Moyen', high:'Haut', critical:'Critique' };
+
+function renderCacaoGuardPanel(riskAgg, traceability, plans, complaints, producerId) {
+  const blocked = traceability && traceability.is_blocked;
+  const intervention = riskAgg && riskAgg.requires_intervention;
+  const aggLevel = riskAgg ? (riskAgg.aggregate_risk_level || 'none') : 'none';
+  const aggCls = ['high','critical'].includes(aggLevel) ? 'badge-high' : aggLevel === 'medium' ? 'badge-med' : 'badge-low';
+  const banner = blocked
+    ? `<div style="background:#fdedec;border:1px solid #f1948a;color:#922b21;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>⛔ Production bloquee</strong> — ${traceability.active_blocks_count} blocage(s) actif(s)</div>`
+    : intervention
+      ? `<div style="background:#fef8ec;border:1px solid #f0c97a;color:#9a6200;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>⚠ Intervention recommandee</strong> — voir details ci-dessous</div>`
+      : `<div style="background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>✓ Conforme</strong> — aucun blocage, pas d'intervention requise</div>`;
+  const activePlans = (plans || []).filter(p => !['completed','closed'].includes(p.status));
+  const openComplaints = (complaints || []).filter(c => !['closed','unsubstantiated'].includes(c.status));
+  return `
+    <div class="panel" style="margin-bottom:18px;border-left:4px solid var(--accent)">
+      <div class="section-head">
+        <div class="section-title">CacaoGuard - synthese conformite</div>
+        ${riskAgg ? `<span class="badge ${aggCls}">Risque ${RISK_LBL[aggLevel] || aggLevel}</span>` : ''}
+      </div>
+      ${banner}
+      <div class="kpi-row" style="margin:8px 0 12px">
+        <div class="kpi"><strong>${riskAgg ? Math.round(riskAgg.children_risk_max || 0) : '-'}</strong><span>Score max enfant</span></div>
+        <div class="kpi"><strong>${riskAgg ? riskAgg.children_at_high_or_critical : '-'}</strong><span>Cas a risque</span></div>
+        <div class="kpi"><strong>${activePlans.length}</strong><span>Plans actifs</span></div>
+        <div class="kpi"><strong>${openComplaints.length}</strong><span>Signalements ouverts</span></div>
+      </div>
+      <div class="quick-row" style="margin-top:8px">
+        <button class="btn btn-outline btn-sm" onclick="location.href='remediation.html'">
+          <span class="material-symbols-outlined" style="font-size:16px">assignment_turned_in</span> Plans
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="location.href='complaints.html'">
+          <span class="material-symbols-outlined" style="font-size:16px">report</span> Signalements
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="location.href='compliance.html'">
+          <span class="material-symbols-outlined" style="font-size:16px">gpp_maybe</span> Conformite
+        </button>
+      </div>
+      ${activePlans.length ? `
+        <div class="divider"></div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">Plans de remediation actifs</div>
+        <div class="stack">
+          ${activePlans.slice(0, 3).map(p => item(`
+            <div class="item-title">${esc(p.plan_reference)} - ${esc(p.child_name || 'enfant')}</div>
+            <div class="item-meta">Statut: <strong>${PLAN_STATUS_LBL[p.status] || p.status}</strong> | Echeance ${esc(p.expected_completion_date || 'non definie')}</div>
+          `)).join('')}
+        </div>` : ''}
+      ${openComplaints.length ? `
+        <div class="divider"></div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">Signalements ouverts</div>
+        <div class="stack">
+          ${openComplaints.slice(0, 3).map(c => item(`
+            <div class="item-title">${esc(c.reference)} - ${esc(CMP_SEV_LBL[c.severity] || c.severity)}</div>
+            <div class="item-meta">Recu le ${esc((c.received_date || '').slice(0, 10))} - statut <strong>${esc(c.status)}</strong></div>
+          `, ['high','critical'].includes(c.severity))).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
 function item(html, danger = false) {
   return `<div class="item ${danger ? 'danger' : ''}">${html}</div>`;
 }
@@ -115,13 +183,18 @@ async function loadProfile() {
     return;
   }
 
-  const [producer, children, households, visits, farmforce, plantations] = await Promise.all([
+  const [producer, children, households, visits, farmforce, plantations,
+         riskAgg, traceability, plans, complaints] = await Promise.all([
     fetchJson(`/producers/${producerId}`),
     fetchJson(`/children?producer_id=${producerId}&limit=500`),
     fetchJson(`/ssrte/households?producer_id=${producerId}&limit=5`),
     fetchJson(`/ssrte/plantation-visits?producer_id=${producerId}&limit=5`),
     fetchJson(`/farmforce/assessments?producer_id=${producerId}&limit=5`),
-    fetchJson(`/plantations?producer_id=${producerId}&limit=5000`)
+    fetchJson(`/plantations?producer_id=${producerId}&limit=5000`),
+    postJson(`/producers/${producerId}/calculate-risk`),
+    fetchJson(`/producers/${producerId}/traceability-status`),
+    fetchJson(`/producers/${producerId}/remediation-plans`),
+    fetchJson(`/producers/${producerId}/complaints`),
   ]);
 
   if (!producer) {
@@ -173,6 +246,8 @@ async function loadProfile() {
           <div class="kpi"><strong>${highChildren}</strong><span>Risque eleve</span></div>
           <div class="kpi"><strong>${profit === null ? '-' : money(profit)}</strong><span>Dernier profit CFA</span></div>
         </div>
+
+        ${renderCacaoGuardPanel(riskAgg, traceability, plans, complaints, producerId)}
 
         <div class="panel" style="margin-bottom:18px">
           <div class="section-head">

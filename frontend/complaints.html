@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Signalements CacaoGuard</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .kpi-row{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+    .kpi-value{font-family:'Fraunces',serif;font-size:32px;font-weight:700;line-height:1}
+    .kpi-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:7px}
+    .filter-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+    .filter-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px;min-width:170px}
+    .complaint-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+    .complaint-table table{width:100%;border-collapse:collapse}
+    .complaint-table th{text-align:left;padding:12px 14px;font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface-warm)}
+    .complaint-table td{padding:14px;font-size:13.5px;border-bottom:1px solid var(--border-l);vertical-align:top}
+    .complaint-table tr:last-child td{border-bottom:none}
+    .complaint-table tr:hover{background:var(--surface-warm)}
+    .ref-cell{font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;font-weight:600;color:var(--primary)}
+    .desc-cell{max-width:380px;color:var(--text)}
+    .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
+    .action-btn{border:1px solid var(--border);background:var(--bg);color:var(--primary);border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+    .action-btn:hover{border-color:var(--accent);background:var(--surface-warm)}
+    .action-btn.danger{color:#922b21}.action-btn.danger:hover{border-color:#f1948a}
+    .form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .modal-lg{max-width:720px}
+    .detail-section{padding:14px;background:var(--surface-warm);border-radius:8px;margin-bottom:12px;font-size:13px;line-height:1.5}
+    .detail-section h4{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .severity-bar{display:flex;align-items:center;gap:8px;font-weight:600}
+    .severity-dot{width:10px;height:10px;border-radius:50%}
+    .sev-low{background:#1a6b3a}.sev-medium{background:#9a6200}.sev-high{background:#922b21}.sev-critical{background:#5e1d18}
+    .info-banner{background:#fef8ec;border:1px solid #f0c97a;color:#9a6200;padding:14px 16px;border-radius:8px;font-size:13px;line-height:1.5;margin-bottom:18px}
+    .info-banner strong{color:var(--text)}
+    @media(max-width:760px){.kpi-row{grid-template-columns:1fr 1fr}.form-row2,.form-row3{grid-template-columns:1fr}.complaint-table{font-size:12px}.desc-cell{max-width:none}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Signalements</div>
+        <div class="page-sub">Module CacaoGuard - Hotline EUDR / Fairtrade / Rainforest Alliance</div>
+      </div>
+      <button class="btn btn-primary" onclick="openNewModal()">
+        <span class="material-symbols-outlined" style="font-size:18px">add_alert</span>
+        Nouveau signalement
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="info-banner">
+        <strong>Confidentialité&nbsp;:</strong>
+        Tout signalement est tracé dans le journal d'audit. Les noms des sources anonymes sont
+        automatiquement masqués pour les rôles non-admin. Les cas graves déclenchent une alerte
+        automatique vers les superviseurs.
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total signalements</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-open" style="color:var(--med)">-</div><div class="kpi-label">Ouverts</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-critical" style="color:var(--high)">-</div><div class="kpi-label">Critiques</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="kpi-escalated" style="color:var(--high)">-</div><div class="kpi-label">Escalades</div></div>
+      </div>
+
+      <div class="filter-bar">
+        <select class="filter-select" id="f-status" onchange="renderTable()">
+          <option value="">Tous statuts</option>
+          <option value="received">Recu</option>
+          <option value="under_review">En revue</option>
+          <option value="investigating">En investigation</option>
+          <option value="substantiated">Confirme</option>
+          <option value="unsubstantiated">Non fonde</option>
+          <option value="closed">Cloture</option>
+          <option value="escalated">Escalade</option>
+        </select>
+        <select class="filter-select" id="f-severity" onchange="renderTable()">
+          <option value="">Toutes severites</option>
+          <option value="low">Faible</option>
+          <option value="medium">Moyenne</option>
+          <option value="high">Haute</option>
+          <option value="critical">Critique</option>
+        </select>
+        <select class="filter-select" id="f-type" onchange="renderTable()">
+          <option value="">Tous types</option>
+          <option value="child_labor">Travail enfant</option>
+          <option value="abuse">Maltraitance</option>
+          <option value="exploitation">Exploitation</option>
+          <option value="trafficking">Traite</option>
+          <option value="other">Autre</option>
+        </select>
+      </div>
+
+      <div class="complaint-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Référence</th>
+              <th>Reçu le</th>
+              <th>Type</th>
+              <th>Sévérité</th>
+              <th>Statut</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nouveau signalement -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal modal-lg">
+    <div class="modal-title">Nouveau signalement</div>
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Type *</label>
+        <select class="form-input" id="n-type">
+          <option value="child_labor">Travail enfant</option>
+          <option value="abuse">Maltraitance</option>
+          <option value="exploitation">Exploitation</option>
+          <option value="trafficking">Traite</option>
+          <option value="other">Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sévérité *</label>
+        <select class="form-input" id="n-severity">
+          <option value="low">Faible</option>
+          <option value="medium" selected>Moyenne</option>
+          <option value="high">Haute</option>
+          <option value="critical">Critique</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description détaillée *</label>
+      <textarea class="form-input" id="n-description" rows="4" placeholder="Ce qui a été observé, quand, qui était impliqué, contexte..."></textarea>
+    </div>
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Producteur concerné (optionnel)</label>
+        <select class="form-input" id="n-producer"><option value="">— Aucun lien direct —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Source</label>
+        <select class="form-input" id="n-source">
+          <option value="anonymous">Anonyme</option>
+          <option value="field_agent">Agent terrain</option>
+          <option value="community">Communauté</option>
+          <option value="hotline">Hotline</option>
+          <option value="audit">Audit</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row2" id="reporter-block">
+      <div class="form-group">
+        <label class="form-label">Nom du déclarant (si non anonyme)</label>
+        <input class="form-input" id="n-reporter-name" placeholder="Nom prénom">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact</label>
+        <input class="form-input" id="n-reporter-contact" placeholder="Téléphone ou email">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Lieu (description libre)</label>
+      <input class="form-input" id="n-location" placeholder="Plantation, village, repère...">
+    </div>
+    <div id="n-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNewModal()">Annuler</button>
+      <button class="btn btn-primary" id="n-btn" onclick="submitNew()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Détail -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal modal-lg">
+    <div class="modal-title" id="d-title">Détail signalement</div>
+    <div id="d-body">Chargement...</div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDetailModal()">Fermer</button>
+      <button class="btn btn-outline" id="d-update-btn" onclick="openUpdateForm()">Mettre à jour</button>
+      <button class="btn btn-primary" id="d-escalate-btn" onclick="openEscalateForm()">Escalader</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Mise à jour -->
+<div class="modal-overlay" id="modal-update">
+  <div class="modal">
+    <div class="modal-title">Mettre à jour le signalement</div>
+    <div class="form-group">
+      <label class="form-label">Nouveau statut</label>
+      <select class="form-input" id="u-status">
+        <option value="">— Inchangé —</option>
+        <option value="under_review">En revue</option>
+        <option value="investigating">En investigation</option>
+        <option value="substantiated">Confirmé</option>
+        <option value="unsubstantiated">Non fondé</option>
+        <option value="closed">Clôturé</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Conclusions / notes d'investigation</label>
+      <textarea class="form-input" id="u-findings" rows="4" placeholder="Résultats de l'enquête..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><input type="checkbox" id="u-referral"> Renvoi vers autorité externe</label>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Destinataire renvoi (si applicable)</label>
+      <input class="form-input" id="u-referred-to" placeholder="Brigade mineurs, ONG, etc.">
+    </div>
+    <div id="u-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeUpdateModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitUpdate()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Escalade -->
+<div class="modal-overlay" id="modal-escalate">
+  <div class="modal">
+    <div class="modal-title">Escalader le signalement</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px">
+      L'escalade marque ce signalement comme nécessitant une attention urgente d'un superviseur.
+      Une alerte URGENT sera créée.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Motif de l'escalade *</label>
+      <textarea class="form-input" id="e-reason" rows="3" placeholder="Pourquoi escalader ce cas..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Renvoi vers autorité externe (optionnel)</label>
+      <input class="form-input" id="e-referred-to" placeholder="Ex: Brigade de protection des mineurs - Soubré">
+    </div>
+    <div id="e-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeEscalateModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitEscalate()">Escalader</button>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('complaints');
+
+let allComplaints = [];
+let allProducers = [];
+let currentDetailId = null;
+const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      ...(method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+const TYPE_LBL = {
+  child_labor: 'Travail enfant', abuse: 'Maltraitance', exploitation: 'Exploitation',
+  trafficking: 'Traite', other: 'Autre',
+};
+const STATUS_LBL = {
+  received: 'Reçu', under_review: 'En revue', investigating: 'En investigation',
+  substantiated: 'Confirmé', unsubstantiated: 'Non fondé', closed: 'Clôturé', escalated: 'Escaladé',
+};
+const SEV_LBL = { low: 'Faible', medium: 'Moyenne', high: 'Haute', critical: 'Critique' };
+
+async function loadAll() {
+  await loadProducers();
+  await loadComplaints();
+}
+
+async function loadProducers() {
+  try {
+    const res = await cgFetch('/producers?limit=1000');
+    if (res.ok) {
+      allProducers = await res.json();
+      const sel = document.getElementById('n-producer');
+      sel.innerHTML = '<option value="">— Aucun lien direct —</option>' +
+        allProducers.map(p => `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`).join('');
+    }
+  } catch (e) { /* prod list optionnelle */ }
+}
+
+async function loadComplaints() {
+  try {
+    const res = await cgFetch('/complaints?limit=200');
+    if (!res.ok) {
+      document.getElementById('rows').innerHTML =
+        `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">Accès refusé (rôle admin/agronome requis pour consulter la liste).</td></tr>`;
+      return;
+    }
+    allComplaints = await res.json();
+    renderTable();
+    updateKPIs();
+  } catch (e) {
+    document.getElementById('rows').innerHTML =
+      `<tr><td colspan="7" style="text-align:center;color:var(--high);padding:36px">Erreur de chargement : ${e.message}</td></tr>`;
+  }
+}
+
+function updateKPIs() {
+  document.getElementById('kpi-total').textContent = allComplaints.length;
+  document.getElementById('kpi-open').textContent =
+    allComplaints.filter(c => !['closed', 'unsubstantiated'].includes(c.status)).length;
+  document.getElementById('kpi-critical').textContent =
+    allComplaints.filter(c => c.severity === 'critical').length;
+  document.getElementById('kpi-escalated').textContent =
+    allComplaints.filter(c => c.status === 'escalated').length;
+}
+
+function renderTable() {
+  const fs = document.getElementById('f-status').value;
+  const fv = document.getElementById('f-severity').value;
+  const ft = document.getElementById('f-type').value;
+  const rows = allComplaints
+    .filter(c => !fs || c.status === fs)
+    .filter(c => !fv || c.severity === fv)
+    .filter(c => !ft || c.complaint_type === ft)
+    .map(c => {
+      const sevCls = `sev-${c.severity || 'medium'}`;
+      const statusCls = c.status === 'escalated' ? 'badge-high'
+        : ['substantiated', 'closed'].includes(c.status) ? 'badge-low'
+        : 'badge-med';
+      return `
+        <tr>
+          <td class="ref-cell">${c.reference}</td>
+          <td>${fmtDate(c.received_date)}</td>
+          <td>${TYPE_LBL[c.complaint_type] || c.complaint_type}</td>
+          <td><span class="severity-bar"><span class="severity-dot ${sevCls}"></span>${SEV_LBL[c.severity] || c.severity}</span></td>
+          <td><span class="badge ${statusCls}">${STATUS_LBL[c.status] || c.status}</span></td>
+          <td class="desc-cell">${(c.description || '').slice(0, 130)}${(c.description || '').length > 130 ? '…' : ''}</td>
+          <td class="actions-cell">
+            <button class="action-btn" onclick="openDetail(${c.id})"><span class="material-symbols-outlined" style="font-size:14px">visibility</span>Voir</button>
+            ${c.status !== 'escalated' && c.status !== 'closed' ? `<button class="action-btn danger" onclick="quickEscalate(${c.id})"><span class="material-symbols-outlined" style="font-size:14px">priority_high</span>Escalader</button>` : ''}
+          </td>
+        </tr>`;
+    }).join('');
+  document.getElementById('rows').innerHTML = rows ||
+    `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">Aucun signalement ne correspond aux filtres.</td></tr>`;
+}
+
+/* ========== Modale Nouveau ========== */
+function openNewModal() {
+  document.getElementById('n-err').style.display = 'none';
+  document.getElementById('n-description').value = '';
+  document.getElementById('n-location').value = '';
+  document.getElementById('n-reporter-name').value = '';
+  document.getElementById('n-reporter-contact').value = '';
+  document.getElementById('modal-new').classList.add('active');
+}
+function closeNewModal() { document.getElementById('modal-new').classList.remove('active'); }
+
+async function submitNew() {
+  const err = document.getElementById('n-err');
+  err.style.display = 'none';
+  const btn = document.getElementById('n-btn');
+  const desc = document.getElementById('n-description').value.trim();
+  if (desc.length < 10) {
+    err.textContent = 'La description doit faire au moins 10 caractères.';
+    err.style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Envoi...';
+  const payload = {
+    complaint_type: document.getElementById('n-type').value,
+    severity: document.getElementById('n-severity').value,
+    description: desc,
+    source: document.getElementById('n-source').value,
+    reporter_name: document.getElementById('n-reporter-name').value.trim() || null,
+    reporter_contact: document.getElementById('n-reporter-contact').value.trim() || null,
+    producer_id: parseInt(document.getElementById('n-producer').value) || null,
+    location_description: document.getElementById('n-location').value.trim() || null,
+  };
+  try {
+    const res = await cgFetch('/complaints', { method: 'POST', body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur enregistrement.');
+    toast(`Signalement ${body.reference} enregistré.`);
+    closeNewModal();
+    await loadComplaints();
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
+/* ========== Modale Détail ========== */
+async function openDetail(id) {
+  currentDetailId = id;
+  document.getElementById('modal-detail').classList.add('active');
+  document.getElementById('d-body').innerHTML = 'Chargement...';
+  try {
+    const res = await cgFetch('/complaints/' + id);
+    if (!res.ok) throw new Error('Accès refusé ou introuvable.');
+    const c = await res.json();
+    document.getElementById('d-title').textContent = `Signalement ${c.reference}`;
+    const producer = allProducers.find(p => p.id === c.producer_id);
+    document.getElementById('d-body').innerHTML = `
+      <div class="detail-section">
+        <h4>Identification</h4>
+        Type : <strong>${TYPE_LBL[c.complaint_type] || c.complaint_type}</strong>
+        — Sévérité : <strong>${SEV_LBL[c.severity] || c.severity}</strong>
+        — Statut : <strong>${STATUS_LBL[c.status] || c.status}</strong><br>
+        Reçu le ${fmtDate(c.received_date)} via <em>${c.source || 'inconnu'}</em>
+      </div>
+      <div class="detail-section">
+        <h4>Description</h4>
+        ${(c.description || '').replace(/\n/g, '<br>') || '<em>Vide</em>'}
+      </div>
+      ${c.location_description || c.location_gps ? `
+      <div class="detail-section">
+        <h4>Lieu</h4>
+        ${c.location_description || ''} ${c.location_gps ? `<br>GPS : ${c.location_gps}` : ''}
+      </div>` : ''}
+      ${producer ? `
+      <div class="detail-section">
+        <h4>Producteur lié</h4>
+        ${producer.nom_complet} ${producer.localite ? '(' + producer.localite + ')' : ''}
+      </div>` : ''}
+      ${c.reporter_name || c.reporter_contact ? `
+      <div class="detail-section">
+        <h4>Déclarant</h4>
+        ${c.reporter_name || '[anonyme]'} ${c.reporter_contact ? ' — ' + c.reporter_contact : ''}
+      </div>` : ''}
+      ${c.findings ? `
+      <div class="detail-section">
+        <h4>Conclusions d'enquête</h4>
+        ${c.findings.replace(/\n/g, '<br>')}
+      </div>` : ''}
+      ${c.referral_made ? `
+      <div class="detail-section">
+        <h4>Renvoi externe</h4>
+        Renvoyé à : <strong>${c.referred_to || '—'}</strong>
+      </div>` : ''}
+      <div class="detail-section">
+        <h4>Investigation</h4>
+        Début : ${fmtDate(c.investigation_start_date)} —
+        Fin : ${fmtDate(c.investigation_end_date)}
+      </div>`;
+    const escBtn = document.getElementById('d-escalate-btn');
+    escBtn.style.display = (c.status === 'escalated' || c.status === 'closed') ? 'none' : '';
+  } catch (e) {
+    document.getElementById('d-body').innerHTML =
+      `<div style="color:var(--high)">${e.message}</div>`;
+  }
+}
+function closeDetailModal() { document.getElementById('modal-detail').classList.remove('active'); currentDetailId = null; }
+
+/* ========== Modale Mise à jour ========== */
+function openUpdateForm() {
+  if (!currentDetailId) return;
+  document.getElementById('u-err').style.display = 'none';
+  document.getElementById('u-status').value = '';
+  document.getElementById('u-findings').value = '';
+  document.getElementById('u-referral').checked = false;
+  document.getElementById('u-referred-to').value = '';
+  document.getElementById('modal-update').classList.add('active');
+}
+function closeUpdateModal() { document.getElementById('modal-update').classList.remove('active'); }
+async function submitUpdate() {
+  const err = document.getElementById('u-err');
+  err.style.display = 'none';
+  const payload = {};
+  const status = document.getElementById('u-status').value;
+  if (status) payload.status = status;
+  const findings = document.getElementById('u-findings').value.trim();
+  if (findings) payload.findings = findings;
+  if (document.getElementById('u-referral').checked) {
+    payload.referral_made = true;
+    const to = document.getElementById('u-referred-to').value.trim();
+    if (to) payload.referred_to = to;
+  }
+  if (Object.keys(payload).length === 0) {
+    err.textContent = 'Aucun changement à enregistrer.';
+    err.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await cgFetch(`/complaints/${currentDetailId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur de mise à jour.');
+    toast('Signalement mis à jour.');
+    closeUpdateModal();
+    await loadComplaints();
+    openDetail(currentDetailId);
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+/* ========== Modale Escalade ========== */
+function openEscalateForm() {
+  document.getElementById('e-err').style.display = 'none';
+  document.getElementById('e-reason').value = '';
+  document.getElementById('e-referred-to').value = '';
+  document.getElementById('modal-escalate').classList.add('active');
+}
+function closeEscalateModal() { document.getElementById('modal-escalate').classList.remove('active'); }
+async function quickEscalate(id) {
+  currentDetailId = id;
+  openEscalateForm();
+}
+async function submitEscalate() {
+  const err = document.getElementById('e-err');
+  err.style.display = 'none';
+  const reason = document.getElementById('e-reason').value.trim();
+  if (reason.length < 5) {
+    err.textContent = 'Le motif doit faire au moins 5 caractères.';
+    err.style.display = 'block';
+    return;
+  }
+  const payload = { reason };
+  const to = document.getElementById('e-referred-to').value.trim();
+  if (to) payload.referred_to = to;
+  try {
+    const res = await cgFetch(`/complaints/${currentDetailId}/escalate`, { method: 'POST', body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Erreur escalade.');
+    toast('Signalement escaladé.');
+    closeEscalateModal();
+    closeDetailModal();
+    await loadComplaints();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+}
+
+loadAll();
+</script>
+</body>
+</html>

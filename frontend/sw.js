@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v3.10-staging-api';
+const CACHE_VERSION = 'avp-v4.0-cacaoguard-p1';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -30,6 +30,7 @@ const STATIC_ASSETS = [
   '/cacaoguard.html',
   '/children.html',
   '/compliance.html',
+  '/complaints.html',
   '/farmforce.html',
   '/index.html',
   '/monitoring.html',
