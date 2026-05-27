@@ -13,6 +13,7 @@ from app.api.cacaoguard_routes import router as cacaoguard_router
 from app.api.cacaoguard_ops_routes import router as cacaoguard_ops_router
 from app.api.farmforce_routes import router as farmforce_router
 from app.api.import_routes import router as import_router
+from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
 from app.api.social_routes import router as social_router
 from app.api.ssrte_routes import router as ssrte_router
@@ -198,4 +199,5 @@ app.include_router(farmforce_router)
 app.include_router(social_router)
 app.include_router(cacaoguard_router)
 app.include_router(cacaoguard_ops_router)
+app.include_router(notification_router)
 app.include_router(ssrte_router)

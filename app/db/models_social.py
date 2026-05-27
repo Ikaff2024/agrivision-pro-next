@@ -4,7 +4,7 @@ Modèles de données pour la protection de l'enfant et le monitoring social.
 Version: v1.0.0
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Date, Time, Enum as SQLEnum, JSON, Numeric
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Date, Time, Enum as SQLEnum, JSON, Numeric, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -790,3 +790,41 @@ class SsrtePlantationVisit(Base):
 
     producer = relationship("Producer", back_populates="ssrte_plantation_visits")
     plantation = relationship("Plantation", back_populates="ssrte_visits")
+
+
+class NotificationItem(Base):
+    """
+    Notification in-app pour un utilisateur, derivee d'une Alert CacaoGuard.
+
+    Un Alert peut donner naissance a plusieurs NotificationItem (fan-out
+    par utilisateur). La contrainte d'unicite (user_id, alert_id) garantit
+    l'idempotence du fan-out a chaque sync.
+    """
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    alert_id = Column(Integer, ForeignKey("alerts.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Snapshot (decouple de l'Alert pour resister aux suppressions)
+    notification_type = Column(SQLEnum(AlertType), nullable=False, index=True)
+    priority = Column(SQLEnum(Priority), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)  # source_entity, source_id, metadata pour deep-link
+
+    # Etat per-user
+    read_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    dismissed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User")
+    alert = relationship("Alert")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "alert_id", name="uq_notification_user_alert"),
+    )
+
+    def __repr__(self):
+        return f"<NotificationItem(id={self.id}, user={self.user_id}, alert={self.alert_id}, read={self.read_at is not None})>"
