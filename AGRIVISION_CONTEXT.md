@@ -889,3 +889,80 @@ Bumped `avp-v4.0-cacaoguard-p1` -> `avp-v4.1-eudr-01a`. Ajout `/eudr.html` aux S
 - **EUDR-01c** : Export DDS PDF (Due Diligence Statement) reutilisant WeasyPrint (~3-4 jours). Livrable final pour les exportateurs.
 
 Avec 01a + 01b + 01c, AgriVision Pro couvrira 100% du process EUDR.
+
+# ===========================================================================
+# SPRINT EUDR-01c — CLÔTURE OFFICIELLE (27 mai 2026)
+# ===========================================================================
+#
+# Tag Git : eudr-01c-complete-2026-05-27
+# Branche : codex/cacaoguard-fusion (agrivision-pro-next)
+# Voir aussi : LIVRAISON_EUDR_01c.md a la racine
+# ===========================================================================
+
+## 📄 Sprint EUDR-01c — LIVRÉ ✅
+
+**Date de cloture** : 27 mai 2026 (meme jour que 01a)
+**Statut** : Backend live Railway, frontend zip pret Netlify, 330 tests verts
+**Decision CTO** : 01c avant 01b car evite la dependance GDAL/rasterio cote
+Railway et livre immediatement la valeur commerciale (document que les
+operateurs remettent aux autorites).
+
+### Livrables
+
+| Composant | Fichier | Statut |
+|---|---|---|
+| Template DDS Jinja2 (5 sections + attestation) | `app/templates/eudr_dds_report.html` | ✅ |
+| Service generation PDF | `app/services/eudr_reports.py` | ✅ |
+| Endpoint streaming PDF | `app/api/eudr_routes.py` (`GET .../eudr-dds.pdf`) | ✅ |
+| Bouton "Telecharger DDS" fiche plantation | `frontend/plantation_detail.html` | ✅ |
+| Bouton DDS dashboard EUDR (par ligne) | `frontend/eudr.html` | ✅ |
+| Tests pytest (12 cas) | `tests/test_eudr_dds.py` | ✅ |
+
+### Format DDS
+
+Reference : `DDS-YYYY-XXXX` (annee + id plantation padde sur 4)
+Methodologie : etiquette `eudr-1.0a` dans le PDF
+
+5 sections :
+1. Identification parcelle (noms, superficies, GPS centroide)
+2. Verdict de conformite (banniere coloree + score X/5)
+3. Detail des 5 regles (table)
+4. Polygone parcellaire (extrait GeoJSON tronque 800 char + metadata)
+5. Liens cooperative (coop, code producteur, derniere inspection, blocage CG)
+
+Plus : attestation art. 8 EUDR + zone signature + footer legal.
+
+### Reutilisation infrastructure
+
+- `_jinja_env`, `_pdf_escape`, `slugify` de `app/services/reports.py`
+- Pattern fallback PDF natif (sans Cairo/Pango) similaire a `cacaoguard_report`
+- Endpoint StreamingResponse + filename UTF-8 RFC5987 (pattern Sprint R1)
+- WeasyPrint deja en prod via Dockerfile (libs C installees apt-get)
+
+### Service Worker
+
+Bumped `avp-v4.1-eudr-01a` -> `avp-v4.2-eudr-01c-dds`.
+
+### Frontend deploy
+
+`agrivision-frontend-eudr-01c.zip` (231 KB) a la racine. Ignore par git.
+
+### Tests
+
+330 tests verts (12 nouveaux + 318 existants). Tests :
+- build_dds_context : champs requis + operator custom + sans polygone
+- generate_dds_pdf : avec WeasyPrint mocke + fallback sans WeasyPrint
+- dds_filename : format
+- Endpoint : admin OK / agronomist OK / technician 403 / 404 / 401
+
+### Roadmap restante
+
+- **EUDR-01b** : Hansen Global Forest Change deforestation post-2020.
+  Demande GDAL/rasterio cote backend. Reportable apres validation commerciale
+  de 01a + 01c (le DDS PDF est deja exportable pour les demos).
+
+### Argumentaire commercial cle
+
+Avec 01a (scoring) + 01c (DDS PDF), le pitch passe de "on calcule un score" a
+"vous telechargez le document officiel pour les douanes UE en un clic".
+Demo recommandee : ouvrir plantation -> "Telecharger DDS" -> ouvrir PDF.
