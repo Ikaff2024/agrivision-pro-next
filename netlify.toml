@@ -1,7 +1,8 @@
 [build]
-  # On part de la racine du repo et on publie le sous-dossier frontend/.
-  # Erreur historique a eviter : "base + publish = frontend + frontend"
-  # cherchait "frontend/frontend" qui n'existe pas.
+  # IMPORTANT : on force base="" pour ecraser tout reglage UI Netlify
+  # heritr d'une creation precedente. Sans ca, si l'UI a "Base = frontend",
+  # Netlify cherche "frontend/frontend" et echoue.
+  base    = ""
   publish = "frontend"
   # NOTE: ne PAS ajouter "ignore = exit 0" — ca annule TOUS les deploiements.
 
