@@ -65,3 +65,7 @@ test_parser_cooperative.py
 
 # Sprint Offline V1.6 - patchers ponctuels
 patch_offline_*.py
+agrivision-frontend-*.zip
+
+# EUDR-01a frontend deploy zips (regenerated on demand)
+agrivision-frontend-*.zip

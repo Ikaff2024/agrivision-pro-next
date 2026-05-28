@@ -442,6 +442,7 @@ function renderSidebar(activePage) {
     { id: 'complaints', href: 'complaints.html', icon: 'report', label: 'Signalements' },
     { id: 'training', href: 'training.html', icon: 'school', label: 'Formation' },
     { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite' },
+    { id: 'eudr', href: 'eudr.html', icon: 'eco', label: 'EUDR' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
   ];
   if (user && user.role === 'admin') {

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Conformite EUDR</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="avp-offline.js?v=cg3"></script>
+  <script src="auth.js?v=ssrte1"></script>
+  <style>
+    .eudr-banner{background:linear-gradient(135deg,#1a4231,#0c2018);color:#fff;border-radius:var(--rl);padding:24px 28px;margin-bottom:24px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
+    .eudr-banner-text h2{font-family:'Fraunces',serif;font-size:24px;font-weight:700;line-height:1.1;margin-bottom:6px}
+    .eudr-banner-text p{font-size:13.5px;color:rgba(255,255,255,.75);line-height:1.5;max-width:660px}
+    .deadline-box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px 18px;text-align:center;min-width:200px}
+    .deadline-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.6)}
+    .deadline-value{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-top:4px}
+    .deadline-sub{font-size:11px;color:rgba(255,255,255,.55);margin-top:3px}
+
+    .kpi-row{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+    .kpi-value{font-family:'Fraunces',serif;font-size:34px;font-weight:700;line-height:1}
+    .kpi-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:7px}
+    .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+    .compliance-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh);margin-bottom:24px}
+    .compliance-segments{display:flex;height:32px;border-radius:8px;overflow:hidden;margin-top:12px}
+    .seg{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;transition:.3s}
+    .seg-conforme{background:#1a6b3a}
+    .seg-a-verifier{background:#9a6200}
+    .seg-non-conforme{background:#922b21}
+    .legend-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--muted)}
+    .legend-row .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+    .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .filter-select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px}
+    .filter-search{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px;min-width:200px}
+
+    .eudr-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+    .eudr-table table{width:100%;border-collapse:collapse}
+    .eudr-table th{text-align:left;padding:11px 14px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface-warm)}
+    .eudr-table td{padding:13px 14px;font-size:13.5px;border-bottom:1px solid var(--border-l);vertical-align:middle}
+    .eudr-table tr:hover{background:var(--surface-warm);cursor:pointer}
+    .eudr-table tr:last-child td{border-bottom:none}
+    .score-cell{font-family:'Fraunces',serif;font-weight:700;font-size:18px}
+    .fail-tags{display:flex;gap:4px;flex-wrap:wrap}
+    .fail-tag{background:#fdedec;color:#922b21;border:1px solid #f1948a;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:600}
+    @media(max-width:760px){.eudr-banner{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Conformité EUDR</div>
+        <div class="page-sub">Score parcellaire pour la régulation UE déforestation (Règl. 2023/1115)</div>
+      </div>
+      <button class="btn btn-outline" onclick="loadAll()">
+        <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+        Actualiser
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div class="eudr-banner">
+        <div class="eudr-banner-text">
+          <h2>🛡 Module EUDR — Sprint 01a</h2>
+          <p>5 règles déterministes vérifient la conformité de chaque parcelle (polygone, superficie cohérente, GPS en zone cacao, inspection récente, aucun blocage CacaoGuard). Les sprints 01b/01c ajouteront la détection déforestation Hansen et l'export DDS PDF.</p>
+        </div>
+        <div class="deadline-box">
+          <div class="deadline-label">Deadline EUDR</div>
+          <div class="deadline-value">30 déc. 2026</div>
+          <div class="deadline-sub">Grandes entreprises<br>(PME : 30 juin 2027)</div>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-value" id="k-total">—</div>
+          <div class="kpi-label">Plantations scorées</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="k-conforme" style="color:#1a6b3a">—</div>
+          <div class="kpi-label">Conformes</div>
+          <div class="kpi-sub" id="k-conforme-pct">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="k-a-verifier" style="color:#9a6200">—</div>
+          <div class="kpi-label">À vérifier</div>
+          <div class="kpi-sub" id="k-a-verifier-pct">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="k-non-conforme" style="color:#922b21">—</div>
+          <div class="kpi-label">Non conformes</div>
+          <div class="kpi-sub" id="k-non-conforme-pct">—</div>
+        </div>
+      </div>
+
+      <div class="compliance-bar">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="section-title" style="margin:0">Répartition coopérative</div>
+            <div class="text-sm text-muted">Score moyen <strong id="avg-score">—</strong> · <strong id="poly-rate">—</strong> de polygones tracés</div>
+          </div>
+        </div>
+        <div class="compliance-segments" id="comp-segments">
+          <div class="seg seg-conforme" style="width:33%">—</div>
+          <div class="seg seg-a-verifier" style="width:33%">—</div>
+          <div class="seg seg-non-conforme" style="width:34%">—</div>
+        </div>
+        <div class="legend-row">
+          <span><span class="dot" style="background:#1a6b3a"></span>Conforme (score ≥ 4/5)</span>
+          <span><span class="dot" style="background:#9a6200"></span>À vérifier (score 2-3)</span>
+          <span><span class="dot" style="background:#922b21"></span>Non conforme (score 0-1)</span>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <select class="filter-select" id="f-status" onchange="renderTable()">
+          <option value="">Tous statuts</option>
+          <option value="non_conforme">Non conformes</option>
+          <option value="a_verifier">À vérifier</option>
+          <option value="conforme">Conformes</option>
+        </select>
+        <select class="filter-select" id="f-sort" onchange="reload()">
+          <option value="risk">Tri par risque (plus à risque d'abord)</option>
+          <option value="score">Tri par score (faibles d'abord)</option>
+          <option value="name">Tri alphabétique</option>
+        </select>
+        <input class="filter-search" id="f-search" placeholder="Rechercher une plantation, propriétaire..." oninput="renderTable()">
+      </div>
+
+      <div class="eudr-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Plantation</th>
+              <th>Propriétaire</th>
+              <th>Région</th>
+              <th>Polygone</th>
+              <th>Score</th>
+              <th>Statut</th>
+              <th>Règles échouées</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="7" style="text-align:center;padding:36px;color:var(--muted)">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('eudr');
+
+let allItems = [];
+let summary = null;
+const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
+
+async function cgFetch(endpoint, options = {}) {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  const method = (options.method || 'GET').toUpperCase();
+  return fetch(CG_API + endpoint, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      ...(method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+const STATUS_LBL = { conforme: 'Conforme', a_verifier: 'À vérifier', non_conforme: 'Non conforme' };
+const STATUS_CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
+const RULE_LBL = {
+  polygon_valid: 'Polygone',
+  area_matches: 'Aire ≠ déclarée',
+  gps_in_cocoa_zone: 'GPS hors CI',
+  recent_inspection: 'Inspection > 12 mois',
+  no_active_block: 'Bloqué CacaoGuard',
+};
+
+async function loadAll() {
+  await Promise.all([loadSummary(), reload()]);
+}
+
+async function loadSummary() {
+  try {
+    const r = await cgFetch('/eudr/cooperative-summary');
+    if (!r.ok) {
+      document.getElementById('k-total').textContent = '—';
+      return;
+    }
+    summary = await r.json();
+    document.getElementById('k-total').textContent = summary.total;
+    document.getElementById('k-conforme').textContent = summary.conforme;
+    document.getElementById('k-a-verifier').textContent = summary.a_verifier;
+    document.getElementById('k-non-conforme').textContent = summary.non_conforme;
+
+    const pct = (n) => summary.total ? ((n / summary.total) * 100).toFixed(0) + '%' : '0%';
+    document.getElementById('k-conforme-pct').textContent = pct(summary.conforme);
+    document.getElementById('k-a-verifier-pct').textContent = pct(summary.a_verifier);
+    document.getElementById('k-non-conforme-pct').textContent = pct(summary.non_conforme);
+
+    document.getElementById('avg-score').textContent = (summary.average_score_pct || 0) + '%';
+    const polyRate = summary.total ? ((summary.with_polygon / summary.total) * 100).toFixed(0) + '%' : '0%';
+    document.getElementById('poly-rate').textContent = polyRate;
+
+    if (summary.total > 0) {
+      const segs = document.getElementById('comp-segments');
+      const pC = (summary.conforme / summary.total) * 100;
+      const pV = (summary.a_verifier / summary.total) * 100;
+      const pN = (summary.non_conforme / summary.total) * 100;
+      segs.innerHTML =
+        (pC > 0 ? `<div class="seg seg-conforme" style="width:${pC}%">${Math.round(pC)}%</div>` : '') +
+        (pV > 0 ? `<div class="seg seg-a-verifier" style="width:${pV}%">${Math.round(pV)}%</div>` : '') +
+        (pN > 0 ? `<div class="seg seg-non-conforme" style="width:${pN}%">${Math.round(pN)}%</div>` : '');
+    }
+  } catch (e) {
+    /* silent */
+  }
+}
+
+async function reload() {
+  const sort = document.getElementById('f-sort').value;
+  try {
+    const r = await cgFetch(`/eudr/plantations?sort=${sort}&limit=500`);
+    if (!r.ok) {
+      document.getElementById('rows').innerHTML =
+        `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--high)">Accès refusé (rôle insuffisant).</td></tr>`;
+      return;
+    }
+    const data = await r.json();
+    allItems = data.plantations || [];
+    renderTable();
+  } catch (e) {
+    document.getElementById('rows').innerHTML =
+      `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--high)">Erreur : ${e.message}</td></tr>`;
+  }
+}
+
+function renderTable() {
+  const fs = document.getElementById('f-status').value;
+  const search = (document.getElementById('f-search').value || '').toLowerCase();
+  const rows = allItems
+    .filter(p => !fs || p.eudr_status === fs)
+    .filter(p => !search || (p.name || '').toLowerCase().includes(search) ||
+      (p.owner_name || '').toLowerCase().includes(search) ||
+      (p.region || '').toLowerCase().includes(search))
+    .map(p => {
+      const cls = STATUS_CLS[p.eudr_status] || 'badge-med';
+      const lbl = STATUS_LBL[p.eudr_status] || p.eudr_status;
+      const failedTags = (p.rules_failed || []).map(r =>
+        `<span class="fail-tag">${RULE_LBL[r] || r}</span>`).join('');
+      return `<tr onclick="location.href='plantation_detail.html?id=${p.id}'">
+        <td><strong>${escapeHtml(p.name || '?')}</strong></td>
+        <td>${escapeHtml(p.owner_name || '—')}</td>
+        <td style="color:var(--muted)">${escapeHtml(p.region || '—')}</td>
+        <td>${p.has_polygon ? '<span style="color:#1a6b3a"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">check_circle</span> Tracé</span>' : '<span style="color:var(--faint)">Non tracé</span>'}</td>
+        <td class="score-cell" style="color:${p.eudr_color === 'green' ? '#1a6b3a' : p.eudr_color === 'orange' ? '#9a6200' : '#922b21'}">${p.eudr_score}/${p.eudr_max}</td>
+        <td><span class="badge ${cls}">${lbl}</span></td>
+        <td><div class="fail-tags">${failedTags || '<span style="color:var(--faint);font-size:11.5px">—</span>'}</div></td>
+      </tr>`;
+    }).join('');
+  document.getElementById('rows').innerHTML = rows ||
+    `<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--muted)">Aucune plantation ne correspond aux filtres.</td></tr>`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+loadAll();
+</script>
+</body>
+</html>

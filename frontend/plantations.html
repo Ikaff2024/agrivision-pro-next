@@ -115,6 +115,7 @@ tr:hover .action-btns{opacity:1}
               <th class="mob-hide">Superficie</th>
               <th>Score</th>
               <th>Risque</th>
+              <th class="mob-hide">EUDR</th>
               <th style="text-align:right">Actions</th>
             </tr>
           </thead>
@@ -366,6 +367,7 @@ function render() {
         </div>` : '<span style="color:var(--faint)">—</span>'}
       </td>
       <td>${risk ? riskBadge(risk) : '<span style="color:var(--faint);font-size:12px">Non diagnostiqué</span>'}</td>
+      <td class="mob-hide" id="eudr-cell-${p.id}"><span style="color:var(--faint);font-size:12px">…</span></td>
       <td style="text-align:right">
         <div class="action-btns">
           <button class="act-btn" onclick="viewDetail(${p.id})" title="Voir détail">
@@ -395,6 +397,35 @@ function render() {
   } else {
     pag.style.display = 'none';
   }
+
+  // EUDR-01a : charger les statuts en batch et injecter dans les cellules
+  loadEudrBadges(slice);
+}
+
+async function loadEudrBadges(plantations) {
+  try {
+    const r = await authFetch('/eudr/plantations?limit=1000');
+    if (!r || !r.ok) return;
+    const data = await r.json();
+    const byId = {};
+    for (const item of (data.plantations || [])) {
+      byId[item.id] = item;
+    }
+    const LABELS = { conforme: 'Conforme', a_verifier: 'A verifier', non_conforme: 'Non conforme' };
+    const CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
+    for (const p of plantations) {
+      const cell = document.getElementById('eudr-cell-' + p.id);
+      if (!cell) continue;
+      const e = byId[p.id];
+      if (!e) {
+        cell.innerHTML = '<span style="color:var(--faint);font-size:12px">—</span>';
+        continue;
+      }
+      const cls = CLS[e.eudr_status] || 'badge-med';
+      cell.innerHTML = '<span class="badge ' + cls + '" title="Score ' + e.eudr_score + '/' + e.eudr_max + '">' +
+        LABELS[e.eudr_status] + '</span>';
+    }
+  } catch (_) { /* silent */ }
 }
 
 function filterRows() { page = 0; render(); }

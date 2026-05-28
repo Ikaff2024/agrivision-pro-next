@@ -427,6 +427,7 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
         <div id="prod-container"></div>
         <div id="harvest-container"></div>
         <div id="ssrte-container"></div>
+        <div id="eudr-container"></div>
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
@@ -562,6 +563,9 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
 
     // Historique SSRTE Fiche C lie a cette plantation
     renderSsrteCard(plantation);
+
+    // EUDR-01a : carte conformite parcellaire
+    renderEudrCard(plantation);
 
     // Draw chart if enough data
     if (history.length >= 1) {
@@ -803,6 +807,59 @@ async function renderSsrteCard(p) {
       '</div>';
   } catch (e) {
     container.innerHTML = "";
+  }
+}
+
+async function renderEudrCard(p) {
+  const container = document.getElementById("eudr-container");
+  if (!container) return;
+  try {
+    const r = await authFetch("/plantations/" + pid + "/eudr-score");
+    if (!r || !r.ok) {
+      container.innerHTML = "";
+      return;
+    }
+    const data = await r.json();
+    const STATUS_LBL = { conforme: "Conforme EUDR", a_verifier: "A verifier", non_conforme: "Non conforme" };
+    const COLOR_BG = { green: "#eafaf1", orange: "#fef8ec", red: "#fdedec" };
+    const COLOR_FG = { green: "#1a6b3a", orange: "#9a6200", red: "#922b21" };
+    const COLOR_BD = { green: "#a8d8bb", orange: "#f0c97a", red: "#f1948a" };
+    const bg = COLOR_BG[data.badge_color] || "#f0ead8";
+    const fg = COLOR_FG[data.badge_color] || "#1a4231";
+    const bd = COLOR_BD[data.badge_color] || "#e6ddd0";
+    const rules = (data.rules || []).map(rule => {
+      const ok = rule.passed;
+      const icon = ok ? "check_circle" : "cancel";
+      const col = ok ? "#1a6b3a" : "#922b21";
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-l);font-size:13px">' +
+        '<span class="material-symbols-outlined" style="font-size:18px;color:' + col + ';flex-shrink:0;margin-top:1px">' + icon + '</span>' +
+        '<div style="flex:1">' +
+          '<div style="font-weight:600;color:var(--text)">' + esc(rule.label) + '</div>' +
+          (rule.detail ? '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + esc(rule.detail) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+    const ctaText = data.has_polygon ? 'Voir sur la carte' : 'Tracer le polygone';
+    container.innerHTML =
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-top:18px">' +
+        '<div style="background:' + bg + ';border-left:4px solid ' + bd + ';padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">' +
+          '<div>' +
+            '<div style="font-family:Fraunces,serif;font-size:16px;font-weight:700;color:' + fg + '">' +
+              '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px">eco</span> ' +
+              'Conformite EUDR : ' + (STATUS_LBL[data.status] || data.status) +
+            '</div>' +
+            '<div style="font-size:12px;color:' + fg + ';margin-top:3px">' +
+              'Score ' + data.score + '/' + data.max_score + ' - methodologie ' + data.methodology_version +
+            '</div>' +
+          '</div>' +
+          '<a class="btn btn-outline btn-sm" href="map.html?plantation_id=' + pid + '">' +
+            '<span class="material-symbols-outlined" style="font-size:16px">polyline</span> ' + ctaText +
+          '</a>' +
+        '</div>' +
+        '<div>' + rules + '</div>' +
+      '</div>';
+  } catch (e) {
+    container.innerHTML = '';
   }
 }
 

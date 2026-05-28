@@ -13,6 +13,7 @@ from app.api.audit_trail_routes import router as audit_trail_router
 from app.api.cacaoguard_routes import router as cacaoguard_router
 from app.api.cacaoguard_ops_routes import router as cacaoguard_ops_router
 from app.api.complaint_routes import router as complaint_router
+from app.api.eudr_routes import router as eudr_router
 from app.api.farmforce_routes import router as farmforce_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
@@ -208,4 +209,5 @@ app.include_router(remediation_router)
 app.include_router(audit_trail_router)
 app.include_router(notification_router)
 app.include_router(sync_router)
+app.include_router(eudr_router)
 app.include_router(ssrte_router)
