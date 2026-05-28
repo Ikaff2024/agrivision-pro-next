@@ -3,7 +3,7 @@
   # Erreur historique a eviter : "base + publish = frontend + frontend"
   # cherchait "frontend/frontend" qui n'existe pas.
   publish = "frontend"
-  ignore  = "exit 0"
+  # NOTE: ne PAS ajouter "ignore = exit 0" — ca annule TOUS les deploiements.
 
 [build.environment]
   NODE_VERSION = "20"
