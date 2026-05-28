@@ -574,10 +574,44 @@ let drawnItems = new L.FeatureGroup();
 let drawControl = null;
 let currentBoundaryLayer = null;
 let selectedPlantationId = null;
+let selectedDeclaredHa = null;   // superficie declaree de la plantation selectionnee
 let gpsWatchId = null;
 let gpsPoints = [];
 let gpsPolyline = null;
 let drawMode = null; // 'manual' | 'gps'
+
+// Calcule l'aire en hectares (memes formules que le backend, methode Shoelace spherique)
+function computeAreaHectaresFromLatLngs(latlngs) {
+  if (!latlngs || latlngs.length < 3) return 0;
+  const R = 6378137;
+  const toRad = (d) => d * Math.PI / 180;
+  const ring = latlngs.map(p => ({ lat: p.lat, lng: p.lng }));
+  let area = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const j = (i + 1) % ring.length;
+    area += (toRad(ring[j].lng) - toRad(ring[i].lng))
+          * (2 + Math.sin(toRad(ring[i].lat)) + Math.sin(toRad(ring[j].lat)));
+  }
+  return Math.abs(area) * R * R / 2 / 10000;
+}
+
+function updateLiveAreaDisplay(currentAreaHa) {
+  const el = document.getElementById('bp-area');
+  if (!el) return;
+  if (selectedDeclaredHa && selectedDeclaredHa > 0) {
+    const diff = ((currentAreaHa - selectedDeclaredHa) / selectedDeclaredHa) * 100;
+    const tol = 20;
+    const inTol = Math.abs(diff) <= tol;
+    const sign = diff >= 0 ? '+' : '';
+    const color = inTol ? '#1a6b3a' : '#922b21';
+    el.innerHTML = currentAreaHa.toFixed(2) + ' ha '
+      + '<span style="font-size:11px;color:' + color + '">('
+      + sign + diff.toFixed(0) + '% vs ' + selectedDeclaredHa.toFixed(2) + ' ha declaree)'
+      + '</span>';
+  } else {
+    el.textContent = currentAreaHa.toFixed(2) + ' ha';
+  }
+}
 
 map.addLayer(drawnItems);
 if (window.innerWidth <= 768) {
@@ -612,11 +646,45 @@ map.on('draw:created', function(e) {
   const coords = currentBoundaryLayer.getLatLngs()[0];
   document.getElementById('bp-pts').textContent = coords.length + ' points';
   document.getElementById('bp-method').textContent = 'Dessin manuel';
+  document.getElementById('boundary-panel').style.display = '';
+  // Mise a jour live finale avec comparaison cible
+  updateLiveAreaDisplay(computeAreaHectaresFromLatLngs(coords));
   updateSaveBtn(true);
+});
+
+// Mise a jour live de l'aire pendant le trace (a chaque clic de sommet)
+map.on('draw:drawvertex', function(e) {
+  try {
+    const markers = e.layers.getLayers();
+    if (markers.length >= 3) {
+      const latlngs = markers.map(m => m.getLatLng());
+      // Ferme virtuellement le polygone pour calcul (Shoelace)
+      const area = computeAreaHectaresFromLatLngs(latlngs);
+      document.getElementById('boundary-panel').style.display = '';
+      document.getElementById('bp-pts').textContent = markers.length + ' points (en cours)';
+      document.getElementById('bp-method').textContent = 'Dessin manuel';
+      updateLiveAreaDisplay(area);
+    } else {
+      document.getElementById('boundary-panel').style.display = '';
+      document.getElementById('bp-pts').textContent = markers.length + ' / 3 minimum';
+    }
+  } catch (_) {}
+});
+
+// Recalcul apres edition manuelle (drag d'un sommet)
+map.on('draw:edited', function(e) {
+  e.layers.eachLayer(function(layer) {
+    currentBoundaryLayer = layer;
+    const coords = layer.getLatLngs()[0];
+    document.getElementById('bp-pts').textContent = coords.length + ' points';
+    updateLiveAreaDisplay(computeAreaHectaresFromLatLngs(coords));
+    updateSaveBtn(true);
+  });
 });
 
 function selectPlantationForBoundary(pid) {
   selectedPlantationId = pid;
+  selectedDeclaredHa = null;
 
   // Réinitialiser les layers sans perdre selectedPlantationId
   drawnItems.clearLayers();
@@ -633,11 +701,38 @@ function selectPlantationForBoundary(pid) {
   // Afficher la toolbar
   document.getElementById('boundary-toolbar').style.display = 'flex';
 
+  // Charger la superficie declaree + afficher la cible dans le panel
+  loadDeclaredHectaresHint(pid);
+
   // Feedback visuel
   toast('Plantation selectionnee. Cliquez Dessiner ou Trace GPS.');
 
   // Charger la délimitation existante si elle existe
   loadExistingBoundary(pid);
+}
+
+async function loadDeclaredHectaresHint(pid) {
+  try {
+    const r = await authFetch('/plantations/' + pid);
+    if (!r?.ok) return;
+    const p = await r.json();
+    selectedDeclaredHa = p.hectares || null;
+    if (selectedDeclaredHa) {
+      // Cote d'un carre equivalent en metres
+      const side = Math.round(Math.sqrt(selectedDeclaredHa * 10000));
+      // Affichage panel cible
+      const panel = document.getElementById('boundary-panel');
+      panel.style.display = '';
+      const methodEl = document.getElementById('bp-method');
+      if (methodEl && !methodEl.textContent.trim().replace('—', '')) {
+        methodEl.textContent = 'Cible : carre ' + side + 'm x ' + side + 'm';
+      }
+      const areaEl = document.getElementById('bp-area');
+      if (areaEl && (areaEl.textContent === '—' || !areaEl.textContent.trim())) {
+        areaEl.innerHTML = '<span style="color:var(--muted);font-size:12px">Cible : ' + selectedDeclaredHa.toFixed(2) + ' ha</span>';
+      }
+    }
+  } catch (_) {}
 }
 
 async function loadExistingBoundary(pid) {
