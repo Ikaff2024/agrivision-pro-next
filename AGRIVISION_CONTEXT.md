@@ -810,3 +810,82 @@ Zip pret a deposer : `agrivision-frontend-cacaoguard-p1.zip` (225 KB, 60+ fichie
 ### Prochain sprint recommande
 
 **EPIC EUDR-01** comme prevu dans le backlog initial. Toutes les briques CacaoGuard sont en place pour supporter le module EUDR (audit trail + tracabilite + chaine de responsabilite).
+
+# ===========================================================================
+# SPRINT EUDR-01a — CLÔTURE OFFICIELLE (27 mai 2026)
+# ===========================================================================
+#
+# Tag Git : eudr-01a-complete-2026-05-27
+# Branche : codex/cacaoguard-fusion (agrivision-pro-next)
+# Voir aussi : LIVRAISON_EUDR_01a.md a la racine
+# ===========================================================================
+
+## 🛡️ Sprint EUDR-01a — LIVRÉ ✅
+
+**Date de cloture** : 27 mai 2026
+**Statut** : Backend live Railway, frontend zip pret Netlify, 318 tests verts
+**Perimetre** : Premier livrable EPIC FEATURE-EUDR-01 (argument commercial #1
+avant deadline 30/12/2026 grandes entreprises / 30/06/2027 PME)
+
+### Livrables
+
+| Composant | Fichier | Statut |
+|---|---|---|
+| Moteur scoring 5 regles | `app/eudr/scoring.py` | ✅ |
+| 4 endpoints API | `app/api/eudr_routes.py` | ✅ |
+| Dashboard EUDR coop | `frontend/eudr.html` | ✅ |
+| Badge fiche plantation | `frontend/plantation_detail.html` (carte EUDR ajoutee) | ✅ |
+| Colonne liste plantations | `frontend/plantations.html` (col EUDR + batch load) | ✅ |
+| Sidebar globale | `frontend/auth.js` (lien EUDR) | ✅ |
+| Tests scoring | `tests/test_eudr_scoring.py` (28 cas) | ✅ |
+| Tests endpoints | `tests/test_eudr_routes.py` (10 cas) | ✅ |
+
+### 5 regles de scoring (methodologie `eudr-1.0a`)
+
+| ID | Regle | Logique |
+|---|---|---|
+| R1 | `polygon_valid` | Polygone GeoJSON >= 3 sommets enregistre dans PlantationBoundary |
+| R2 | `area_matches` | `abs(area_geo - declared_hectares) / declared <= 0.20` (tolerance 20%) |
+| R3 | `gps_in_cocoa_zone` | Tous les sommets du polygone (ou point GPS si pas de polygone) dans bbox CI cacao (4.3-10.8N, -8.6 a -2.5E) |
+| R4 | `recent_inspection` | Inspection (table existante) ou MonitoringVisit CacaoGuard < 365 jours |
+| R5 | `no_active_traceability_block` | Pas de TraceabilityBlock actif sur le producteur (lecture cross-module CacaoGuard) |
+
+Seuils : score >=4 = conforme (vert), 2-3 = a_verifier (orange), 0-1 = non_conforme (rouge).
+
+### Reutilisation infrastructure existante
+
+- `PlantationBoundary` (table existante depuis Sprint #0) avec `geojson`, `area_hectares`, `points_count` -> aucune migration SQL
+- `POST /plantations/{id}/boundary` (existant) avec `_calculate_area_hectares` Spherical Excess -> reutilise tel quel
+- `Inspection` (table existante AgriVision) -> lecture pour R4
+- `TraceabilityBlock` (CacaoGuard) -> lecture cross-module pour R5
+- Leaflet.draw deja active dans `map.html` -> aucun travail frontend pour le dessin
+
+### Endpoints API (4 nouveaux)
+
+```
+GET  /plantations/{id}/eudr-score    # detail complet 5 regles
+GET  /plantations/{id}/eudr-status   # badge condense
+GET  /eudr/cooperative-summary       # KPIs agreges coop
+GET  /eudr/plantations               # liste triee (risk/score/name)
+```
+
+Scoping cooperative + role gating (admin/agronomist/technician). Viewer interdit.
+
+### Service Worker
+
+Bumped `avp-v4.0-cacaoguard-p1` -> `avp-v4.1-eudr-01a`. Ajout `/eudr.html` aux STATIC_ASSETS.
+
+### Frontend deploy
+
+`agrivision-frontend-eudr-01a.zip` (230 KB, 62+ fichiers) a la racine. Ignore par git (gitignore mis a jour).
+
+### Tests
+
+318 tests verts (38 nouveaux EUDR + 280 existants). Mojibake check OK.
+
+### Roadmap EUDR restante
+
+- **EUDR-01b** : Croisement Hansen Global Forest Change pour deforestation post-2020 (~1 semaine). Transforme le score "5 regles techniques" en preuve reglementaire auditable.
+- **EUDR-01c** : Export DDS PDF (Due Diligence Statement) reutilisant WeasyPrint (~3-4 jours). Livrable final pour les exportateurs.
+
+Avec 01a + 01b + 01c, AgriVision Pro couvrira 100% du process EUDR.
