@@ -18,8 +18,11 @@
     .reference-box { background: rgba(255,255,255,.1); border-radius: 6px; padding: 10px 14px; margin-top: 14px; font-size: 10pt; }
     .reference-box strong { color: #a8d8bb; }
 
-    .section { margin-bottom: 22px; }
-    .section-title { font-size: 13pt; font-weight: 700; color: #1a4231; border-bottom: 2px solid #1a4231; padding-bottom: 4px; margin-bottom: 12px; }
+    .section { margin-bottom: 22px; page-break-inside: avoid; break-inside: avoid; }
+    /* Garde le titre avec le premier paragraphe (evite titre orphelin en bas de page). */
+    .section-title { font-size: 13pt; font-weight: 700; color: #1a4231; border-bottom: 2px solid #1a4231; padding-bottom: 4px; margin-bottom: 12px; page-break-after: avoid; break-after: avoid; }
+    /* Le bloc attestation est dense : on tente de le garder entier sur la 2e page. */
+    .attestation { page-break-inside: avoid; break-inside: avoid; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .field { margin-bottom: 10px; }
     .field-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #6a7d64; font-weight: 700; }
@@ -38,6 +41,10 @@
     .rules-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .rules-table th, .rules-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e6ddd0; font-size: 10pt; vertical-align: top; }
     .rules-table th { background: #f8f4ee; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; color: #6a7d64; }
+    /* Garde chaque ligne de regle ensemble : evite que le nom soit sur une page
+       et le detail sur la suivante (observe sur la 5e regle de la 1ere version). */
+    .rules-table thead { display: table-header-group; }
+    .rules-table tr { page-break-inside: avoid; break-inside: avoid; }
     .rule-pass { color: #1a6b3a; font-weight: 700; }
     .rule-fail { color: #922b21; font-weight: 700; }
 
