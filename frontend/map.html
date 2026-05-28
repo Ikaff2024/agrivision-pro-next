@@ -379,8 +379,45 @@ async function load() {
     // cnt-all = plantations effectivement visibles sur la carte (ont un diagnostic)
     document.getElementById('cnt-all').textContent = allData.length;
 
+    // EUDR : si on arrive avec ?plantation_id=X depuis la fiche plantation,
+    // s'assurer que cette plantation existe dans allData meme sans diagnostic,
+    // puis activer le mode delimitation et la pre-selectionner.
+    const params = new URLSearchParams(location.search);
+    const requestedId = parseInt(params.get('plantation_id'));
+    if (requestedId) {
+      const already = allData.find(p => p.id === requestedId);
+      if (!already) {
+        // Plantation pas dans /map/plantations (pas de diagnostic) -> on la charge a part
+        try {
+          const rp = await authFetch('/plantations/' + requestedId);
+          if (rp?.ok) {
+            const p = await rp.json();
+            allData.push({
+              id: p.id, name: p.name, latitude: p.latitude, longitude: p.longitude,
+              risk_level: null, score: null,
+            });
+            document.getElementById('cnt-all').textContent = allData.length;
+          }
+        } catch (_) {}
+      }
+    }
+
     renderList();
     renderMarkers();
+
+    // Auto-active le mode delimitation si parametre dans l'URL
+    if (requestedId) {
+      const target = allData.find(p => p.id === requestedId);
+      if (target) {
+        if (!boundaryModeActive) toggleBoundaryMode();
+        // Recentrer la carte sur la plantation
+        if (target.latitude != null && target.longitude != null) {
+          map.setView([target.latitude, target.longitude], 16);
+        }
+        selectPlantationForBoundary(requestedId);
+        focusPlantation(requestedId);
+      }
+    }
   } catch {}
 }
 
@@ -403,7 +440,7 @@ function renderList() {
         <div style="flex:1;min-width:0">
           <div class="pl-name">${esc(p.name)}</div>
           <div class="pl-meta">
-            <span>${RL[p.risk_level]||p.risk_level}</span>
+            <span>${RL[p.risk_level]||'Non diagnostique'}</span>
             ${p.score != null ? `<span>·</span><span>${Math.round(p.score)} pts</span>` : ''}
           </div>
         </div>
@@ -426,7 +463,7 @@ function renderMarkers() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <span class="popup-score" style="color:${RC[p.risk_level]||'#888'}">${p.score!=null?Math.round(p.score):'—'}</span>
           <span style="font-size:12px;background:${RC[p.risk_level]||'#888'}20;color:${RC[p.risk_level]||'#888'};
-            padding:2px 8px;border-radius:99px;font-weight:600">${RL[p.risk_level]||p.risk_level}</span>
+            padding:2px 8px;border-radius:99px;font-weight:600">${RL[p.risk_level]||'Non diagnostique'}</span>
         </div>
         <a href="plantation_detail.html?id=${p.id}"
           style="font-size:12.5px;color:#1a4231;font-weight:600;text-decoration:none">
