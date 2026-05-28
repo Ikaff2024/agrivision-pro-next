@@ -16,14 +16,17 @@ Permissions :
 - viewer : interdit
 """
 from typing import List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Plantation, User
 from app.eudr.scoring import compute_eudr_score
+from app.services.eudr_reports import build_dds_context, dds_filename, generate_dds_pdf
 
 router = APIRouter(prefix="", tags=["EUDR - conformite parcellaire"])
 
@@ -190,3 +193,40 @@ def list_plantations_with_eudr(
         enriched.sort(key=lambda x: (status_order.get(x["eudr_status"], 9), x["eudr_score"]))
 
     return {"count": len(enriched), "plantations": enriched}
+
+
+# ----------------------------------------------------------------------------
+# Sprint EUDR-01c : export DDS (Due Diligence Statement) PDF
+# ----------------------------------------------------------------------------
+
+@router.get("/plantations/{plantation_id}/eudr-dds.pdf")
+def download_eudr_dds(
+    plantation_id: int,
+    operator: Optional[str] = Query(None, description="Nom de l'operateur a afficher dans la DDS"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Telecharge le Due Diligence Statement (DDS) EUDR de la parcelle au format PDF.
+
+    Reserve aux roles admin/agronomist (document officiel a remettre a un
+    auditeur externe). Le PDF inclut : identification parcelle, verdict
+    conformite, detail des 5 regles, polygone, liens cooperative, attestation.
+    """
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Generation DDS reservee aux admin/agronome.")
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+
+    context = build_dds_context(plantation, db, operator_name=operator)
+    pdf_bytes = generate_dds_pdf(context)
+    filename = dds_filename(plantation)
+    # En-tete RFC5987 pour les noms de fichiers avec accents
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )

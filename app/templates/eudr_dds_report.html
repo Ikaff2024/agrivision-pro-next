@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>EUDR Due Diligence Statement — {{ plantation.name }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 22mm 16mm;
+      @top-right { content: "DDS — EUDR (UE) 2023/1115"; font-size: 9px; color: #6a7d64; }
+      @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 9px; color: #6a7d64; }
+      @bottom-left { content: "Genere par AgriVision Pro — {{ generation_date }}"; font-size: 9px; color: #6a7d64; }
+    }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a2218; font-size: 11pt; line-height: 1.45; }
+    .header { background: linear-gradient(135deg, #1a4231 0%, #0c2018 100%); color: #fff; padding: 20px 22px; border-radius: 8px; margin-bottom: 20px; }
+    .header h1 { font-size: 22pt; font-weight: 700; margin: 0; }
+    .header .subtitle { font-size: 10pt; color: rgba(255,255,255,.7); margin-top: 4px; }
+    .reference-box { background: rgba(255,255,255,.1); border-radius: 6px; padding: 10px 14px; margin-top: 14px; font-size: 10pt; }
+    .reference-box strong { color: #a8d8bb; }
+
+    .section { margin-bottom: 22px; }
+    .section-title { font-size: 13pt; font-weight: 700; color: #1a4231; border-bottom: 2px solid #1a4231; padding-bottom: 4px; margin-bottom: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .field { margin-bottom: 10px; }
+    .field-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #6a7d64; font-weight: 700; }
+    .field-value { font-size: 11pt; color: #1a2218; margin-top: 2px; }
+
+    .verdict-box { padding: 14px 18px; border-radius: 8px; margin: 16px 0; }
+    .verdict-conforme { background: #eafaf1; border-left: 5px solid #1a6b3a; }
+    .verdict-a_verifier { background: #fef8ec; border-left: 5px solid #9a6200; }
+    .verdict-non_conforme { background: #fdedec; border-left: 5px solid #922b21; }
+    .verdict-title { font-size: 14pt; font-weight: 700; }
+    .verdict-conforme .verdict-title { color: #1a6b3a; }
+    .verdict-a_verifier .verdict-title { color: #9a6200; }
+    .verdict-non_conforme .verdict-title { color: #922b21; }
+    .verdict-score { font-size: 11pt; margin-top: 4px; }
+
+    .rules-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .rules-table th, .rules-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e6ddd0; font-size: 10pt; vertical-align: top; }
+    .rules-table th { background: #f8f4ee; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; color: #6a7d64; }
+    .rule-pass { color: #1a6b3a; font-weight: 700; }
+    .rule-fail { color: #922b21; font-weight: 700; }
+
+    .polygon-box { background: #f8f4ee; border: 1px solid #e6ddd0; border-radius: 6px; padding: 12px 14px; font-size: 9.5pt; font-family: 'DejaVu Sans Mono', monospace; max-height: 130px; overflow: hidden; }
+    .polygon-empty { color: #922b21; font-style: italic; padding: 12px; background: #fdedec; border-radius: 6px; }
+
+    .attestation { background: #fdf9f5; border: 1px solid #e6ddd0; border-radius: 8px; padding: 16px 20px; font-size: 10pt; margin-top: 18px; }
+    .attestation p { margin-bottom: 8px; }
+    .signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 24px; }
+    .signature-block { border-top: 1px solid #1a2218; padding-top: 6px; font-size: 9pt; color: #6a7d64; }
+
+    .legal-footer { font-size: 8.5pt; color: #6a7d64; margin-top: 30px; line-height: 1.5; border-top: 1px solid #e6ddd0; padding-top: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Due Diligence Statement (DDS)</h1>
+  <div class="subtitle">Reglement (UE) 2023/1115 — Deforestation Regulation EUDR</div>
+  <div class="reference-box">
+    <strong>Reference DDS :</strong> {{ dds_reference }}<br>
+    <strong>Operateur :</strong> {{ operator_name }}<br>
+    <strong>Date d'emission :</strong> {{ generation_date }}<br>
+    <strong>Methodologie :</strong> {{ methodology_version }}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">1. Identification de la parcelle</div>
+  <div class="grid">
+    <div>
+      <div class="field"><div class="field-label">Nom de la plantation</div><div class="field-value">{{ plantation.name }}</div></div>
+      <div class="field"><div class="field-label">Producteur</div><div class="field-value">{{ plantation.owner_name or "—" }}</div></div>
+      <div class="field"><div class="field-label">Region / Pays</div><div class="field-value">{{ plantation.region or "—" }} — {{ plantation.country or "—" }}</div></div>
+    </div>
+    <div>
+      <div class="field"><div class="field-label">Superficie declaree</div><div class="field-value">{{ "%.2f"|format(plantation.hectares or 0) }} ha</div></div>
+      <div class="field"><div class="field-label">Superficie geometrique</div><div class="field-value">{% if geo_hectares is not none %}{{ "%.2f"|format(geo_hectares) }} ha{% else %}—{% endif %}</div></div>
+      <div class="field"><div class="field-label">Coordonnees GPS centroide</div><div class="field-value">{% if plantation.latitude is not none %}{{ "%.5f"|format(plantation.latitude) }}, {{ "%.5f"|format(plantation.longitude) }}{% else %}—{% endif %}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">2. Verdict de conformite</div>
+  <div class="verdict-box verdict-{{ status }}">
+    <div class="verdict-title">
+      {% if status == "conforme" %}✓ CONFORME{% elif status == "a_verifier" %}⚠ A VERIFIER{% else %}⛔ NON CONFORME{% endif %}
+    </div>
+    <div class="verdict-score">Score : {{ score }} / {{ max_score }} ({{ "%.0f"|format(score/max_score*100 if max_score else 0) }}%)</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">3. Detail des 5 regles de conformite (methodologie {{ methodology_version }})</div>
+  <table class="rules-table">
+    <thead>
+      <tr>
+        <th style="width: 18%">Regle</th>
+        <th style="width: 12%">Statut</th>
+        <th>Detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rule in rules %}
+      <tr>
+        <td>{{ rule.label }}</td>
+        <td><span class="{% if rule.passed %}rule-pass{% else %}rule-fail{% endif %}">{% if rule.passed %}✓ PASSE{% else %}✗ ECHEC{% endif %}</span></td>
+        <td>{{ rule.detail or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <div class="section-title">4. Polygone parcellaire (GeoJSON)</div>
+  {% if polygon_geojson %}
+    <div class="polygon-box">{{ polygon_geojson | truncate(800, killwords=True) }}</div>
+    <div style="font-size: 9.5pt; color: #6a7d64; margin-top: 6px">{{ points_count or "—" }} sommets, methode <strong>{{ polygon_method or "manuel" }}</strong>, superficie {{ "%.2f"|format(geo_hectares or 0) }} ha.</div>
+  {% else %}
+    <div class="polygon-empty">⛔ Aucun polygone enregistre. La parcelle ne peut etre tracee geographiquement pour la due diligence EUDR. Action requise : delimiter la parcelle via la carte AgriVision Pro avant la deadline reglementaire.</div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">5. Liens cooperative et tracabilite</div>
+  <div class="grid">
+    <div>
+      <div class="field"><div class="field-label">Cooperative</div><div class="field-value">{{ cooperative_name or "—" }}</div></div>
+      <div class="field"><div class="field-label">Code producteur</div><div class="field-value">{{ producer_code or "—" }}</div></div>
+    </div>
+    <div>
+      <div class="field"><div class="field-label">Derniere inspection</div><div class="field-value">{{ last_inspection_date or "Aucune" }}</div></div>
+      <div class="field"><div class="field-label">Blocage CacaoGuard actif</div><div class="field-value">{{ "Oui — voir details ci-dessous" if has_active_block else "Non" }}</div></div>
+    </div>
+  </div>
+  {% if active_block_reason %}
+    <div style="background: #fdedec; border-left: 4px solid #922b21; padding: 10px 14px; margin-top: 10px; font-size: 10pt; color: #922b21;">
+      <strong>Motif blocage :</strong> {{ active_block_reason }}
+    </div>
+  {% endif %}
+</div>
+
+<div class="attestation">
+  <p><strong>Attestation de diligence raisonnable (EUDR art. 8)</strong></p>
+  <p>Je soussigne, en qualite d'operateur ou de commercant tel que defini par le Reglement (UE) 2023/1115, declare que les informations geographiques et de tracabilite contenues dans ce Due Diligence Statement ont ete collectees et verifiees conformement aux procedures d'AgriVision Pro (methodologie {{ methodology_version }}).</p>
+  <p>Cette attestation engage la responsabilite de l'operateur et reste sujette aux verifications des autorites competentes designees par l'article 16 du Reglement.</p>
+  <p><strong>Limitations connues</strong> : Le score {{ methodology_version }} verifie 5 regles de conformite parcellaire mais ne remplace pas la verification independante de l'absence de deforestation post-31/12/2020 (regle a integrer en sprint EUDR-01b avec donnees Hansen Global Forest Change).</p>
+  <div class="signature-row">
+    <div class="signature-block">Operateur / Cooperative<br><br>{{ operator_name }}</div>
+    <div class="signature-block">Date et signature</div>
+  </div>
+</div>
+
+<div class="legal-footer">
+  Document genere automatiquement par AgriVision Pro le {{ generation_date }}.
+  Reglement (UE) 2023/1115 du Parlement europeen et du Conseil du 31 mai 2023.
+  Deadline operateurs > grandes entreprises : 30/12/2026. PME : 30/06/2027.
+  Ce document est destine a l'auditeur et a l'autorite competente designee par le pays d'importation.
+</div>
+
+</body>
+</html>

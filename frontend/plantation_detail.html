@@ -810,6 +810,39 @@ async function renderSsrteCard(p) {
   }
 }
 
+async function downloadDdsPdf() {
+  const btn = document.getElementById('dds-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generation...'; }
+  try {
+    const res = await authFetch('/plantations/' + pid + '/eudr-dds.pdf');
+    if (!res || !res.ok) {
+      const body = await (res ? res.json().catch(() => ({})) : {});
+      throw new Error(body.detail || 'Echec generation DDS PDF.');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Reuse filename from content-disposition if present
+    const cd = res.headers.get('content-disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    a.download = match ? match[1] : ('DDS_plantation_' + pid + '.pdf');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (typeof toast === 'function') toast('DDS PDF telecharge.');
+  } catch (e) {
+    if (typeof toast === 'function') toast(e.message, 'error');
+    else alert(e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span> Telecharger DDS';
+    }
+  }
+}
+
 async function renderEudrCard(p) {
   const container = document.getElementById("eudr-container");
   if (!container) return;
@@ -852,9 +885,14 @@ async function renderEudrCard(p) {
               'Score ' + data.score + '/' + data.max_score + ' - methodologie ' + data.methodology_version +
             '</div>' +
           '</div>' +
-          '<a class="btn btn-outline btn-sm" href="map.html?plantation_id=' + pid + '">' +
-            '<span class="material-symbols-outlined" style="font-size:16px">polyline</span> ' + ctaText +
-          '</a>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<a class="btn btn-outline btn-sm" href="map.html?plantation_id=' + pid + '">' +
+              '<span class="material-symbols-outlined" style="font-size:16px">polyline</span> ' + ctaText +
+            '</a>' +
+            '<button class="btn btn-primary btn-sm" onclick="downloadDdsPdf()" id="dds-btn">' +
+              '<span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span> Telecharger DDS' +
+            '</button>' +
+          '</div>' +
         '</div>' +
         '<div>' + rules + '</div>' +
       '</div>';
