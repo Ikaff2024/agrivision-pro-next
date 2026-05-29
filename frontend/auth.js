@@ -272,6 +272,34 @@ async function refreshAccessToken() {
   } catch { return false; }
 }
 
+/* ── Refresh proactif du jeton ───────────────────────────────────
+   Le jeton d'acces dure 2h. Sans renouvellement, l'utilisateur est ejecte
+   ("Could not validate credentials") en pleine saisie (ex: cloturer une
+   visite monitoring). auth.js etant charge sur toutes les pages, ce timer
+   maintient avp_token frais dans localStorage : tous les wrappers (authFetch
+   ET les cgFetch des modules CacaoGuard) qui lisent getToken() recoivent un
+   jeton valide, sans modification page par page.
+   isTokenExpired() integre une marge de 5 min, donc on rafraichit AVANT
+   l'expiration reelle. */
+let _avpRefreshInFlight = null;
+async function ensureFreshToken() {
+  const token = getToken();
+  if (!token || !isTokenExpired(token)) return;       // encore valide
+  if (!getRefreshToken()) return;                      // pas de refresh dispo
+  if (_avpRefreshInFlight) return _avpRefreshInFlight; // evite les appels concurrents
+  _avpRefreshInFlight = refreshAccessToken().finally(() => { _avpRefreshInFlight = null; });
+  return _avpRefreshInFlight;
+}
+
+function startTokenAutoRefresh() {
+  ensureFreshToken();                       // verification immediate au chargement
+  setInterval(ensureFreshToken, 60 * 1000); // puis toutes les 60 s
+  // Renouvelle aussi quand l'onglet redevient actif (apres une mise en veille).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') ensureFreshToken();
+  });
+}
+
 /* ── Auth guards ─────────────────────────────────────────────── */
 function requireAuth() {
   // Authentification désactivée - accès libre
@@ -502,6 +530,7 @@ function initApp(page) {
   if (!requireAuth()) return;
   renderSidebar(page);
   setupNotificationWidget();  // Sprint P1 - notifications in-app
+  startTokenAutoRefresh();    // renouvellement proactif du jeton (anti-deconnexion)
 }
 
 /* ── Notifications in-app (Sprint P1) ────────────────────────── */

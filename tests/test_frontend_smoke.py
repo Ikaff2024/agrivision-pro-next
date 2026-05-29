@@ -77,6 +77,8 @@ PAGE_MARKERS = {
     "auth.js": [
         "setupNotificationWidget",
         "refreshNotifBadge",
+        "startTokenAutoRefresh",   # refresh proactif du jeton (anti-déconnexion 2h)
+        "ensureFreshToken",
     ],
 }
 
