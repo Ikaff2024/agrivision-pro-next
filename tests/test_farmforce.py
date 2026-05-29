@@ -109,6 +109,27 @@ def test_farmforce_update_assessment(client):
     assert len(listing) == 1
 
 
+def test_farmforce_living_income_verdict(client):
+    """Le verdict revenu vital compare le revenu net au seuil de reference."""
+    producer_id = _seed_producer()
+    # Revenu net eleve -> atteint
+    high = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 5000, "unit_price_cfa": 1000}],
+    }).json()
+    assert high["living_income_benchmark_cfa"] is not None
+    assert high["living_income_status"] == "atteint"  # 5 000 000 > seuil
+    assert high["living_income_gap_cfa"] > 0
+
+    # Revenu net faible -> ecart
+    low = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+    }).json()
+    assert low["living_income_status"] == "ecart"  # 100 000 < seuil
+    assert low["living_income_gap_cfa"] < 0
+
+
 def test_farmforce_livret_pdf_download(client):
     producer_id = _seed_producer()
     created = client.post("/farmforce/assessments", json={

@@ -8,10 +8,41 @@ identique au pattern du DDS EUDR (app/services/eudr_reports.py).
 from __future__ import annotations
 
 import datetime
+import os
 from typing import Optional
 
 from app.db.models import FarmForceAssessment
 from app.services.reports import _jinja_env, _pdf_escape, slugify
+
+
+# Living Income Benchmark (revenu vital de reference) — CFA/menage/an.
+# Defaut aligne sur l'ordre de grandeur Living Income Community of Practice
+# pour la cacaoculture en Cote d'Ivoire. Surchargeable par variable
+# d'environnement pour s'adapter a la source/annee de la cooperative.
+LIVING_INCOME_BENCHMARK_CFA = float(os.getenv("LIVING_INCOME_BENCHMARK_CFA", "2360000"))
+
+
+def living_income_assessment(net_income_cfa) -> dict:
+    """Verdict revenu vital : compare le revenu net au seuil de reference.
+
+    Calcule a la lecture (jamais stocke) pour rester ajustable si le seuil change.
+    Retourne benchmark, ecart, pourcentage et statut (atteint | ecart).
+    """
+    bench = LIVING_INCOME_BENCHMARK_CFA
+    net = _num(net_income_cfa)
+    if not bench or bench <= 0:
+        return {
+            "living_income_benchmark_cfa": None,
+            "living_income_gap_cfa": None,
+            "living_income_pct": None,
+            "living_income_status": None,
+        }
+    return {
+        "living_income_benchmark_cfa": bench,
+        "living_income_gap_cfa": round(net - bench, 2),
+        "living_income_pct": round(net / bench * 100, 1),
+        "living_income_status": "atteint" if net >= bench else "ecart",
+    }
 
 
 def _num(value) -> float:
@@ -31,6 +62,7 @@ def _money(value) -> str:
 def build_farmforce_context(assessment: FarmForceAssessment) -> dict:
     """Construit le contexte Jinja2 pour le template Livret."""
     producer_name = assessment.producer.nom_complet if assessment.producer else "Producteur"
+    li = living_income_assessment(assessment.net_income_cfa)
     return {
         "generation_date": datetime.date.today().isoformat(),
         "producer_name": producer_name,
@@ -58,6 +90,11 @@ def build_farmforce_context(assessment: FarmForceAssessment) -> dict:
             _money(assessment.return_per_family_day_cfa)
             if assessment.return_per_family_day_cfa is not None else None
         ),
+        "living_income_benchmark_cfa": _money(li["living_income_benchmark_cfa"]) if li["living_income_benchmark_cfa"] else None,
+        "living_income_gap_cfa": _money(li["living_income_gap_cfa"]) if li["living_income_gap_cfa"] is not None else None,
+        "living_income_gap_negative": (li["living_income_gap_cfa"] or 0) < 0,
+        "living_income_pct": li["living_income_pct"],
+        "living_income_status": li["living_income_status"],
     }
 
 

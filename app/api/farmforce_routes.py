@@ -22,6 +22,10 @@ from app.services.farmforce_reports import (
 router = APIRouter(prefix="/farmforce", tags=["FarmForce"])
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
+# Verdict revenu vital : helper partage (defini dans le service pour eviter
+# un import circulaire routes <-> reports).
+from app.services.farmforce_reports import living_income_assessment as _living_income  # noqa: E402
+
 
 class FarmForcePayload(BaseModel):
     producer_id: int
@@ -48,6 +52,10 @@ class FarmForceResponse(FarmForcePayload):
     profit_cfa: float
     total_household_expenses_cfa: float = 0
     net_income_cfa: float = 0
+    living_income_benchmark_cfa: Optional[float] = None
+    living_income_gap_cfa: Optional[float] = None
+    living_income_pct: Optional[float] = None
+    living_income_status: Optional[str] = None
     family_labor_days: float
     hired_labor_days: float
     return_per_family_day_cfa: Optional[float] = None
@@ -141,6 +149,7 @@ def _serialize(assessment: FarmForceAssessment) -> dict:
         "profit_cfa": assessment.profit_cfa,
         "total_household_expenses_cfa": assessment.total_household_expenses_cfa or 0,
         "net_income_cfa": assessment.net_income_cfa or 0,
+        **_living_income(assessment.net_income_cfa or 0),
         "family_labor_days": assessment.family_labor_days,
         "hired_labor_days": assessment.hired_labor_days,
         "return_per_family_day_cfa": assessment.return_per_family_day_cfa,

@@ -149,6 +149,7 @@
             <div class="ff-kpi" style="grid-column:1/-1;background:#eafaf1;border-color:#a8d8bb"><strong id="k-net" style="color:#1a6b3a">0</strong><span>Revenu net disponible CFA</span></div>
             <div class="ff-kpi"><strong id="k-return">-</strong><span>Retour / jour familial</span></div>
           </div>
+          <div id="li-verdict" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12.5px"></div>
           <div id="edit-banner" style="display:none;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#9a6200">
             Modification d'un livret existant. <a href="#" onclick="resetForm();return false" style="font-weight:800;color:#9a6200">Nouveau livret</a>
           </div>
@@ -255,6 +256,10 @@ function calc(p) {
   return { revenue, costs: costs + hired, profit, expenses, net, familyDays, ret: familyDays ? profit / familyDays : null };
 }
 
+// Seuil revenu vital (aligne sur le defaut backend LIVING_INCOME_BENCHMARK_CFA,
+// surchargeable cote serveur par variable d'environnement).
+const LIVING_INCOME_BENCHMARK = 2360000;
+
 function recalc() {
   const c = calc(payload());
   document.getElementById('k-revenue').textContent = money(c.revenue);
@@ -263,6 +268,16 @@ function recalc() {
   document.getElementById('k-expenses').textContent = money(c.expenses);
   document.getElementById('k-net').textContent = money(c.net);
   document.getElementById('k-return').textContent = c.ret === null ? '-' : money(c.ret);
+
+  const v = document.getElementById('li-verdict');
+  const pct = Math.round(c.net / LIVING_INCOME_BENCHMARK * 100);
+  const atteint = c.net >= LIVING_INCOME_BENCHMARK;
+  v.style.display = '';
+  v.style.background = atteint ? '#eafaf1' : '#fef8ec';
+  v.style.border = atteint ? '1px solid #a8d8bb' : '1px solid #f0c97a';
+  v.style.color = atteint ? '#1a6b3a' : '#9a6200';
+  v.innerHTML = `<strong>Revenu vital : ${atteint ? '✓ atteint' : '⚠ écart'}</strong> — ${pct}% du seuil (${money(LIVING_INCOME_BENCHMARK)} CFA/an).` +
+    (atteint ? ` Excédent ${money(c.net - LIVING_INCOME_BENCHMARK)} CFA.` : ` Écart à combler ${money(LIVING_INCOME_BENCHMARK - c.net)} CFA.`);
 }
 
 async function loadProducers() {
@@ -292,6 +307,7 @@ async function loadAssessments() {
       <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
       <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
       <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Revenu net ${money(a.net_income_cfa)} CFA</div>
+      ${a.living_income_status ? `<div class="ff-item-meta"><span style="font-weight:800;color:${a.living_income_status==='atteint'?'#1a6b3a':'#9a6200'}">Revenu vital : ${a.living_income_status==='atteint'?'✓ atteint':'⚠ écart'} (${a.living_income_pct}%)</span></div>` : ''}
       <div class="ff-item-meta" style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
         <a href="#" onclick="editAssessment(${a.id});return false" style="color:var(--primary);font-weight:800">Modifier</a>
         <a href="#" onclick="downloadLivret(${a.id});return false" style="color:var(--primary);font-weight:800">Livret PDF</a>

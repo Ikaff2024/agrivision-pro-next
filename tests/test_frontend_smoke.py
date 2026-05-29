@@ -82,6 +82,7 @@ PAGE_MARKERS = {
         "editAssessment",        # reprise/édition d'un livret
         "net_income",            # revenu net disponible
         "downloadLivret",        # export PDF du livret
+        "li-verdict",            # verdict revenu vital (Living Income)
     ],
     "complaints.html": [],  # existence suffit
     "auth.js": [
