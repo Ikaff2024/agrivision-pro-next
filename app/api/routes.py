@@ -101,7 +101,20 @@ def _interpret_ndvi(ndvi: float) -> dict:
 
 @router.get("/health")
 def health_check():
-    return {"status": "ok"}
+    """Sante de l'API + diagnostic de persistance de la base.
+
+    `database` indique le moteur reel (postgresql = persistant, sqlite =
+    ephemere sur Railway, efface a chaque redeploiement). `persistent` resume
+    si la configuration garantit la conservation des donnees.
+    """
+    from app.db.database import engine
+    dialect = engine.dialect.name
+    return {
+        "status": "ok",
+        "database": dialect,
+        "database_url_configured": bool(os.getenv("DATABASE_URL")),
+        "persistent": dialect == "postgresql",
+    }
 
 
 # ─── Plantations ─────────────────────────────────────────────────────────────
