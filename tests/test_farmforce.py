@@ -109,6 +109,26 @@ def test_farmforce_update_assessment(client):
     assert len(listing) == 1
 
 
+def test_farmforce_livret_pdf_download(client):
+    producer_id = _seed_producer()
+    created = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id,
+        "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+        "household_expense_items": [{"category": "Alimentation", "amount_cfa": 20000}],
+    }).json()
+    r = client.get(f"/farmforce/assessments/{created['id']}/livret.pdf")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+    assert "Livret_" in r.headers.get("content-disposition", "")
+
+
+def test_farmforce_livret_pdf_not_found(client):
+    r = client.get("/farmforce/assessments/99999/livret.pdf")
+    assert r.status_code == 404
+
+
 def test_farmforce_update_not_found(client):
     producer_id = _seed_producer()
     r = client.put("/farmforce/assessments/99999", json={

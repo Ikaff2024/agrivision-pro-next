@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Livret de suivi — {{ producer_name }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm 20mm 14mm;
+      @top-right { content: "Livret de suivi — FarmForce"; font-size: 9px; color: #6a7d64; }
+      @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 9px; color: #6a7d64; }
+      @bottom-left { content: "AgriVision Pro — {{ generation_date }}"; font-size: 9px; color: #6a7d64; }
+    }
+    body { font-family: 'DejaVu Sans', sans-serif; color: #1a2218; font-size: 10.5pt; line-height: 1.4; }
+    .header { background: linear-gradient(135deg, #1a4231 0%, #0c2018 100%); color: #fff; padding: 18px 20px; border-radius: 8px; margin-bottom: 18px; }
+    .header h1 { font-size: 20pt; font-weight: 700; margin: 0; }
+    .header .subtitle { font-size: 10pt; color: rgba(255,255,255,.75); margin-top: 4px; }
+    .ref { background: rgba(255,255,255,.1); border-radius: 6px; padding: 8px 12px; margin-top: 12px; font-size: 9.5pt; }
+    .ref strong { color: #a8d8bb; }
+
+    .section { margin-bottom: 16px; page-break-inside: avoid; break-inside: avoid; }
+    .section-title { font-size: 12pt; font-weight: 700; color: #1a4231; border-bottom: 2px solid #1a4231; padding-bottom: 3px; margin-bottom: 8px; page-break-after: avoid; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #e6ddd0; font-size: 9.5pt; }
+    th { background: #f8f4ee; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #6a7d64; }
+    td.num, th.num { text-align: right; }
+    .empty { color: #6a7d64; font-style: italic; font-size: 9.5pt; padding: 6px 0; }
+
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 6px; }
+    .kpi { border: 1px solid #e6ddd0; border-radius: 6px; padding: 10px 12px; background: #f8f4ee; }
+    .kpi .v { font-size: 15pt; font-weight: 700; color: #1a2218; }
+    .kpi .l { font-size: 8pt; text-transform: uppercase; color: #6a7d64; font-weight: 700; margin-top: 3px; }
+    .kpi-net { grid-column: 1 / -1; background: #eafaf1; border-color: #a8d8bb; }
+    .kpi-net .v { color: #1a6b3a; font-size: 18pt; }
+    .notes { background: #fdf9f5; border: 1px solid #e6ddd0; border-radius: 6px; padding: 10px 14px; font-size: 9.5pt; }
+    .legal { font-size: 8pt; color: #6a7d64; margin-top: 20px; border-top: 1px solid #e6ddd0; padding-top: 8px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Livret de suivi de la plantation</h1>
+  <div class="subtitle">Compte d'exploitation producteur — FarmForce / Cocoa Farmer Income Tool</div>
+  <div class="ref">
+    <strong>Producteur :</strong> {{ producer_name }}<br>
+    <strong>Campagne :</strong> {{ campaign_label }} &nbsp;|&nbsp;
+    <strong>Localité :</strong> {{ localite or "—" }} &nbsp;|&nbsp;
+    <strong>PR :</strong> {{ pr_code or "—" }}<br>
+    <strong>Date d'édition :</strong> {{ generation_date }}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Synthèse économique</div>
+  <div class="summary-grid">
+    <div class="kpi"><div class="v">{{ total_revenue_cfa }}</div><div class="l">Rentrées (CFA)</div></div>
+    <div class="kpi"><div class="v">{{ total_cost_cfa }}</div><div class="l">Coûts agricoles (CFA)</div></div>
+    <div class="kpi"><div class="v">{{ profit_cfa }}</div><div class="l">Profit (CFA)</div></div>
+    <div class="kpi"><div class="v">{{ total_household_expenses_cfa }}</div><div class="l">Dépenses ménage (CFA)</div></div>
+    <div class="kpi"><div class="v">{{ return_per_family_day_cfa or "—" }}</div><div class="l">Retour / jour familial</div></div>
+    <div class="kpi"><div class="v">{{ family_labor_days }}</div><div class="l">Jours travail familial</div></div>
+    <div class="kpi kpi-net"><div class="v">{{ net_income_cfa }} CFA</div><div class="l">Revenu net disponible (profit − dépenses ménage)</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Membres du ménage</div>
+  {% if household_members %}
+  <table><thead><tr><th>Nom</th><th class="num">Âge</th><th>Sexe</th><th>Lien / occupation</th></tr></thead><tbody>
+    {% for m in household_members %}<tr><td>{{ m.name or "—" }}</td><td class="num">{{ m.age or "" }}</td><td>{{ m.gender or "" }}</td><td>{{ m.role or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucun membre renseigné.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Parcelles</div>
+  {% if parcels %}
+  <table><thead><tr><th>Parcelle</th><th>Culture</th><th class="num">Surface (ha)</th><th class="num">Âge</th></tr></thead><tbody>
+    {% for p in parcels %}<tr><td>{{ p.parcel or "—" }}</td><td>{{ p.crop or "" }}</td><td class="num">{{ p.surface_ha or "" }}</td><td class="num">{{ p.age_years or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucune parcelle renseignée.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Ventes / rentrées</div>
+  {% if revenue_items %}
+  <table><thead><tr><th>Mois</th><th>Produit</th><th class="num">Quantité</th><th class="num">Prix/unité</th></tr></thead><tbody>
+    {% for r in revenue_items %}<tr><td>{{ r.month or "—" }}</td><td>{{ r.product or "" }}</td><td class="num">{{ r.quantity or "" }}</td><td class="num">{{ r.unit_price_cfa or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucune vente renseignée.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Production vivrière & élevage</div>
+  {% if food_security_items %}
+  <table><thead><tr><th>Produit</th><th>Usage</th><th class="num">Valeur marchande (CFA)</th></tr></thead><tbody>
+    {% for f in food_security_items %}<tr><td>{{ f.product or "—" }}</td><td>{{ f.usage or "" }}</td><td class="num">{{ f.market_value_cfa or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucune production vivrière renseignée.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Coûts agricoles</div>
+  {% if cost_items %}
+  <table><thead><tr><th>Période</th><th>Catégorie</th><th>Produit / dépense</th><th class="num">Coût (CFA)</th></tr></thead><tbody>
+    {% for c in cost_items %}<tr><td>{{ c.date or "—" }}</td><td>{{ c.category or "" }}</td><td>{{ c.product or "" }}</td><td class="num">{{ c.cost_cfa or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucun coût renseigné.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Main-d'œuvre familiale</div>
+  {% if family_labor_items %}
+  <table><thead><tr><th>Mois</th><th class="num">Producteur</th><th class="num">Conjoint</th><th class="num">Autres famille</th></tr></thead><tbody>
+    {% for l in family_labor_items %}<tr><td>{{ l.month or "—" }}</td><td class="num">{{ l.producer_days or "" }}</td><td class="num">{{ l.spouse_days or "" }}</td><td class="num">{{ l.other_family_days or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucun travail familial renseigné.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Main-d'œuvre embauchée</div>
+  {% if hired_labor_items %}
+  <table><thead><tr><th>Mois</th><th class="num">Travailleurs</th><th class="num">Jours/travailleur</th><th class="num">Salaire/jour (CFA)</th></tr></thead><tbody>
+    {% for l in hired_labor_items %}<tr><td>{{ l.month or "—" }}</td><td class="num">{{ l.workers or "" }}</td><td class="num">{{ l.days_per_worker or "" }}</td><td class="num">{{ l.daily_wage_cfa or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucune main-d'œuvre embauchée renseignée.</div>{% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Dépenses du ménage</div>
+  {% if household_expense_items %}
+  <table><thead><tr><th>Catégorie</th><th class="num">Montant (CFA)</th></tr></thead><tbody>
+    {% for e in household_expense_items %}<tr><td>{{ e.category or "—" }}</td><td class="num">{{ e.amount_cfa or "" }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Aucune dépense ménage renseignée.</div>{% endif %}
+</div>
+
+{% if notes %}
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes">{{ notes }}</div>
+</div>
+{% endif %}
+
+<div class="legal">
+  Document généré automatiquement par AgriVision Pro le {{ generation_date }}.
+  Livret de suivi de la plantation (DD farm records) — basé sur le Cocoa Farmer Income Tool (Fairtrade).
+  Le revenu net disponible = profit agricole − dépenses du ménage. Destiné au suivi du producteur et à la due diligence revenu vital.
+</div>
+
+</body>
+</html>

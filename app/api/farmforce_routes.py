@@ -2,8 +2,10 @@ from datetime import datetime
 import os
 import tempfile
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -11,6 +13,11 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import FarmForceAssessment, Producer
 from app.importers.farmforce_excel import parse_farmforce_excel
+from app.services.farmforce_reports import (
+    build_farmforce_context,
+    farmforce_filename,
+    generate_farmforce_pdf,
+)
 
 router = APIRouter(prefix="/farmforce", tags=["FarmForce"])
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -254,6 +261,23 @@ def update_assessment(assessment_id: int, data: FarmForcePayload, db: Session = 
     db.commit()
     db.refresh(assessment)
     return _serialize(assessment)
+
+
+@router.get("/assessments/{assessment_id}/livret.pdf")
+def download_farmforce_livret(assessment_id: int, db: Session = Depends(get_db)):
+    """Telecharge le Livret de suivi (DD farm records) rempli au format PDF."""
+    assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    context = build_farmforce_context(assessment)
+    pdf_bytes = generate_farmforce_pdf(context)
+    filename = farmforce_filename(assessment)
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.post("/import/excel")

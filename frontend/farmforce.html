@@ -292,8 +292,9 @@ async function loadAssessments() {
       <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
       <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
       <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Revenu net ${money(a.net_income_cfa)} CFA</div>
-      <div class="ff-item-meta" style="display:flex;gap:12px;margin-top:6px">
+      <div class="ff-item-meta" style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
         <a href="#" onclick="editAssessment(${a.id});return false" style="color:var(--primary);font-weight:800">Modifier</a>
+        <a href="#" onclick="downloadLivret(${a.id});return false" style="color:var(--primary);font-weight:800">Livret PDF</a>
         <a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Fiche producteur</a>
       </div>
     </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>';
@@ -311,6 +312,10 @@ function resetForm() {
   document.getElementById('edit-banner').style.display = 'none';
   ['household','parcels','revenues','costs','familyLabor','hiredLabor'].forEach(t => addRow(t));
   recalc();
+}
+
+function downloadLivret(id) {
+  window.open(`${apiBase()}/farmforce/assessments/${id}/livret.pdf`, '_blank');
 }
 
 function editAssessment(id) {

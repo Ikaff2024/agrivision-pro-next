@@ -81,6 +81,7 @@ PAGE_MARKERS = {
         "householdExpenses",     # dépenses ménage
         "editAssessment",        # reprise/édition d'un livret
         "net_income",            # revenu net disponible
+        "downloadLivret",        # export PDF du livret
     ],
     "complaints.html": [],  # existence suffit
     "auth.js": [
