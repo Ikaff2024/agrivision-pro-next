@@ -15,20 +15,48 @@ Permissions :
 - technician : voient les plantations qui leur sont assignees
 - viewer : interdit
 """
+import datetime
 from typing import List, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
-from app.db.models import Plantation, User
-from app.eudr.scoring import compute_eudr_score
+from app.db.models import DeforestationCheck, Plantation, User
+from app.eudr.scoring import EUDR_CUTOFF_YEAR, compute_eudr_score
 from app.services.eudr_reports import build_dds_context, dds_filename, generate_dds_pdf
 
 router = APIRouter(prefix="", tags=["EUDR - conformite parcellaire"])
+
+# Verdicts acceptes pour un controle de deforestation (cadre EUDR-01b).
+_DEFORESTATION_VERDICTS = {"clear", "deforestation_detected", "inconclusive"}
+
+
+class DeforestationCheckCreate(BaseModel):
+    verdict: str = Field(description="clear | deforestation_detected | inconclusive")
+    source: Optional[str] = Field(
+        default="manual",
+        description="hansen_gfc | gfw | field_visit | manual",
+    )
+    forest_loss_year: Optional[int] = Field(default=None, ge=2000, le=2100)
+    notes: Optional[str] = None
+
+
+def _deforestation_check_to_dict(c: DeforestationCheck) -> dict:
+    return {
+        "id": c.id,
+        "plantation_id": c.plantation_id,
+        "verdict": c.verdict,
+        "source": c.source,
+        "forest_loss_year": c.forest_loss_year,
+        "notes": c.notes,
+        "check_date": c.check_date.isoformat() if c.check_date else None,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
 
 
 def _accessible_plantations(db: Session, user: User) -> list[Plantation]:
@@ -193,6 +221,77 @@ def list_plantations_with_eudr(
         enriched.sort(key=lambda x: (status_order.get(x["eudr_status"], 9), x["eudr_score"]))
 
     return {"count": len(enriched), "plantations": enriched}
+
+
+# ----------------------------------------------------------------------------
+# Sprint EUDR-01b : controle de deforestation (cadre extensible Hansen/GFW)
+# ----------------------------------------------------------------------------
+
+@router.post("/plantations/{plantation_id}/deforestation-check", status_code=201)
+def record_deforestation_check(
+    plantation_id: int,
+    data: DeforestationCheckCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enregistre un controle de deforestation (regle EUDR R6).
+
+    Cadre extensible : aujourd'hui saisie manuelle / constat terrain ; demain
+    rempli automatiquement par l'integration Hansen GFC / Global Forest Watch.
+    Reserve admin/agronomist.
+    """
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Controle deforestation reserve aux admin/agronome.")
+    verdict = (data.verdict or "").lower()
+    if verdict not in _DEFORESTATION_VERDICTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Verdict invalide. Attendu : {', '.join(sorted(_DEFORESTATION_VERDICTS))}.",
+        )
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+
+    check = DeforestationCheck(
+        plantation_id=plantation_id,
+        verdict=verdict,
+        source=data.source or "manual",
+        forest_loss_year=data.forest_loss_year,
+        notes=data.notes,
+        check_date=datetime.datetime.utcnow(),
+    )
+    db.add(check)
+    db.commit()
+    db.refresh(check)
+    # Renvoie aussi le score recalcule pour rafraichir l'UI immediatement.
+    score = compute_eudr_score(plantation, db)
+    return {"check": _deforestation_check_to_dict(check), "eudr_score": score.to_dict()}
+
+
+@router.get("/plantations/{plantation_id}/deforestation-checks")
+def list_deforestation_checks(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Historique des controles de deforestation d'une plantation (recent d'abord)."""
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+    checks = (
+        db.query(DeforestationCheck)
+        .filter(DeforestationCheck.plantation_id == plantation_id)
+        .order_by(DeforestationCheck.check_date.desc().nullslast(), DeforestationCheck.id.desc())
+        .all()
+    )
+    return {
+        "plantation_id": plantation_id,
+        "cutoff_year": EUDR_CUTOFF_YEAR,
+        "count": len(checks),
+        "checks": [_deforestation_check_to_dict(c) for c in checks],
+    }
 
 
 # ----------------------------------------------------------------------------

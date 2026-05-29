@@ -66,6 +66,7 @@ PAGE_MARKERS = {
         "downloadDdsPdf",
         "openEditModal",        # édition de plantation (corrige le manque région)
         "savePlantationEdit",
+        "saveDefoCheck",        # contrôle déforestation EUDR-01b
     ],
     "plantations.html": [
         "loadEudrBadges",

@@ -9,6 +9,7 @@ import pytest
 from app.auth.auth_service import create_access_token
 from app.db.models import (
     Cooperative,
+    DeforestationCheck,
     Inspection,
     Plantation,
     PlantationBoundary,
@@ -45,7 +46,7 @@ def mock_weasyprint(monkeypatch):
     return MockHTML
 
 
-def _seed(role="admin", with_polygon=True, with_inspection=True):
+def _seed(role="admin", with_polygon=True, with_inspection=True, with_deforestation=True):
     db = TestingSessionLocal()
     try:
         coop = Cooperative(name="Coop DDS", country="CI"); db.add(coop); db.flush()
@@ -66,6 +67,9 @@ def _seed(role="admin", with_polygon=True, with_inspection=True):
         if with_inspection:
             db.add(Inspection(plantation_id=p.id, type="EXTERNE",
                               date=datetime.utcnow() - timedelta(days=45)))
+        if with_deforestation:
+            db.add(DeforestationCheck(plantation_id=p.id, verdict="clear",
+                                      source="manual", check_date=datetime.utcnow()))
         db.commit()
         return p.id, {"Authorization": "Bearer " + create_access_token({
             "sub": user.email, "role": user.role, "coop_id": user.cooperative_id,
@@ -87,9 +91,9 @@ def test_build_dds_context_has_required_fields(client):
         assert "dds_reference" in ctx
         assert ctx["dds_reference"].startswith("DDS-")
         assert ctx["plantation"].id == pid
-        assert ctx["score"] == 5  # plantation parfaite
+        assert ctx["score"] == 6  # plantation parfaite (6 regles avec EUDR-01b)
         assert ctx["status"] == "conforme"
-        assert len(ctx["rules"]) == 5
+        assert len(ctx["rules"]) == 6
         assert ctx["cooperative_name"] == "Coop DDS"
         assert ctx["producer_code"] == "YEY-0001"
         assert ctx["polygon_geojson"] is not None

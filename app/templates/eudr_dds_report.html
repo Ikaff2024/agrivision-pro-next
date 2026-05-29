@@ -99,7 +99,7 @@
 </div>
 
 <div class="section">
-  <div class="section-title">3. Detail des 5 regles de conformite (methodologie {{ methodology_version }})</div>
+  <div class="section-title">3. Detail des {{ rules|length }} regles de conformite (methodologie {{ methodology_version }})</div>
   <table class="rules-table">
     <thead>
       <tr>
@@ -153,7 +153,7 @@
   <p><strong>Attestation de diligence raisonnable (EUDR art. 8)</strong></p>
   <p>Je soussigne, en qualite d'operateur ou de commercant tel que defini par le Reglement (UE) 2023/1115, declare que les informations geographiques et de tracabilite contenues dans ce Due Diligence Statement ont ete collectees et verifiees conformement aux procedures d'AgriVision Pro (methodologie {{ methodology_version }}).</p>
   <p>Cette attestation engage la responsabilite de l'operateur et reste sujette aux verifications des autorites competentes designees par l'article 16 du Reglement.</p>
-  <p><strong>Limitations connues</strong> : Le score {{ methodology_version }} verifie 5 regles de conformite parcellaire mais ne remplace pas la verification independante de l'absence de deforestation post-31/12/2020 (regle a integrer en sprint EUDR-01b avec donnees Hansen Global Forest Change).</p>
+  <p><strong>Limitations connues</strong> : Le score {{ methodology_version }} verifie {{ rules|length }} regles de conformite parcellaire, dont un controle de deforestation post-31/12/2020. Ce controle s'appuie sur la source declaree dans la regle correspondante (constat terrain / saisie manuelle, ou donnees satellites Hansen Global Forest Change / Global Forest Watch lorsque l'integration automatique est activee). En l'absence de controle enregistre, la regle echoue par precaution.</p>
   <div class="signature-row">
     <div class="signature-block">Operateur / Cooperative<br><br>{{ operator_name }}</div>
     <div class="signature-block">Date et signature</div>

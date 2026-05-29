@@ -173,8 +173,8 @@
 .ssrte-item-meta{font-size:12px;color:var(--muted);line-height:1.45}
 
 /* Modale de saisie */
-#harvest-modal-overlay,#edit-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
-#harvest-modal-overlay.open,#edit-modal-overlay.open{display:flex}
+#harvest-modal-overlay,#edit-modal-overlay,#defo-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
+#harvest-modal-overlay.open,#edit-modal-overlay.open,#defo-modal-overlay.open{display:flex}
 .h-modal{background:var(--surface);border-radius:var(--rl);padding:24px 26px;width:100%;max-width:480px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
 .h-modal-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
 .h-form-group{margin-bottom:14px}
@@ -719,6 +719,58 @@ async function savePlantationEdit() {
   }
 }
 
+/* ── Controle de deforestation (EUDR R6) ──────────────────────── */
+function openDefoModal() {
+  document.getElementById('d-verdict').value = 'clear';
+  document.getElementById('d-source').value = 'field_visit';
+  document.getElementById('d-year').value = '';
+  document.getElementById('d-notes').value = '';
+  document.getElementById('d-err').style.display = 'none';
+  onDefoVerdictChange();
+  document.getElementById('defo-modal-overlay').classList.add('open');
+}
+
+function closeDefoModal() {
+  document.getElementById('defo-modal-overlay').classList.remove('open');
+}
+
+function onDefoVerdictChange() {
+  const detected = document.getElementById('d-verdict').value === 'deforestation_detected';
+  document.getElementById('d-year-group').style.display = detected ? '' : 'none';
+}
+
+async function saveDefoCheck() {
+  const err = document.getElementById('d-err');
+  err.style.display = 'none';
+  const verdict = document.getElementById('d-verdict').value;
+  const payload = {
+    verdict,
+    source: document.getElementById('d-source').value,
+    notes: document.getElementById('d-notes').value.trim() || null,
+  };
+  const year = parseInt(document.getElementById('d-year').value);
+  if (verdict === 'deforestation_detected' && !isNaN(year)) payload.forest_loss_year = year;
+
+  const btn = document.getElementById('d-submit-btn');
+  btn.disabled = true; btn.textContent = 'Enregistrement...';
+  try {
+    const r = await authFetch('/plantations/' + pid + '/deforestation-check', {
+      method: 'POST', body: JSON.stringify(payload)
+    });
+    if (r && r.status === 403) throw new Error("Reserve aux admin/agronome.");
+    if (r && r.status === 422) throw new Error("Verdict invalide.");
+    if (!r || !r.ok) throw new Error('Erreur serveur.');
+    toast('Controle deforestation enregistre.');
+    closeDefoModal();
+    renderEudrCard();  // rafraichit la carte EUDR (score mis a jour)
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
 async function renderHarvestCard(p) {
   const container = document.getElementById("harvest-container");
   if (!container) return;
@@ -957,6 +1009,9 @@ async function renderEudrCard(p) {
             '<a class="btn btn-outline btn-sm" href="map.html?plantation_id=' + pid + '">' +
               '<span class="material-symbols-outlined" style="font-size:16px">polyline</span> ' + ctaText +
             '</a>' +
+            '<button class="btn btn-outline btn-sm" onclick="openDefoModal()" id="defo-btn">' +
+              '<span class="material-symbols-outlined" style="font-size:16px">forest</span> Controle deforestation' +
+            '</button>' +
             '<button class="btn btn-primary btn-sm" onclick="downloadDdsPdf()" id="dds-btn">' +
               '<span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span> Telecharger DDS' +
             '</button>' +
@@ -1228,6 +1283,47 @@ async function avpCheckPlantationNdvi(plantationId, recoContainerId) {
     <div class="h-modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Annuler</button>
       <button class="btn btn-primary btn-sm" id="e-submit-btn" onclick="savePlantationEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="defo-modal-overlay">
+  <div class="h-modal">
+    <div class="h-modal-title">&#127794; Controle de deforestation (EUDR)</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">
+      Enregistre un controle d'absence de deforestation depuis le 31/12/2020
+      (date butoir EUDR). Source manuelle / constat terrain en attendant
+      l'integration satellite Hansen / Global Forest Watch.
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Verdict *</label>
+      <select id="d-verdict" class="h-form-select" onchange="onDefoVerdictChange()">
+        <option value="clear">Aucune deforestation (conforme)</option>
+        <option value="deforestation_detected">Deforestation detectee</option>
+        <option value="inconclusive">Non concluant</option>
+      </select>
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Source</label>
+      <select id="d-source" class="h-form-select">
+        <option value="field_visit">Constat terrain</option>
+        <option value="manual">Saisie manuelle</option>
+        <option value="hansen_gfc">Hansen Global Forest Change</option>
+        <option value="gfw">Global Forest Watch</option>
+      </select>
+    </div>
+    <div class="h-form-group" id="d-year-group" style="display:none">
+      <label class="h-form-label">Annee de perte de couvert detectee</label>
+      <input type="number" id="d-year" class="h-form-input" min="2000" max="2100" placeholder="Ex: 2022">
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Notes <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+      <textarea id="d-notes" class="h-form-textarea" placeholder="Observations, methode, references..."></textarea>
+    </div>
+    <div id="d-err" style="display:none;color:#922b21;font-size:13px;margin-top:8px"></div>
+    <div class="h-modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeDefoModal()">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="d-submit-btn" onclick="saveDefoCheck()">Enregistrer</button>
     </div>
   </div>
 </div>

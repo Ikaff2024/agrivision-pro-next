@@ -62,6 +62,7 @@ class Plantation(Base):
     assignment   = relationship("PlantationAssignment", back_populates="plantation", uselist=False, cascade="all, delete-orphan")
     diagnostics  = relationship("Diagnostic", back_populates="plantation")
     boundary     = relationship("PlantationBoundary", back_populates="plantation", uselist=False)
+    deforestation_checks = relationship("DeforestationCheck", back_populates="plantation", cascade="all, delete-orphan")
     agro_records = relationship("AgroforestryRecord", back_populates="plantation")
     harvests     = relationship("Harvest", back_populates="plantation", cascade="all, delete-orphan")
     ssrte_visits = relationship("SsrtePlantationVisit", back_populates="plantation", cascade="all, delete-orphan")
@@ -99,6 +100,28 @@ class PlantationBoundary(Base):
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     plantation = relationship("Plantation", back_populates="boundary")
+
+
+class DeforestationCheck(Base):
+    """Controle de deforestation d'une plantation (cadre EUDR-01b).
+
+    Stocke le resultat d'une verification d'absence de deforestation post
+    31/12/2020 (date butoir EUDR). La source peut etre un calcul automatique
+    (Hansen Global Forest Change / Global Forest Watch) une fois l'integration
+    branchee, ou une saisie manuelle / constat terrain en attendant.
+    """
+    __tablename__ = "deforestation_checks"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    plantation_id    = Column(Integer, ForeignKey("plantations.id"), nullable=False, index=True)
+    check_date       = Column(DateTime(timezone=True), nullable=True)
+    source           = Column(String, nullable=True)   # hansen_gfc | gfw | field_visit | manual
+    verdict          = Column(String, nullable=False, default="inconclusive")  # clear | deforestation_detected | inconclusive
+    forest_loss_year = Column(Integer, nullable=True)  # annee de perte de couvert detectee (si applicable)
+    notes            = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+
+    plantation = relationship("Plantation", back_populates="deforestation_checks")
 
 
 class AgroforestryRecord(Base):

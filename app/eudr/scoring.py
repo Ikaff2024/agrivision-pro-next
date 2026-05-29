@@ -21,6 +21,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    DeforestationCheck,
     Inspection,
     Plantation,
     PlantationBoundary,
@@ -40,6 +41,9 @@ AREA_TOLERANCE_PCT = 0.20
 
 # Fenetre "visite recente" pour l'audit (12 mois standard EUDR/Fairtrade).
 RECENT_VISIT_DAYS = 365
+
+# Date butoir EUDR : aucune deforestation post 31/12/2020 (art. 3 du Reglement).
+EUDR_CUTOFF_YEAR = 2020
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +96,7 @@ class EudrScore:
         }
 
 
-METHODOLOGY_VERSION = "eudr-1.0a"
+METHODOLOGY_VERSION = "eudr-1.1b"
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +317,53 @@ def rule_no_active_traceability_block(plantation: Plantation, db: Session) -> Ru
     )
 
 
+def rule_no_deforestation(plantation: Plantation, db: Session) -> RuleResult:
+    """R6 (EUDR-01b) : aucune deforestation depuis la date butoir (31/12/2020).
+
+    Cadre extensible : consomme le dernier `DeforestationCheck` enregistre sur
+    la plantation. La source peut etre Hansen GFC / Global Forest Watch une fois
+    l'integration satellite branchee, ou une saisie manuelle / constat terrain.
+
+    Verdicts :
+      - clear                 -> PASSE (pas de perte de couvert post-2020)
+      - deforestation_detected-> ECHEC (perte de couvert detectee)
+      - inconclusive / absent -> ECHEC (controle a realiser)
+    """
+    label = "Pas de deforestation post-2020"
+    last = (
+        db.query(DeforestationCheck)
+        .filter(DeforestationCheck.plantation_id == plantation.id)
+        .order_by(DeforestationCheck.check_date.desc().nullslast(),
+                  DeforestationCheck.id.desc())
+        .first()
+    )
+    if last is None:
+        return RuleResult(
+            "no_deforestation", label, False,
+            detail="Aucun controle de deforestation enregistre (a realiser).",
+        )
+
+    verdict = (last.verdict or "inconclusive").lower()
+    src = last.source or "non specifiee"
+    when = last.check_date.date().isoformat() if last.check_date else "date inconnue"
+
+    if verdict == "clear":
+        return RuleResult(
+            "no_deforestation", label, True,
+            detail=f"Controle {src} du {when} : aucune perte de couvert depuis {EUDR_CUTOFF_YEAR}.",
+        )
+    if verdict == "deforestation_detected":
+        year = f" (perte detectee en {last.forest_loss_year})" if last.forest_loss_year else ""
+        return RuleResult(
+            "no_deforestation", label, False,
+            detail=f"Controle {src} du {when} : deforestation detectee{year}.",
+        )
+    return RuleResult(
+        "no_deforestation", label, False,
+        detail=f"Controle {src} du {when} : resultat non concluant, verification requise.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Orchestrateur
 # ---------------------------------------------------------------------------
@@ -349,6 +400,7 @@ def compute_eudr_score(
         rule_gps_in_cocoa_zone(plantation, boundary),
         rule_recent_inspection(plantation, db, today=today),
         rule_no_active_traceability_block(plantation, db),
+        rule_no_deforestation(plantation, db),
     ]
     score = sum(r.weight for r in rules if r.passed)
     max_score = sum(r.weight for r in rules)

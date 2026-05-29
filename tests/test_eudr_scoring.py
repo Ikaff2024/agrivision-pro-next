@@ -6,6 +6,7 @@ import pytest
 
 from app.db.models import (
     Cooperative,
+    DeforestationCheck,
     Inspection,
     Plantation,
     PlantationBoundary,
@@ -23,6 +24,7 @@ from app.eudr.scoring import (
     rule_area_matches,
     rule_gps_in_cocoa_zone,
     rule_no_active_traceability_block,
+    rule_no_deforestation,
     rule_polygon_valid,
     rule_recent_inspection,
 )
@@ -97,6 +99,21 @@ def _add_boundary(db, plantation, geojson=VALID_POLYGON, area=1.0, points=5):
     db.refresh(plantation)
     _ = plantation.boundary  # trigger lazy load
     return b
+
+
+def _add_deforestation_check(db, plantation, *, verdict="clear", source="manual",
+                             forest_loss_year=None):
+    c = DeforestationCheck(
+        plantation_id=plantation.id,
+        verdict=verdict,
+        source=source,
+        forest_loss_year=forest_loss_year,
+        check_date=datetime.utcnow(),
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
 
 
 # ----------------------------------------------------------------------------
@@ -343,13 +360,58 @@ def test_compute_score_perfect_plantation(client):
     _add_boundary(db, p, geojson=VALID_POLYGON, area=1.05, points=5)
     db.add(Inspection(plantation_id=p.id, type="EXTERNE", date=datetime.utcnow() - timedelta(days=30)))
     db.commit()
+    _add_deforestation_check(db, p, verdict="clear")
     s = compute_eudr_score(p, db)
     db.close()
-    assert s.score == 5
+    assert s.score == 6          # 6 regles (EUDR-01b ajoute la deforestation)
+    assert s.max_score == 6
     assert s.status == "conforme"
     assert s.badge_color == "green"
     assert s.has_polygon is True
     assert s.methodology_version == METHODOLOGY_VERSION
+
+
+# ----------------------------------------------------------------------------
+# Regle 6 (EUDR-01b) : no_deforestation
+# ----------------------------------------------------------------------------
+
+def test_deforestation_no_check_fails(client):
+    db = TestingSessionLocal()
+    p = _make_plantation(db)
+    r = rule_no_deforestation(p, db)
+    db.close()
+    assert r.passed is False
+    assert "Aucun controle" in r.detail
+
+
+def test_deforestation_clear_passes(client):
+    db = TestingSessionLocal()
+    p = _make_plantation(db)
+    _add_deforestation_check(db, p, verdict="clear", source="hansen_gfc")
+    r = rule_no_deforestation(p, db)
+    db.close()
+    assert r.passed is True
+
+
+def test_deforestation_detected_fails(client):
+    db = TestingSessionLocal()
+    p = _make_plantation(db)
+    _add_deforestation_check(db, p, verdict="deforestation_detected", forest_loss_year=2022)
+    r = rule_no_deforestation(p, db)
+    db.close()
+    assert r.passed is False
+    assert "2022" in r.detail
+
+
+def test_deforestation_latest_check_wins(client):
+    """Le controle le plus recent prime (clear apres une detection => passe)."""
+    db = TestingSessionLocal()
+    p = _make_plantation(db)
+    _add_deforestation_check(db, p, verdict="deforestation_detected", forest_loss_year=2021)
+    _add_deforestation_check(db, p, verdict="clear", source="field_visit")
+    r = rule_no_deforestation(p, db)
+    db.close()
+    assert r.passed is True
 
 
 def test_compute_score_no_polygon_no_inspection(client):
@@ -362,9 +424,11 @@ def test_compute_score_no_polygon_no_inspection(client):
     # gps_in_cocoa_zone: True (fallback point in bbox)
     # recent_inspection: False
     # no_active_block: True (no block)
+    # no_deforestation: False (aucun controle) => 2/6
     assert s.score == 2
-    assert s.status == "a_verifier"
-    assert s.badge_color == "orange"
+    assert s.max_score == 6
+    assert s.status == "non_conforme"  # 2/6 = 33% (< 40%)
+    assert s.badge_color == "red"
     assert s.has_polygon is False
 
 

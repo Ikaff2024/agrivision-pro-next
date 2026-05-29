@@ -5,7 +5,15 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.auth.auth_service import create_access_token
-from app.db.models import Cooperative, Inspection, Plantation, PlantationBoundary, Producer, User
+from app.db.models import (
+    Cooperative,
+    DeforestationCheck,
+    Inspection,
+    Plantation,
+    PlantationBoundary,
+    Producer,
+    User,
+)
 from tests.conftest import TestingSessionLocal
 
 
@@ -21,7 +29,8 @@ def _auth(user):
     })}
 
 
-def _seed_user_and_plantation(role="admin", with_polygon=True, with_inspection=True):
+def _seed_user_and_plantation(role="admin", with_polygon=True, with_inspection=True,
+                              with_deforestation=True):
     db = TestingSessionLocal()
     try:
         coop = Cooperative(name="Coop EUDR-routes", country="CI")
@@ -43,6 +52,11 @@ def _seed_user_and_plantation(role="admin", with_polygon=True, with_inspection=T
         if with_inspection:
             db.add(Inspection(plantation_id=p.id, type="EXTERNE",
                               date=datetime.utcnow() - timedelta(days=30)))
+        if with_deforestation:
+            db.add(DeforestationCheck(
+                plantation_id=p.id, verdict="clear", source="manual",
+                check_date=datetime.utcnow(),
+            ))
         db.commit()
         return p.id, _auth(user)
     finally:
@@ -53,27 +67,63 @@ def _seed_user_and_plantation(role="admin", with_polygon=True, with_inspection=T
 # /plantations/{id}/eudr-score
 # ----------------------------------------------------------------------------
 
-def test_eudr_score_perfect_plantation_returns_5(client):
+def test_eudr_score_perfect_plantation_returns_6(client):
     pid, auth = _seed_user_and_plantation()
     r = client.get(f"/plantations/{pid}/eudr-score", headers=auth)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["score"] == 5
+    assert body["score"] == 6
     assert body["status"] == "conforme"
     assert body["badge_color"] == "green"
-    assert len(body["rules"]) == 5
+    assert len(body["rules"]) == 6
     for rule in body["rules"]:
         assert rule["passed"] is True
 
 
 def test_eudr_score_no_polygon(client):
-    pid, auth = _seed_user_and_plantation(with_polygon=False, with_inspection=False)
+    pid, auth = _seed_user_and_plantation(with_polygon=False, with_inspection=False,
+                                          with_deforestation=False)
     r = client.get(f"/plantations/{pid}/eudr-score", headers=auth)
     assert r.status_code == 200
     body = r.json()
-    # polygon_valid:False, area_matches:False, gps:True, recent_inspection:False, no_block:True
+    # polygon:F, area:F, gps:T, recent_inspection:F, no_block:T, no_deforestation:F => 2/6
     assert body["score"] == 2
-    assert body["status"] == "a_verifier"
+    assert len(body["rules"]) == 6
+    assert body["status"] == "non_conforme"  # 2/6 = 33% (< 40%)
+
+
+def test_record_deforestation_check_clear_raises_score(client):
+    """Enregistrer un controle 'clear' fait passer la regle R6 (EUDR-01b)."""
+    pid, auth = _seed_user_and_plantation(with_deforestation=False)
+    before = client.get(f"/plantations/{pid}/eudr-score", headers=auth).json()["score"]
+    r = client.post(f"/plantations/{pid}/deforestation-check",
+                    json={"verdict": "clear", "source": "hansen_gfc"}, headers=auth)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["check"]["verdict"] == "clear"
+    assert body["eudr_score"]["score"] == before + 1
+
+
+def test_record_deforestation_check_invalid_verdict_422(client):
+    pid, auth = _seed_user_and_plantation()
+    r = client.post(f"/plantations/{pid}/deforestation-check",
+                    json={"verdict": "n_importe_quoi"}, headers=auth)
+    assert r.status_code == 422
+
+
+def test_deforestation_check_viewer_forbidden(client):
+    pid, _ = _seed_user_and_plantation()
+    db = TestingSessionLocal()
+    try:
+        viewer = User(email="viewer.defo@test.ci", password_hash="x", role="viewer",
+                      cooperative_id=1)
+        db.add(viewer); db.commit()
+        auth = _auth(viewer)
+    finally:
+        db.close()
+    r = client.post(f"/plantations/{pid}/deforestation-check",
+                    json={"verdict": "clear"}, headers=auth)
+    assert r.status_code == 403
 
 
 def test_eudr_score_unknown_plantation_returns_404(client):
