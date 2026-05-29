@@ -935,7 +935,8 @@ def _compute_metrics(records) -> dict:
 
     for r in records:
         density = r.count_per_hectare or 0
-        age = 5  # défaut fixe (avg_age_years non en base)
+        # Age moyen reel si renseigne, sinon defaut prudent de 5 ans.
+        age = r.avg_age_years if r.avg_age_years is not None else 5
         total_trees += density
         species_seen.add(r.species_name)
 
@@ -1036,8 +1037,11 @@ class AgroforestryCreate(BaseModel):
     species_name: str
     local_name: Optional[str] = None
     layer: Optional[str] = None
-    count_per_hectare: float
-    avg_age_years: Optional[float] = None
+    count_per_hectare: float = Field(
+        gt=0,
+        description="Densite d'arbres par hectare (strictement positive).",
+    )
+    avg_age_years: Optional[float] = Field(default=None, ge=0)
     notes: Optional[str] = None
 
 
@@ -1150,6 +1154,7 @@ def add_agroforestry_record(
         plantation_id=plantation_id,
         species_name=data.species_name,
         count_per_hectare=data.count_per_hectare,
+        avg_age_years=data.avg_age_years,
     )
     db.add(record)
     db.commit()

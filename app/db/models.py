@@ -109,6 +109,7 @@ class AgroforestryRecord(Base):
     plantation_id     = Column(Integer, ForeignKey("plantations.id"), nullable=False)
     species_name      = Column(String, nullable=False)
     count_per_hectare = Column(Float, nullable=True)
+    avg_age_years     = Column(Float, nullable=True)
 
     plantation = relationship("Plantation", back_populates="agro_records")
 

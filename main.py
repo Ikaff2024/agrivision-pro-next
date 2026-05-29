@@ -133,6 +133,13 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migrations Harvest : OK (certification_id, campagne_id, recu, sacs, conventional)")
+
+                # Agroforesterie : age moyen des arbres (utilise dans le calcul carbone)
+                conn.execute(text(
+                    "ALTER TABLE agroforestry_records ADD COLUMN IF NOT EXISTS avg_age_years DOUBLE PRECISION"
+                ))
+                conn.commit()
+                logger.info("Migration Agroforestry : OK (avg_age_years)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
