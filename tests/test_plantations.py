@@ -22,6 +22,47 @@ def test_create_plantation(client, auth_headers):
     assert data["cooperative_id"] is not None  # toujours rattachée
 
 
+def test_create_plantation_creates_and_links_producer(client, auth_headers):
+    """Créer une plantation doit générer le Producteur correspondant et le lier,
+    pour qu'il apparaisse dans les listes (Protection enfant, EUDR, CacaoGuard)."""
+    res = client.post("/plantations", json={
+        "name": "Parcelle Daloa",
+        "owner_name": "Anthony DELORE",
+        "country": "Côte d'Ivoire",
+        "hectares": 4.5,
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    plantation = res.json()
+    assert plantation["producer_id"] is not None
+
+    # Le producteur apparaît bien dans /producers (la liste utilisée par la
+    # page Protection enfant).
+    producers = client.get("/producers?limit=1000", headers=auth_headers).json()
+    names = [p["nom_complet"] for p in producers]
+    assert "Anthony DELORE" in names
+
+    # Lien correct entre la plantation et le producteur créé.
+    matching = [p for p in producers if p["nom_complet"] == "Anthony DELORE"]
+    assert matching and matching[0]["id"] == plantation["producer_id"]
+
+
+def test_create_plantation_reuses_existing_producer(client, auth_headers):
+    """Deux plantations du même propriétaire (même coop) partagent un seul
+    Producteur — pas de doublon."""
+    payload = {
+        "owner_name": "Marie Koffi",
+        "country": "Côte d'Ivoire",
+        "hectares": 2.0,
+    }
+    r1 = client.post("/plantations", json={**payload, "name": "P1"}, headers=auth_headers)
+    r2 = client.post("/plantations", json={**payload, "name": "P2"}, headers=auth_headers)
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json()["producer_id"] == r2.json()["producer_id"]
+
+    producers = client.get("/producers?limit=1000", headers=auth_headers).json()
+    assert sum(1 for p in producers if p["nom_complet"] == "Marie Koffi") == 1
+
+
 def test_create_plantation_requires_admin(client, auth_headers):
     # L'agronome rejoint la coop existante → reste agronomist → ne peut pas créer
     client.post("/auth/register", json={

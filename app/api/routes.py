@@ -13,7 +13,7 @@ from app.cacao_engine.engine import run_engine
 from app.cacao_engine.inputs import CacaoInputs
 from app.cacao_engine.outputs import EngineReport
 from app.db.database import get_db
-from app.db.models import Diagnostic, Plantation, User, Harvest
+from app.db.models import Diagnostic, Plantation, Producer, User, Harvest
 from app.auth.auth_service import get_current_user
 from app.ml.image_diagnosis import analyze_leaf_image
 from app.satellite.ndvi_service import get_ndvi
@@ -108,6 +108,32 @@ def create_plantation(
             detail="Votre compte n'est associé à aucune coopérative.",
         )
 
+    # ── Trouver-ou-créer le Producteur lié au propriétaire ──────────────────
+    # Sans ce rattachement, le producteur n'existe que comme texte (owner_name)
+    # et n'apparaît pas dans les listes Producteurs (Protection enfant, EUDR,
+    # CacaoGuard). On reproduit ici la migration de démarrage, mais au moment
+    # de la création pour que toute nouvelle plantation génère son producteur.
+    producer = None
+    owner = (plantation.owner_name or "").strip()
+    if owner:
+        producer = (
+            db.query(Producer)
+            .filter(
+                Producer.nom_complet == owner,
+                Producer.cooperative_id == current_user.cooperative_id,
+                Producer.is_active == True,
+            )
+            .first()
+        )
+        if not producer:
+            producer = Producer(
+                nom_complet=owner,
+                cooperative_id=current_user.cooperative_id,
+                is_active=True,
+            )
+            db.add(producer)
+            db.flush()  # obtenir producer.id avant de lier la plantation
+
     new_plantation = Plantation(
         name=plantation.name,
         owner_name=plantation.owner_name,
@@ -118,6 +144,7 @@ def create_plantation(
         hectares=plantation.hectares,
         plant_count=plantation.plant_count,
         cooperative_id=current_user.cooperative_id,  # toujours rattachée
+        producer_id=producer.id if producer else None,
     )
     db.add(new_plantation)
     db.commit()
