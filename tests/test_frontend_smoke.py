@@ -68,6 +68,11 @@ PAGE_MARKERS = {
     "plantations.html": [
         "loadEudrBadges",
     ],
+    "risk_assessment.html": [
+        "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)
+        "onProducerChange",
+        "loadProducers",
+    ],
     "complaints.html": [],  # existence suffit
     "auth.js": [
         "setupNotificationWidget",

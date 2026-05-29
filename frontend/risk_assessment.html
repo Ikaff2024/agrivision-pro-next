@@ -48,9 +48,17 @@
       <div class="assessment-layout">
         <div class="panel">
           <div class="form-group">
+            <label class="form-label">Producteur parent</label>
+            <select class="form-input" id="producer-select" onchange="onProducerChange()">
+              <option value="">Selectionner un producteur...</option>
+            </select>
+            <div class="selected-child" id="producer-meta">Choisissez d'abord le producteur pour filtrer ses enfants.</div>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Enfant a evaluer</label>
-            <select class="form-input" id="child-select" onchange="selectChild()">
-              <option value="">Selectionner un enfant...</option>
+            <select class="form-input" id="child-select" onchange="selectChild()" disabled>
+              <option value="">Selectionner d'abord un producteur...</option>
             </select>
             <div class="selected-child" id="child-meta">Chargez ou creez d'abord un enfant dans le module CacaoGuard.</div>
           </div>
@@ -178,18 +186,85 @@ async function cgFetch(endpoint, options = {}) {
   });
 }
 
-async function loadChildren() {
-  const res = await cgFetch('/children?limit=500');
+let allProducers = [];
+
+// Charge la liste des producteurs (filtre amont). Evite de faire defiler des
+// milliers d'enfants : on selectionne d'abord le producteur parent.
+async function loadProducers() {
+  const res = await cgFetch('/producers?limit=1000');
   if (!res || !res.ok) return;
-  children = await res.json();
-  const select = document.getElementById('child-select');
-  select.innerHTML = '<option value="">Selectionner un enfant...</option>' +
-    children.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name} - ${calculateAge(c.date_of_birth)} ans</option>`).join('');
+  allProducers = await res.json();
+  const select = document.getElementById('producer-select');
+  select.innerHTML = '<option value="">Selectionner un producteur...</option>' +
+    allProducers.map(p => `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`).join('');
+
+  // Support du lien direct ?child_id=... : on charge tous les enfants pour
+  // retrouver le producteur de cet enfant, puis on pre-selectionne tout.
   const params = new URLSearchParams(window.location.search);
   const childId = params.get('child_id');
-  if (childId) {
-    select.value = childId;
-    selectChild();
+  const producerId = params.get('producer_id');
+  if (producerId) {
+    select.value = producerId;
+    await onProducerChange();
+  } else if (childId) {
+    await preselectFromChild(childId);
+  }
+}
+
+// Quand on choisit un producteur, on ne charge que ses enfants.
+async function onProducerChange() {
+  const producerId = document.getElementById('producer-select').value;
+  const childSelect = document.getElementById('child-select');
+  selectedChild = null;
+  document.getElementById('child-meta').textContent =
+    'Chargez ou creez d\'abord un enfant dans le module CacaoGuard.';
+
+  if (!producerId) {
+    childSelect.disabled = true;
+    childSelect.innerHTML = '<option value="">Selectionner d\'abord un producteur...</option>';
+    document.getElementById('producer-meta').textContent =
+      'Choisissez d\'abord le producteur pour filtrer ses enfants.';
+    return;
+  }
+
+  const prod = allProducers.find(p => String(p.id) === String(producerId));
+  document.getElementById('producer-meta').textContent =
+    prod ? `${prod.nom_complet}${prod.localite ? ' - ' + prod.localite : ''}` : '';
+
+  const res = await cgFetch(`/children?producer_id=${producerId}&limit=500`);
+  if (!res || !res.ok) { childSelect.disabled = true; return; }
+  children = await res.json();
+  childSelect.disabled = false;
+  if (!children.length) {
+    childSelect.innerHTML = '<option value="">Aucun enfant pour ce producteur</option>';
+    document.getElementById('child-meta').textContent =
+      'Aucun enfant enregistre pour ce producteur. Ajoutez-en un dans Protection enfant.';
+    return;
+  }
+  childSelect.innerHTML = '<option value="">Selectionner un enfant...</option>' +
+    children.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name} - ${calculateAge(c.date_of_birth)} ans</option>`).join('');
+}
+
+// Lien direct ?child_id= : retrouve le producteur de l'enfant, pre-selectionne
+// le producteur puis l'enfant.
+async function preselectFromChild(childId) {
+  const res = await cgFetch(`/children?limit=1000`);
+  if (!res || !res.ok) return;
+  const all = await res.json();
+  const child = all.find(c => String(c.id) === String(childId));
+  if (!child || !child.producer_id) return;
+  const producerSelect = document.getElementById('producer-select');
+  producerSelect.value = String(child.producer_id);
+  await onProducerChange();
+  const childSelect = document.getElementById('child-select');
+  childSelect.value = String(childId);
+  selectChild();
+}
+
+// Conservee pour compat : recharge les enfants du producteur courant.
+async function loadChildren() {
+  if (document.getElementById('producer-select').value) {
+    await onProducerChange();
   }
 }
 
@@ -393,7 +468,7 @@ async function syncOfflineQueue() {
 window.addEventListener('avp-queue-changed', refreshQueueStatus);
 window.addEventListener('online', refreshQueueStatus);
 recompute();
-loadChildren();
+loadProducers();
 refreshQueueStatus();
 </script>
 </body>
