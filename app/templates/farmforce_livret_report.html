@@ -1,160 +1,227 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Livret de suivi — {{ producer_name }}</title>
-  <style>
-    @page {
-      size: A4;
-      margin: 16mm 14mm 20mm 14mm;
-      @top-right { content: "Livret de suivi — FarmForce"; font-size: 9px; color: #6a7d64; }
-      @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 9px; color: #6a7d64; }
-      @bottom-left { content: "AgriVision Pro — {{ generation_date }}"; font-size: 9px; color: #6a7d64; }
+<meta charset="UTF-8">
+<title>Livret de suivi — {{ producer_name }}</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     AgriVision Pro — Livret de suivi (aligne sur le rapport plantation)
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --avp-primary:    #15803d;
+    --avp-primary-dark: #14532d;
+    --avp-primary-light: #dcfce7;
+    --avp-accent:     #d4a017;
+    --avp-accent-light: #fef3c7;
+    --avp-ink:        #111827;
+    --avp-text:       #374151;
+    --avp-muted:      #6b7280;
+    --avp-border:     #e5e7eb;
+    --avp-bg-soft:    #f9fafb;
+  }
+  @page {
+    size: A4;
+    margin: 15mm 15mm 18mm 15mm;
+    @bottom-left {
+      content: "AgriVision Pro — Livret genere le {{ generation_date }}";
+      font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280;
     }
-    body { font-family: 'DejaVu Sans', sans-serif; color: #1a2218; font-size: 10.5pt; line-height: 1.4; }
-    .header { background: linear-gradient(135deg, #1a4231 0%, #0c2018 100%); color: #fff; padding: 18px 20px; border-radius: 8px; margin-bottom: 18px; }
-    .header h1 { font-size: 20pt; font-weight: 700; margin: 0; }
-    .header .subtitle { font-size: 10pt; color: rgba(255,255,255,.75); margin-top: 4px; }
-    .ref { background: rgba(255,255,255,.1); border-radius: 6px; padding: 8px 12px; margin-top: 12px; font-size: 9.5pt; }
-    .ref strong { color: #a8d8bb; }
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280;
+    }
+  }
+  @page:first { margin: 0; @bottom-left { content: ""; } @bottom-right { content: ""; } }
 
-    .section { margin-bottom: 16px; page-break-inside: avoid; break-inside: avoid; }
-    .section-title { font-size: 12pt; font-weight: 700; color: #1a4231; border-bottom: 2px solid #1a4231; padding-bottom: 3px; margin-bottom: 8px; page-break-after: avoid; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: var(--avp-text); line-height: 1.45; }
+  h2 { font-size: 14pt; color: var(--avp-primary-dark); border-bottom: 2pt solid var(--avp-primary); padding-bottom: 4pt; margin: 14pt 0 12pt 0; }
+  p { margin: 0 0 6pt 0; }
 
-    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-    th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #e6ddd0; font-size: 9.5pt; }
-    th { background: #f8f4ee; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #6a7d64; }
-    td.num, th.num { text-align: right; }
-    .empty { color: #6a7d64; font-style: italic; font-size: 9.5pt; padding: 6px 0; }
+  .cover { width: 210mm; height: 297mm; background: linear-gradient(135deg, #15803d 0%, #14532d 100%); color: white; padding: 25mm 20mm; page-break-after: always; position: relative; }
+  .cover-logo { display: flex; align-items: center; gap: 12pt; margin-bottom: 45mm; }
+  .cover-logo-mark { width: 18mm; height: 18mm; background: white; border-radius: 4mm; display: flex; align-items: center; justify-content: center; font-size: 24pt; color: var(--avp-primary); font-weight: bold; }
+  .cover-logo-text { font-size: 18pt; font-weight: 700; letter-spacing: -0.3pt; }
+  .cover-logo-sub  { font-size: 10pt; opacity: 0.85; margin-top: 2pt; }
+  .cover-eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 2pt; opacity: 0.85; margin-bottom: 4pt; }
+  .cover-title { font-size: 34pt; font-weight: 800; line-height: 1.05; letter-spacing: -1pt; margin: 0 0 8pt 0; color: white; }
+  .cover-owner { font-size: 13pt; opacity: 0.9; margin-bottom: 22mm; }
+  .cover-score { background: rgba(255,255,255,0.12); border-radius: 8mm; padding: 12mm; border: 1pt solid rgba(255,255,255,0.25); }
+  .cover-score-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.8; }
+  .cover-score-value { font-size: 44pt; font-weight: 800; line-height: 1; margin-top: 4pt; color: var(--avp-accent); }
+  .cover-score-suffix { font-size: 16pt; opacity: 0.8; }
+  .cover-verdict { font-size: 12pt; margin-top: 8pt; font-weight: 700; }
+  .cover-footer { position: absolute; bottom: 18mm; left: 20mm; right: 20mm; font-size: 9pt; opacity: 0.75; border-top: 1pt solid rgba(255,255,255,0.2); padding-top: 6pt; display: flex; justify-content: space-between; }
 
-    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 6px; }
-    .kpi { border: 1px solid #e6ddd0; border-radius: 6px; padding: 10px 12px; background: #f8f4ee; }
-    .kpi .v { font-size: 15pt; font-weight: 700; color: #1a2218; }
-    .kpi .l { font-size: 8pt; text-transform: uppercase; color: #6a7d64; font-weight: 700; margin-top: 3px; }
-    .kpi-net { grid-column: 1 / -1; background: #eafaf1; border-color: #a8d8bb; }
-    .kpi-net .v { color: #1a6b3a; font-size: 18pt; }
-    .notes { background: #fdf9f5; border: 1px solid #e6ddd0; border-radius: 6px; padding: 10px 14px; font-size: 9.5pt; }
-    .legal { font-size: 8pt; color: #6a7d64; margin-top: 20px; border-top: 1px solid #e6ddd0; padding-top: 8px; line-height: 1.5; }
-  </style>
+  .section { page-break-inside: avoid; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; }
+  .card { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 8pt 10pt; }
+  .card-label { font-size: 8pt; color: var(--avp-muted); text-transform: uppercase; letter-spacing: 0.6pt; margin-bottom: 3pt; }
+  .card-value { font-size: 14pt; font-weight: 700; color: var(--avp-ink); line-height: 1.1; }
+  .card-net { background: var(--avp-primary-light); border-color: var(--avp-primary); }
+  .card-net .card-value { color: var(--avp-primary-dark); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6pt; font-size: 9pt; }
+  thead th { background: var(--avp-primary); color: white; text-align: left; padding: 6pt 8pt; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.4pt; }
+  tbody td { padding: 5pt 8pt; border-bottom: 0.5pt solid var(--avp-border); }
+  tbody tr:nth-child(even) { background: var(--avp-bg-soft); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; padding: 12pt; color: var(--avp-muted); font-style: italic; background: var(--avp-bg-soft); border: 1pt dashed var(--avp-border); border-radius: 3mm; }
+
+  .verdict { border-left: 4pt solid; padding: 8pt 12pt; border-radius: 0 2mm 2mm 0; margin-top: 8pt; font-size: 9.5pt; }
+  .verdict-ok  { background: #f0fdf4; border-color: #16a34a; color: #15803d; }
+  .verdict-gap { background: #fffbeb; border-color: #f59e0b; color: #92400e; }
+  .notes { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 10pt 12pt; font-size: 9pt; }
+  .legal { font-size: 8pt; color: var(--avp-muted); margin-top: 16pt; border-top: 1pt solid var(--avp-border); padding-top: 8pt; line-height: 1.5; }
+</style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Livret de suivi de la plantation</h1>
-  <div class="subtitle">Compte d'exploitation producteur — FarmForce / Cocoa Farmer Income Tool</div>
-  <div class="ref">
-    <strong>Producteur :</strong> {{ producer_name }}<br>
-    <strong>Campagne :</strong> {{ campaign_label }} &nbsp;|&nbsp;
-    <strong>Localité :</strong> {{ localite or "—" }} &nbsp;|&nbsp;
-    <strong>PR :</strong> {{ pr_code or "—" }}<br>
-    <strong>Date d'édition :</strong> {{ generation_date }}
+{# ─── COUVERTURE ─── #}
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-mark">A</div>
+    <div>
+      <div class="cover-logo-text">AgriVision Pro</div>
+      <div class="cover-logo-sub">Livret de suivi — Cocoa Farmer Income Tool</div>
+    </div>
+  </div>
+
+  <div class="cover-eyebrow">Livret de suivi de la plantation</div>
+  <div class="cover-title">{{ producer_name }}</div>
+  <div class="cover-owner">
+    Campagne : {{ campaign_label }}<br>
+    {% if localite %}Localite : {{ localite }}{% endif %}{% if pr_code %} — PR : {{ pr_code }}{% endif %}
+  </div>
+
+  <div class="cover-score">
+    <div class="cover-score-label">Revenu net disponible</div>
+    <div class="cover-score-value">{{ net_income_cfa }}<span class="cover-score-suffix"> CFA</span></div>
+    {% if living_income_status %}
+    <div class="cover-verdict">
+      {% if living_income_status == 'atteint' %}✓ Revenu vital atteint{% else %}⚠ Revenu vital : ecart{% endif %}
+      ({{ living_income_pct }}% du seuil)
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="cover-footer">
+    <span>Compte d'exploitation producteur</span>
+    <span>Genere le {{ generation_date }}</span>
   </div>
 </div>
 
+{# ─── SYNTHESE ─── #}
 <div class="section">
-  <div class="section-title">Synthèse économique</div>
-  <div class="summary-grid">
-    <div class="kpi"><div class="v">{{ total_revenue_cfa }}</div><div class="l">Rentrées (CFA)</div></div>
-    <div class="kpi"><div class="v">{{ total_cost_cfa }}</div><div class="l">Coûts agricoles (CFA)</div></div>
-    <div class="kpi"><div class="v">{{ profit_cfa }}</div><div class="l">Profit (CFA)</div></div>
-    <div class="kpi"><div class="v">{{ total_household_expenses_cfa }}</div><div class="l">Dépenses ménage (CFA)</div></div>
-    <div class="kpi"><div class="v">{{ return_per_family_day_cfa or "—" }}</div><div class="l">Retour / jour familial</div></div>
-    <div class="kpi"><div class="v">{{ family_labor_days }}</div><div class="l">Jours travail familial</div></div>
-    <div class="kpi kpi-net"><div class="v">{{ net_income_cfa }} CFA</div><div class="l">Revenu net disponible (profit − dépenses ménage)</div></div>
+  <h2>Synthese economique</h2>
+  <div class="grid-3">
+    <div class="card"><div class="card-label">Rentrees (CFA)</div><div class="card-value">{{ total_revenue_cfa }}</div></div>
+    <div class="card"><div class="card-label">Couts agricoles (CFA)</div><div class="card-value">{{ total_cost_cfa }}</div></div>
+    <div class="card"><div class="card-label">Profit (CFA)</div><div class="card-value">{{ profit_cfa }}</div></div>
+    <div class="card"><div class="card-label">Depenses menage (CFA)</div><div class="card-value">{{ total_household_expenses_cfa }}</div></div>
+    <div class="card"><div class="card-label">Retour / jour familial</div><div class="card-value">{{ return_per_family_day_cfa or "—" }}</div></div>
+    <div class="card card-net"><div class="card-label">Revenu net disponible (CFA)</div><div class="card-value">{{ net_income_cfa }}</div></div>
   </div>
   {% if living_income_benchmark_cfa %}
-  <div style="margin-top:10px;padding:10px 14px;border-radius:6px;
-    {% if living_income_status == 'atteint' %}background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a{% else %}background:#fef8ec;border:1px solid #f0c97a;color:#9a6200{% endif %}">
-    <strong>Revenu vital : {% if living_income_status == 'atteint' %}✓ ATTEINT{% else %}⚠ ÉCART{% endif %}</strong>
-    — Revenu net à {{ living_income_pct }} % du seuil de référence ({{ living_income_benchmark_cfa }} CFA/an).
-    {% if living_income_gap_negative %}Écart à combler : {{ living_income_gap_cfa }} CFA.{% else %}Excédent : {{ living_income_gap_cfa }} CFA.{% endif %}
+  <div class="verdict {% if living_income_status == 'atteint' %}verdict-ok{% else %}verdict-gap{% endif %}">
+    <strong>Revenu vital : {% if living_income_status == 'atteint' %}✓ ATTEINT{% else %}⚠ ECART{% endif %}</strong>
+    — Revenu net a {{ living_income_pct }}% du seuil de reference ({{ living_income_benchmark_cfa }} CFA/an).
+    {% if living_income_gap_negative %}Ecart a combler : {{ living_income_gap_cfa }} CFA.{% else %}Excedent : {{ living_income_gap_cfa }} CFA.{% endif %}
   </div>
   {% endif %}
 </div>
 
+{# ─── MENAGE ─── #}
 <div class="section">
-  <div class="section-title">Membres du ménage</div>
+  <h2>Membres du menage</h2>
   {% if household_members %}
-  <table><thead><tr><th>Nom</th><th class="num">Âge</th><th>Sexe</th><th>Lien / occupation</th></tr></thead><tbody>
+  <table><thead><tr><th>Nom</th><th class="num">Age</th><th>Sexe</th><th>Lien / occupation</th></tr></thead><tbody>
     {% for m in household_members %}<tr><td>{{ m.name or "—" }}</td><td class="num">{{ m.age or "" }}</td><td>{{ m.gender or "" }}</td><td>{{ m.role or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucun membre renseigné.</div>{% endif %}
+  {% else %}<div class="empty">Aucun membre renseigne.</div>{% endif %}
 </div>
 
+{# ─── PARCELLES ─── #}
 <div class="section">
-  <div class="section-title">Parcelles</div>
+  <h2>Parcelles</h2>
   {% if parcels %}
-  <table><thead><tr><th>Parcelle</th><th>Culture</th><th class="num">Surface (ha)</th><th class="num">Âge</th></tr></thead><tbody>
+  <table><thead><tr><th>Parcelle</th><th>Culture</th><th class="num">Surface (ha)</th><th class="num">Age</th></tr></thead><tbody>
     {% for p in parcels %}<tr><td>{{ p.parcel or "—" }}</td><td>{{ p.crop or "" }}</td><td class="num">{{ p.surface_ha or "" }}</td><td class="num">{{ p.age_years or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucune parcelle renseignée.</div>{% endif %}
+  {% else %}<div class="empty">Aucune parcelle renseignee.</div>{% endif %}
 </div>
 
+{# ─── VENTES ─── #}
 <div class="section">
-  <div class="section-title">Ventes / rentrées</div>
+  <h2>Ventes / rentrees</h2>
   {% if revenue_items %}
-  <table><thead><tr><th>Mois</th><th>Produit</th><th class="num">Quantité</th><th class="num">Prix/unité</th></tr></thead><tbody>
+  <table><thead><tr><th>Mois</th><th>Produit</th><th class="num">Quantite</th><th class="num">Prix/unite</th></tr></thead><tbody>
     {% for r in revenue_items %}<tr><td>{{ r.month or "—" }}</td><td>{{ r.product or "" }}</td><td class="num">{{ r.quantity or "" }}</td><td class="num">{{ r.unit_price_cfa or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucune vente renseignée.</div>{% endif %}
+  {% else %}<div class="empty">Aucune vente renseignee.</div>{% endif %}
 </div>
 
+{# ─── VIVRIER ─── #}
 <div class="section">
-  <div class="section-title">Production vivrière & élevage</div>
+  <h2>Production vivriere & elevage</h2>
   {% if food_security_items %}
   <table><thead><tr><th>Produit</th><th>Usage</th><th class="num">Valeur marchande (CFA)</th></tr></thead><tbody>
     {% for f in food_security_items %}<tr><td>{{ f.product or "—" }}</td><td>{{ f.usage or "" }}</td><td class="num">{{ f.market_value_cfa or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucune production vivrière renseignée.</div>{% endif %}
+  {% else %}<div class="empty">Aucune production vivriere renseignee.</div>{% endif %}
 </div>
 
+{# ─── COUTS ─── #}
 <div class="section">
-  <div class="section-title">Coûts agricoles</div>
+  <h2>Couts agricoles</h2>
   {% if cost_items %}
-  <table><thead><tr><th>Période</th><th>Catégorie</th><th>Produit / dépense</th><th class="num">Coût (CFA)</th></tr></thead><tbody>
+  <table><thead><tr><th>Periode</th><th>Categorie</th><th>Produit / depense</th><th class="num">Cout (CFA)</th></tr></thead><tbody>
     {% for c in cost_items %}<tr><td>{{ c.date or "—" }}</td><td>{{ c.category or "" }}</td><td>{{ c.product or "" }}</td><td class="num">{{ c.cost_cfa or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucun coût renseigné.</div>{% endif %}
+  {% else %}<div class="empty">Aucun cout renseigne.</div>{% endif %}
 </div>
 
+{# ─── MAIN D'OEUVRE ─── #}
 <div class="section">
-  <div class="section-title">Main-d'œuvre familiale</div>
+  <h2>Main-d'oeuvre familiale</h2>
   {% if family_labor_items %}
   <table><thead><tr><th>Mois</th><th class="num">Producteur</th><th class="num">Conjoint</th><th class="num">Autres famille</th></tr></thead><tbody>
     {% for l in family_labor_items %}<tr><td>{{ l.month or "—" }}</td><td class="num">{{ l.producer_days or "" }}</td><td class="num">{{ l.spouse_days or "" }}</td><td class="num">{{ l.other_family_days or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucun travail familial renseigné.</div>{% endif %}
+  {% else %}<div class="empty">Aucun travail familial renseigne.</div>{% endif %}
 </div>
 
 <div class="section">
-  <div class="section-title">Main-d'œuvre embauchée</div>
+  <h2>Main-d'oeuvre embauchee</h2>
   {% if hired_labor_items %}
   <table><thead><tr><th>Mois</th><th class="num">Travailleurs</th><th class="num">Jours/travailleur</th><th class="num">Salaire/jour (CFA)</th></tr></thead><tbody>
     {% for l in hired_labor_items %}<tr><td>{{ l.month or "—" }}</td><td class="num">{{ l.workers or "" }}</td><td class="num">{{ l.days_per_worker or "" }}</td><td class="num">{{ l.daily_wage_cfa or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucune main-d'œuvre embauchée renseignée.</div>{% endif %}
+  {% else %}<div class="empty">Aucune main-d'oeuvre embauchee renseignee.</div>{% endif %}
 </div>
 
+{# ─── DEPENSES MENAGE ─── #}
 <div class="section">
-  <div class="section-title">Dépenses du ménage</div>
+  <h2>Depenses du menage</h2>
   {% if household_expense_items %}
-  <table><thead><tr><th>Catégorie</th><th class="num">Montant (CFA)</th></tr></thead><tbody>
+  <table><thead><tr><th>Categorie</th><th class="num">Montant (CFA)</th></tr></thead><tbody>
     {% for e in household_expense_items %}<tr><td>{{ e.category or "—" }}</td><td class="num">{{ e.amount_cfa or "" }}</td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<div class="empty">Aucune dépense ménage renseignée.</div>{% endif %}
+  {% else %}<div class="empty">Aucune depense menage renseignee.</div>{% endif %}
 </div>
 
 {% if notes %}
 <div class="section">
-  <div class="section-title">Notes</div>
+  <h2>Notes</h2>
   <div class="notes">{{ notes }}</div>
 </div>
 {% endif %}
 
 <div class="legal">
-  Document généré automatiquement par AgriVision Pro le {{ generation_date }}.
-  Livret de suivi de la plantation (DD farm records) — basé sur le Cocoa Farmer Income Tool (Fairtrade).
-  Le revenu net disponible = profit agricole − dépenses du ménage. Destiné au suivi du producteur et à la due diligence revenu vital.
+  Document genere automatiquement par AgriVision Pro le {{ generation_date }}.
+  Livret de suivi de la plantation (DD farm records) — base sur le Cocoa Farmer Income Tool (Fairtrade).
+  Revenu net disponible = profit agricole − depenses du menage. Destine au suivi du producteur et a la due diligence revenu vital.
 </div>
 
 </body>
