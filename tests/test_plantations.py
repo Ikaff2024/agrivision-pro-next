@@ -46,6 +46,55 @@ def test_create_plantation_creates_and_links_producer(client, auth_headers):
     assert matching and matching[0]["id"] == plantation["producer_id"]
 
 
+def test_update_plantation_fields(client, auth_headers):
+    """Modifier une plantation existante (ex: corriger la région vide)."""
+    created = client.post("/plantations", json={
+        "name": "Parcelle A", "owner_name": "Yao K", "country": "CI", "hectares": 3.0,
+    }, headers=auth_headers).json()
+    pid = created["id"]
+
+    res = client.put(f"/plantations/{pid}", json={
+        "region": "Man", "hectares": 4.2,
+    }, headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["region"] == "Man"
+    assert data["hectares"] == 4.2
+    # Les champs non fournis restent inchangés.
+    assert data["name"] == "Parcelle A"
+
+
+def test_update_plantation_owner_relinks_producer(client, auth_headers):
+    """Changer le propriétaire recrée/relie le Producteur correspondant."""
+    created = client.post("/plantations", json={
+        "name": "Parcelle B", "owner_name": "Ancien Proprio", "country": "CI",
+    }, headers=auth_headers).json()
+    pid = created["id"]
+
+    res = client.put(f"/plantations/{pid}", json={"owner_name": "Nouveau Proprio"},
+                     headers=auth_headers)
+    assert res.status_code == 200
+    new_producer_id = res.json()["producer_id"]
+
+    producers = client.get("/producers?limit=1000", headers=auth_headers).json()
+    match = [p for p in producers if p["nom_complet"] == "Nouveau Proprio"]
+    assert match and match[0]["id"] == new_producer_id
+
+
+def test_update_plantation_not_found(client, auth_headers):
+    res = client.put("/plantations/99999", json={"region": "X"}, headers=auth_headers)
+    assert res.status_code == 404
+
+
+def test_update_plantation_invalid_hectares_rejected(client, auth_headers):
+    created = client.post("/plantations", json={
+        "name": "Parcelle C", "owner_name": "Z", "country": "CI",
+    }, headers=auth_headers).json()
+    res = client.put(f"/plantations/{created['id']}", json={"hectares": 0.1},
+                     headers=auth_headers)
+    assert res.status_code == 422
+
+
 def test_create_plantation_reuses_existing_producer(client, auth_headers):
     """Deux plantations du même propriétaire (même coop) partagent un seul
     Producteur — pas de doublon."""

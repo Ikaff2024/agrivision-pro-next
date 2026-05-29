@@ -45,6 +45,19 @@ class PlantationCreate(BaseModel):
     plant_count: Optional[int] = None
 
 
+class PlantationUpdate(BaseModel):
+    """Mise a jour partielle d'une plantation. Tous les champs sont optionnels :
+    seuls les champs explicitement fournis sont modifies (model_dump(exclude_unset))."""
+    name: Optional[str] = None
+    owner_name: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    hectares: Optional[float] = Field(None, gt=0.25, le=500)
+    plant_count: Optional[int] = None
+
+
 # ─── Health ──────────────────────────────────────────────────────────────────
 
 
@@ -93,6 +106,38 @@ def health_check():
 
 # ─── Plantations ─────────────────────────────────────────────────────────────
 
+def _find_or_create_producer(db: Session, owner_name: Optional[str], cooperative_id: int):
+    """Trouve (ou crée) le Producteur correspondant au propriétaire d'une
+    plantation dans la coopérative donnée. Retourne le Producer ou None si
+    owner_name est vide.
+
+    Sans ce rattachement, le producteur n'existe que comme texte (owner_name)
+    et n'apparaît pas dans les listes Producteurs (Protection enfant, EUDR,
+    CacaoGuard).
+    """
+    owner = (owner_name or "").strip()
+    if not owner:
+        return None
+    producer = (
+        db.query(Producer)
+        .filter(
+            Producer.nom_complet == owner,
+            Producer.cooperative_id == cooperative_id,
+            Producer.is_active == True,
+        )
+        .first()
+    )
+    if not producer:
+        producer = Producer(
+            nom_complet=owner,
+            cooperative_id=cooperative_id,
+            is_active=True,
+        )
+        db.add(producer)
+        db.flush()  # obtenir producer.id avant de lier la plantation
+    return producer
+
+
 @router.post("/plantations")
 def create_plantation(
     plantation: PlantationCreate,
@@ -108,31 +153,7 @@ def create_plantation(
             detail="Votre compte n'est associé à aucune coopérative.",
         )
 
-    # ── Trouver-ou-créer le Producteur lié au propriétaire ──────────────────
-    # Sans ce rattachement, le producteur n'existe que comme texte (owner_name)
-    # et n'apparaît pas dans les listes Producteurs (Protection enfant, EUDR,
-    # CacaoGuard). On reproduit ici la migration de démarrage, mais au moment
-    # de la création pour que toute nouvelle plantation génère son producteur.
-    producer = None
-    owner = (plantation.owner_name or "").strip()
-    if owner:
-        producer = (
-            db.query(Producer)
-            .filter(
-                Producer.nom_complet == owner,
-                Producer.cooperative_id == current_user.cooperative_id,
-                Producer.is_active == True,
-            )
-            .first()
-        )
-        if not producer:
-            producer = Producer(
-                nom_complet=owner,
-                cooperative_id=current_user.cooperative_id,
-                is_active=True,
-            )
-            db.add(producer)
-            db.flush()  # obtenir producer.id avant de lier la plantation
+    producer = _find_or_create_producer(db, plantation.owner_name, current_user.cooperative_id)
 
     new_plantation = Plantation(
         name=plantation.name,
@@ -152,6 +173,43 @@ def create_plantation(
     return new_plantation
 
 
+@router.put("/plantations/{plantation_id}")
+def update_plantation(
+    plantation_id: int,
+    data: PlantationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Met a jour les champs d'une plantation (admin, dans sa cooperative).
+
+    Mise a jour partielle : seuls les champs fournis sont modifies. Si le
+    proprietaire (owner_name) change, le rattachement Producteur est recalcule
+    (trouver-ou-creer) pour rester coherent avec EUDR / Protection enfant.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+
+    plantation = db.query(Plantation).filter(
+        Plantation.id == plantation_id,
+        Plantation.cooperative_id == current_user.cooperative_id,
+    ).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+
+    fields = data.model_dump(exclude_unset=True)
+
+    # Re-lier le producteur si le proprietaire change.
+    if "owner_name" in fields:
+        plantation.owner_name = fields.pop("owner_name")
+        producer = _find_or_create_producer(db, plantation.owner_name, current_user.cooperative_id)
+        plantation.producer_id = producer.id if producer else None
+
+    for key, value in fields.items():
+        setattr(plantation, key, value)
+
+    db.commit()
+    db.refresh(plantation)
+    return plantation
 
 
 def visible_plantation_ids(user, db):

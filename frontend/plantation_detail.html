@@ -173,8 +173,8 @@
 .ssrte-item-meta{font-size:12px;color:var(--muted);line-height:1.45}
 
 /* Modale de saisie */
-#harvest-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
-#harvest-modal-overlay.open{display:flex}
+#harvest-modal-overlay,#edit-modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:950;padding:20px}
+#harvest-modal-overlay.open,#edit-modal-overlay.open{display:flex}
 .h-modal{background:var(--surface);border-radius:var(--rl);padding:24px 26px;width:100%;max-width:480px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
 .h-modal-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
 .h-form-group{margin-bottom:14px}
@@ -200,6 +200,10 @@
         <button class="btn btn-outline" id="pdf-report-btn" onclick="downloadPlantationReport()" style="display:none">
           <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
           <span id="pdf-btn-label">Generer le rapport PDF</span>
+        </button>
+        <button class="btn btn-outline" id="edit-btn" onclick="openEditModal()" style="display:none">
+          <span class="material-symbols-outlined" style="font-size:18px">edit</span>
+          Modifier
         </button>
         <button class="btn btn-outline" onclick="goSsrteVisit()">
           <span class="material-symbols-outlined" style="font-size:18px">clinical_notes</span>
@@ -330,6 +334,8 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
     document.getElementById('page-title').textContent = plantation.name;
     document.getElementById('page-sub').textContent = `${plantation.region||''} · ${plantation.country}`;
     document.getElementById('diag-btn').style.display = '';
+    window._plantation = plantation;                       // pour le modal d'edition
+    document.getElementById('edit-btn').style.display = '';
 
     const latestDiag = diagnostics.length
       ? [...diagnostics].sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0]
@@ -648,6 +654,68 @@ async function savePlantCount() {
     setTimeout(() => location.reload(), 700);
   } catch (e) {
     toast("Erreur : " + e.message, "error");
+  }
+}
+
+/* ── Edition de la plantation ─────────────────────────────────── */
+function openEditModal() {
+  const p = window._plantation;
+  if (!p) return;
+  document.getElementById('e-name').value     = p.name || '';
+  document.getElementById('e-owner').value    = p.owner_name || '';
+  document.getElementById('e-region').value   = p.region || '';
+  document.getElementById('e-country').value  = p.country || '';
+  document.getElementById('e-lat').value      = p.latitude != null ? p.latitude : '';
+  document.getElementById('e-lng').value      = p.longitude != null ? p.longitude : '';
+  document.getElementById('e-hectares').value = p.hectares != null ? p.hectares : '';
+  document.getElementById('e-err').style.display = 'none';
+  document.getElementById('edit-modal-overlay').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal-overlay').classList.remove('open');
+}
+
+async function savePlantationEdit() {
+  const err = document.getElementById('e-err');
+  err.style.display = 'none';
+  const name  = document.getElementById('e-name').value.trim();
+  const owner = document.getElementById('e-owner').value.trim();
+  if (!name || !owner) {
+    err.textContent = 'Nom et proprietaire sont requis.';
+    err.style.display = 'block';
+    return;
+  }
+  const lat = parseFloat(document.getElementById('e-lat').value);
+  const lng = parseFloat(document.getElementById('e-lng').value);
+  const ha  = parseFloat(document.getElementById('e-hectares').value);
+  const payload = {
+    name,
+    owner_name: owner,
+    region:  document.getElementById('e-region').value.trim() || null,
+    country: document.getElementById('e-country').value.trim() || null,
+    latitude:  isNaN(lat) ? null : lat,
+    longitude: isNaN(lng) ? null : lng,
+  };
+  if (!isNaN(ha)) payload.hectares = ha;  // omis si vide (contrainte gt=0.25)
+
+  const btn = document.getElementById('e-submit-btn');
+  btn.disabled = true; btn.textContent = 'Enregistrement...';
+  try {
+    const r = await authFetch('/plantations/' + pid, {
+      method: 'PUT', body: JSON.stringify(payload)
+    });
+    if (r && r.status === 422) { throw new Error("Superficie invalide (entre 0.25 et 500 ha)."); }
+    if (r && r.status === 403) { throw new Error("Droits administrateur requis."); }
+    if (!r || !r.ok) throw new Error('Erreur serveur.');
+    toast('Plantation mise a jour.');
+    closeEditModal();
+    setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
   }
 }
 
@@ -1117,6 +1185,49 @@ async function avpCheckPlantationNdvi(plantationId, recoContainerId) {
     <div class="h-modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeHarvestModal()">Annuler</button>
       <button class="btn btn-primary btn-sm" id="h-submit-btn" onclick="submitHarvest()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="edit-modal-overlay">
+  <div class="h-modal">
+    <div class="h-modal-title">&#9999;&#65039; Modifier la plantation</div>
+    <div class="h-form-group">
+      <label class="h-form-label">Nom *</label>
+      <input type="text" id="e-name" class="h-form-input" placeholder="Nom de la plantation">
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Proprietaire *</label>
+      <input type="text" id="e-owner" class="h-form-input" placeholder="Nom du producteur">
+    </div>
+    <div class="h-form-row">
+      <div class="h-form-group">
+        <label class="h-form-label">Region</label>
+        <input type="text" id="e-region" class="h-form-input" placeholder="Ex: Man">
+      </div>
+      <div class="h-form-group">
+        <label class="h-form-label">Pays</label>
+        <input type="text" id="e-country" class="h-form-input" placeholder="Ex: Cote d'Ivoire">
+      </div>
+    </div>
+    <div class="h-form-row">
+      <div class="h-form-group">
+        <label class="h-form-label">Latitude</label>
+        <input type="number" id="e-lat" class="h-form-input" step="0.00001" placeholder="5.78000">
+      </div>
+      <div class="h-form-group">
+        <label class="h-form-label">Longitude</label>
+        <input type="number" id="e-lng" class="h-form-input" step="0.00001" placeholder="-6.59000">
+      </div>
+    </div>
+    <div class="h-form-group">
+      <label class="h-form-label">Superficie (ha) <span style="color:var(--faint);font-weight:400">- entre 0.25 et 500</span></label>
+      <input type="number" id="e-hectares" class="h-form-input" min="0.25" max="500" step="0.01" placeholder="4.50">
+    </div>
+    <div id="e-err" style="display:none;color:#922b21;font-size:13px;margin-top:8px"></div>
+    <div class="h-modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="e-submit-btn" onclick="savePlantationEdit()">Enregistrer</button>
     </div>
   </div>
 </div>

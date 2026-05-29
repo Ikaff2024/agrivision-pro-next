@@ -64,6 +64,8 @@ PAGE_MARKERS = {
     "plantation_detail.html": [
         "renderEudrCard",
         "downloadDdsPdf",
+        "openEditModal",        # édition de plantation (corrige le manque région)
+        "savePlantationEdit",
     ],
     "plantations.html": [
         "loadEudrBadges",
