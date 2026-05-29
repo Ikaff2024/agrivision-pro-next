@@ -59,6 +59,64 @@ def test_create_farmforce_assessment_calculates_profit(client):
     assert data["return_per_family_day_cfa"] == 46800
 
 
+def test_farmforce_net_income_subtracts_household_expenses(client):
+    producer_id = _seed_producer()
+    response = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id,
+        "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 1000, "unit_price_cfa": 1000}],
+        "cost_items": [{"product": "Engrais", "cost_cfa": 200000}],
+        "food_security_items": [{"product": "Manioc", "market_value_cfa": 50000}],
+        "household_expense_items": [
+            {"category": "Alimentation", "amount_cfa": 300000},
+            {"category": "Education", "amount_cfa": 100000},
+        ],
+    })
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # revenu = 1 000 000 (cacao) + 50 000 (vivrier) = 1 050 000
+    assert data["total_revenue_cfa"] == 1050000
+    assert data["total_cost_cfa"] == 200000
+    assert data["profit_cfa"] == 850000
+    assert data["total_household_expenses_cfa"] == 400000
+    assert data["net_income_cfa"] == 450000  # 850000 - 400000
+
+
+def test_farmforce_update_assessment(client):
+    producer_id = _seed_producer()
+    created = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id,
+        "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+    }).json()
+    aid = created["id"]
+    assert created["profit_cfa"] == 100000
+
+    updated = client.put(f"/farmforce/assessments/{aid}", json={
+        "producer_id": producer_id,
+        "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 200, "unit_price_cfa": 1000}],
+        "household_expense_items": [{"category": "Sante", "amount_cfa": 50000}],
+    })
+    assert updated.status_code == 200, updated.text
+    body = updated.json()
+    assert body["id"] == aid                # meme enregistrement
+    assert body["profit_cfa"] == 200000     # recalcule
+    assert body["net_income_cfa"] == 150000 # 200000 - 50000
+
+    # Pas de doublon : toujours 1 seul livret pour ce producteur.
+    listing = client.get(f"/farmforce/assessments?producer_id={producer_id}").json()
+    assert len(listing) == 1
+
+
+def test_farmforce_update_not_found(client):
+    producer_id = _seed_producer()
+    r = client.put("/farmforce/assessments/99999", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+    })
+    assert r.status_code == 404
+
+
 def test_farmforce_summary_and_list(client):
     producer_id = _seed_producer()
     response = client.post("/farmforce/assessments", json={

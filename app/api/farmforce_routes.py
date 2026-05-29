@@ -29,6 +29,7 @@ class FarmForcePayload(BaseModel):
     family_labor_items: list[dict] = Field(default_factory=list)
     hired_labor_items: list[dict] = Field(default_factory=list)
     food_security_items: list[dict] = Field(default_factory=list)
+    household_expense_items: list[dict] = Field(default_factory=list)
     notes: Optional[str] = None
 
 
@@ -38,6 +39,8 @@ class FarmForceResponse(FarmForcePayload):
     total_revenue_cfa: float
     total_cost_cfa: float
     profit_cfa: float
+    total_household_expenses_cfa: float = 0
+    net_income_cfa: float = 0
     family_labor_days: float
     hired_labor_days: float
     return_per_family_day_cfa: Optional[float] = None
@@ -91,10 +94,17 @@ def _calculate(data: FarmForcePayload) -> dict:
     )
     total_cost = input_costs + hired_costs
     profit = total_revenue - total_cost
+    household_expenses = sum(
+        _number(item.get("amount_cfa") or item.get("cost_cfa") or item.get("montant_cfa"))
+        for item in data.household_expense_items
+    )
+    net_income = profit - household_expenses
     return {
         "total_revenue_cfa": round(total_revenue, 2),
         "total_cost_cfa": round(total_cost, 2),
         "profit_cfa": round(profit, 2),
+        "total_household_expenses_cfa": round(household_expenses, 2),
+        "net_income_cfa": round(net_income, 2),
         "family_labor_days": round(family_days, 2),
         "hired_labor_days": round(hired_days, 2),
         "return_per_family_day_cfa": round(profit / family_days, 2) if family_days else None,
@@ -117,10 +127,13 @@ def _serialize(assessment: FarmForceAssessment) -> dict:
         "family_labor_items": assessment.family_labor_items or [],
         "hired_labor_items": assessment.hired_labor_items or [],
         "food_security_items": assessment.food_security_items or [],
+        "household_expense_items": assessment.household_expense_items or [],
         "notes": assessment.notes,
         "total_revenue_cfa": assessment.total_revenue_cfa,
         "total_cost_cfa": assessment.total_cost_cfa,
         "profit_cfa": assessment.profit_cfa,
+        "total_household_expenses_cfa": assessment.total_household_expenses_cfa or 0,
+        "net_income_cfa": assessment.net_income_cfa or 0,
         "family_labor_days": assessment.family_labor_days,
         "hired_labor_days": assessment.hired_labor_days,
         "return_per_family_day_cfa": assessment.return_per_family_day_cfa,
@@ -147,6 +160,7 @@ def _create_assessment_from_payload(data: FarmForcePayload, db: Session) -> Farm
         family_labor_items=data.family_labor_items,
         hired_labor_items=data.hired_labor_items,
         food_security_items=data.food_security_items,
+        household_expense_items=data.household_expense_items,
         notes=data.notes,
         **totals,
     )
@@ -203,6 +217,42 @@ def get_assessment(assessment_id: int, db: Session = Depends(get_db)):
 @router.post("/assessments", response_model=FarmForceResponse)
 def create_assessment(data: FarmForcePayload, db: Session = Depends(get_db)):
     assessment = _create_assessment_from_payload(data, db)
+    return _serialize(assessment)
+
+
+@router.put("/assessments/{assessment_id}", response_model=FarmForceResponse)
+def update_assessment(assessment_id: int, data: FarmForcePayload, db: Session = Depends(get_db)):
+    """Met a jour un livret FarmForce existant (reprise / correction de saisie).
+
+    Toutes les sections et totaux sont recalcules a partir du payload fourni.
+    """
+    assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    producer = db.query(Producer).filter(Producer.id == data.producer_id, Producer.is_active == True).first()
+    if not producer:
+        raise HTTPException(status_code=404, detail="Producteur non trouve.")
+
+    totals = _calculate(data)
+    assessment.producer_id = data.producer_id
+    assessment.campagne_id = data.campagne_id
+    assessment.campaign_label = data.campaign_label
+    assessment.localite = data.localite or producer.localite
+    assessment.pr_code = data.pr_code or producer.code_yeyasso
+    assessment.household_members = data.household_members
+    assessment.parcels = data.parcels
+    assessment.revenue_items = data.revenue_items
+    assessment.cost_items = data.cost_items
+    assessment.family_labor_items = data.family_labor_items
+    assessment.hired_labor_items = data.hired_labor_items
+    assessment.food_security_items = data.food_security_items
+    assessment.household_expense_items = data.household_expense_items
+    assessment.notes = data.notes
+    for key, value in totals.items():
+        setattr(assessment, key, value)
+
+    db.commit()
+    db.refresh(assessment)
     return _serialize(assessment)
 
 

@@ -140,6 +140,16 @@ async def lifespan(app: FastAPI):
                 ))
                 conn.commit()
                 logger.info("Migration Agroforestry : OK (avg_age_years)")
+
+                # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
+                for col_ddl in [
+                    "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS household_expense_items JSON",
+                    "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS total_household_expenses_cfa DOUBLE PRECISION DEFAULT 0 NOT NULL",
+                    "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS net_income_cfa DOUBLE PRECISION DEFAULT 0 NOT NULL",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration FarmForce : OK (household_expense_items, net_income_cfa)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

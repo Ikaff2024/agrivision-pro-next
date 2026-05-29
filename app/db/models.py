@@ -494,11 +494,14 @@ class FarmForceAssessment(Base):
     family_labor_items = Column(JSON, nullable=True)
     hired_labor_items = Column(JSON, nullable=True)
     food_security_items = Column(JSON, nullable=True)
+    household_expense_items = Column(JSON, nullable=True)  # depenses menage (alimentation/education/sante/autre)
     notes = Column(Text, nullable=True)
 
     total_revenue_cfa = Column(Float, default=0, nullable=False)
     total_cost_cfa = Column(Float, default=0, nullable=False)
     profit_cfa = Column(Float, default=0, nullable=False)
+    total_household_expenses_cfa = Column(Float, default=0, nullable=False)  # depenses du menage
+    net_income_cfa = Column(Float, default=0, nullable=False)  # profit - depenses menage (revenu disponible)
     family_labor_days = Column(Float, default=0, nullable=False)
     hired_labor_days = Column(Float, default=0, nullable=False)
     return_per_family_day_cfa = Column(Float, nullable=True)

@@ -118,6 +118,22 @@
             <div id="hiredLabor-rows"></div>
           </div>
 
+          <div class="ff-section" data-section="foodSecurity">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Production vivriere & elevage</div><div class="muted">Aliments de base, cultures vivrieres, betail : valeur marchande (vente + autoconsommation).</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('foodSecurity')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="foodSecurity-rows"></div>
+          </div>
+
+          <div class="ff-section" data-section="householdExpenses">
+            <div class="ff-section-head">
+              <div><div class="ff-section-title">Depenses du menage</div><div class="muted">Alimentation, education, sante et autres depenses du foyer.</div></div>
+              <button class="btn btn-outline btn-sm" onclick="addRow('householdExpenses')"><span class="material-symbols-outlined" style="font-size:17px">add</span> Ligne</button>
+            </div>
+            <div id="householdExpenses-rows"></div>
+          </div>
+
           <div class="ff-section">
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="notes" rows="3" placeholder="Observations terrain"></textarea></div>
           </div>
@@ -129,7 +145,12 @@
             <div class="ff-kpi"><strong id="k-revenue">0</strong><span>Rentreess CFA</span></div>
             <div class="ff-kpi"><strong id="k-cost">0</strong><span>Couts CFA</span></div>
             <div class="ff-kpi"><strong id="k-profit">0</strong><span>Profit CFA</span></div>
-            <div class="ff-kpi"><strong id="k-return">-</strong><span>Retour / jour</span></div>
+            <div class="ff-kpi"><strong id="k-expenses">0</strong><span>Depenses menage</span></div>
+            <div class="ff-kpi" style="grid-column:1/-1;background:#eafaf1;border-color:#a8d8bb"><strong id="k-net" style="color:#1a6b3a">0</strong><span>Revenu net disponible CFA</span></div>
+            <div class="ff-kpi"><strong id="k-return">-</strong><span>Retour / jour familial</span></div>
+          </div>
+          <div id="edit-banner" style="display:none;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#9a6200">
+            Modification d'un livret existant. <a href="#" onclick="resetForm();return false" style="font-weight:800;color:#9a6200">Nouveau livret</a>
           </div>
           <button class="btn btn-outline" style="width:100%;margin-bottom:16px" onclick="loadAssessments()">
             <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
@@ -150,6 +171,7 @@ const money = n => new Intl.NumberFormat('fr-FR').format(Math.round(Number(n || 
 const monthOptions = ['Octobre','Novembre','Decembre','Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre'];
 const params = new URLSearchParams(location.search);
 const initialProducerId = params.get('producer_id');
+let editingId = null;   // id du livret en cours d'edition (null = creation)
 
 function apiBase() { return window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010'; }
 async function ffFetch(path, options = {}) {
@@ -160,8 +182,8 @@ async function ffFetch(path, options = {}) {
 function input(cls, placeholder, type='text', value='') {
   return `<input class="form-input ${cls}" type="${type}" placeholder="${placeholder}" value="${value}" oninput="recalc()">`;
 }
-function selectMonth(cls) {
-  return `<select class="form-input ${cls}" onchange="recalc()">${monthOptions.map(m => `<option>${m}</option>`).join('')}</select>`;
+function selectMonth(cls, current='') {
+  return `<select class="form-input ${cls}" onchange="recalc()">${monthOptions.map(m => `<option ${m===current?'selected':''}>${m}</option>`).join('')}</select>`;
 }
 function removeBtn() {
   return `<button class="icon-btn" title="Supprimer la ligne" onclick="this.closest('.ff-row').remove();recalc()"><span class="material-symbols-outlined">delete</span></button>`;
@@ -175,16 +197,25 @@ function addRow(type, values = {}) {
   } else if (type === 'parcels') {
     html = `<div class="ff-row ff-parcel">${input('parcel','Parcelle','text',values.parcel||'')}${input('crop','Culture','text',values.crop||'Cacao')}${input('surface','Surface ha','number',values.surface||'')}${input('age','Age','number',values.age||'')}${removeBtn()}</div>`;
   } else if (type === 'revenues') {
-    html = `<div class="ff-row">${selectMonth('month')}${input('product','Produit','text',values.product||'Cacao')}${input('quantity','Quantite','number',values.quantity||'')}${input('unit_price_cfa','Prix/unite','number',values.unit_price_cfa||'')}${removeBtn()}</div>`;
+    html = `<div class="ff-row">${selectMonth('month',values.month)}${input('product','Produit','text',values.product||'Cacao')}${input('quantity','Quantite','number',values.quantity||'')}${input('unit_price_cfa','Prix/unite','number',values.unit_price_cfa||'')}${removeBtn()}</div>`;
   } else if (type === 'costs') {
-    html = `<div class="ff-row">${selectMonth('date')}${input('category','Categorie','text',values.category||'Intrant')}${input('product','Produit / depense','text',values.product||'')}${input('cost_cfa','Cout total','number',values.cost_cfa||'')}${removeBtn()}</div>`;
+    html = `<div class="ff-row">${selectMonth('date',values.date)}${input('category','Categorie','text',values.category||'Intrant')}${input('product','Produit / depense','text',values.product||'')}${input('cost_cfa','Cout total','number',values.cost_cfa||'')}${removeBtn()}</div>`;
   } else if (type === 'familyLabor') {
-    html = `<div class="ff-row ff-labor">${selectMonth('month')}${input('producer_days','Producteur','number',values.producer_days||'')}${input('spouse_days','Conjoint','number',values.spouse_days||'')}${input('other_family_days','Autres famille','number',values.other_family_days||'')}${removeBtn()}</div>`;
+    html = `<div class="ff-row ff-labor">${selectMonth('month',values.month)}${input('producer_days','Producteur','number',values.producer_days||'')}${input('spouse_days','Conjoint','number',values.spouse_days||'')}${input('other_family_days','Autres famille','number',values.other_family_days||'')}${removeBtn()}</div>`;
   } else if (type === 'hiredLabor') {
-    html = `<div class="ff-row ff-labor">${selectMonth('month')}${input('workers','Travailleurs','number',values.workers||'')}${input('days_per_worker','Jours/travailleur','number',values.days_per_worker||'')}${input('daily_wage_cfa','Salaire/jour','number',values.daily_wage_cfa||'')}${removeBtn()}</div>`;
+    html = `<div class="ff-row ff-labor">${selectMonth('month',values.month)}${input('workers','Travailleurs','number',values.workers||'')}${input('days_per_worker','Jours/travailleur','number',values.days_per_worker||'')}${input('daily_wage_cfa','Salaire/jour','number',values.daily_wage_cfa||'')}${removeBtn()}</div>`;
+  } else if (type === 'foodSecurity') {
+    html = `<div class="ff-row ff-parcel">${input('product','Produit (manioc, banane, volaille...)','text',values.product||'')}${input('usage','Usage (vente/domestique)','text',values.usage||'')}${input('market_value_cfa','Valeur marchande CFA','number',values.market_value_cfa||'')}<span></span>${removeBtn()}</div>`;
+  } else if (type === 'householdExpenses') {
+    html = `<div class="ff-row ff-parcel">${selectCat('category', values.category)}${input('amount_cfa','Montant CFA','number',values.amount_cfa||'')}<span></span><span></span>${removeBtn()}</div>`;
   }
   wrap.insertAdjacentHTML('beforeend', html);
   recalc();
+}
+
+const expenseCats = ['Alimentation','Education','Sante','Autre'];
+function selectCat(cls, current='') {
+  return `<select class="form-input ${cls}" onchange="recalc()">${expenseCats.map(c => `<option ${c===current?'selected':''}>${c}</option>`).join('')}</select>`;
 }
 
 function rows(type, mapper) {
@@ -205,18 +236,23 @@ function payload() {
     cost_items: rows('costs', r => ({ date:val(r,'date'), category:val(r,'category'), product:val(r,'product'), cost_cfa:num(val(r,'cost_cfa')) })),
     family_labor_items: rows('familyLabor', r => ({ month:val(r,'month'), producer_days:num(val(r,'producer_days')), spouse_days:num(val(r,'spouse_days')), other_family_days:num(val(r,'other_family_days')) })),
     hired_labor_items: rows('hiredLabor', r => ({ month:val(r,'month'), workers:num(val(r,'workers')), days_per_worker:num(val(r,'days_per_worker')), daily_wage_cfa:num(val(r,'daily_wage_cfa')) })),
-    food_security_items: [],
+    food_security_items: rows('foodSecurity', r => ({ product:val(r,'product'), usage:val(r,'usage'), market_value_cfa:num(val(r,'market_value_cfa')) })),
+    household_expense_items: rows('householdExpenses', r => ({ category:val(r,'category'), amount_cfa:num(val(r,'amount_cfa')) })),
     notes: document.getElementById('notes').value.trim() || null
   };
 }
 
 function calc(p) {
-  const revenue = p.revenue_items.reduce((s,i) => s + i.quantity * i.unit_price_cfa, 0);
+  const cropRevenue = p.revenue_items.reduce((s,i) => s + i.quantity * i.unit_price_cfa, 0);
+  const foodRevenue = p.food_security_items.reduce((s,i) => s + i.market_value_cfa, 0);
+  const revenue = cropRevenue + foodRevenue;
   const costs = p.cost_items.reduce((s,i) => s + i.cost_cfa, 0);
   const hired = p.hired_labor_items.reduce((s,i) => s + i.workers * i.days_per_worker * i.daily_wage_cfa, 0);
   const familyDays = p.family_labor_items.reduce((s,i) => s + i.producer_days + i.spouse_days + i.other_family_days, 0);
   const profit = revenue - costs - hired;
-  return { revenue, costs: costs + hired, profit, familyDays, ret: familyDays ? profit / familyDays : null };
+  const expenses = p.household_expense_items.reduce((s,i) => s + i.amount_cfa, 0);
+  const net = profit - expenses;
+  return { revenue, costs: costs + hired, profit, expenses, net, familyDays, ret: familyDays ? profit / familyDays : null };
 }
 
 function recalc() {
@@ -224,6 +260,8 @@ function recalc() {
   document.getElementById('k-revenue').textContent = money(c.revenue);
   document.getElementById('k-cost').textContent = money(c.costs);
   document.getElementById('k-profit').textContent = money(c.profit);
+  document.getElementById('k-expenses').textContent = money(c.expenses);
+  document.getElementById('k-net').textContent = money(c.net);
   document.getElementById('k-return').textContent = c.ret === null ? '-' : money(c.ret);
 }
 
@@ -248,26 +286,70 @@ async function loadAssessments() {
   const path = producerId ? `/farmforce/assessments?producer_id=${producerId}` : '/farmforce/assessments';
   const res = await ffFetch(path);
   const data = res?.ok ? await res.json() : [];
+  window._assessments = data;
   document.getElementById('history').innerHTML = data.length ? data.map(a => `
     <div class="ff-item">
       <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
       <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
-      <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Retour/jour ${a.return_per_family_day_cfa == null ? '-' : money(a.return_per_family_day_cfa)}</div>
-      <div class="ff-item-meta"><a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Ouvrir fiche producteur</a></div>
+      <div class="ff-item-meta">Profit ${money(a.profit_cfa)} CFA | Revenu net ${money(a.net_income_cfa)} CFA</div>
+      <div class="ff-item-meta" style="display:flex;gap:12px;margin-top:6px">
+        <a href="#" onclick="editAssessment(${a.id});return false" style="color:var(--primary);font-weight:800">Modifier</a>
+        <a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Fiche producteur</a>
+      </div>
     </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>';
+}
+
+function clearRows() {
+  ['household','parcels','revenues','costs','familyLabor','hiredLabor','foodSecurity','householdExpenses']
+    .forEach(t => { document.getElementById(`${t}-rows`).innerHTML = ''; });
+}
+
+function resetForm() {
+  editingId = null;
+  clearRows();
+  document.getElementById('notes').value = '';
+  document.getElementById('edit-banner').style.display = 'none';
+  ['household','parcels','revenues','costs','familyLabor','hiredLabor'].forEach(t => addRow(t));
+  recalc();
+}
+
+function editAssessment(id) {
+  const a = (window._assessments || []).find(x => x.id === id);
+  if (!a) return;
+  editingId = id;
+  document.getElementById('edit-banner').style.display = '';
+  document.getElementById('campaign').value = a.campaign_label || '2025-2026';
+  document.getElementById('pr-code').value = a.pr_code || '';
+  document.getElementById('localite').value = a.localite || '';
+  document.getElementById('notes').value = a.notes || '';
+  if (a.producer_id) document.getElementById('producer').value = String(a.producer_id);
+  clearRows();
+  (a.household_members || []).forEach(v => addRow('household', { name:v.name, age:v.age, gender:v.gender, role:v.role }));
+  (a.parcels || []).forEach(v => addRow('parcels', { parcel:v.parcel, crop:v.crop, surface:v.surface_ha, age:v.age_years }));
+  (a.revenue_items || []).forEach(v => addRow('revenues', v));
+  (a.cost_items || []).forEach(v => addRow('costs', v));
+  (a.family_labor_items || []).forEach(v => addRow('familyLabor', v));
+  (a.hired_labor_items || []).forEach(v => addRow('hiredLabor', v));
+  (a.food_security_items || []).forEach(v => addRow('foodSecurity', v));
+  (a.household_expense_items || []).forEach(v => addRow('householdExpenses', v));
+  recalc();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function saveAssessment() {
   const body = payload();
   if (!body.producer_id) return alert('Selectionne un producteur.');
-  const res = await ffFetch('/farmforce/assessments', {
-    method: 'POST',
+  const editing = editingId !== null;
+  const path = editing ? `/farmforce/assessments/${editingId}` : '/farmforce/assessments';
+  const res = await ffFetch(path, {
+    method: editing ? 'PUT' : 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
   if (!res.ok) return alert('Enregistrement impossible.');
   const saved = await res.json();
-  alert(`Formulaire FarmForce enregistre. Profit: ${money(saved.profit_cfa)} CFA`);
+  alert(`${editing ? 'Livret mis a jour' : 'Livret enregistre'}. Revenu net: ${money(saved.net_income_cfa)} CFA`);
+  resetForm();
   loadAssessments();
 }
 

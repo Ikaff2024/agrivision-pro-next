@@ -76,6 +76,12 @@ PAGE_MARKERS = {
         "onProducerChange",
         "loadProducers",
     ],
+    "farmforce.html": [
+        "foodSecurity",          # vivrier/élevage (revenu vital)
+        "householdExpenses",     # dépenses ménage
+        "editAssessment",        # reprise/édition d'un livret
+        "net_income",            # revenu net disponible
+    ],
     "complaints.html": [],  # existence suffit
     "auth.js": [
         "setupNotificationWidget",
