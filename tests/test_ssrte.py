@@ -104,6 +104,38 @@ def test_ssrte_ficheb_pdf_not_found(client):
     assert r.status_code == 404
 
 
+def test_ssrte_fichea_services_and_pdf(client):
+    """La Fiche A stocke l'acces aux services + comite et s'exporte en PDF."""
+    created = client.post("/ssrte/communities", json={
+        "locality": "Yapleu",
+        "section": "Man",
+        "school_available": True,
+        "nearest_school_distance_km": 1.5,
+        "has_child_protection_committee": True,
+        "committee_members": [{"name": "Yao Coordinateur"}],
+        "risks_identified": ["descolarisation"],
+        "services_available": {
+            "population": 1200, "locality_type": "Village",
+            "road_access": True, "electricity": False, "water_point": True,
+            "health_structure": False, "primary_school": True,
+        },
+    }).json()
+    assert created["services_available"]["population"] == 1200
+    assert created["services_available"]["road_access"] is True
+    assert created["committee_members"][0]["name"] == "Yao Coordinateur"
+
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+    assert "FicheA_" in r.headers.get("content-disposition", "")
+
+
+def test_ssrte_fichea_pdf_not_found(client):
+    r = client.get("/ssrte/communities/99999/fichea.pdf")
+    assert r.status_code == 404
+
+
 def test_ssrte_fichec_pdf_and_structured_children(client):
     """La Fiche C stocke les enfants structures et s'exporte en PDF."""
     producer_id, plantation_id = _seed_producer_and_plantation()

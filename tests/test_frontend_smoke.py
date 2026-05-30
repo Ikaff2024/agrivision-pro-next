@@ -92,6 +92,8 @@ PAGE_MARKERS = {
         "downloadFicheB",     # export PDF de la Fiche B
         "addVisitChild",      # tableau enfants structuré (Fiche C)
         "downloadFicheC",     # export PDF de la Fiche C
+        "communityServices",  # accès aux services (Fiche A)
+        "downloadFicheA",     # export PDF de la Fiche A
     ],
     "complaints.html": [],  # existence suffit
     "auth.js": [

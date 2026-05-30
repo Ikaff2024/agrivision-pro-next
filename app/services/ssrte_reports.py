@@ -10,8 +10,31 @@ from __future__ import annotations
 import datetime
 from typing import Optional
 
-from app.db.models_social import SsrteHouseholdProfile, SsrtePlantationVisit
+from app.db.models_social import (
+    SsrteCommunityProfile,
+    SsrteHouseholdProfile,
+    SsrtePlantationVisit,
+)
 from app.services.reports import _jinja_env, _pdf_escape, slugify
+
+
+# Libelles lisibles des indicateurs de services (cles techniques -> FR).
+_SERVICE_LABELS = {
+    "road_access": "Route praticable toute l'annee",
+    "electricity": "Electricite",
+    "water_point": "Point d'eau potable",
+    "mobile_network": "Reseau mobile",
+    "internet": "Internet mobile",
+    "health_structure": "Structure sanitaire",
+    "daily_labor": "Offre de travail journalier",
+    "agri_inputs": "Offre d'intrants agricoles",
+    "child_labor_orgs": "Organisations anti-travail des enfants",
+    "kindergarten": "Jardin d'enfants",
+    "primary_school": "Ecole primaire",
+    "secondary_school": "Ecole secondaire",
+    "school_canteen": "Cantine scolaire",
+    "latrines": "Latrines (ecole)",
+}
 
 
 def _producer_name(profile: SsrteHouseholdProfile) -> str:
@@ -184,3 +207,95 @@ def fichec_filename(visit: SsrtePlantationVisit) -> str:
     plantation = visit.plantation.name if visit.plantation else "plantation"
     date_str = visit.visit_date.isoformat() if visit.visit_date else datetime.date.today().isoformat()
     return f"FicheC_{slugify(plantation)}_{date_str}.pdf"
+
+
+# ---------------------------------------------------------------------------
+# Fiche A : profil localite
+# ---------------------------------------------------------------------------
+
+def build_fichea_context(profile: SsrteCommunityProfile) -> dict:
+    """Construit le contexte Jinja2 pour le template Fiche A."""
+    services = profile.services_available or {}
+    present = [_SERVICE_LABELS[k] for k, v in services.items() if k in _SERVICE_LABELS and v]
+    absent = [_SERVICE_LABELS[k] for k, v in services.items() if k in _SERVICE_LABELS and not v]
+    members = profile.committee_members or []
+    member_names = [m.get("name") if isinstance(m, dict) else str(m) for m in members]
+    return {
+        "generation_date": datetime.date.today().isoformat(),
+        "locality": profile.locality,
+        "section": profile.section or "—",
+        "interview_date": profile.interview_date.isoformat() if profile.interview_date else "—",
+        "respondent_name": profile.respondent_name or "—",
+        "respondent_role": profile.respondent_role or "—",
+        "population": services.get("population"),
+        "locality_type": services.get("locality_type") or "—",
+        "school_available": bool(profile.school_available),
+        "nearest_school_distance_km": (
+            float(profile.nearest_school_distance_km)
+            if profile.nearest_school_distance_km is not None else None
+        ),
+        "has_committee": bool(profile.has_child_protection_committee),
+        "committee_members": [n for n in member_names if n],
+        "services_present": present,
+        "services_absent": absent,
+        "risks_identified": profile.risks_identified or [],
+        "notes": profile.notes,
+    }
+
+
+def generate_fichea_pdf(context: dict) -> bytes:
+    """Genere le PDF Fiche A via WeasyPrint avec fallback minimal."""
+    template = _jinja_env.get_template("ssrte_fichea_report.html")
+    html_content = template.render(**context)
+    try:
+        from weasyprint import HTML  # import differe
+        return HTML(string=html_content).write_pdf()
+    except (ImportError, OSError):
+        return _generate_fichea_fallback_pdf(context)
+
+
+def _generate_fichea_fallback_pdf(context: dict) -> bytes:
+    """PDF minimal sans dependance native (tests / Windows sans Cairo)."""
+    lines = [
+        "SSRTE Fiche A - Profil localite",
+        f"Localite : {_pdf_escape(context['locality'])}",
+        f"Section : {_pdf_escape(context['section'])}",
+        f"Date visite : {_pdf_escape(context['interview_date'])}",
+        f"Population : {context.get('population') or '-'}",
+        f"Ecole disponible : {'Oui' if context['school_available'] else 'Non'}",
+        f"Comite protection enfant : {'Oui' if context['has_committee'] else 'Non'}",
+        f"Services presents : {len(context.get('services_present') or [])}",
+        f"Date : {context['generation_date']}",
+    ]
+    content_stream_lines = [b"BT", b"/F1 14 Tf", b"50 800 Td"]
+    for i, line in enumerate(lines):
+        content_stream_lines.append(b"(" + line.encode("latin-1", "replace") + b") Tj")
+        if i < len(lines) - 1:
+            content_stream_lines.append(b"0 -16 Td")
+    content_stream_lines.append(b"ET")
+    content_stream = b"\n".join(content_stream_lines)
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length " + str(len(content_stream)).encode() + b" >>\nstream\n" + content_stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    pdf = b"%PDF-1.4\n"
+    offsets = [0]
+    for i, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref_pos = len(pdf)
+    pdf += b"xref\n0 " + str(len(objects) + 1).encode() + b"\n"
+    pdf += b"0000000000 65535 f \n"
+    for off in offsets[1:]:
+        pdf += f"{off:010d} 00000 n \n".encode()
+    pdf += b"trailer\n<< /Size " + str(len(objects) + 1).encode() + b" /Root 1 0 R >>\nstartxref\n" + str(xref_pos).encode() + b"\n%%EOF"
+    return pdf
+
+
+def fichea_filename(profile: SsrteCommunityProfile) -> str:
+    """Nom de fichier Fiche A PDF normalise."""
+    date_str = profile.interview_date.isoformat() if profile.interview_date else datetime.date.today().isoformat()
+    return f"FicheA_{slugify(profile.locality or 'localite')}_{date_str}.pdf"

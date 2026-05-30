@@ -357,6 +357,28 @@ def create_household_profile(
     return household_to_dict(row)
 
 
+@router.get("/communities/{community_id}/fichea.pdf")
+def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
+    """Telecharge la Fiche A (profil localite) au format PDF."""
+    from app.services.ssrte_reports import (
+        build_fichea_context,
+        fichea_filename,
+        generate_fichea_pdf,
+    )
+    profile = db.query(SsrteCommunityProfile).filter(SsrteCommunityProfile.id == community_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Fiche A introuvable.")
+    context = build_fichea_context(profile)
+    pdf_bytes = generate_fichea_pdf(context)
+    filename = fichea_filename(profile)
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )
+
+
 @router.get("/households/{household_id}/ficheb.pdf")
 def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
     """Telecharge la Fiche B (profilage de menage) au format PDF."""

@@ -86,6 +86,31 @@
               <label class="check-row"><input type="checkbox" id="committee"> Comite protection enfant</label>
             </div>
             <div class="form-group"><label class="form-label">Distance ecole la plus proche (km)</label><input class="form-input" type="number" min="0" step="0.1" id="school-distance"></div>
+
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Population totale</label><input class="form-input" type="number" min="0" id="population"></div>
+              <div class="form-group"><label class="form-label">Type de localite</label><select class="form-input" id="locality-type"><option value="">—</option><option>Village</option><option>Campement</option></select></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Acces aux services</label>
+              <div class="check-list">
+                <label class="check-row"><input type="checkbox" class="svc" value="road_access"> Route praticable toute l'annee</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="electricity"> Electricite</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="water_point"> Point d'eau potable</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="mobile_network"> Reseau mobile</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="internet"> Internet mobile</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="health_structure"> Structure sanitaire</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="daily_labor"> Offre de travail journalier</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="agri_inputs"> Offre d'intrants agricoles</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="child_labor_orgs"> Organisations anti-travail des enfants</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="kindergarten"> Jardin d'enfants</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="primary_school"> Ecole primaire</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="secondary_school"> Ecole secondaire</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="school_canteen"> Cantine scolaire</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="latrines"> Latrines (ecole)</label>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Membres du comite protection enfant</label><input class="form-input" id="committee-members" placeholder="Nom (role), Nom (role)..."></div>
             <div class="form-group"><label class="form-label">Risques identifies</label><input class="form-input" id="community-risks" placeholder="Descolarisation, migration, travaux dangereux..."></div>
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
             <button class="btn btn-primary" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
@@ -388,7 +413,7 @@ async function loadHistory() {
   const rows = [
     ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)`, action:`<a href="#" onclick="downloadFicheC(${v.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche C PDF</a>` })),
     ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, action:`<a href="#" onclick="downloadFicheB(${h.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche B PDF</a>` })),
-    ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}` }))
+    ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}`, action:`<a href="#" onclick="downloadFicheA(${c.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche A PDF</a>` }))
   ];
   document.getElementById('history').innerHTML = rows.length ? rows.map(r => `
     <div class="item">
@@ -408,6 +433,16 @@ function downloadFicheC(id) {
   window.open(`${API}/ssrte/plantation-visits/${id}/fichec.pdf`, '_blank');
 }
 
+function downloadFicheA(id) {
+  window.open(`${API}/ssrte/communities/${id}/fichea.pdf`, '_blank');
+}
+
+function communityServices() {
+  const svc = { population: num('population') || null, locality_type: val('locality-type') || null };
+  document.querySelectorAll('.svc').forEach(el => { svc[el.value] = el.checked; });
+  return svc;
+}
+
 async function saveCommunity() {
   const body = {
     locality: val('community-locality'),
@@ -418,8 +453,9 @@ async function saveCommunity() {
     school_available: document.getElementById('school-available').checked,
     nearest_school_distance_km: num('school-distance'),
     has_child_protection_committee: document.getElementById('committee').checked,
+    committee_members: csv('committee-members').map(m => ({ name: m })),
     risks_identified: csv('community-risks'),
-    services_available: {},
+    services_available: communityServices(),
     notes: val('community-notes') || null
   };
   if (!body.locality) return alert('Localite obligatoire.');
