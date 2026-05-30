@@ -90,6 +90,8 @@ PAGE_MARKERS = {
         "members-rows",
         "HAZARD_TASKS",       # tâches dangereuses par enfant 5-17
         "downloadFicheB",     # export PDF de la Fiche B
+        "addVisitChild",      # tableau enfants structuré (Fiche C)
+        "downloadFicheC",     # export PDF de la Fiche C
     ],
     "complaints.html": [],  # existence suffit
     "auth.js": [

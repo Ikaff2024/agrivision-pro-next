@@ -148,9 +148,15 @@
                 <label class="check-row"><input type="checkbox" class="visit-check" value="school_discussed"> Scolarisation discutee</label>
               </div>
             </div>
-            <div class="form-group"><label class="form-label">Enfants observes</label><input class="form-input" id="children-observed" placeholder="Nom-age-observation; Nom-age-observation"></div>
-            <div class="form-group"><label class="form-label">Taches dangereuses observees</label><input class="form-input" id="dangerous-tasks" placeholder="Machette, pesticides, charges lourdes..."></div>
-            <label class="check-row"><input type="checkbox" id="suspected"> Suspicion travail enfant</label>
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Enfants presents dans la plantation</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addVisitChild()"><span class="material-symbols-outlined" style="font-size:16px">child_care</span> Enfant</button>
+              </div>
+              <div id="visit-children-rows"></div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.4">Pour chaque enfant vu (moins de 18 ans), precisez s'il est du menage et les taches dangereuses observees. Toute tache dangereuse declenche automatiquement une suspicion + alerte.</div>
+            </div>
+            <label class="check-row"><input type="checkbox" id="suspected"> Suspicion travail enfant <span style="color:var(--muted);font-size:11px">(coche auto si tache dangereuse)</span></label>
             <div class="form-group"><label class="form-label">Actions immediates</label><textarea class="form-input" id="immediate-actions" rows="2"></textarea></div>
             <div class="mini-row">
               <div class="form-group"><label class="form-label">Reference photo</label><input class="form-input" id="photo-ref"></div>
@@ -380,7 +386,7 @@ async function loadHistory() {
   const households = householdsRes.ok ? await householdsRes.json() : [];
   const visits = visitsRes.ok ? await visitsRes.json() : [];
   const rows = [
-    ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)` })),
+    ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)`, action:`<a href="#" onclick="downloadFicheC(${v.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche C PDF</a>` })),
     ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, action:`<a href="#" onclick="downloadFicheB(${h.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche B PDF</a>` })),
     ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}` }))
   ];
@@ -396,6 +402,10 @@ async function loadAll(){ await Promise.all([loadSummary(), loadHistory()]); }
 
 function downloadFicheB(id) {
   window.open(`${API}/ssrte/households/${id}/ficheb.pdf`, '_blank');
+}
+
+function downloadFicheC(id) {
+  window.open(`${API}/ssrte/plantation-visits/${id}/fichec.pdf`, '_blank');
 }
 
 async function saveCommunity() {
@@ -463,11 +473,47 @@ function visitChecklist() {
   return data;
 }
 
+/* ── Tableau structure des enfants presents (Fiche C) ────────────── */
+function addVisitChild(v = {}) {
+  const wrap = document.getElementById('visit-children-rows');
+  const div = document.createElement('div');
+  div.className = 'visit-child-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms</label><input class="form-input vc-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Age</label><input class="form-input vc-age" type="number" min="0" max="17" value="${v.age||''}"></div>
+       <div class="form-group"><label class="form-label">Du menage ?</label><select class="form-input vc-member"><option value="oui" ${v.household_member?'selected':''}>Oui</option><option value="non" ${v.household_member===false?'selected':''}>Non</option></select></div>
+     </div>
+     <div class="form-group">
+       <label class="form-label">Taches dangereuses observees <span style="color:var(--muted);font-weight:400">— Ctrl/clic pour plusieurs</span></label>
+       <select class="form-input vc-hazard" multiple size="3" onchange="syncSuspicion()">${HAZARD_TASKS.map(t => `<option ${(v.hazardous_tasks||[]).includes(t)?'selected':''}>${t}</option>`).join('')}</select>
+     </div>
+     <div style="display:flex;justify-content:flex-end">
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.visit-child-card').remove();syncSuspicion()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+}
+
 function observedChildren() {
-  return val('children-observed').split(';').map(raw => raw.trim()).filter(Boolean).map(raw => {
-    const parts = raw.split('-');
-    return { name: parts[0] || '', age: parts[1] || '', observation: parts.slice(2).join('-') || '' };
-  });
+  return [...document.querySelectorAll('#visit-children-rows .visit-child-card')].map(c => ({
+    name: c.querySelector('.vc-name').value.trim(),
+    age: c.querySelector('.vc-age').value || null,
+    household_member: c.querySelector('.vc-member').value === 'oui',
+    hazardous_tasks: [...c.querySelector('.vc-hazard').selectedOptions].map(o => o.value),
+  })).filter(c => c.name);
+}
+
+// Toutes les taches dangereuses observees (union des enfants).
+function visitDangerousTasks() {
+  const set = new Set();
+  observedChildren().forEach(c => (c.hazardous_tasks || []).forEach(t => set.add(t)));
+  return [...set];
+}
+
+// Coche automatiquement la suspicion si au moins une tache dangereuse est observee.
+function syncSuspicion() {
+  if (visitDangerousTasks().length) document.getElementById('suspected').checked = true;
 }
 
 async function saveVisit() {
@@ -480,8 +526,8 @@ async function saveVisit() {
     gps_accuracy: gpsAccuracy,
     checklist_data: visitChecklist(),
     children_observed: observedChildren(),
-    dangerous_tasks_observed: csv('dangerous-tasks'),
-    suspected_child_labor: document.getElementById('suspected').checked,
+    dangerous_tasks_observed: visitDangerousTasks(),
+    suspected_child_labor: document.getElementById('suspected').checked || visitDangerousTasks().length > 0,
     immediate_actions_taken: val('immediate-actions') || null,
     photos: photo ? [{ reference: photo, captured_at: new Date().toISOString() }] : [],
     consent_given: document.getElementById('visit-consent').checked,

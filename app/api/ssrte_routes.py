@@ -379,6 +379,28 @@ def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/plantation-visits/{visit_id}/fichec.pdf")
+def download_fichec_pdf(visit_id: int, db: Session = Depends(get_db)):
+    """Telecharge la Fiche C (visite de plantation) au format PDF."""
+    from app.services.ssrte_reports import (
+        build_fichec_context,
+        fichec_filename,
+        generate_fichec_pdf,
+    )
+    visit = db.query(SsrtePlantationVisit).filter(SsrtePlantationVisit.id == visit_id).first()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Fiche C introuvable.")
+    context = build_fichec_context(visit)
+    pdf_bytes = generate_fichec_pdf(context)
+    filename = fichec_filename(visit)
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )
+
+
 @router.get("/plantation-visits")
 def list_plantation_visits(
     plantation_id: Optional[int] = None,

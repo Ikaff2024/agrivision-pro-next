@@ -104,6 +104,36 @@ def test_ssrte_ficheb_pdf_not_found(client):
     assert r.status_code == 404
 
 
+def test_ssrte_fichec_pdf_and_structured_children(client):
+    """La Fiche C stocke les enfants structures et s'exporte en PDF."""
+    producer_id, plantation_id = _seed_producer_and_plantation()
+    created = client.post("/ssrte/plantation-visits", json={
+        "plantation_id": plantation_id,
+        "producer_id": producer_id,
+        "children_observed": [
+            {"name": "Koffi Junior", "age": 13, "household_member": False,
+             "hazardous_tasks": ["Recolte machette/faucille"]},
+        ],
+        "dangerous_tasks_observed": ["Recolte machette/faucille"],
+        "suspected_child_labor": True,
+        "consent_given": True,
+    }).json()
+    visit_id = created["id"]
+    assert len(created["children_observed"]) == 1
+    assert created["children_observed"][0]["hazardous_tasks"] == ["Recolte machette/faucille"]
+
+    r = client.get(f"/ssrte/plantation-visits/{visit_id}/fichec.pdf")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+    assert "FicheC_" in r.headers.get("content-disposition", "")
+
+
+def test_ssrte_fichec_pdf_not_found(client):
+    r = client.get("/ssrte/plantation-visits/99999/fichec.pdf")
+    assert r.status_code == 404
+
+
 def test_ssrte_household_persists_members(client):
     """Le tableau des membres du menage (Fiche B) est stocke et relu."""
     producer_id, _ = _seed_producer_and_plantation()

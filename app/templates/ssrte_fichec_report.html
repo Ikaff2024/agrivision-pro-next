@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>SSRTE Fiche C — {{ plantation_name }}</title>
+<style>
+  :root {
+    --avp-primary:#15803d; --avp-primary-dark:#14532d; --avp-primary-light:#dcfce7;
+    --avp-accent:#d4a017; --avp-ink:#111827; --avp-text:#374151; --avp-muted:#6b7280;
+    --avp-border:#e5e7eb; --avp-bg-soft:#f9fafb;
+  }
+  @page {
+    size: A4; margin: 15mm 15mm 18mm 15mm;
+    @bottom-left { content: "AgriVision Pro — Fiche C genere le {{ generation_date }}"; font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280; }
+    @bottom-right { content: "Page " counter(page) " / " counter(pages); font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280; }
+  }
+  @page:first { margin: 0; @bottom-left { content: ""; } @bottom-right { content: ""; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: var(--avp-text); line-height: 1.45; }
+  h2 { font-size: 14pt; color: var(--avp-primary-dark); border-bottom: 2pt solid var(--avp-primary); padding-bottom: 4pt; margin: 14pt 0 12pt 0; }
+
+  .cover { width: 210mm; height: 297mm; background: linear-gradient(135deg, #15803d 0%, #14532d 100%); color: white; padding: 25mm 20mm; page-break-after: always; position: relative; }
+  .cover-logo { display: flex; align-items: center; gap: 12pt; margin-bottom: 45mm; }
+  .cover-logo-mark { width: 18mm; height: 18mm; background: white; border-radius: 4mm; display: flex; align-items: center; justify-content: center; font-size: 24pt; color: var(--avp-primary); font-weight: bold; }
+  .cover-logo-text { font-size: 18pt; font-weight: 700; }
+  .cover-logo-sub { font-size: 10pt; opacity: 0.85; margin-top: 2pt; }
+  .cover-eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 2pt; opacity: 0.85; margin-bottom: 4pt; }
+  .cover-title { font-size: 34pt; font-weight: 800; line-height: 1.05; letter-spacing: -1pt; margin: 0 0 8pt 0; color: white; }
+  .cover-owner { font-size: 13pt; opacity: 0.9; margin-bottom: 22mm; }
+  .cover-score { background: rgba(255,255,255,0.12); border-radius: 8mm; padding: 12mm; border: 1pt solid rgba(255,255,255,0.25); }
+  .cover-score-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.8; }
+  .cover-verdict { font-size: 20pt; font-weight: 800; margin-top: 6pt; }
+  .cover-footer { position: absolute; bottom: 18mm; left: 20mm; right: 20mm; font-size: 9pt; opacity: 0.75; border-top: 1pt solid rgba(255,255,255,0.2); padding-top: 6pt; display: flex; justify-content: space-between; }
+
+  .section { page-break-inside: avoid; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; }
+  .card { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 8pt 10pt; margin-bottom: 8pt; }
+  .card-label { font-size: 8pt; color: var(--avp-muted); text-transform: uppercase; letter-spacing: 0.6pt; margin-bottom: 3pt; }
+  .card-value { font-size: 13pt; font-weight: 700; color: var(--avp-ink); line-height: 1.15; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6pt; font-size: 9pt; }
+  thead th { background: var(--avp-primary); color: white; text-align: left; padding: 6pt 8pt; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; }
+  tbody td { padding: 5pt 8pt; border-bottom: 0.5pt solid var(--avp-border); }
+  tbody tr:nth-child(even) { background: var(--avp-bg-soft); }
+  .num { text-align: right; }
+  .empty { text-align: center; padding: 12pt; color: var(--avp-muted); font-style: italic; background: var(--avp-bg-soft); border: 1pt dashed var(--avp-border); border-radius: 3mm; }
+  .chip { display: inline-block; font-size: 8.5pt; padding: 2pt 8pt; border-radius: 10pt; background: var(--avp-primary-light); color: var(--avp-primary-dark); margin: 2pt 3pt 2pt 0; }
+  .chip-danger { background: #fef2f2; color: #b91c1c; }
+  .alert { border-left: 4pt solid #dc2626; background: #fef2f2; color: #b91c1c; padding: 10pt 14pt; border-radius: 0 2mm 2mm 0; margin-top: 8pt; font-weight: 600; }
+  .notes { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 10pt 12pt; font-size: 9pt; }
+  .legal { font-size: 8pt; color: var(--avp-muted); margin-top: 16pt; border-top: 1pt solid var(--avp-border); padding-top: 8pt; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-mark">A</div>
+    <div>
+      <div class="cover-logo-text">AgriVision Pro</div>
+      <div class="cover-logo-sub">SSRTE — Suivi et Remediation du Travail des Enfants</div>
+    </div>
+  </div>
+  <div class="cover-eyebrow">Fiche C — Visite de plantation</div>
+  <div class="cover-title">{{ plantation_name }}</div>
+  <div class="cover-owner">
+    Producteur : {{ producer_name }}<br>
+    Visite du {{ visit_date }} — Agent : {{ interviewer_name }}
+  </div>
+  <div class="cover-score">
+    <div class="cover-score-label">Suspicion de travail des enfants</div>
+    <div class="cover-verdict">{% if suspected_child_labor %}⛔ SUSPICION{% else %}✓ AUCUNE SUSPICION{% endif %}</div>
+  </div>
+  <div class="cover-footer">
+    <span>Document de protection de l'enfant — confidentiel</span>
+    <span>Genere le {{ generation_date }}</span>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Informations de visite</h2>
+  <div class="grid-3">
+    <div class="card"><div class="card-label">Plantation</div><div class="card-value">{{ plantation_name }}</div></div>
+    <div class="card"><div class="card-label">Producteur</div><div class="card-value">{{ producer_name }}</div></div>
+    <div class="card"><div class="card-label">Date de visite</div><div class="card-value">{{ visit_date }}</div></div>
+    <div class="card"><div class="card-label">Agent</div><div class="card-value">{{ interviewer_name }}</div></div>
+    <div class="card"><div class="card-label">GPS / lieu</div><div class="card-value">{{ gps_location }}</div></div>
+    <div class="card"><div class="card-label">Consentement preuves</div><div class="card-value">{{ "Oui" if consent_given else "Non" }}</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Enfants observes dans la plantation</h2>
+  {% if children_observed %}
+  <table>
+    <thead><tr><th>Nom</th><th class="num">Age</th><th>Du menage</th><th>Taches dangereuses</th></tr></thead>
+    <tbody>
+      {% for c in children_observed %}
+      <tr>
+        <td>{{ c.name or "—" }}</td>
+        <td class="num">{{ c.age or "" }}</td>
+        <td>{% if c.household_member %}Oui{% elif c.household_member == false %}Non{% else %}—{% endif %}</td>
+        <td>{% if c.hazardous_tasks %}{% for t in c.hazardous_tasks %}<span class="chip chip-danger">{{ t }}</span>{% endfor %}{% else %}<span style="color:var(--avp-muted)">Aucune</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun enfant observe lors de la visite.</div>{% endif %}
+
+  {% if suspected_child_labor %}
+  <div class="alert">⛔ Suspicion de travail des enfants — une fiche de remediation (Fiche D) doit etre ouverte et un blocage tracabilite a ete declenche automatiquement.</div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <h2>Taches dangereuses & actions</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Taches dangereuses observees</div>
+      <div style="margin-top:4pt">{% if dangerous_tasks_observed %}{% for t in dangerous_tasks_observed %}<span class="chip chip-danger">{{ t }}</span>{% endfor %}{% else %}<span style="color:var(--avp-muted)">Aucune</span>{% endif %}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Actions immediates prises</div>
+      <div style="margin-top:4pt;font-size:9.5pt">{{ immediate_actions_taken or "—" }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Signatures</h2>
+  <div class="grid-2">
+    <div class="card"><div class="card-label">Producteur</div><div class="card-value" style="font-size:11pt">{{ producer_signature or "—" }}</div></div>
+    <div class="card"><div class="card-label">Agent / evaluateur</div><div class="card-value" style="font-size:11pt">{{ assessor_signature or "—" }}</div></div>
+  </div>
+</div>
+
+{% if notes %}
+<div class="section">
+  <h2>Notes</h2>
+  <div class="notes">{{ notes }}</div>
+</div>
+{% endif %}
+
+<div class="legal">
+  Document genere automatiquement par AgriVision Pro le {{ generation_date }}.
+  SSRTE Fiche C — visite de plantation. Document confidentiel relatif a la protection de l'enfant,
+  destine au suivi et a la remediation (CacaoGuard / SSRTE).
+</div>
+
+</body>
+</html>
