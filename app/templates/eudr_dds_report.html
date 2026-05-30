@@ -61,7 +61,9 @@
   .section { page-break-inside: avoid; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
   .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; }
-  .card { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 8pt 10pt; }
+  /* margin-bottom assure l'espacement vertical entre rangees de cartes :
+     WeasyPrint applique le column-gap des grilles mais pas le row-gap. */
+  .card { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 8pt 10pt; margin-bottom: 8pt; }
   .card-label { font-size: 8pt; color: var(--avp-muted); text-transform: uppercase; letter-spacing: 0.6pt; margin-bottom: 3pt; }
   .card-value { font-size: 13pt; font-weight: 700; color: var(--avp-ink); line-height: 1.15; }
 
