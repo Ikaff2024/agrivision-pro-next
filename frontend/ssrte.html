@@ -109,6 +109,16 @@
             <div class="form-group"><label class="form-label">Vulnerabilites</label><input class="form-input" id="vulnerabilities" placeholder="Veuvage, maladie, revenu faible..."></div>
             <div class="form-group"><label class="form-label">Declarations travail enfant</label><input class="form-input" id="work-declarations" placeholder="Nom:tache, Nom:tache dangereuse"></div>
             <div class="form-group"><label class="form-label">Contraintes scolaires</label><input class="form-input" id="school-constraints" placeholder="Distance, frais, absence d'acte..."></div>
+
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Membres du menage</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addMember()"><span class="material-symbols-outlined" style="font-size:16px">person_add</span> Membre</button>
+              </div>
+              <div id="members-rows"></div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.4">Renseignez chaque membre (chef, conjoint, enfants, dependants). Pour les 5-17 ans, selectionnez les taches dangereuses observees ou declarees — elles alimentent le score de risque.</div>
+            </div>
+
             <label class="check-row"><input type="checkbox" id="household-consent"> Consentement obtenu</label>
             <div class="form-group"><label class="form-label">Signature parent/producteur</label><input class="form-input" id="household-signature"></div>
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="household-notes" rows="3"></textarea></div>
@@ -192,6 +202,89 @@ function today(){ return new Date().toISOString().slice(0, 10); }
 function num(id){ const v = document.getElementById(id).value; return v === '' ? null : Number(v); }
 function val(id){ return document.getElementById(id).value.trim(); }
 function csv(id){ return val(id).split(',').map(x => x.trim()).filter(Boolean); }
+
+/* ── Tableau des membres du menage (Fiche B) ─────────────────────── */
+const REL_OPTS = ['Chef de menage','Epoux/epouse','Fils/fille','Frere/soeur','Beau-fils/Belle-fille','Petit-fils/Petite-fille','Niece/neveu','Autre'];
+const OCC_OPTS = ['Aucune activite','Producteur (cacao)','Producteur (cafe)','Producteur (autre)','Commercant','En formation','Eleve/Etudiant','Autre'];
+const SCHOOL_STATUS = ['Scolarise','Non scolarise','Ne sait pas'];
+const SCHOOL_LEVEL = ['Jamais scolarise','Maternelle','Primaire','College','Lycee','Professionnel','Coranique','Superieur','Ne sait pas'];
+const HAZARD_TASKS = ['Defrichage','Abattage des arbres','Brulage des parcelles','Chasse avec arme','Bucheronnage','Charbon de bois','Dessouchage','Trouaison','Ecabossage machette','Recolte machette/faucille','Produits agrochimiques','Engins motorises','Port de charges lourdes','Travail de nuit','Longues heures'];
+
+function _opts(list, sel) { return list.map(o => `<option ${o===sel?'selected':''}>${o}</option>`).join(''); }
+
+function addMember(v = {}) {
+  const wrap = document.getElementById('members-rows');
+  const div = document.createElement('div');
+  div.className = 'member-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms</label><input class="form-input m-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Lien de parente</label><select class="form-input m-rel">${_opts(REL_OPTS, v.relation)}</select></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Sexe</label><select class="form-input m-sex"><option ${v.sex==='M'?'selected':''}>M</option><option ${v.sex==='F'?'selected':''}>F</option></select></div>
+       <div class="form-group"><label class="form-label">Annee naissance</label><input class="form-input m-birth" type="number" min="1900" max="2100" value="${v.birth_year||''}" oninput="updateMemberCounts()"></div>
+       <div class="form-group"><label class="form-label">Extrait naissance</label><select class="form-input m-cert"><option ${v.birth_certificate==='Oui'?'selected':''}>Oui</option><option ${v.birth_certificate==='Non'?'selected':''}>Non</option><option ${v.birth_certificate==='Ne sait pas'?'selected':''}>Ne sait pas</option></select></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Occupation</label><select class="form-input m-occ">${_opts(OCC_OPTS, v.occupation)}</select></div>
+       <div class="form-group"><label class="form-label">Scolarisation</label><select class="form-input m-school" onchange="updateMemberCounts()">${_opts(SCHOOL_STATUS, v.school_status)}</select></div>
+       <div class="form-group"><label class="form-label">Niveau scolaire</label><select class="form-input m-level">${_opts(SCHOOL_LEVEL, v.school_level)}</select></div>
+     </div>
+     <div class="form-group">
+       <label class="form-label">Taches dangereuses (5-17 ans) <span style="color:var(--muted);font-weight:400">— Ctrl/clic pour plusieurs</span></label>
+       <select class="form-input m-hazard" multiple size="3">${HAZARD_TASKS.map(t => `<option ${(v.hazardous_tasks||[]).includes(t)?'selected':''}>${t}</option>`).join('')}</select>
+     </div>
+     <div style="display:flex;justify-content:space-between;align-items:center">
+       <label class="check-row" style="margin:0"><input type="checkbox" class="m-present" ${v.present?'checked':''}> Present lors de la visite (5-17 ans)</label>
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.member-card').remove();updateMemberCounts()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+  updateMemberCounts();
+}
+
+function _selectedMulti(sel) { return [...sel.selectedOptions].map(o => o.value); }
+
+function memberRows() {
+  return [...document.querySelectorAll('#members-rows .member-card')].map(c => {
+    const birth = c.querySelector('.m-birth').value;
+    return {
+      name: c.querySelector('.m-name').value.trim(),
+      relation: c.querySelector('.m-rel').value,
+      sex: c.querySelector('.m-sex').value,
+      birth_year: birth ? Number(birth) : null,
+      birth_certificate: c.querySelector('.m-cert').value,
+      occupation: c.querySelector('.m-occ').value,
+      school_status: c.querySelector('.m-school').value,
+      school_level: c.querySelector('.m-level').value,
+      present: c.querySelector('.m-present').checked,
+      hazardous_tasks: _selectedMulti(c.querySelector('.m-hazard')),
+    };
+  }).filter(m => m.name);
+}
+
+// Auto-calcule les compteurs enfants a partir des membres (age via annee de naissance).
+function updateMemberCounts() {
+  const members = memberRows();
+  if (!members.length) return;
+  const year = new Date().getFullYear();
+  const withAge = members.filter(m => m.birth_year);
+  const children = withAge.filter(m => (year - m.birth_year) < 18);
+  const schoolAge = withAge.filter(m => { const a = year - m.birth_year; return a >= 5 && a <= 17; });
+  const enrolled = schoolAge.filter(m => m.school_status === 'Scolarise');
+  document.getElementById('household-size').value = members.length;
+  document.getElementById('children-count').value = children.length;
+  document.getElementById('school-age-count').value = schoolAge.length;
+  document.getElementById('enrolled-count').value = enrolled.length;
+}
+
+// Construit les declarations de travail enfant a partir des membres (taches dangereuses).
+function memberWorkDeclarations() {
+  return memberRows()
+    .filter(m => (m.hazardous_tasks || []).length)
+    .map(m => ({ child: m.name, task: m.hazardous_tasks.join(', '), dangerous: true }));
+}
 
 async function postSsrte(path, body, label) {
   const options = { method:'POST', body:JSON.stringify(body) };
@@ -340,9 +433,9 @@ async function saveHousehold() {
     children_count: num('children-count'),
     school_age_children_count: num('school-age-count'),
     enrolled_children_count: num('enrolled-count'),
-    household_members: [],
+    household_members: memberRows(),
     vulnerabilities: csv('vulnerabilities'),
-    child_work_declarations: workRows(),
+    child_work_declarations: [...workRows(), ...memberWorkDeclarations()],
     school_constraints: csv('school-constraints'),
     consent_given: document.getElementById('household-consent').checked,
     signature_data: val('household-signature') ? { signed_by: val('household-signature'), signed_at: new Date().toISOString() } : null,

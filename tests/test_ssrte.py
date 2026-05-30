@@ -82,6 +82,40 @@ def test_ssrte_household_profile_scores_risk(client):
     assert data["risk_level"] in {"high", "critical"}
 
 
+def test_ssrte_household_persists_members(client):
+    """Le tableau des membres du menage (Fiche B) est stocke et relu."""
+    producer_id, _ = _seed_producer_and_plantation()
+    members = [
+        {"name": "Yao Chef", "relation": "Chef de menage", "sex": "M",
+         "birth_year": 1980, "birth_certificate": "Oui", "occupation": "Producteur (cacao)",
+         "school_status": "Non scolarise", "school_level": "Primaire", "present": False,
+         "hazardous_tasks": []},
+        {"name": "Aya Enfant", "relation": "Fils/fille", "sex": "F",
+         "birth_year": 2014, "birth_certificate": "Non", "occupation": "Eleve/Etudiant",
+         "school_status": "Scolarise", "school_level": "Primaire", "present": True,
+         "hazardous_tasks": ["Recolte machette/faucille", "Port de charges lourdes"]},
+    ]
+    response = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "household_size": 2,
+        "children_count": 1,
+        "school_age_children_count": 1,
+        "enrolled_children_count": 1,
+        "household_members": members,
+        "child_work_declarations": [
+            {"child": "Aya Enfant", "task": "Recolte machette/faucille, Port de charges lourdes", "dangerous": True},
+        ],
+        "consent_given": True,
+    })
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert len(data["household_members"]) == 2
+    aya = [m for m in data["household_members"] if m["name"] == "Aya Enfant"][0]
+    assert aya["hazardous_tasks"] == ["Recolte machette/faucille", "Port de charges lourdes"]
+    # Une tache dangereuse declaree => risque non nul.
+    assert data["risk_score"] > 0
+
+
 def test_ssrte_plantation_visit_creates_alert_on_suspicion(client):
     _, plantation_id = _seed_producer_and_plantation()
 

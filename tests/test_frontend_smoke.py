@@ -84,6 +84,12 @@ PAGE_MARKERS = {
         "downloadLivret",        # export PDF du livret
         "li-verdict",            # verdict revenu vital (Living Income)
     ],
+    "ssrte.html": [
+        "addMember",          # tableau membres du ménage (Fiche B)
+        "memberRows",
+        "members-rows",
+        "HAZARD_TASKS",       # tâches dangereuses par enfant 5-17
+    ],
     "complaints.html": [],  # existence suffit
     "auth.js": [
         "setupNotificationWidget",
