@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth.auth_service import decode_token
 from app.db.database import get_db
-from app.db.models import FarmForceAssessment, Plantation, Producer
+from app.db.models import FarmForceAssessment, Plantation, Producer, User
 from app.db.models_social import (
     Alert,
     AlertStatus,
@@ -21,36 +23,87 @@ from app.db.models_social import (
 )
 
 router = APIRouter(prefix="/cacaoguard", tags=["CacaoGuard"])
+optional_bearer = HTTPBearer(auto_error=False)
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    payload = decode_token(credentials.credentials)
+    if payload.get("type") != "access":
+        return None
+    user = db.query(User).filter(User.email == payload.get("sub")).first()
+    if not user or not user.is_active:
+        return None
+    return user
+
+
+def _producer_subq(db: Session, cooperative_id: int | None):
+    if cooperative_id is None:
+        return None
+    return db.query(Producer.id).filter(Producer.cooperative_id == cooperative_id).subquery()
+
+
+def _plantation_subq(db: Session, cooperative_id: int | None):
+    if cooperative_id is None:
+        return None
+    return db.query(Plantation.id).filter(Plantation.cooperative_id == cooperative_id).subquery()
 
 
 @router.get("/summary")
-def get_cacaoguard_summary(db: Session = Depends(get_db)):
-    total_producers = db.query(func.count(Producer.id)).filter(Producer.is_active == True).scalar() or 0
-    total_plantations = db.query(func.count(Plantation.id)).scalar() or 0
-    total_children = db.query(func.count(Child.id)).filter(Child.is_active == True).scalar() or 0
+def get_cacaoguard_summary(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _producer_subq(db, coop_id)
+    plant_subq = _plantation_subq(db, coop_id)
+
+    prod_filter = [Producer.cooperative_id == coop_id] if coop_id else []
+    plant_filter = [Plantation.cooperative_id == coop_id] if coop_id else []
+    child_filter = [Child.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    visit_filter = [MonitoringVisit.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    block_filter = [TraceabilityBlock.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    plan_filter = [RemediationPlan.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ssrte_hh_filter = [SsrteHouseholdProfile.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ssrte_pv_filter = [SsrtePlantationVisit.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ff_filter = [FarmForceAssessment.producer_id.in_(prod_subq)] if prod_subq is not None else []
+
+    total_producers = db.query(func.count(Producer.id)).filter(Producer.is_active == True, *prod_filter).scalar() or 0
+    total_plantations = db.query(func.count(Plantation.id)).filter(*plant_filter).scalar() or 0
+    total_children = db.query(func.count(Child.id)).filter(Child.is_active == True, *child_filter).scalar() or 0
 
     high_risk_children = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+        *child_filter,
     ).scalar() or 0
     medium_risk_children = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.risk_level == RiskLevel.MEDIUM,
+        *child_filter,
     ).scalar() or 0
     enrolled_children = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.school_status == SchoolStatus.ENROLLED,
+        *child_filter,
     ).scalar() or 0
     working_children = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.is_working_on_farm == True,
+        *child_filter,
     ).scalar() or 0
     active_alerts = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED).scalar() or 0
     traceability_blocks = db.query(func.count(TraceabilityBlock.id)).filter(
         TraceabilityBlock.status == BlockStatus.ACTIVE,
+        *block_filter,
     ).scalar() or 0
     scheduled_visits = db.query(func.count(MonitoringVisit.id)).filter(
         MonitoringVisit.status == VisitStatus.SCHEDULED,
+        *visit_filter,
     ).scalar() or 0
     active_remediation_plans = db.query(func.count(RemediationPlan.id)).filter(
         RemediationPlan.status.in_([
@@ -60,21 +113,24 @@ def get_cacaoguard_summary(db: Session = Depends(get_db)):
             RemediationStatus.IN_PROGRESS,
             RemediationStatus.ESCALATED,
         ]),
+        *plan_filter,
     ).scalar() or 0
-    ssrte_households = db.query(func.count(SsrteHouseholdProfile.id)).scalar() or 0
-    ssrte_plantation_visits = db.query(func.count(SsrtePlantationVisit.id)).scalar() or 0
+    ssrte_households = db.query(func.count(SsrteHouseholdProfile.id)).filter(*ssrte_hh_filter).scalar() or 0
+    ssrte_plantation_visits = db.query(func.count(SsrtePlantationVisit.id)).filter(*ssrte_pv_filter).scalar() or 0
     ssrte_suspicions = db.query(func.count(SsrtePlantationVisit.id)).filter(
         SsrtePlantationVisit.suspected_child_labor == True,
+        *ssrte_pv_filter,
     ).scalar() or 0
-    farmforce_assessments = db.query(func.count(FarmForceAssessment.id)).scalar() or 0
+    farmforce_assessments = db.query(func.count(FarmForceAssessment.id)).filter(*ff_filter).scalar() or 0
     farmforce_profit = db.query(
         func.coalesce(func.sum(FarmForceAssessment.profit_cfa), 0),
-    ).scalar() or 0
+    ).filter(*ff_filter).scalar() or 0
     farmforce_avg_return = db.query(
         func.avg(FarmForceAssessment.return_per_family_day_cfa),
-    ).scalar()
+    ).filter(*ff_filter).scalar()
     farmforce_negative_profit = db.query(func.count(FarmForceAssessment.id)).filter(
         FarmForceAssessment.profit_cfa < 0,
+        *ff_filter,
     ).scalar() or 0
 
     by_risk = {}
@@ -82,6 +138,7 @@ def get_cacaoguard_summary(db: Session = Depends(get_db)):
         count = db.query(func.count(Child.id)).filter(
             Child.is_active == True,
             Child.risk_level == level,
+            *child_filter,
         ).scalar() or 0
         by_risk[level.value] = count
 

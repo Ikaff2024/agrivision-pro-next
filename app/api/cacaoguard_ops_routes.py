@@ -1281,15 +1281,42 @@ def resolve_traceability_block(
     return block_to_dict(block)
 
 
-def build_due_diligence_report(db: Session) -> dict:
-    children_total = db.query(func.count(Child.id)).filter(Child.is_active == True).scalar() or 0
+def _coop_producer_subq(db: Session, cooperative_id: int | None):
+    if cooperative_id is None:
+        return None
+    return db.query(Producer.id).filter(Producer.cooperative_id == cooperative_id).subquery()
+
+
+def _coop_plantation_subq(db: Session, cooperative_id: int | None):
+    if cooperative_id is None:
+        return None
+    return db.query(Plantation.id).filter(Plantation.cooperative_id == cooperative_id).subquery()
+
+
+def build_due_diligence_report(db: Session, cooperative_id: int | None = None) -> dict:
+    prod_subq = _coop_producer_subq(db, cooperative_id)
+    plant_subq = _coop_plantation_subq(db, cooperative_id)
+
+    child_f = [Child.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    visit_f = [MonitoringVisit.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    plan_f = [RemediationPlan.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    block_f = [TraceabilityBlock.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ssrte_hh_f = [SsrteHouseholdProfile.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ssrte_pv_f = [SsrtePlantationVisit.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    ff_f = [FarmForceAssessment.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    train_f = [TrainingSession.cooperative_id == cooperative_id] if cooperative_id is not None else []
+    ssrte_comm_f = [SsrteCommunityProfile.cooperative_id == cooperative_id] if cooperative_id is not None else []
+
+    children_total = db.query(func.count(Child.id)).filter(Child.is_active == True, *child_f).scalar() or 0
     children_working = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.is_working_on_farm == True,
+        *child_f,
     ).scalar() or 0
     enrolled = db.query(func.count(Child.id)).filter(
         Child.is_active == True,
         Child.school_status == SchoolStatus.ENROLLED,
+        *child_f,
     ).scalar() or 0
 
     risk_distribution = {}
@@ -1297,15 +1324,17 @@ def build_due_diligence_report(db: Session) -> dict:
         risk_distribution[level.value] = db.query(func.count(Child.id)).filter(
             Child.is_active == True,
             Child.risk_level == level,
+            *child_f,
         ).scalar() or 0
 
-    visits_total = db.query(func.count(MonitoringVisit.id)).scalar() or 0
+    visits_total = db.query(func.count(MonitoringVisit.id)).filter(*visit_f).scalar() or 0
     visits_completed = db.query(func.count(MonitoringVisit.id)).filter(
         MonitoringVisit.status == VisitStatus.COMPLETED,
+        *visit_f,
     ).scalar() or 0
-    visits_with_photos = db.query(MonitoringVisit).filter(MonitoringVisit.photos.isnot(None)).all()
+    visits_with_photos = db.query(MonitoringVisit).filter(MonitoringVisit.photos.isnot(None), *visit_f).all()
     visits_with_consent = [
-        visit for visit in db.query(MonitoringVisit).all()
+        visit for visit in db.query(MonitoringVisit).filter(*visit_f).all()
         if (visit.checklist_data or {}).get("consent_given")
     ]
     plans_active = db.query(func.count(RemediationPlan.id)).filter(
@@ -1316,9 +1345,11 @@ def build_due_diligence_report(db: Session) -> dict:
             RemediationStatus.IN_PROGRESS,
             RemediationStatus.ESCALATED,
         ]),
+        *plan_f,
     ).scalar() or 0
     blocks_active = db.query(func.count(TraceabilityBlock.id)).filter(
         TraceabilityBlock.status == BlockStatus.ACTIVE,
+        *block_f,
     ).scalar() or 0
     alerts_open = db.query(func.count(Alert.id)).filter(
         Alert.status != AlertStatus.RESOLVED,
@@ -1326,40 +1357,45 @@ def build_due_diligence_report(db: Session) -> dict:
     privacy_logs_total = db.query(func.count(PrivacyAccessLog.id)).scalar() or 0
     inconsistencies = detect_cacaoguard_inconsistencies(db)
     critical_inconsistencies = len([item for item in inconsistencies if item["severity"] == "critical"])
-    trainings_total = db.query(func.count(TrainingSession.id)).scalar() or 0
+    trainings_total = db.query(func.count(TrainingSession.id)).filter(*train_f).scalar() or 0
     trainings_completed = db.query(func.count(TrainingSession.id)).filter(
         TrainingSession.status == TrainingStatus.COMPLETED,
+        *train_f,
     ).scalar() or 0
     training_participants = sum(
         int(value or 0)
-        for (value,) in db.query(TrainingSession.actual_participants).all()
+        for (value,) in db.query(TrainingSession.actual_participants).filter(*train_f).all()
     )
-    ssrte_communities = db.query(func.count(SsrteCommunityProfile.id)).scalar() or 0
-    ssrte_households = db.query(func.count(SsrteHouseholdProfile.id)).scalar() or 0
-    ssrte_plantation_visits = db.query(func.count(SsrtePlantationVisit.id)).scalar() or 0
+    ssrte_communities = db.query(func.count(SsrteCommunityProfile.id)).filter(*ssrte_comm_f).scalar() or 0
+    ssrte_households = db.query(func.count(SsrteHouseholdProfile.id)).filter(*ssrte_hh_f).scalar() or 0
+    ssrte_plantation_visits = db.query(func.count(SsrtePlantationVisit.id)).filter(*ssrte_pv_f).scalar() or 0
     ssrte_suspicions = db.query(func.count(SsrtePlantationVisit.id)).filter(
         SsrtePlantationVisit.suspected_child_labor == True,
+        *ssrte_pv_f,
     ).scalar() or 0
     ssrte_high_risk_households = db.query(func.count(SsrteHouseholdProfile.id)).filter(
         SsrteHouseholdProfile.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+        *ssrte_hh_f,
     ).scalar() or 0
-    farmforce_assessments = db.query(func.count(FarmForceAssessment.id)).scalar() or 0
+    farmforce_assessments = db.query(func.count(FarmForceAssessment.id)).filter(*ff_f).scalar() or 0
     farmforce_totals = db.query(
         func.coalesce(func.sum(FarmForceAssessment.total_revenue_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.total_cost_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.profit_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.family_labor_days), 0),
-    ).one()
-    farmforce_avg_return = db.query(func.avg(FarmForceAssessment.return_per_family_day_cfa)).scalar()
+    ).filter(*ff_f).one()
+    farmforce_avg_return = db.query(func.avg(FarmForceAssessment.return_per_family_day_cfa)).filter(*ff_f).scalar()
     farmforce_negative_profit = db.query(func.count(FarmForceAssessment.id)).filter(
         FarmForceAssessment.profit_cfa < 0,
+        *ff_f,
     ).scalar() or 0
 
     critical_children = db.query(Child).filter(
         Child.is_active == True,
         Child.risk_level == RiskLevel.CRITICAL,
+        *child_f,
     ).order_by(Child.risk_score.desc()).limit(10).all()
-    recent_visits = db.query(MonitoringVisit).order_by(
+    recent_visits = db.query(MonitoringVisit).filter(*visit_f).order_by(
         MonitoringVisit.scheduled_date.desc(),
     ).limit(10).all()
     active_plans = db.query(RemediationPlan).filter(
@@ -1370,29 +1406,34 @@ def build_due_diligence_report(db: Session) -> dict:
             RemediationStatus.IN_PROGRESS,
             RemediationStatus.ESCALATED,
         ]),
+        *plan_f,
     ).order_by(RemediationPlan.created_at.desc()).limit(10).all()
     active_blocks = db.query(TraceabilityBlock).filter(
         TraceabilityBlock.status == BlockStatus.ACTIVE,
+        *block_f,
     ).order_by(TraceabilityBlock.created_at.desc()).limit(10).all()
-    recent_trainings = db.query(TrainingSession).order_by(
+    recent_trainings = db.query(TrainingSession).filter(*train_f).order_by(
         TrainingSession.scheduled_date.desc(),
     ).limit(10).all()
-    recent_ssrte_households = db.query(SsrteHouseholdProfile).order_by(
+    recent_ssrte_households = db.query(SsrteHouseholdProfile).filter(*ssrte_hh_f).order_by(
         SsrteHouseholdProfile.created_at.desc(),
     ).limit(10).all()
-    recent_ssrte_visits = db.query(SsrtePlantationVisit).order_by(
+    recent_ssrte_visits = db.query(SsrtePlantationVisit).filter(*ssrte_pv_f).order_by(
         SsrtePlantationVisit.created_at.desc(),
     ).limit(10).all()
-    recent_farmforce = db.query(FarmForceAssessment).order_by(
+    recent_farmforce = db.query(FarmForceAssessment).filter(*ff_f).order_by(
         FarmForceAssessment.created_at.desc(),
     ).limit(10).all()
+
+    prod_filter = [Producer.cooperative_id == cooperative_id] if cooperative_id is not None else []
+    plant_filter = [Plantation.cooperative_id == cooperative_id] if cooperative_id is not None else []
 
     return {
         "report_type": "CacaoGuard due diligence",
         "generated_at": datetime.utcnow().isoformat(),
         "coverage": {
-            "producers": db.query(func.count(Producer.id)).filter(Producer.is_active == True).scalar() or 0,
-            "plantations": db.query(func.count(Plantation.id)).scalar() or 0,
+            "producers": db.query(func.count(Producer.id)).filter(Producer.is_active == True, *prod_filter).scalar() or 0,
+            "plantations": db.query(func.count(Plantation.id)).filter(*plant_filter).scalar() or 0,
             "children": children_total,
         },
         "indicators": {
@@ -1525,7 +1566,8 @@ def get_due_diligence_report(
         metadata={"format": "json"},
     )
     db.commit()
-    return build_due_diligence_report(db)
+    coop_id = current_user.cooperative_id if current_user else None
+    return build_due_diligence_report(db, cooperative_id=coop_id)
 
 
 @router.get("/compliance/report.pdf")
@@ -1543,7 +1585,8 @@ def get_due_diligence_report_pdf(
         metadata={"format": "pdf"},
     )
     db.commit()
-    report = build_due_diligence_report(db)
+    coop_id = current_user.cooperative_id if current_user else None
+    report = build_due_diligence_report(db, cooperative_id=coop_id)
     pdf_bytes = generate_cacaoguard_pdf({"report": report, "generated_at": datetime.utcnow()})
     filename = cacaoguard_report_filename()
     return Response(
