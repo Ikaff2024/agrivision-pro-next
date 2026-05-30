@@ -1,7 +1,9 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import func
@@ -353,6 +355,28 @@ def create_household_profile(
     db.commit()
     db.refresh(row)
     return household_to_dict(row)
+
+
+@router.get("/households/{household_id}/ficheb.pdf")
+def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
+    """Telecharge la Fiche B (profilage de menage) au format PDF."""
+    from app.services.ssrte_reports import (
+        build_ficheb_context,
+        ficheb_filename,
+        generate_ficheb_pdf,
+    )
+    profile = db.query(SsrteHouseholdProfile).filter(SsrteHouseholdProfile.id == household_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Fiche B introuvable.")
+    context = build_ficheb_context(profile)
+    pdf_bytes = generate_ficheb_pdf(context)
+    filename = ficheb_filename(profile)
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.get("/plantation-visits")

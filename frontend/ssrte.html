@@ -381,17 +381,22 @@ async function loadHistory() {
   const visits = visitsRes.ok ? await visitsRes.json() : [];
   const rows = [
     ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)` })),
-    ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})` })),
+    ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, action:`<a href="#" onclick="downloadFicheB(${h.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche B PDF</a>` })),
     ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}` }))
   ];
   document.getElementById('history').innerHTML = rows.length ? rows.map(r => `
     <div class="item">
       <div class="item-title">${r.kind} - ${r.title || 'Sans nom'}</div>
       <div class="item-meta">${r.meta}</div>
+      ${r.action ? `<div class="item-meta" style="margin-top:4px">${r.action}</div>` : ''}
     </div>`).join('') : '<div class="empty-state" style="padding:32px">Aucune fiche SSRTE enregistree.</div>';
 }
 
 async function loadAll(){ await Promise.all([loadSummary(), loadHistory()]); }
+
+function downloadFicheB(id) {
+  window.open(`${API}/ssrte/households/${id}/ficheb.pdf`, '_blank');
+}
 
 async function saveCommunity() {
   const body = {

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>SSRTE Fiche B — {{ producer_name }}</title>
+<style>
+  :root {
+    --avp-primary:    #15803d;
+    --avp-primary-dark: #14532d;
+    --avp-primary-light: #dcfce7;
+    --avp-accent:     #d4a017;
+    --avp-ink:        #111827;
+    --avp-text:       #374151;
+    --avp-muted:      #6b7280;
+    --avp-border:     #e5e7eb;
+    --avp-bg-soft:    #f9fafb;
+  }
+  @page {
+    size: A4;
+    margin: 15mm 15mm 18mm 15mm;
+    @bottom-left { content: "AgriVision Pro — Fiche B genere le {{ generation_date }}"; font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280; }
+    @bottom-right { content: "Page " counter(page) " / " counter(pages); font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280; }
+  }
+  @page:first { margin: 0; @bottom-left { content: ""; } @bottom-right { content: ""; } }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: var(--avp-text); line-height: 1.45; }
+  h2 { font-size: 14pt; color: var(--avp-primary-dark); border-bottom: 2pt solid var(--avp-primary); padding-bottom: 4pt; margin: 14pt 0 12pt 0; }
+
+  .cover { width: 210mm; height: 297mm; background: linear-gradient(135deg, #15803d 0%, #14532d 100%); color: white; padding: 25mm 20mm; page-break-after: always; position: relative; }
+  .cover-logo { display: flex; align-items: center; gap: 12pt; margin-bottom: 45mm; }
+  .cover-logo-mark { width: 18mm; height: 18mm; background: white; border-radius: 4mm; display: flex; align-items: center; justify-content: center; font-size: 24pt; color: var(--avp-primary); font-weight: bold; }
+  .cover-logo-text { font-size: 18pt; font-weight: 700; letter-spacing: -0.3pt; }
+  .cover-logo-sub  { font-size: 10pt; opacity: 0.85; margin-top: 2pt; }
+  .cover-eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 2pt; opacity: 0.85; margin-bottom: 4pt; }
+  .cover-title { font-size: 34pt; font-weight: 800; line-height: 1.05; letter-spacing: -1pt; margin: 0 0 8pt 0; color: white; }
+  .cover-owner { font-size: 13pt; opacity: 0.9; margin-bottom: 22mm; }
+  .cover-score { background: rgba(255,255,255,0.12); border-radius: 8mm; padding: 12mm; border: 1pt solid rgba(255,255,255,0.25); }
+  .cover-score-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.8; }
+  .cover-score-value { font-size: 44pt; font-weight: 800; line-height: 1; margin-top: 4pt; color: var(--avp-accent); }
+  .cover-verdict { font-size: 13pt; margin-top: 8pt; font-weight: 700; text-transform: uppercase; }
+  .cover-footer { position: absolute; bottom: 18mm; left: 20mm; right: 20mm; font-size: 9pt; opacity: 0.75; border-top: 1pt solid rgba(255,255,255,0.2); padding-top: 6pt; display: flex; justify-content: space-between; }
+
+  .section { page-break-inside: avoid; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8pt; }
+  .card { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 8pt 10pt; margin-bottom: 8pt; }
+  .card-label { font-size: 8pt; color: var(--avp-muted); text-transform: uppercase; letter-spacing: 0.6pt; margin-bottom: 3pt; }
+  .card-value { font-size: 14pt; font-weight: 700; color: var(--avp-ink); line-height: 1.1; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6pt; font-size: 9pt; }
+  thead th { background: var(--avp-primary); color: white; text-align: left; padding: 6pt 8pt; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; }
+  tbody td { padding: 5pt 8pt; border-bottom: 0.5pt solid var(--avp-border); }
+  tbody tr:nth-child(even) { background: var(--avp-bg-soft); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; padding: 12pt; color: var(--avp-muted); font-style: italic; background: var(--avp-bg-soft); border: 1pt dashed var(--avp-border); border-radius: 3mm; }
+  .chip { display: inline-block; font-size: 8.5pt; padding: 2pt 8pt; border-radius: 10pt; background: var(--avp-primary-light); color: var(--avp-primary-dark); margin: 2pt 3pt 2pt 0; }
+  .chip-danger { background: #fef2f2; color: #b91c1c; }
+  .notes { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 10pt 12pt; font-size: 9pt; }
+  .legal { font-size: 8pt; color: var(--avp-muted); margin-top: 16pt; border-top: 1pt solid var(--avp-border); padding-top: 8pt; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+{# ─── COUVERTURE ─── #}
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-mark">A</div>
+    <div>
+      <div class="cover-logo-text">AgriVision Pro</div>
+      <div class="cover-logo-sub">SSRTE — Systeme de Suivi et de Remediation du Travail des Enfants</div>
+    </div>
+  </div>
+
+  <div class="cover-eyebrow">Fiche B — Profilage du menage du producteur</div>
+  <div class="cover-title">{{ producer_name }}</div>
+  <div class="cover-owner">
+    Entretien du {{ interview_date }}<br>
+    Agent : {{ interviewer_name }}
+  </div>
+
+  <div class="cover-score">
+    <div class="cover-score-label">Niveau de risque travail des enfants</div>
+    <div class="cover-score-value">{{ "%.0f"|format(risk_score) }}<span style="font-size:18pt;opacity:.8"> / 100</span></div>
+    <div class="cover-verdict">
+      {% if risk_level in ['critical','high'] %}⛔ Risque {{ risk_level }}{% elif risk_level == 'medium' %}⚠ Risque moyen{% elif risk_level == 'low' %}Risque faible{% else %}Aucun risque detecte{% endif %}
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <span>Document de protection de l'enfant — confidentiel</span>
+    <span>Genere le {{ generation_date }}</span>
+  </div>
+</div>
+
+{# ─── SYNTHESE MENAGE ─── #}
+<div class="section">
+  <h2>Composition du menage</h2>
+  <div class="grid-4">
+    <div class="card"><div class="card-label">Taille menage</div><div class="card-value">{{ household_size if household_size is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Enfants</div><div class="card-value">{{ children_count if children_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Age scolaire (5-17)</div><div class="card-value">{{ school_age_children_count if school_age_children_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Scolarises</div><div class="card-value">{{ enrolled_children_count if enrolled_children_count is not none else "—" }}</div></div>
+  </div>
+</div>
+
+{# ─── MEMBRES ─── #}
+<div class="section">
+  <h2>Membres du menage</h2>
+  {% if household_members %}
+  <table>
+    <thead><tr><th>Nom</th><th>Lien</th><th>Sexe</th><th class="num">Naiss.</th><th>Extrait</th><th>Occupation</th><th>Scolarisation</th></tr></thead>
+    <tbody>
+      {% for m in household_members %}
+      <tr>
+        <td>{{ m.name or "—" }}</td>
+        <td>{{ m.relation or "" }}</td>
+        <td>{{ m.sex or "" }}</td>
+        <td class="num">{{ m.birth_year or "" }}</td>
+        <td>{{ m.birth_certificate or "" }}</td>
+        <td>{{ m.occupation or "" }}</td>
+        <td>{{ m.school_status or "" }}{% if m.school_level %} ({{ m.school_level }}){% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun membre renseigne.</div>{% endif %}
+</div>
+
+{# ─── TRAVAIL DES ENFANTS ─── #}
+<div class="section">
+  <h2>Declarations de travail des enfants</h2>
+  {% if child_work_declarations %}
+  <table>
+    <thead><tr><th>Enfant</th><th>Tache(s)</th><th>Dangereux</th></tr></thead>
+    <tbody>
+      {% for w in child_work_declarations %}
+      <tr>
+        <td>{{ w.child or "—" }}</td>
+        <td>{{ w.task or "" }}</td>
+        <td>{% if w.dangerous %}<span class="chip chip-danger">OUI</span>{% else %}Non{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucune declaration de travail des enfants.</div>{% endif %}
+</div>
+
+{# ─── VULNERABILITES & CONTRAINTES ─── #}
+<div class="section">
+  <h2>Vulnerabilites et contraintes scolaires</h2>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Vulnerabilites du menage</div>
+      <div style="margin-top:4pt">{% if vulnerabilities %}{% for v in vulnerabilities %}<span class="chip">{{ v }}</span>{% endfor %}{% else %}<span style="color:var(--avp-muted)">Aucune</span>{% endif %}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Contraintes scolaires</div>
+      <div style="margin-top:4pt">{% if school_constraints %}{% for s in school_constraints %}<span class="chip">{{ s }}</span>{% endfor %}{% else %}<span style="color:var(--avp-muted)">Aucune</span>{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+{% if notes %}
+<div class="section">
+  <h2>Notes</h2>
+  <div class="notes">{{ notes }}</div>
+</div>
+{% endif %}
+
+<div class="legal">
+  Document genere automatiquement par AgriVision Pro le {{ generation_date }}.
+  SSRTE Fiche B — profilage du menage du producteur. Consentement : {{ "obtenu" if consent_given else "non obtenu" }}.
+  Document confidentiel relatif a la protection de l'enfant, destine au suivi et a la remediation (CacaoGuard / SSRTE).
+</div>
+
+</body>
+</html>

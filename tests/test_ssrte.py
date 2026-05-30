@@ -82,6 +82,28 @@ def test_ssrte_household_profile_scores_risk(client):
     assert data["risk_level"] in {"high", "critical"}
 
 
+def test_ssrte_ficheb_pdf_download(client):
+    producer_id, _ = _seed_producer_and_plantation()
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "household_size": 3,
+        "household_members": [
+            {"name": "Yao Chef", "relation": "Chef de menage", "sex": "M", "birth_year": 1980},
+        ],
+        "consent_given": True,
+    }).json()
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+    assert "FicheB_" in r.headers.get("content-disposition", "")
+
+
+def test_ssrte_ficheb_pdf_not_found(client):
+    r = client.get("/ssrte/households/99999/ficheb.pdf")
+    assert r.status_code == 404
+
+
 def test_ssrte_household_persists_members(client):
     """Le tableau des membres du menage (Fiche B) est stocke et relu."""
     producer_id, _ = _seed_producer_and_plantation()
