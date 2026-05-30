@@ -308,6 +308,75 @@ function requireAuth() {
 
 function logout() { localStorage.clear(); window.location.href = 'index.html'; }
 
+/* ── Changer mon mot de passe (self-service, tous roles) ───────── */
+function ensureChangePasswordModal() {
+  if (document.getElementById('avp-cp-overlay')) return;
+  const ov = document.createElement('div');
+  ov.id = 'avp-cp-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:10000;padding:20px';
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:22px 24px;width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:system-ui,sans-serif">
+      <div style="font-size:17px;font-weight:800;color:#14532d;margin-bottom:14px">Changer mon mot de passe</div>
+      <label style="font-size:12px;font-weight:600;color:#374151">Mot de passe actuel</label>
+      <input type="password" id="avp-cp-current" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px">
+      <label style="font-size:12px;font-weight:600;color:#374151">Nouveau mot de passe <span style="color:#6b7280;font-weight:400">(min. 6 caractères)</span></label>
+      <input type="password" id="avp-cp-new" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px">
+      <label style="font-size:12px;font-weight:600;color:#374151">Confirmer le nouveau</label>
+      <input type="password" id="avp-cp-confirm" style="width:100%;padding:9px 11px;margin:4px 0 6px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px">
+      <div id="avp-cp-err" style="display:none;color:#b91c1c;font-size:12.5px;margin:6px 0"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button onclick="closeChangePassword()" style="padding:8px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">Annuler</button>
+        <button id="avp-cp-ok" onclick="submitChangePassword()" style="padding:8px 16px;border:none;border-radius:8px;background:#15803d;color:#fff;cursor:pointer;font-weight:700;font-size:13px">Enregistrer</button>
+      </div>
+    </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) closeChangePassword(); });
+  document.body.appendChild(ov);
+}
+
+function openChangePassword() {
+  if (typeof closeSidebar === 'function') closeSidebar();
+  ensureChangePasswordModal();
+  ['avp-cp-current','avp-cp-new','avp-cp-confirm'].forEach(id => { const el=document.getElementById(id); if (el) el.value=''; });
+  document.getElementById('avp-cp-err').style.display = 'none';
+  document.getElementById('avp-cp-overlay').style.display = 'flex';
+}
+
+function closeChangePassword() {
+  const ov = document.getElementById('avp-cp-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+async function submitChangePassword() {
+  const err = document.getElementById('avp-cp-err');
+  err.style.display = 'none';
+  const cur = document.getElementById('avp-cp-current').value;
+  const nw = document.getElementById('avp-cp-new').value;
+  const cf = document.getElementById('avp-cp-confirm').value;
+  if (!cur || !nw) { err.textContent = 'Tous les champs sont requis.'; err.style.display='block'; return; }
+  if (nw.length < 6) { err.textContent = 'Le nouveau mot de passe doit faire au moins 6 caractères.'; err.style.display='block'; return; }
+  if (nw !== cf) { err.textContent = 'La confirmation ne correspond pas.'; err.style.display='block'; return; }
+  const btn = document.getElementById('avp-cp-ok');
+  btn.disabled = true; btn.textContent = 'Enregistrement...';
+  try {
+    const res = await authFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: cur, new_password: nw })
+    });
+    if (res && res.status === 401) throw new Error('Mot de passe actuel incorrect.');
+    if (!res || !res.ok) {
+      const e = await res?.json().catch(()=>({}));
+      throw new Error(e.detail || 'Erreur lors du changement.');
+    }
+    closeChangePassword();
+    if (typeof toast === 'function') toast('Mot de passe modifié avec succès.');
+    else alert('Mot de passe modifié avec succès.');
+  } catch (e) {
+    err.textContent = e.message; err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
 /* ── API wrapper avec refresh automatique ───────────────────── */
 async function authFetch(endpoint, options = {}) {
   const token = getToken();
@@ -485,6 +554,9 @@ function renderSidebar(activePage) {
           <div class="sb-user-email">${user.email}</div>
           <div class="sb-user-role">${user.role}</div>
         </div>
+        <button class="sb-logout" onclick="openChangePassword()" title="Changer mon mot de passe" style="margin-right:4px">
+          <span class="material-symbols-outlined" style="font-size:18px">key</span>
+        </button>
         <button class="sb-logout" onclick="logout()" title="Deconnexion">
           <span class="material-symbols-outlined" style="font-size:18px">logout</span>
         </button>

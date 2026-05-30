@@ -11,6 +11,7 @@ from app.auth.auth_service import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    get_current_user,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -33,6 +34,11 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -123,6 +129,24 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "role": user.role,
     }
+
+
+@router.post("/change-password")
+def change_password(
+    req: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Change le mot de passe de l'utilisateur connecte (ancien + nouveau)."""
+    if not verify_password(req.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect.")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Nouveau mot de passe trop court (minimum 6 caracteres).")
+    if req.new_password == req.current_password:
+        raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit etre different de l'ancien.")
+    current_user.password_hash = get_password_hash(req.new_password)
+    db.commit()
+    return {"status": "ok", "message": "Mot de passe modifie avec succes."}
 
 
 @router.post("/refresh")

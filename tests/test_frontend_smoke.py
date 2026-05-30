@@ -101,6 +101,8 @@ PAGE_MARKERS = {
         "refreshNotifBadge",
         "startTokenAutoRefresh",   # refresh proactif du jeton (anti-déconnexion 2h)
         "ensureFreshToken",
+        "openChangePassword",      # changer son propre mot de passe (self-service)
+        "submitChangePassword",
     ],
 }
 
