@@ -32,8 +32,13 @@
     .sync-note.active{display:block}
     .sync-note.active{display:flex}
     .sync-btn{border:1px solid #fdba74;background:#fff;color:#9a3412;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}
+    /* Taches dangereuses : cases a cocher tapables (terrain / mobile) */
+    .hazard-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+    .hz-chip{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border-l);border-radius:8px;background:#fff;font-size:13px;cursor:pointer;min-height:44px;line-height:1.25}
+    .hz-chip input{width:20px;height:20px;flex-shrink:0;accent-color:#b91c1c}
+    .hz-chip:has(input:checked){background:#fef2f2;border-color:#f1948a;color:#b91c1c;font-weight:600}
     @media(max-width:1080px){.ssrte-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:560px){.mini-row,.kpis{grid-template-columns:1fr}}
+    @media(max-width:560px){.mini-row,.kpis,.hazard-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -264,8 +269,8 @@ function addMember(v = {}) {
        <div class="form-group"><label class="form-label">Niveau scolaire</label><select class="form-input m-level">${_opts(SCHOOL_LEVEL, v.school_level)}</select></div>
      </div>
      <div class="form-group">
-       <label class="form-label">Taches dangereuses (5-17 ans) <span style="color:var(--muted);font-weight:400">— Ctrl/clic pour plusieurs</span></label>
-       <select class="form-input m-hazard" multiple size="3">${HAZARD_TASKS.map(t => `<option ${(v.hazardous_tasks||[]).includes(t)?'selected':''}>${t}</option>`).join('')}</select>
+       <label class="form-label">Taches dangereuses observees (5-17 ans) <span style="color:var(--muted);font-weight:400">— cochez ce qui s'applique</span></label>
+       <div class="hazard-grid">${HAZARD_TASKS.map(t => `<label class="hz-chip"><input type="checkbox" class="m-hz" value="${t}" ${(v.hazardous_tasks||[]).includes(t)?'checked':''}>${t}</label>`).join('')}</div>
      </div>
      <div style="display:flex;justify-content:space-between;align-items:center">
        <label class="check-row" style="margin:0"><input type="checkbox" class="m-present" ${v.present?'checked':''}> Present lors de la visite (5-17 ans)</label>
@@ -290,7 +295,7 @@ function memberRows() {
       school_status: c.querySelector('.m-school').value,
       school_level: c.querySelector('.m-level').value,
       present: c.querySelector('.m-present').checked,
-      hazardous_tasks: _selectedMulti(c.querySelector('.m-hazard')),
+      hazardous_tasks: [...c.querySelectorAll('.m-hz:checked')].map(x => x.value),
     };
   }).filter(m => m.name);
 }
@@ -522,8 +527,8 @@ function addVisitChild(v = {}) {
        <div class="form-group"><label class="form-label">Du menage ?</label><select class="form-input vc-member"><option value="oui" ${v.household_member?'selected':''}>Oui</option><option value="non" ${v.household_member===false?'selected':''}>Non</option></select></div>
      </div>
      <div class="form-group">
-       <label class="form-label">Taches dangereuses observees <span style="color:var(--muted);font-weight:400">— Ctrl/clic pour plusieurs</span></label>
-       <select class="form-input vc-hazard" multiple size="3" onchange="syncSuspicion()">${HAZARD_TASKS.map(t => `<option ${(v.hazardous_tasks||[]).includes(t)?'selected':''}>${t}</option>`).join('')}</select>
+       <label class="form-label">Taches dangereuses observees <span style="color:var(--muted);font-weight:400">— cochez ce qui s'applique</span></label>
+       <div class="hazard-grid">${HAZARD_TASKS.map(t => `<label class="hz-chip"><input type="checkbox" class="vc-hz" value="${t}" ${(v.hazardous_tasks||[]).includes(t)?'checked':''} onchange="syncSuspicion()">${t}</label>`).join('')}</div>
      </div>
      <div style="display:flex;justify-content:flex-end">
        <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.visit-child-card').remove();syncSuspicion()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
@@ -536,7 +541,7 @@ function observedChildren() {
     name: c.querySelector('.vc-name').value.trim(),
     age: c.querySelector('.vc-age').value || null,
     household_member: c.querySelector('.vc-member').value === 'oui',
-    hazardous_tasks: [...c.querySelector('.vc-hazard').selectedOptions].map(o => o.value),
+    hazardous_tasks: [...c.querySelectorAll('.vc-hz:checked')].map(x => x.value),
   })).filter(c => c.name);
 }
 
