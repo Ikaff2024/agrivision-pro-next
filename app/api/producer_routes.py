@@ -53,14 +53,19 @@ class ProducerResponse(BaseModel):
 
 @router.get("/producers", response_model=List[ProducerResponse])
 def list_producers(
-    limit: int = Query(500, ge=1, le=1000),
+    limit: int = Query(500, ge=1, le=5000),
     skip: int = Query(0, ge=0),
     search: Optional[str] = None,
     localite: Optional[str] = None,
     section: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     query = db.query(Producer).filter(Producer.is_active == True)
+
+    # Cloisonnement multi-tenant : un utilisateur ne voit que sa cooperative.
+    if current_user is not None and current_user.cooperative_id is not None:
+        query = query.filter(Producer.cooperative_id == current_user.cooperative_id)
 
     if search and search.strip():
         like = f"%{search.strip()}%"
