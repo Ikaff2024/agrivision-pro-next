@@ -233,8 +233,26 @@ def build_fichea_context(profile: SsrteCommunityProfile) -> dict:
         "interview_date": profile.interview_date.isoformat() if profile.interview_date else "—",
         "respondent_name": profile.respondent_name or "—",
         "respondent_role": profile.respondent_role or "—",
+        # Identification administrative (A.02-A.06)
+        "supplier": profile.supplier or "—",
+        "sub_prefecture": profile.sub_prefecture or "—",
+        "collection_agent_code": profile.collection_agent_code or "—",
+        "collection_agent_name": profile.collection_agent_name or "—",
+        # GPS + heures (A.07a/b/c)
+        "gps_start": profile.gps_start or "—",
+        "time_start": profile.time_start or "—",
+        "gps_end": profile.gps_end or "—",
+        "time_end": profile.time_end or "—",
         "population": services.get("population"),
         "locality_type": services.get("locality_type") or "—",
+        # Details par indicateur
+        "electricity_origin": services.get("electricity_origin") or [],
+        "water_distance": services.get("water_distance") or "—",
+        "secondary_classes_count": services.get("secondary_classes_count"),
+        "secondary_school_distance_km": services.get("secondary_school_distance_km"),
+        "org_state": services.get("org_state") or "—",
+        "org_ngo": services.get("org_ngo") or "—",
+        "org_other": services.get("org_other") or "—",
         "school_available": bool(profile.school_available),
         "nearest_school_distance_km": (
             float(profile.nearest_school_distance_km)
@@ -245,6 +263,7 @@ def build_fichea_context(profile: SsrteCommunityProfile) -> dict:
         "services_present": present,
         "services_absent": absent,
         "schools": profile.schools or [],
+        "section_notes": profile.section_notes or {},
         "risks_identified": profile.risks_identified or [],
         "notes": profile.notes,
     }
@@ -268,6 +287,7 @@ def _generate_fichea_fallback_pdf(context: dict) -> bytes:
         f"Localite : {_pdf_escape(context['locality'])}",
         f"Section : {_pdf_escape(context['section'])}",
         f"Date visite : {_pdf_escape(context['interview_date'])}",
+        f"Agent de collecte : {_pdf_escape(context.get('collection_agent_name') or '-')}",
         f"Population : {context.get('population') or '-'}",
         f"Ecole disponible : {'Oui' if context['school_available'] else 'Non'}",
         f"Comite protection enfant : {'Oui' if context['has_committee'] else 'Non'}",

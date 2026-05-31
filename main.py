@@ -161,6 +161,22 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migration SSRTE P1 : OK (schools, farm_info, adults_observed, workers_present)")
+
+                # SSRTE - couverture complete Fiche A : admin, GPS/heures, remarques par section
+                for col_ddl in [
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS supplier VARCHAR(200)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS sub_prefecture VARCHAR(200)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS collection_agent_code VARCHAR(100)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS collection_agent_name VARCHAR(200)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS gps_start VARCHAR(120)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS time_start VARCHAR(20)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS gps_end VARCHAR(120)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS time_end VARCHAR(20)",
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS section_notes JSON",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration SSRTE Fiche A : OK (admin, gps/heures, section_notes)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

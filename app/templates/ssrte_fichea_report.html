@@ -79,13 +79,22 @@
 <div class="section">
   <h2>Identification</h2>
   <div class="grid-3">
-    <div class="card"><div class="card-label">Localite</div><div class="card-value">{{ locality }}</div></div>
-    <div class="card"><div class="card-label">Section</div><div class="card-value">{{ section }}</div></div>
-    <div class="card"><div class="card-label">Type</div><div class="card-value">{{ locality_type }}</div></div>
-    <div class="card"><div class="card-label">Date de visite</div><div class="card-value">{{ interview_date }}</div></div>
-    <div class="card"><div class="card-label">Repondant</div><div class="card-value">{{ respondent_name }}</div></div>
-    <div class="card"><div class="card-label">Role</div><div class="card-value">{{ respondent_role }}</div></div>
+    <div class="card"><div class="card-label">Localite (A.04)</div><div class="card-value">{{ locality }}</div></div>
+    <div class="card"><div class="card-label">Section / Coop (A.01)</div><div class="card-value">{{ section }}</div></div>
+    <div class="card"><div class="card-label">Type (A.09)</div><div class="card-value">{{ locality_type }}</div></div>
+    <div class="card"><div class="card-label">Fournisseur (A.02)</div><div class="card-value">{{ supplier }}</div></div>
+    <div class="card"><div class="card-label">Sous-prefecture (A.03)</div><div class="card-value">{{ sub_prefecture }}</div></div>
+    <div class="card"><div class="card-label">Population (A.08)</div><div class="card-value">{{ population if population is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Agent de collecte (A.06)</div><div class="card-value">{{ collection_agent_name }}</div></div>
+    <div class="card"><div class="card-label">Code agent (A.05)</div><div class="card-value">{{ collection_agent_code }}</div></div>
+    <div class="card"><div class="card-label">Repondant</div><div class="card-value">{{ respondent_name }}{% if respondent_role and respondent_role != '—' %} ({{ respondent_role }}){% endif %}</div></div>
   </div>
+  <div class="grid-3">
+    <div class="card"><div class="card-label">Date de visite (A.07)</div><div class="card-value">{{ interview_date }}</div></div>
+    <div class="card"><div class="card-label">Heure debut / fin (A.07b/c)</div><div class="card-value">{{ time_start }} → {{ time_end }}</div></div>
+    <div class="card"><div class="card-label">GPS debut / fin (A.07a/c)</div><div class="card-value" style="font-size:9pt">{{ gps_start }}{% if gps_end and gps_end != '—' %} / {{ gps_end }}{% endif %}</div></div>
+  </div>
+  {% if section_notes.identification %}<div class="notes" style="margin-top:6pt">{{ section_notes.identification }}</div>{% endif %}
 </div>
 
 <div class="section">
@@ -100,13 +109,24 @@
     <div style="margin-top:4pt">{% for s in services_absent %}<span class="chip chip-no">✗ {{ s }}</span>{% endfor %}</div>
   </div>
   {% endif %}
+  <div class="grid-2">
+    <div class="card"><div class="card-label">Origine electricite (A.12b)</div><div class="card-value" style="font-size:11pt">{% if electricity_origin %}{{ electricity_origin|join(', ') }}{% else %}—{% endif %}</div></div>
+    <div class="card"><div class="card-label">Distance point d'eau (A.13b)</div><div class="card-value" style="font-size:11pt">{{ water_distance }}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Organisations de lutte contre les PFTE (A.18b/c/d)</div>
+    <div style="margin-top:3pt;font-size:9.5pt">Structure d'Etat : {{ org_state }} · ONG : {{ org_ngo }} · Autres : {{ org_other }}</div>
+  </div>
+  {% if section_notes.services %}<div class="notes" style="margin-top:6pt">{{ section_notes.services }}</div>{% endif %}
 </div>
 
 <div class="section">
   <h2>Education et protection de l'enfant</h2>
   <div class="grid-2">
-    <div class="card"><div class="card-label">Ecole disponible</div><div class="card-value">{{ "Oui" if school_available else "Non" }}</div></div>
-    <div class="card"><div class="card-label">Distance ecole la plus proche</div><div class="card-value">{% if nearest_school_distance_km is not none %}{{ "%.1f"|format(nearest_school_distance_km) }} km{% else %}—{% endif %}</div></div>
+    <div class="card"><div class="card-label">Ecole primaire (A.20a)</div><div class="card-value">{{ "Oui" if school_available else "Non" }}</div></div>
+    <div class="card"><div class="card-label">Distance ecole primaire (A.20b)</div><div class="card-value">{% if nearest_school_distance_km is not none %}{{ "%.1f"|format(nearest_school_distance_km) }} km{% else %}—{% endif %}</div></div>
+    <div class="card"><div class="card-label">Classes secondaires (A.21a)</div><div class="card-value">{{ secondary_classes_count if secondary_classes_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Distance ecole secondaire (A.21b)</div><div class="card-value">{% if secondary_school_distance_km is not none %}{{ secondary_school_distance_km }} km{% else %}—{% endif %}</div></div>
   </div>
   <div class="card">
     <div class="card-label">Comite de protection de l'enfant</div>
@@ -127,8 +147,8 @@
   <table class="tbl">
     <thead>
       <tr>
-        <th>Ecole</th><th>Type</th><th>Construite par</th><th>Salles</th>
-        <th>Enseignants</th><th>Eleves (G/F)</th><th>Cantine</th><th>Latrines</th><th>GPS</th>
+        <th>Ecole (A.22)</th><th>Type (A.23)</th><th>Par (A.24)</th><th>Salles (A.25)</th>
+        <th>Enseignants T/B (A.26)</th><th>Eleves H/F (A.27)</th><th>Cantine (A.28)</th><th>Latrines (A.29)</th><th>GPS (A.22b)</th>
       </tr>
     </thead>
     <tbody>
@@ -137,10 +157,10 @@
         <td>{{ s.name or s.nom or "—" }}</td>
         <td>{{ s.type or s.school_type or "—" }}</td>
         <td>{{ s.built_by or s.construite_par or "—" }}</td>
-        <td>{{ s.classrooms if s.classrooms is not none else (s.salles if s.salles is not none else "—") }}</td>
-        <td>{% if s.teachers_total is not none %}{{ s.teachers_total }}{% elif s.teachers is not none %}{{ s.teachers }}{% else %}—{% endif %}{% if s.teachers_certified is not none %} (dont {{ s.teachers_certified }} titulaires){% endif %}</td>
+        <td>{{ s.classrooms if s.classrooms is not none else "—" }}</td>
+        <td>{{ s.teachers_titulaires if s.teachers_titulaires is not none else "—" }} / {{ s.teachers_benevoles if s.teachers_benevoles is not none else "—" }}</td>
         <td>{{ s.students_boys if s.students_boys is not none else "—" }} / {{ s.students_girls if s.students_girls is not none else "—" }}</td>
-        <td>{% if s.canteen %}Oui{% if s.canteen_meals_per_week %} — {{ s.canteen_meals_per_week }}/sem{% endif %}{% if s.canteen_cost_per_ration %} — {{ s.canteen_cost_per_ration }} FCFA/ration{% endif %}{% else %}Non{% endif %}</td>
+        <td>{% if s.canteen %}Oui{% if s.canteen_service_per_week %} — {{ s.canteen_service_per_week }}/sem{% endif %}{% if s.canteen_cost %} — {{ s.canteen_cost }}{% endif %}{% else %}Non{% endif %}</td>
         <td>{% if s.latrines %}Oui{% if s.latrines_separated %} (H/F separes){% endif %}{% else %}Non{% endif %}</td>
         <td>{{ s.gps or "—" }}</td>
       </tr>

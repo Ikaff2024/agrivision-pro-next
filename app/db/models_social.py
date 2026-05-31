@@ -719,6 +719,18 @@ class SsrteCommunityProfile(Base):
     interview_date = Column(Date, nullable=False, index=True)
     respondent_name = Column(String(200), nullable=True)
     respondent_role = Column(String(100), nullable=True)
+    # Bloc identification administrative (A.02-A.06)
+    supplier = Column(String(200), nullable=True)            # A.02 Fournisseur
+    sub_prefecture = Column(String(200), nullable=True)      # A.03 Sous-prefecture
+    collection_agent_code = Column(String(100), nullable=True)   # A.05 Code agent de collecte
+    collection_agent_name = Column(String(200), nullable=True)   # A.06 Nom de l'agent de collecte
+    # GPS + heures de visite (A.07a/A.07b/A.07c)
+    gps_start = Column(String(120), nullable=True)
+    time_start = Column(String(20), nullable=True)
+    gps_end = Column(String(120), nullable=True)
+    time_end = Column(String(20), nullable=True)
+    # Remarques + actions proposees, une entree par section (cle = section)
+    section_notes = Column(JSON, nullable=True)
     school_available = Column(Boolean, default=False, nullable=False)
     nearest_school_distance_km = Column(Numeric(6, 2), nullable=True)
     has_child_protection_committee = Column(Boolean, default=False, nullable=False)

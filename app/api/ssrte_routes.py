@@ -51,13 +51,26 @@ class CommunityProfilePayload(BaseModel):
     interview_date: date = Field(default_factory=date.today)
     respondent_name: Optional[str] = Field(None, max_length=200)
     respondent_role: Optional[str] = Field(None, max_length=100)
+    # Identification administrative (A.02-A.06)
+    supplier: Optional[str] = Field(None, max_length=200)
+    sub_prefecture: Optional[str] = Field(None, max_length=200)
+    collection_agent_code: Optional[str] = Field(None, max_length=100)
+    collection_agent_name: Optional[str] = Field(None, max_length=200)
+    # GPS + heures (A.07a/b/c)
+    gps_start: Optional[str] = Field(None, max_length=120)
+    time_start: Optional[str] = Field(None, max_length=20)
+    gps_end: Optional[str] = Field(None, max_length=120)
+    time_end: Optional[str] = Field(None, max_length=20)
     school_available: bool = False
     nearest_school_distance_km: Optional[float] = Field(None, ge=0)
     has_child_protection_committee: bool = False
     committee_members: list[dict] = Field(default_factory=list)
     risks_identified: list[str] = Field(default_factory=list)
+    # services_available porte aussi : electricity_origin, water_distance,
+    # secondary_classes_count, secondary_school_distance_km, org_state/ngo/other.
     services_available: dict = Field(default_factory=dict)
     schools: list[dict] = Field(default_factory=list)
+    section_notes: dict = Field(default_factory=dict)
     notes: Optional[str] = None
 
 
@@ -223,6 +236,15 @@ def community_to_dict(row: SsrteCommunityProfile) -> dict:
         "interview_date": row.interview_date,
         "respondent_name": row.respondent_name,
         "respondent_role": row.respondent_role,
+        "supplier": row.supplier,
+        "sub_prefecture": row.sub_prefecture,
+        "collection_agent_code": row.collection_agent_code,
+        "collection_agent_name": row.collection_agent_name,
+        "gps_start": row.gps_start,
+        "time_start": row.time_start,
+        "gps_end": row.gps_end,
+        "time_end": row.time_end,
+        "section_notes": row.section_notes or {},
         "school_available": bool(row.school_available),
         "nearest_school_distance_km": float(row.nearest_school_distance_km) if row.nearest_school_distance_km is not None else None,
         "has_child_protection_committee": bool(row.has_child_protection_committee),

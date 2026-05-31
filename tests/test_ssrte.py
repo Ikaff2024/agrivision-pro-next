@@ -253,6 +253,46 @@ def test_ssrte_fichea_schools_table_persists(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def test_ssrte_fichea_full_questionnaire_coverage(client):
+    """La Fiche A capture l'identification admin, GPS/heures, details indicateurs et remarques."""
+    created = client.post("/ssrte/communities", json={
+        "locality": "Yeyasso",
+        "section": "Man",
+        "supplier": "Fournisseur X",
+        "sub_prefecture": "Sous-pref Y",
+        "collection_agent_code": "AG-007",
+        "collection_agent_name": "Agent Kone",
+        "gps_start": "7.41, -7.55",
+        "time_start": "08:30",
+        "gps_end": "7.41, -7.55",
+        "time_end": "10:15",
+        "school_available": True,
+        "services_available": {
+            "electricity": True, "electricity_origin": ["raccordement solaire"],
+            "water_point": True, "water_distance": "100 à 500 mètres",
+            "child_labor_orgs": True, "org_state": "Comite local", "org_ngo": "ONG Z",
+            "secondary_classes_count": "0", "secondary_school_distance_km": 4.5,
+        },
+        "schools": [{
+            "name": "EPP Yeyasso", "type": "Formelle", "built_by": "ICI",
+            "classrooms": 6, "teachers_titulaires": 4, "teachers_benevoles": 1,
+            "students_boys": 80, "students_girls": 70,
+            "canteen": True, "canteen_service_per_week": "2-3", "canteen_cost": "Gratuit",
+            "latrines": True, "latrines_separated": True, "gps": "7.4,-7.5",
+        }],
+        "section_notes": {"identification": "RAS", "services": "Eau a surveiller"},
+    }).json()
+    assert created["collection_agent_name"] == "Agent Kone"
+    assert created["time_start"] == "08:30"
+    assert created["services_available"]["water_distance"] == "100 à 500 mètres"
+    assert created["schools"][0]["teachers_titulaires"] == 4
+    assert created["section_notes"]["services"] == "Eau a surveiller"
+
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
 def test_ssrte_ficheb_farm_info_persists(client):
     """Les informations exploitation (B.16-B.23) sont stockees, relues et exportees."""
     producer_id, _ = _seed_producer_and_plantation()

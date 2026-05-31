@@ -87,10 +87,36 @@
               <div class="form-group"><label class="form-label">Role</label><input class="form-input" id="respondent-role"></div>
             </div>
             <div class="mini-row">
-              <label class="check-row"><input type="checkbox" id="school-available"> Ecole disponible</label>
+              <div class="form-group"><label class="form-label">Fournisseur (A.02)</label><input class="form-input" id="supplier"></div>
+              <div class="form-group"><label class="form-label">Sous-prefecture (A.03)</label><input class="form-input" id="sub-prefecture"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Code agent collecte (A.05)</label><input class="form-input" id="agent-code"></div>
+              <div class="form-group"><label class="form-label">Nom agent collecte (A.06)</label><input class="form-input" id="agent-name"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group">
+                <label class="form-label">GPS localite - debut (A.07a)</label>
+                <div style="display:flex;gap:8px"><input class="form-input" id="community-gps-start"><button class="btn btn-outline btn-icon" type="button" onclick="grabGPSInto('community-gps-start')" title="Capturer GPS"><span class="material-symbols-outlined" style="font-size:18px">my_location</span></button></div>
+              </div>
+              <div class="form-group"><label class="form-label">Heure debut (A.07b)</label><input class="form-input" type="time" id="community-time-start"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group">
+                <label class="form-label">GPS localite - fin (A.07c)</label>
+                <div style="display:flex;gap:8px"><input class="form-input" id="community-gps-end"><button class="btn btn-outline btn-icon" type="button" onclick="grabGPSInto('community-gps-end')" title="Capturer GPS"><span class="material-symbols-outlined" style="font-size:18px">my_location</span></button></div>
+              </div>
+              <div class="form-group"><label class="form-label">Heure fin (A.07c)</label><input class="form-input" type="time" id="community-time-end"></div>
+            </div>
+            <div class="mini-row">
+              <label class="check-row"><input type="checkbox" id="school-available"> Ecole primaire (A.20a)</label>
               <label class="check-row"><input type="checkbox" id="committee"> Comite protection enfant</label>
             </div>
-            <div class="form-group"><label class="form-label">Distance ecole la plus proche (km)</label><input class="form-input" type="number" min="0" step="0.1" id="school-distance"></div>
+            <div class="form-group"><label class="form-label">Distance ecole primaire la plus proche (km, A.20b)</label><input class="form-input" type="number" min="0" step="0.1" id="school-distance"></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Classes secondaires (A.21a)</label><select class="form-input" id="secondary-classes" onchange="toggleFicheA()"><option value="">—</option><option value="0">0</option><option value="plus">plus</option></select></div>
+              <div class="form-group" id="wrap-secondary-dist" style="display:none"><label class="form-label">Distance ecole secondaire (km, A.21b)</label><input class="form-input" type="number" min="0" step="0.1" id="secondary-distance"></div>
+            </div>
 
             <div class="mini-row">
               <div class="form-group"><label class="form-label">Population totale</label><input class="form-input" type="number" min="0" id="population"></div>
@@ -99,21 +125,34 @@
             <div class="form-group">
               <label class="form-label">Acces aux services</label>
               <div class="check-list">
-                <label class="check-row"><input type="checkbox" class="svc" value="road_access"> Route praticable toute l'annee</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="electricity"> Electricite</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="water_point"> Point d'eau potable</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="mobile_network"> Reseau mobile</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="internet"> Internet mobile</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="health_structure"> Structure sanitaire</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="daily_labor"> Offre de travail journalier</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="agri_inputs"> Offre d'intrants agricoles</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="child_labor_orgs"> Organisations anti-travail des enfants</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="kindergarten"> Jardin d'enfants</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="primary_school"> Ecole primaire</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="secondary_school"> Ecole secondaire</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="school_canteen"> Cantine scolaire</label>
-                <label class="check-row"><input type="checkbox" class="svc" value="latrines"> Latrines (ecole)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="road_access"> Route praticable toute l'annee (A.11)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="electricity" onchange="toggleFicheA()"> Electricite (A.12a)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="water_point" onchange="toggleFicheA()"> Point d'eau potable (A.13a)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="mobile_network"> Reseau mobile (A.14)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="internet"> Internet mobile (A.15)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="health_structure"> Structure sanitaire (A.30)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="daily_labor"> Offre de travail journalier (A.16)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="agri_inputs"> Offre d'intrants agricoles (A.17)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="child_labor_orgs" onchange="toggleFicheA()"> Organisations anti-travail des enfants (A.18a)</label>
+                <label class="check-row"><input type="checkbox" class="svc" value="kindergarten"> Jardin d'enfants (A.19)</label>
               </div>
+            </div>
+            <div class="form-group" id="wrap-elec-origin" style="display:none">
+              <label class="form-label">Origine de l'electricite (A.12b)</label>
+              <div class="mini-row">
+                <label class="check-row"><input type="checkbox" class="elec-origin" value="reseau electrique national"> Reseau national</label>
+                <label class="check-row"><input type="checkbox" class="elec-origin" value="raccordement solaire"> Solaire</label>
+              </div>
+            </div>
+            <div class="form-group" id="wrap-water-dist" style="display:none">
+              <label class="form-label">Distance du point d'eau (A.13b)</label>
+              <select class="form-input" id="water-distance"><option value="">—</option><option>0 à 100 mètres</option><option>100 à 500 mètres</option><option>Plus de 500 mètres</option></select>
+            </div>
+            <div class="form-group" id="wrap-orgs" style="display:none">
+              <label class="form-label">Organisations de lutte contre les PFTE (A.18b/c/d)</label>
+              <input class="form-input" id="org-state" placeholder="Structure d'Etat (A.18b)" style="margin-bottom:6px">
+              <input class="form-input" id="org-ngo" placeholder="ONG (A.18c)" style="margin-bottom:6px">
+              <input class="form-input" id="org-other" placeholder="Autres (A.18d)">
             </div>
             <div class="form-group"><label class="form-label">Membres du comite protection enfant</label><input class="form-input" id="committee-members" placeholder="Nom (role), Nom (role)..."></div>
 
@@ -127,7 +166,10 @@
             </div>
 
             <div class="form-group"><label class="form-label">Risques identifies</label><input class="form-input" id="community-risks" placeholder="Descolarisation, migration, travaux dangereux..."></div>
-            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Identification</label><textarea class="form-input" id="note-identification" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Services</label><textarea class="form-input" id="note-services" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Education</label><textarea class="form-input" id="note-education" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Notes generales</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
             <button class="btn btn-primary" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
           </div>
 
@@ -361,7 +403,10 @@ function memberWorkDeclarations() {
 }
 
 /* ── Tableau des ecoles (Fiche A, A.22-A.29) ─────────────────────── */
-const SCHOOL_TYPES = ['Publique', 'Privee confessionnelle', 'Privee laique', 'Communautaire', 'Coranique', 'Autre'];
+const SCHOOL_TYPES = ['Formelle', 'Non Formelle'];          // A.23
+const SCHOOL_BUILT = ['ICI', 'Autre'];                       // A.24
+const CANTEEN_SERVICE = ['1', '2-3', 'Plus de 3'];           // A.28b
+const CANTEEN_COST = ['Gratuit', 'Moins de 25fr', '25fr ou plus']; // A.28c
 
 function addSchool(v = {}) {
   const wrap = document.getElementById('schools-rows');
@@ -370,32 +415,35 @@ function addSchool(v = {}) {
   div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
   div.innerHTML =
     `<div class="mini-row">
-       <div class="form-group"><label class="form-label">Nom de l'ecole</label><input class="form-input s-name" value="${v.name||''}"></div>
-       <div class="form-group"><label class="form-label">Type</label><select class="form-input s-type">${_opts(SCHOOL_TYPES, v.type)}</select></div>
+       <div class="form-group"><label class="form-label">Nom de l'ecole (A.22)</label><input class="form-input s-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Type (A.23)</label><select class="form-input s-type"><option value="">—</option>${_opts(SCHOOL_TYPES, v.type)}</select></div>
      </div>
      <div class="mini-row">
-       <div class="form-group"><label class="form-label">Construite par</label><input class="form-input s-built" value="${v.built_by||''}"></div>
-       <div class="form-group"><label class="form-label">Salles de classe</label><input class="form-input s-class" type="number" min="0" value="${v.classrooms!=null?v.classrooms:''}"></div>
+       <div class="form-group"><label class="form-label">Construite par (A.24)</label><select class="form-input s-built"><option value="">—</option>${_opts(SCHOOL_BUILT, v.built_by)}</select></div>
+       <div class="form-group"><label class="form-label">Salles de classe (A.25)</label><input class="form-input s-class" type="number" min="0" value="${v.classrooms!=null?v.classrooms:''}"></div>
      </div>
      <div class="mini-row">
-       <div class="form-group"><label class="form-label">Enseignants (total)</label><input class="form-input s-teach" type="number" min="0" value="${v.teachers_total!=null?v.teachers_total:''}"></div>
-       <div class="form-group"><label class="form-label">dont titulaires</label><input class="form-input s-teach-cert" type="number" min="0" value="${v.teachers_certified!=null?v.teachers_certified:''}"></div>
+       <div class="form-group"><label class="form-label">Enseignants titulaires (A.26a)</label><input class="form-input s-tit" type="number" min="0" value="${v.teachers_titulaires!=null?v.teachers_titulaires:''}"></div>
+       <div class="form-group"><label class="form-label">Enseignants benevoles (A.26b)</label><input class="form-input s-ben" type="number" min="0" value="${v.teachers_benevoles!=null?v.teachers_benevoles:''}"></div>
      </div>
      <div class="mini-row">
-       <div class="form-group"><label class="form-label">Eleves garcons</label><input class="form-input s-boys" type="number" min="0" value="${v.students_boys!=null?v.students_boys:''}"></div>
-       <div class="form-group"><label class="form-label">Eleves filles</label><input class="form-input s-girls" type="number" min="0" value="${v.students_girls!=null?v.students_girls:''}"></div>
+       <div class="form-group"><label class="form-label">Eleves inscrits H (A.27a)</label><input class="form-input s-boys" type="number" min="0" value="${v.students_boys!=null?v.students_boys:''}"></div>
+       <div class="form-group"><label class="form-label">Eleves inscrits F (A.27b)</label><input class="form-input s-girls" type="number" min="0" value="${v.students_girls!=null?v.students_girls:''}"></div>
      </div>
      <div class="mini-row">
-       <label class="check-row"><input type="checkbox" class="s-canteen" ${v.canteen?'checked':''}> Cantine</label>
-       <div class="form-group"><label class="form-label">Repas/semaine</label><input class="form-input s-meals" type="number" min="0" value="${v.canteen_meals_per_week!=null?v.canteen_meals_per_week:''}"></div>
-       <div class="form-group"><label class="form-label">Cout/ration (FCFA)</label><input class="form-input s-ration" type="number" min="0" value="${v.canteen_cost_per_ration!=null?v.canteen_cost_per_ration:''}"></div>
+       <label class="check-row"><input type="checkbox" class="s-canteen" ${v.canteen?'checked':''}> Cantine (A.28a)</label>
+       <div class="form-group"><label class="form-label">Service/sem (A.28b)</label><select class="form-input s-service"><option value="">—</option>${_opts(CANTEEN_SERVICE, v.canteen_service_per_week)}</select></div>
+       <div class="form-group"><label class="form-label">Cout/ration (A.28c)</label><select class="form-input s-cost"><option value="">—</option>${_opts(CANTEEN_COST, v.canteen_cost)}</select></div>
      </div>
      <div class="mini-row">
-       <label class="check-row"><input type="checkbox" class="s-latrines" ${v.latrines?'checked':''}> Latrines</label>
-       <label class="check-row"><input type="checkbox" class="s-latrines-sep" ${v.latrines_separated?'checked':''}> Bloc H/F separe</label>
+       <label class="check-row"><input type="checkbox" class="s-latrines" ${v.latrines?'checked':''}> Latrines (A.29a)</label>
+       <label class="check-row"><input type="checkbox" class="s-latrines-sep" ${v.latrines_separated?'checked':''}> Bloc H/F separe (A.29b)</label>
      </div>
      <div class="mini-row">
-       <div class="form-group"><label class="form-label">GPS de l'ecole</label><input class="form-input s-gps" value="${v.gps||''}"></div>
+       <div class="form-group">
+         <label class="form-label">GPS de l'ecole (A.22b)</label>
+         <div style="display:flex;gap:8px"><input class="form-input s-gps" value="${v.gps||''}"><button type="button" class="btn btn-outline btn-icon" onclick="grabGPSInto(this.previousElementSibling)" title="GPS"><span class="material-symbols-outlined" style="font-size:18px">my_location</span></button></div>
+       </div>
        <div style="display:flex;align-items:flex-end;justify-content:flex-end">
          <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.school-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
        </div>
@@ -408,16 +456,16 @@ function schoolRows() {
     const n = (sel) => { const v = c.querySelector(sel).value; return v === '' ? null : Number(v); };
     return {
       name: c.querySelector('.s-name').value.trim(),
-      type: c.querySelector('.s-type').value,
-      built_by: c.querySelector('.s-built').value.trim() || null,
+      type: c.querySelector('.s-type').value || null,
+      built_by: c.querySelector('.s-built').value || null,
       classrooms: n('.s-class'),
-      teachers_total: n('.s-teach'),
-      teachers_certified: n('.s-teach-cert'),
+      teachers_titulaires: n('.s-tit'),
+      teachers_benevoles: n('.s-ben'),
       students_boys: n('.s-boys'),
       students_girls: n('.s-girls'),
       canteen: c.querySelector('.s-canteen').checked,
-      canteen_meals_per_week: n('.s-meals'),
-      canteen_cost_per_ration: n('.s-ration'),
+      canteen_service_per_week: c.querySelector('.s-service').value || null,
+      canteen_cost: c.querySelector('.s-cost').value || null,
       latrines: c.querySelector('.s-latrines').checked,
       latrines_separated: c.querySelector('.s-latrines-sep').checked,
       gps: c.querySelector('.s-gps').value.trim() || null,
@@ -610,9 +658,27 @@ function downloadFicheA(id) {
   window.open(`${API}/ssrte/communities/${id}/fichea.pdf`, '_blank');
 }
 
+// Affiche/masque les champs conditionnels de la Fiche A selon les reponses.
+function toggleFicheA() {
+  const isOn = (v) => { const el = document.querySelector(`.svc[value="${v}"]`); return el && el.checked; };
+  const show = (id, cond) => { const el = document.getElementById(id); if (el) el.style.display = cond ? '' : 'none'; };
+  show('wrap-elec-origin', isOn('electricity'));
+  show('wrap-water-dist', isOn('water_point'));
+  show('wrap-orgs', isOn('child_labor_orgs'));
+  show('wrap-secondary-dist', document.getElementById('secondary-classes').value === '0');
+}
+
 function communityServices() {
   const svc = { population: num('population') || null, locality_type: val('locality-type') || null };
   document.querySelectorAll('.svc').forEach(el => { svc[el.value] = el.checked; });
+  // Details par indicateur (A.12b / A.13b / A.18b-d / A.21a-b)
+  svc.electricity_origin = [...document.querySelectorAll('.elec-origin:checked')].map(x => x.value);
+  svc.water_distance = val('water-distance') || null;
+  svc.secondary_classes_count = val('secondary-classes') || null;
+  svc.secondary_school_distance_km = num('secondary-distance');
+  svc.org_state = val('org-state') || null;
+  svc.org_ngo = val('org-ngo') || null;
+  svc.org_other = val('org-other') || null;
   return svc;
 }
 
@@ -623,6 +689,14 @@ async function saveCommunity() {
     interview_date: val('community-date') || today(),
     respondent_name: val('respondent-name') || null,
     respondent_role: val('respondent-role') || null,
+    supplier: val('supplier') || null,
+    sub_prefecture: val('sub-prefecture') || null,
+    collection_agent_code: val('agent-code') || null,
+    collection_agent_name: val('agent-name') || null,
+    gps_start: val('community-gps-start') || null,
+    time_start: val('community-time-start') || null,
+    gps_end: val('community-gps-end') || null,
+    time_end: val('community-time-end') || null,
     school_available: document.getElementById('school-available').checked,
     nearest_school_distance_km: num('school-distance'),
     has_child_protection_committee: document.getElementById('committee').checked,
@@ -630,6 +704,11 @@ async function saveCommunity() {
     schools: schoolRows(),
     risks_identified: csv('community-risks'),
     services_available: communityServices(),
+    section_notes: {
+      identification: val('note-identification') || null,
+      services: val('note-services') || null,
+      education: val('note-education') || null,
+    },
     notes: val('community-notes') || null
   };
   if (!body.locality) return alert('Localite obligatoire.');
@@ -758,13 +837,16 @@ async function saveVisit() {
   alert('Fiche C enregistree.');
 }
 
-function grabGPS() {
+function grabGPSInto(target) {
+  const el = typeof target === 'string' ? document.getElementById(target) : target;
+  if (!el) return;
   if (!navigator.geolocation) return alert('GPS indisponible sur cet appareil.');
   navigator.geolocation.getCurrentPosition(pos => {
     gpsAccuracy = pos.coords.accuracy;
-    document.getElementById('visit-gps').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+    el.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
   }, () => alert('Capture GPS impossible.'));
 }
+function grabGPS() { grabGPSInto('visit-gps'); }
 
 ['community-date','household-date','visit-date'].forEach(id => document.getElementById(id).value = today());
 window.addEventListener('avp-queue-changed', updateOfflineQueueStatus);
