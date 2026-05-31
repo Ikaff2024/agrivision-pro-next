@@ -11,6 +11,12 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > champs des questionnaires** Fiches A/B/C sont capturés (admin, GPS/heures, listes de choix,
 > blocs répétables écoles/membres/travailleurs/enfants hors ménage V01-V10, remarques par section,
 > affichage conditionnel). Modèle + API + PDF + UI mobile. Reste à confirmer au feedback client.
+> ✅ **Mot de passe oublié (SMTP)** : `/auth/forgot-password` + `/auth/reset-password` + pages front
+> (lien valable 1 h, usage unique, anti-énumération, fallback admin lockout). Activer en branchant les
+> variables `SMTP_*` sur Railway (cf. backlog #4).
+> ✅ **Tableau de bord direction** (proposition d'amélioration #5) : `GET /dashboard/direction` +
+> `direction.html` — vue exécutive read-only, scopée coopérative (EUDR, enfants, revenu vital,
+> volumes/certif, alertes). Voir `docs/ROADMAP_EVOLUTION.md` pour la suite (lots, achats, certif, satellite).
 
 ---
 

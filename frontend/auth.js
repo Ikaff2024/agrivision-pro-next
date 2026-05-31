@@ -522,6 +522,7 @@ function renderSidebar(activePage) {
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
   const links = [
     { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard' },
+    { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction' },
     { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations' },
     { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
     { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },

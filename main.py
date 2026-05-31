@@ -15,6 +15,7 @@ from app.api.cacaoguard_ops_routes import router as cacaoguard_ops_router
 from app.api.complaint_routes import router as complaint_router
 from app.api.eudr_routes import router as eudr_router
 from app.api.farmforce_routes import router as farmforce_router
+from app.api.dashboard_routes import router as dashboard_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
@@ -303,3 +304,4 @@ app.include_router(notification_router)
 app.include_router(sync_router)
 app.include_router(eudr_router)
 app.include_router(ssrte_router)
+app.include_router(dashboard_router)

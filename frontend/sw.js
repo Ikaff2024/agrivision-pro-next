@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.5-version-badge';
+const CACHE_VERSION = 'avp-v4.6-direction-dashboard';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -29,6 +29,8 @@ const STATIC_ASSETS = [
   '/',
   '/cacaoguard.html',
   '/children.html',
+  '/direction.html',
+  '/reset_password.html',
   '/compliance.html',
   '/complaints.html',
   '/eudr.html',

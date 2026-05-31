@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Tableau de bord direction</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="auth.js?v=dir1"></script>
+  <style>
+    .grp{margin-bottom:22px}
+    .grp-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+    .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:16px 18px}
+    .card .v{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1;color:var(--text)}
+    .card .l{display:block;color:var(--muted);font-size:11.5px;text-transform:uppercase;font-weight:800;margin-top:8px;letter-spacing:.4px}
+    .card .s{display:block;color:var(--muted);font-size:12px;margin-top:5px}
+    .bar-bg{height:7px;background:var(--border-l,#eee);border-radius:99px;overflow:hidden;margin-top:10px}
+    .bar-fill{height:100%;border-radius:99px}
+    .pill{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;margin-top:8px}
+    .empty{color:var(--muted);text-align:center;padding:40px}
+    @media(max-width:1100px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){.cards{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Tableau de bord direction</div>
+        <div class="page-sub">Vue consolidée : conformité, durabilité et performance de la coopérative</div>
+      </div>
+      <button class="btn btn-outline" onclick="loadDirection()">
+        <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser
+      </button>
+    </div>
+
+    <div class="avp-content">
+      <div id="forbidden" style="display:none" class="empty">
+        Le tableau de bord direction est réservé aux rôles <strong>Administrateur</strong> et <strong>Agronome</strong>.
+      </div>
+      <div id="board">
+        <div class="grp">
+          <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">groups</span> Périmètre</div>
+          <div class="cards">
+            <div class="card"><div class="v" id="p-producers">—</div><span class="l">Producteurs actifs</span></div>
+            <div class="card"><div class="v" id="p-plantations">—</div><span class="l">Plantations</span></div>
+            <div class="card"><div class="v" id="p-hectares">—</div><span class="l">Superficie (ha)</span></div>
+            <div class="card"><div class="v" id="p-alerts">—</div><span class="l">Alertes ouvertes</span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">eco</span> Conformité EUDR</div>
+          <div class="cards">
+            <div class="card">
+              <div class="v" id="e-rate">—</div><span class="l">Taux de conformité</span>
+              <div class="bar-bg"><div class="bar-fill" id="e-bar" style="width:0%"></div></div>
+            </div>
+            <div class="card"><div class="v" id="e-conforme" style="color:#1a6b3a">—</div><span class="l">Conformes</span></div>
+            <div class="card"><div class="v" id="e-verif" style="color:#9a6200">—</div><span class="l">À vérifier</span></div>
+            <div class="card"><div class="v" id="e-non" style="color:#922b21">—</div><span class="l">Non conformes</span><span class="s" id="e-poly"></span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">diversity_3</span> Protection de l'enfant</div>
+          <div class="cards">
+            <div class="card"><div class="v" id="c-total">—</div><span class="l">Enfants suivis</span></div>
+            <div class="card"><div class="v" id="c-risk" style="color:#922b21">—</div><span class="l">Risque élevé/critique</span></div>
+            <div class="card"><div class="v" id="c-school">—</div><span class="l">Taux de scolarisation</span></div>
+            <div class="card"><div class="v" id="c-block" style="color:#922b21">—</div><span class="l">Blocages traçabilité</span><span class="s" id="c-susp"></span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">payments</span> Revenu vital (FarmForce)</div>
+          <div class="cards">
+            <div class="card">
+              <div class="v" id="li-rate">—</div><span class="l">Ménages au seuil vital</span>
+              <div class="bar-bg"><div class="bar-fill" id="li-bar" style="width:0%"></div></div>
+            </div>
+            <div class="card"><div class="v" id="li-count">—</div><span class="l">Évaluations</span></div>
+            <div class="card"><div class="v" id="li-reached" style="color:#1a6b3a">—</div><span class="l">Au seuil atteint</span></div>
+            <div class="card"><div class="v" id="li-avg" style="font-size:20px">—</div><span class="l">Revenu net moyen (FCFA)</span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">inventory_2</span> Volumes & certification</div>
+          <div class="cards">
+            <div class="card"><div class="v" id="v-total" style="font-size:22px">—</div><span class="l">Volume total (kg)</span></div>
+            <div class="card"><div class="v" id="v-cert" style="font-size:22px;color:#1a6b3a">—</div><span class="l">Volume certifié (kg)</span></div>
+            <div class="card">
+              <div class="v" id="v-rate">—</div><span class="l">Taux certifié</span>
+              <div class="bar-bg"><div class="bar-fill" id="v-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="color:var(--muted);font-size:12px" id="gen-at"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('direction');
+
+function fmt(n) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('fr-FR');
+}
+function pctColor(p) { return p >= 80 ? '#1a6b3a' : p >= 50 ? '#9a6200' : '#922b21'; }
+function setBar(id, pct) {
+  const el = document.getElementById(id);
+  el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  el.style.background = pctColor(pct);
+}
+
+async function loadDirection() {
+  let res;
+  try { res = await authFetch('/dashboard/direction'); } catch { return; }
+  if (res && res.status === 403) {
+    document.getElementById('board').style.display = 'none';
+    document.getElementById('forbidden').style.display = 'block';
+    return;
+  }
+  if (!res || !res.ok) return;
+  const d = await res.json();
+
+  document.getElementById('p-producers').textContent = fmt(d.perimeter.producers_active);
+  document.getElementById('p-plantations').textContent = fmt(d.perimeter.plantations);
+  document.getElementById('p-hectares').textContent = fmt(d.perimeter.total_hectares);
+  document.getElementById('p-alerts').textContent = fmt(d.alerts.open);
+
+  const e = d.eudr;
+  document.getElementById('e-rate').textContent = e.compliance_rate_pct + '%';
+  document.getElementById('e-rate').style.color = pctColor(e.compliance_rate_pct);
+  setBar('e-bar', e.compliance_rate_pct);
+  document.getElementById('e-conforme').textContent = fmt(e.conforme);
+  document.getElementById('e-verif').textContent = fmt(e.a_verifier);
+  document.getElementById('e-non').textContent = fmt(e.non_conforme);
+  document.getElementById('e-poly').textContent = `${fmt(e.with_polygon)} avec polygone · score moy. ${e.average_score_pct}%`;
+
+  const c = d.child_protection;
+  document.getElementById('c-total').textContent = fmt(c.children_total);
+  document.getElementById('c-risk').textContent = fmt(c.high_risk_children);
+  document.getElementById('c-school').textContent = c.school_enrollment_rate_pct + '%';
+  document.getElementById('c-block').textContent = fmt(c.active_traceability_blocks);
+  document.getElementById('c-susp').textContent = `${fmt(c.suspected_child_labor_visits)} visite(s) avec suspicion`;
+
+  const li = d.living_income;
+  document.getElementById('li-rate').textContent = li.reached_rate_pct + '%';
+  document.getElementById('li-rate').style.color = pctColor(li.reached_rate_pct);
+  setBar('li-bar', li.reached_rate_pct);
+  document.getElementById('li-count').textContent = fmt(li.assessments);
+  document.getElementById('li-reached').textContent = fmt(li.reached);
+  document.getElementById('li-avg').textContent = fmt(li.average_net_income_cfa);
+
+  const v = d.volume;
+  document.getElementById('v-total').textContent = fmt(v.total_kg);
+  document.getElementById('v-cert').textContent = fmt(v.certified_kg);
+  document.getElementById('v-rate').textContent = v.certified_rate_pct + '%';
+  document.getElementById('v-rate').style.color = pctColor(v.certified_rate_pct);
+  setBar('v-bar', v.certified_rate_pct);
+
+  const dt = new Date(d.generated_at);
+  document.getElementById('gen-at').textContent = 'Généré le ' + (isNaN(dt) ? d.generated_at : dt.toLocaleString('fr-FR'))
+    + (d.scope === 'global' ? ' · périmètre global' : '');
+}
+
+loadDirection();
+</script>
+</body>
+</html>
