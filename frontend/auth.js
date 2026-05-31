@@ -540,7 +540,6 @@ function renderSidebar(activePage) {
     { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations' },
     { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
     { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },
-    { id: 'analytics', href: 'analytics.html', icon: 'bar_chart_4_bars', label: 'Analytique' },
     { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
     { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie' },
     { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },
