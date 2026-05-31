@@ -57,10 +57,13 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
    sont définis (l'intégration CDSE NDVI ponctuelle existait déjà). Endpoints
    `/satellite/indices|timeseries|deforestation|status` + `/satellite/plantations/{id}/advanced`
    (cloisonné coop). UI : carte « Analyse avancée » dans `satellite.html` (NDMI, sparklines
-   NDVI/NDMI, statut déforestation). **Reste à faire le jour des clés** : brancher l'evalscript
-   NDMI réel + l'agrégation mensuelle P1M (signatures inchangées) et l'API Global Forest Watch
-   (`GFW_API_KEY`). On a délibérément **écarté Google Earth Engine** (licence commerciale payante)
-   au profit de Copernicus Data Space + GFW (gratuits).
+   NDVI/NDMI, statut déforestation). On a délibérément **écarté Google Earth Engine** (licence
+   commerciale payante) au profit de Copernicus Data Space + GFW (gratuits).
+   ✅ **Terminé et vérifié en live (2026-05-31)** : NDVI, NDMI et séries mensuelles réels via
+   Copernicus (`SENTINEL_CLIENT_ID/SECRET`) ; **alertes de déforestation réelles** via Global
+   Forest Watch (`GFW_API_KEY`, dataset `gfw_integrated_alerts`, post-2020 = seuil EUDR).
+   ⚠️ Piège résolu : la GFW Data API exige l'en-tête `x-api-key` **en minuscules** (urllib le
+   capitalise → 403) ; les appels GFW passent donc par `http.client`. Coût total : **0 €**.
 
 ---
 

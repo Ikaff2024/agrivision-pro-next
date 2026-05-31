@@ -21,6 +21,9 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > temporelles, déforestation) + endpoints `/satellite/*` + UI avancée. Fallback simulation sans clé,
 > bascule auto sur **Copernicus Data Space** (gratuit) via `SENTINEL_CLIENT_ID/SECRET` et
 > **Global Forest Watch** via `GFW_API_KEY`. GEE écarté (licence commerciale payante).
+> ✅ **Activé et vérifié en live (2026-05-31)** : clés Copernicus + GFW posées sur Railway,
+> NDVI/NDMI/séries + alertes déforestation réelles fonctionnelles. Piège : en-tête GFW
+> `x-api-key` sensible à la casse (→ `http.client`, pas urllib). Coût : 0 €.
 
 ---
 
