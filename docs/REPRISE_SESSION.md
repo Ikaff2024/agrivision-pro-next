@@ -24,6 +24,10 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > ✅ **Activé et vérifié en live (2026-05-31)** : clés Copernicus + GFW posées sur Railway,
 > NDVI/NDMI/séries + alertes déforestation réelles fonctionnelles. Piège : en-tête GFW
 > `x-api-key` sensible à la casse (→ `http.client`, pas urllib). Coût : 0 €.
+> ✅ **Traçabilité des lots (#1)** : modèles Warehouse/Lot/LotMovement + `Harvest.lot_id`,
+> endpoints `/warehouses` `/lots` `/lots/merge` `/lots/{id}/passport` `/lots/{id}/movements`,
+> page `lots.html`. Code lot auto, mouvements, fusion, passeport (compo + EUDR + blocages),
+> **refus CacaoGuard** si producteur bloqué. Cloisonné coop. 7 tests.
 
 ---
 

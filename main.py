@@ -17,6 +17,7 @@ from app.api.eudr_routes import router as eudr_router
 from app.api.farmforce_routes import router as farmforce_router
 from app.api.dashboard_routes import router as dashboard_router
 from app.api.satellite_routes import router as satellite_router
+from app.api.lot_routes import router as lot_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
@@ -224,6 +225,14 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migration SSRTE Fiche C : OK (admin, comptages, enfants hors menage, section_notes)")
+
+                # Tracabilite des lots (#1) : lien recolte -> lot
+                # (les tables warehouses/lots/lot_movements sont creees par create_all)
+                conn.execute(text(
+                    "ALTER TABLE harvests ADD COLUMN IF NOT EXISTS lot_id INTEGER REFERENCES lots(id)"
+                ))
+                conn.commit()
+                logger.info("Migration Tracabilite lots : OK (harvests.lot_id)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
@@ -307,3 +316,4 @@ app.include_router(eudr_router)
 app.include_router(ssrte_router)
 app.include_router(dashboard_router)
 app.include_router(satellite_router)
+app.include_router(lot_router)

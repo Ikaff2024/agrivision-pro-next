@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Traçabilité des lots</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="auth.js?v=lots1"></script>
+  <style>
+    .lots-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:22px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .lot-item{border:1px solid var(--border-l);border-radius:8px;background:#fff;padding:12px;margin-bottom:10px;cursor:pointer}
+    .lot-item:hover{border-color:var(--accent)}
+    .lot-code{font-weight:800;font-size:14px}
+    .lot-meta{font-size:12.5px;color:var(--muted);margin-top:3px}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px}
+    .b-open{background:#eef6ff;color:#1d4ed8}.b-sealed{background:#fef9e7;color:#9a6200}
+    .b-shipped{background:#eafaf1;color:#1e6b43}.b-merged{background:#f3f4f6;color:#6b7280}.b-blocked{background:#fdedec;color:#922b21}
+    table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+    th{background:var(--surface-warm);text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:var(--muted)}
+    td{padding:6px 8px;border-bottom:1px solid var(--border-l)}
+    .timeline{list-style:none;padding:0;margin:8px 0 0}
+    .timeline li{padding:6px 0 6px 16px;border-left:2px solid var(--border);position:relative;font-size:12.5px}
+    .timeline li::before{content:'';position:absolute;left:-5px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+    .hidden{display:none}
+    @media(max-width:1000px){.lots-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Traçabilité des lots</div>
+        <div class="page-sub">Lots, entrepôts, mouvements et passeport de traçabilité</div>
+      </div>
+      <button class="btn btn-outline" onclick="loadAll()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpis">
+        <div class="kpi"><strong id="k-lots">0</strong><span>Lots</span></div>
+        <div class="kpi"><strong id="k-weight">0</strong><span>Poids total (kg)</span></div>
+        <div class="kpi"><strong id="k-shipped">0</strong><span>Expédiés</span></div>
+        <div class="kpi"><strong id="k-wh">0</strong><span>Entrepôts</span></div>
+      </div>
+
+      <div class="lots-grid">
+        <div class="panel">
+          <div class="section-title">Nouveau lot</div>
+          <div class="form-group"><label class="form-label">Campagne / saison</label><input class="form-input" id="l-season" placeholder="2025-2026"></div>
+          <div class="form-group"><label class="form-label">Entrepôt</label><select class="form-input" id="l-warehouse"><option value="">—</option></select></div>
+          <div class="form-group">
+            <label class="form-label">Récoltes à inclure</label>
+            <select class="form-input" id="l-plantation" onchange="loadPlantationHarvests()"><option value="">Choisir une plantation…</option></select>
+            <div id="harvest-picker" style="margin-top:8px;max-height:180px;overflow:auto"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="l-notes" rows="2"></textarea></div>
+          <button class="btn btn-primary" onclick="createLot()" style="width:100%;justify-content:center">Créer le lot</button>
+
+          <div class="section-title" style="margin-top:20px">Nouvel entrepôt</div>
+          <div class="mini-row" style="display:flex;gap:8px">
+            <input class="form-input" id="w-name" placeholder="Nom">
+            <input class="form-input" id="w-loc" placeholder="Lieu" style="max-width:120px">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="createWarehouse()" style="margin-top:8px">+ Entrepôt</button>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">Lots</div>
+          <div id="lots-list"><div class="empty-state" style="padding:24px">Chargement…</div></div>
+        </div>
+      </div>
+
+      <!-- Détail / passeport -->
+      <div class="panel hidden" id="detail" style="margin-top:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="section-title" id="d-code" style="margin:0">Lot</div>
+          <div>
+            <span id="d-badge" class="badge"></span>
+            <button class="btn btn-outline btn-sm" onclick="closeDetail()" style="margin-left:8px">Fermer</button>
+          </div>
+        </div>
+        <div class="kpis" style="margin-top:12px">
+          <div class="kpi"><strong id="d-weight">—</strong><span>Poids (kg)</span></div>
+          <div class="kpi"><strong id="d-bags">—</strong><span>Sacs</span></div>
+          <div class="kpi"><strong id="d-prod">—</strong><span>Producteurs</span></div>
+          <div class="kpi"><strong id="d-eudr">—</strong><span>Conformité EUDR</span></div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px">
+          <select class="form-input" id="mv-warehouse" style="max-width:160px"><option value="">Entrepôt…</option></select>
+          <button class="btn btn-outline btn-sm" onclick="doMovement('warehouse_in')">Entrée magasin</button>
+          <button class="btn btn-outline btn-sm" onclick="doMovement('seal')">Sceller</button>
+          <button class="btn btn-outline btn-sm" onclick="doMovement('export_out')">Expédier</button>
+          <button class="btn btn-outline btn-sm" onclick="printPassport()"><span class="material-symbols-outlined" style="font-size:15px">qr_code_2</span> Passeport</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <div>
+            <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase">Composition</div>
+            <table><thead><tr><th>Producteur</th><th>Parcelle</th><th>kg</th><th>EUDR</th></tr></thead><tbody id="d-composition"></tbody></table>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase">Mouvements</div>
+            <ul class="timeline" id="d-movements"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('lots');
+let _warehouses = [];
+let _currentLot = null;
+
+function badgeClass(s){ return {open:'b-open',sealed:'b-sealed',shipped:'b-shipped',merged:'b-merged',blocked:'b-blocked'}[s]||'b-open'; }
+function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
+
+async function loadAll(){
+  await Promise.all([loadWarehouses(), loadLots(), loadPlantations()]);
+}
+
+async function loadWarehouses(){
+  const r = await authFetch('/warehouses'); _warehouses = r?.ok ? await r.json() : [];
+  document.getElementById('k-wh').textContent = _warehouses.length;
+  const opts = '<option value="">—</option>' + _warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  document.getElementById('l-warehouse').innerHTML = opts;
+  document.getElementById('mv-warehouse').innerHTML = '<option value="">Entrepôt…</option>' + _warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+}
+
+async function loadLots(){
+  const r = await authFetch('/lots'); const lots = r?.ok ? await r.json() : [];
+  document.getElementById('k-lots').textContent = lots.length;
+  document.getElementById('k-weight').textContent = fmt(lots.reduce((s,l)=>s+(l.total_weight_kg||0),0));
+  document.getElementById('k-shipped').textContent = lots.filter(l=>l.status==='shipped').length;
+  const el = document.getElementById('lots-list');
+  el.innerHTML = lots.length ? lots.map(l=>`
+    <div class="lot-item" onclick="openLot(${l.id})">
+      <div style="display:flex;justify-content:space-between">
+        <span class="lot-code">${l.code}</span>
+        <span class="badge ${badgeClass(l.status)}">${l.status}</span>
+      </div>
+      <div class="lot-meta">${fmt(l.total_weight_kg)} kg · ${l.bag_count} sac(s) · ${l.harvest_count} récolte(s)${l.season?' · '+l.season:''}</div>
+    </div>`).join('') : '<div class="empty-state" style="padding:24px">Aucun lot. Créez-en un à gauche.</div>';
+}
+
+async function loadPlantations(){
+  const r = await authFetch('/plantations?limit=5000'); const pls = r?.ok ? await r.json() : [];
+  document.getElementById('l-plantation').innerHTML = '<option value="">Choisir une plantation…</option>' +
+    pls.map(p=>`<option value="${p.id}">${p.name}${p.owner_name?' - '+p.owner_name:''}</option>`).join('');
+}
+
+async function loadPlantationHarvests(){
+  const pid = document.getElementById('l-plantation').value;
+  const box = document.getElementById('harvest-picker');
+  if(!pid){ box.innerHTML=''; return; }
+  const r = await authFetch(`/plantations/${pid}/harvests`); const hs = r?.ok ? await r.json() : [];
+  const free = hs.filter(h=>!h.lot_id);
+  box.innerHTML = free.length ? free.map(h=>`
+    <label style="display:flex;gap:8px;align-items:center;padding:5px;font-size:12.5px">
+      <input type="checkbox" class="hv" value="${h.id}"> ${fmt(h.quantity_kg)} kg · ${h.quality} · ${(h.harvest_date||'').slice(0,10)}
+    </label>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:6px">Aucune récolte libre sur cette plantation.</div>';
+}
+
+function pickedHarvests(){ return [...document.querySelectorAll('.hv:checked')].map(x=>Number(x.value)); }
+
+async function createWarehouse(){
+  const name = document.getElementById('w-name').value.trim();
+  if(!name) return alert('Nom de l\'entrepôt requis.');
+  const r = await authFetch('/warehouses',{method:'POST',body:JSON.stringify({name,location:document.getElementById('w-loc').value.trim()||null})});
+  if(!r.ok) return alert('Création impossible.');
+  document.getElementById('w-name').value=''; document.getElementById('w-loc').value='';
+  await loadWarehouses(); alert('Entrepôt créé.');
+}
+
+async function createLot(){
+  const body = {
+    season: document.getElementById('l-season').value.trim()||null,
+    warehouse_id: Number(document.getElementById('l-warehouse').value)||null,
+    notes: document.getElementById('l-notes').value.trim()||null,
+    harvest_ids: pickedHarvests(),
+  };
+  const r = await authFetch('/lots',{method:'POST',body:JSON.stringify(body)});
+  const data = await r.json().catch(()=>({}));
+  if(r.status===409){ alert('Refusé : '+(data.detail?.message||'producteur sous blocage CacaoGuard.')); return; }
+  if(!r.ok){ alert('Création impossible : '+(data.detail||'')); return; }
+  document.getElementById('l-season').value=''; document.getElementById('l-notes').value='';
+  document.getElementById('harvest-picker').innerHTML=''; document.getElementById('l-plantation').value='';
+  await loadAll(); openLot(data.id); alert('Lot '+data.code+' créé.');
+}
+
+async function openLot(id){
+  const r = await authFetch(`/lots/${id}/passport`); if(!r?.ok) return;
+  const pp = await r.json(); _currentLot = pp.lot;
+  document.getElementById('detail').classList.remove('hidden');
+  document.getElementById('d-code').textContent = pp.code;
+  const b = document.getElementById('d-badge'); b.textContent = pp.lot.status; b.className='badge '+badgeClass(pp.lot.status);
+  document.getElementById('d-weight').textContent = fmt(pp.summary.total_weight_kg);
+  document.getElementById('d-bags').textContent = fmt(pp.summary.bag_count);
+  document.getElementById('d-prod').textContent = fmt(pp.summary.producers);
+  document.getElementById('d-eudr').textContent = pp.summary.eudr_compliance_rate_pct+'%';
+  document.getElementById('d-composition').innerHTML = pp.composition.map(c=>`
+    <tr><td>${c.producer_name||'—'}${c.producer_blocked?' 🚫':''}</td><td>${c.plantation_name||'—'}</td><td>${fmt(c.quantity_kg)}</td><td>${c.eudr_status||'—'}</td></tr>`).join('')
+    || '<tr><td colspan="4" style="color:var(--muted)">Aucune récolte affectée.</td></tr>';
+  document.getElementById('d-movements').innerHTML = pp.movements.map(m=>`
+    <li><strong>${m.movement_type}</strong> · ${fmt(m.quantity_kg)} kg${m.reference?' · '+m.reference:''}<br><span style="color:var(--muted)">${(m.created_at||'').replace('T',' ').slice(0,16)}</span></li>`).join('')
+    || '<li style="color:var(--muted)">Aucun mouvement.</li>';
+  document.getElementById('detail').scrollIntoView({behavior:'smooth'});
+}
+
+function closeDetail(){ document.getElementById('detail').classList.add('hidden'); _currentLot=null; }
+
+async function doMovement(type){
+  if(!_currentLot) return;
+  const body = { movement_type: type };
+  if(type==='warehouse_in'){ const w=Number(document.getElementById('mv-warehouse').value); if(!w) return alert('Choisissez un entrepôt.'); body.to_warehouse_id=w; }
+  const r = await authFetch(`/lots/${_currentLot.id}/movements`,{method:'POST',body:JSON.stringify(body)});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Mouvement impossible : '+(e.detail||'')); }
+  await loadLots(); openLot(_currentLot.id);
+}
+
+function printPassport(){
+  if(!_currentLot) return;
+  window.print();
+}
+
+loadAll();
+</script>
+</body>
+</html>

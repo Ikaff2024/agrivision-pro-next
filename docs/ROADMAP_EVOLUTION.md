@@ -39,11 +39,14 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
 
 ### Séquencement recommandé (après validation client)
 
-1. **Traçabilité des lots** (#1) — cœur de la valeur exportateur. Base : `Lot`
-   (code, campagne, certification, poids, statut), `LotMovement` (entrée magasin,
-   fusion, sortie export), `Warehouse`, lien `Harvest → Lot`. QR code = simple
-   payload encodant le code lot (génération côté front, pas de dépendance lourde).
-   Le **blocage traçabilité CacaoGuard existant** doit empêcher l'affectation à un lot.
+1. **Traçabilité des lots** (#1) — ✅ **livré (2026-05-31)**. Modèles `Warehouse`, `Lot`
+   (code auto `LOT-AAAA-NNNNN`, statut open/sealed/shipped/merged/blocked, poids/sacs dérivés),
+   `LotMovement` (journal : creation/warehouse_in/seal/export_out/merge_in/split_out/adjustment),
+   lien `Harvest.lot_id`. Endpoints `/warehouses`, `/lots` (CRUD + filtres), `/lots/{id}/affect-harvests`,
+   `/lots/{id}/movements`, `/lots/merge`, `/lots/{id}/passport`. **Intégration CacaoGuard** : refus 409
+   d'affecter une récolte dont le producteur a un blocage de traçabilité ACTIF. UI `lots.html`
+   (liste, création, détail+passeport+mouvements+statuts, entrepôts). Cloisonné coopérative. 7 tests.
+   **Reste possible** : QR code imprimable du passeport (génération image), split de lot, lien achats.
 2. **Achats producteurs** (#2) — `PurchaseRecord` (bord champ : producteur, poids,
    prix/kg, prime, reçu) → alimente automatiquement `Harvest` + volume du lot.
    ⚠️ Volet **paiements** : à cadrer prudemment (traçabilité financière, droits,

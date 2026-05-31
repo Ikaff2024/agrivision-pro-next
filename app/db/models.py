@@ -162,11 +162,14 @@ class Harvest(Base):
     numero_recu_achat  = Column(String, nullable=True)
     nbre_sacs          = Column(Integer, nullable=True)
     is_conventional    = Column(Boolean, default=False, nullable=False)
+    # Tracabilite physique : lot auquel cette recolte est affectee
+    lot_id             = Column(Integer, ForeignKey("lots.id"), nullable=True, index=True)
 
     plantation = relationship("Plantation", back_populates="harvests")
     created_by = relationship("User")
     certification = relationship("Certification")
     campagne      = relationship("Campagne")
+    lot           = relationship("Lot", back_populates="harvests")
 
 
 class Producer(Base):
@@ -564,3 +567,77 @@ class TechnicianSubstitution(Base):
     substitute_technician = relationship("User", foreign_keys=[substitute_technician_id],
                                          back_populates="substitutions_as_substitute")
     created_by           = relationship("User", foreign_keys=[created_by_id])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tracabilite physique du cacao (lots, entrepots, mouvements) — module #1
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Warehouse(Base):
+    """Entrepot / magasin de stockage du cacao d'une cooperative."""
+    __tablename__ = "warehouses"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    name           = Column(String, nullable=False)
+    location       = Column(String, nullable=True)
+    capacity_kg    = Column(Float, nullable=True)
+    is_active      = Column(Boolean, default=True, nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+    created_by_id  = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    cooperative = relationship("Cooperative")
+
+
+class Lot(Base):
+    """
+    Lot de cacao : unite de tracabilite physique regroupant des recoltes/achats.
+    Statuts : open (en constitution) -> sealed (scelle) -> shipped (expedie).
+    blocked = bloque (cas CacaoGuard / non-conformite).
+    """
+    __tablename__ = "lots"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    cooperative_id   = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    code             = Column(String, unique=True, nullable=False, index=True)
+    season           = Column(String, nullable=True, index=True)
+    certification_id = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    warehouse_id     = Column(Integer, ForeignKey("warehouses.id"), nullable=True, index=True)
+    status           = Column(String, default="open", nullable=False, index=True)
+    total_weight_kg  = Column(Float, default=0, nullable=False)
+    bag_count        = Column(Integer, default=0, nullable=False)
+    notes            = Column(Text, nullable=True)
+    parent_lot_id    = Column(Integer, ForeignKey("lots.id"), nullable=True, index=True)  # fusion
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at       = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by_id    = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    cooperative   = relationship("Cooperative")
+    certification = relationship("Certification")
+    warehouse     = relationship("Warehouse")
+    harvests      = relationship("Harvest", back_populates="lot")
+    movements     = relationship("LotMovement", back_populates="lot",
+                                 cascade="all, delete-orphan",
+                                 order_by="LotMovement.created_at")
+
+
+class LotMovement(Base):
+    """
+    Mouvement de tracabilite d'un lot (journal immuable).
+    Types : creation, warehouse_in, transfer, merge_in, split_out,
+    adjustment, export_out.
+    """
+    __tablename__ = "lot_movements"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    lot_id            = Column(Integer, ForeignKey("lots.id", ondelete="CASCADE"), nullable=False, index=True)
+    movement_type     = Column(String, nullable=False, index=True)
+    quantity_kg       = Column(Float, default=0, nullable=False)
+    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    to_warehouse_id   = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    reference         = Column(String, nullable=True)
+    movement_metadata = Column(JSON, nullable=True)
+    created_at        = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_by_id     = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    lot = relationship("Lot", back_populates="movements")
