@@ -230,27 +230,99 @@ def get_timeseries(latitude: float, longitude: float, index: str = "ndvi", month
 
 # ── Déforestation ────────────────────────────────────────────────────────────────
 
+_GFW_BASE = "https://data-api.globalforestwatch.org"
+_GFW_DATASET = "gfw_integrated_alerts"  # GLAD-L + GLAD-S2 + RADD combinés
+_EUDR_CUTOFF = "2020-12-31"             # déforestation interdite après cette date (EUDR)
+_gfw_version_cache: dict = {"version": None, "fetched_at": 0}
+
+
+def _gfw_latest_version(key: str) -> Optional[str]:
+    """Dernière version datée du dataset d'alertes (mise en cache 24 h)."""
+    import time
+    if _gfw_version_cache["version"] and time.time() < _gfw_version_cache["fetched_at"] + 86400:
+        return _gfw_version_cache["version"]
+    try:
+        req = urllib.request.Request(f"{_GFW_BASE}/dataset/{_GFW_DATASET}", method="GET")
+        req.add_header("x-api-key", key)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            versions = json.loads(resp.read()).get("data", {}).get("versions", [])
+        if not versions:
+            return None
+        _gfw_version_cache["version"] = versions[-1]
+        _gfw_version_cache["fetched_at"] = time.time()
+        return versions[-1]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("GFW : récupération de version échouée : %s", exc)
+        return None
+
+
+def _fetch_deforestation(latitude: float, longitude: float, key: str) -> Optional[dict]:
+    """Compte les alertes de déforestation post-2020 autour d'un point. None si erreur."""
+    version = _gfw_latest_version(key)
+    if not version:
+        return None
+    d = 0.01  # ~1 km de rayon autour du point
+    polygon = {
+        "type": "Polygon",
+        "coordinates": [[
+            [longitude - d, latitude - d], [longitude + d, latitude - d],
+            [longitude + d, latitude + d], [longitude - d, latitude + d],
+            [longitude - d, latitude - d],
+        ]],
+    }
+    body = json.dumps({
+        "sql": f"SELECT count(*) FROM results WHERE {_GFW_DATASET}__date >= '{_EUDR_CUTOFF}'",
+        "geometry": polygon,
+    }).encode("utf-8")
+    try:
+        req = urllib.request.Request(
+            f"{_GFW_BASE}/dataset/{_GFW_DATASET}/{version}/query/json", data=body, method="POST"
+        )
+        req.add_header("x-api-key", key)
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            rows = json.loads(resp.read()).get("data", [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("GFW : requête alertes échouée : %s", exc)
+        return None
+
+    count = int(rows[0].get("count", 0)) if rows else 0
+    return {
+        "loss_detected": count > 0,
+        "alerts_count": count,
+        "since": _EUDR_CUTOFF,
+        "dataset": "gfw_integrated_alerts (GLAD-L / GLAD-S2 / RADD)",
+        "version": version,
+        "provider": "global-forest-watch",
+        "source": "global-forest-watch",
+        "note": (
+            f"{count} alerte(s) de déforestation détectée(s) depuis {_EUDR_CUTOFF}."
+            if count else f"Aucune alerte de déforestation depuis {_EUDR_CUTOFF}."
+        ),
+    }
+
+
 def get_deforestation_signal(latitude: float, longitude: float) -> dict:
     """
-    Signal de déforestation pour un point (alertes type GLAD/RADD).
+    Signal de déforestation pour un point (alertes intégrées GLAD/RADD).
 
-    Branchement futur : Global Forest Watch API (clé `GFW_API_KEY`, gratuite) ou
-    Hansen Global Forest Change. En l'absence de clé, renvoie un signal simulé
-    clairement marqué `source="simulation"` (jamais d'alarme erronée : aucune
-    perte signalée par défaut).
+    Réel via Global Forest Watch si `GFW_API_KEY` est défini ; sinon signal simulé
+    clairement marqué `source="simulation"` (jamais d'alarme erronée : aucune perte
+    par défaut). Toute erreur réseau retombe proprement sur la simulation.
     """
-    has_key = bool(os.getenv("GFW_API_KEY"))
+    key = os.getenv("GFW_API_KEY")
+    if key:
+        real = _fetch_deforestation(latitude, longitude, key)
+        if real is not None:
+            return real
     return {
         "loss_detected": False,
         "alerts_count": 0,
-        "since": "2020-12-31",
-        "dataset": "hansen-gfc / glad-radd",
+        "since": _EUDR_CUTOFF,
+        "dataset": "gfw_integrated_alerts (GLAD-L / GLAD-S2 / RADD)",
         "provider": "global-forest-watch",
-        "source": "configured" if has_key else "simulation",
-        "note": (
-            "Branchez GFW_API_KEY pour activer les alertes réelles de déforestation."
-            if not has_key else "Clé GFW présente : intégration des alertes à finaliser."
-        ),
+        "source": "simulation",
+        "note": "Définissez GFW_API_KEY pour activer les alertes réelles de déforestation.",
     }
 
 
