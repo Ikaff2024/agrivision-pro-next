@@ -78,6 +78,26 @@ class HouseholdProfilePayload(BaseModel):
     producer_id: int
     interview_date: date = Field(default_factory=date.today)
     interviewer_name: Optional[str] = Field(None, max_length=200)
+    # Identification administrative (B.02-B.07)
+    supplier: Optional[str] = Field(None, max_length=200)
+    sub_prefecture: Optional[str] = Field(None, max_length=200)
+    locality: Optional[str] = Field(None, max_length=200)
+    collection_agent_code: Optional[str] = Field(None, max_length=100)
+    producer_ssrte_code: Optional[str] = Field(None, max_length=100)
+    # GPS + heures (B.09a/b/c)
+    gps_start: Optional[str] = Field(None, max_length=120)
+    time_start: Optional[str] = Field(None, max_length=20)
+    time_end: Optional[str] = Field(None, max_length=20)
+    # Type d'enquete + statut de visite (B.10a/b, B.15)
+    survey_type: Optional[str] = Field(None, max_length=40)
+    producer_available: Optional[bool] = None
+    unavailable_reason: Optional[str] = Field(None, max_length=60)
+    visited_person_status: Optional[str] = Field(None, max_length=60)
+    # Travailleurs (B.18b/c/d)
+    external_workers_count: Optional[int] = Field(None, ge=0)
+    daily_workers_count: Optional[int] = Field(None, ge=0)
+    non_daily_workers: list[dict] = Field(default_factory=list)
+    section_notes: dict = Field(default_factory=dict)
     household_size: Optional[int] = Field(None, ge=0)
     children_count: Optional[int] = Field(None, ge=0)
     school_age_children_count: Optional[int] = Field(None, ge=0)
@@ -264,6 +284,22 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
         "producer_name": _producer_name(row.producer),
         "interview_date": row.interview_date,
         "interviewer_name": row.interviewer_name,
+        "supplier": row.supplier,
+        "sub_prefecture": row.sub_prefecture,
+        "locality": row.locality,
+        "collection_agent_code": row.collection_agent_code,
+        "producer_ssrte_code": row.producer_ssrte_code,
+        "gps_start": row.gps_start,
+        "time_start": row.time_start,
+        "time_end": row.time_end,
+        "survey_type": row.survey_type,
+        "producer_available": row.producer_available,
+        "unavailable_reason": row.unavailable_reason,
+        "visited_person_status": row.visited_person_status,
+        "external_workers_count": row.external_workers_count,
+        "daily_workers_count": row.daily_workers_count,
+        "non_daily_workers": row.non_daily_workers or [],
+        "section_notes": row.section_notes or {},
         "household_size": row.household_size,
         "children_count": row.children_count,
         "school_age_children_count": row.school_age_children_count,

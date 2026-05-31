@@ -93,6 +93,26 @@
   </div>
 </div>
 
+{# ─── IDENTIFICATION & VISITE ─── #}
+<div class="section">
+  <h2>Identification et visite</h2>
+  <div class="grid-4">
+    <div class="card"><div class="card-label">Code SSRTE producteur (B.07)</div><div class="card-value" style="font-size:11pt">{{ producer_ssrte_code }}</div></div>
+    <div class="card"><div class="card-label">Localite (B.04)</div><div class="card-value" style="font-size:11pt">{{ locality }}</div></div>
+    <div class="card"><div class="card-label">Fournisseur (B.02)</div><div class="card-value" style="font-size:11pt">{{ supplier }}</div></div>
+    <div class="card"><div class="card-label">Sous-prefecture (B.03)</div><div class="card-value" style="font-size:11pt">{{ sub_prefecture }}</div></div>
+    <div class="card"><div class="card-label">Agent (B.06) / code (B.05)</div><div class="card-value" style="font-size:11pt">{{ interviewer_name }}{% if collection_agent_code and collection_agent_code != '—' %} ({{ collection_agent_code }}){% endif %}</div></div>
+    <div class="card"><div class="card-label">Type d'enquete</div><div class="card-value" style="font-size:11pt">{{ survey_type }}</div></div>
+    <div class="card"><div class="card-label">Heure debut / fin (B.09b/c)</div><div class="card-value" style="font-size:11pt">{{ time_start }} → {{ time_end }}</div></div>
+    <div class="card"><div class="card-label">GPS plantation (B.09a)</div><div class="card-value" style="font-size:9pt">{{ gps_start }}</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-label">Producteur disponible (B.10a)</div><div class="card-value" style="font-size:11pt">{% if producer_available %}Oui{% elif producer_available is false %}Non — {{ unavailable_reason }}{% else %}—{% endif %}</div></div>
+    <div class="card"><div class="card-label">Statut personne visitee (B.15)</div><div class="card-value" style="font-size:11pt">{{ visited_person_status }}</div></div>
+  </div>
+  {% if section_notes.identification %}<div class="notes" style="margin-top:6pt">{{ section_notes.identification }}</div>{% endif %}
+</div>
+
 {# ─── SYNTHESE MENAGE ─── #}
 <div class="section">
   <h2>Composition du menage</h2>
@@ -115,6 +135,31 @@
     <div class="card"><div class="card-label">Superficie cafe (ha)</div><div class="card-value">{{ farm_info.coffee_area_ha if farm_info.coffee_area_ha is not none else "—" }}</div></div>
     <div class="card"><div class="card-label">Production cafe (kg/an)</div><div class="card-value">{{ farm_info.coffee_production_kg if farm_info.coffee_production_kg is not none else "—" }}</div></div>
   </div>
+</div>
+
+{# ─── TRAVAILLEURS (B.18b/c/d) ─── #}
+<div class="section">
+  <h2>Travailleurs de l'exploitation</h2>
+  <div class="grid-2">
+    <div class="card"><div class="card-label">Personnes exterieures travaillant (B.18b)</div><div class="card-value">{{ external_workers_count if external_workers_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Dont travailleurs journaliers (B.18c)</div><div class="card-value">{{ daily_workers_count if daily_workers_count is not none else "—" }}</div></div>
+  </div>
+  <div style="font-size:9pt;color:var(--avp-muted);margin:2pt 0 4pt">Détails des travailleurs non-journaliers (B.18d)</div>
+  {% if non_daily_workers %}
+  <table>
+    <thead><tr><th>Nom et prenoms</th><th>Statut</th><th>Telephone</th></tr></thead>
+    <tbody>
+      {% for w in non_daily_workers %}
+      <tr>
+        <td>{{ w.name or w.nom or "—" }}</td>
+        <td>{{ w.status or w.statut or "" }}</td>
+        <td>{{ w.phone or w.telephone or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun travailleur non-journalier renseigne.</div>{% endif %}
+  {% if section_notes.workers %}<div class="notes" style="margin-top:6pt">{{ section_notes.workers }}</div>{% endif %}
 </div>
 
 {# ─── MEMBRES ─── #}

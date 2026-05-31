@@ -313,6 +313,42 @@ def test_ssrte_ficheb_farm_info_persists(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def test_ssrte_ficheb_full_questionnaire_coverage(client):
+    """La Fiche B capture admin, GPS/heures, statut de visite et travailleurs non-journaliers."""
+    producer_id, _ = _seed_producer_and_plantation()
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "supplier": "Fournisseur X",
+        "sub_prefecture": "Sous-pref Y",
+        "locality": "Yeyasso",
+        "collection_agent_code": "AG-05",
+        "producer_ssrte_code": "SSRTE-PR-001",
+        "gps_start": "7.4, -7.5",
+        "time_start": "09:00",
+        "time_end": "10:30",
+        "survey_type": "SSRTE",
+        "producer_available": True,
+        "visited_person_status": "Propriétaire",
+        "external_workers_count": 3,
+        "daily_workers_count": 1,
+        "non_daily_workers": [
+            {"name": "Koffi Permanent", "status": "Permanent (toute l’annee)", "phone": "0700000000"},
+        ],
+        "section_notes": {"identification": "RAS", "workers": "2 metayers"},
+        "consent_given": True,
+    }).json()
+    assert created["producer_ssrte_code"] == "SSRTE-PR-001"
+    assert created["producer_available"] is True
+    assert created["visited_person_status"] == "Propriétaire"
+    assert created["external_workers_count"] == 3
+    assert created["non_daily_workers"][0]["name"] == "Koffi Permanent"
+    assert created["section_notes"]["workers"] == "2 metayers"
+
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
 def test_ssrte_fichec_adults_and_workers_persist(client):
     """Les adultes (C.10a) et travailleurs non-journaliers (C.10c) sont stockes et exportes."""
     producer_id, plantation_id = _seed_producer_and_plantation()

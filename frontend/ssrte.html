@@ -177,9 +177,34 @@
             <div class="section-title">Profilage menage</div>
             <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="producer"></select></div>
             <div class="mini-row">
-              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="household-date"></div>
-              <div class="form-group"><label class="form-label">Agent</label><input class="form-input" id="household-agent"></div>
+              <div class="form-group"><label class="form-label">Date (B.09)</label><input class="form-input" type="date" id="household-date"></div>
+              <div class="form-group"><label class="form-label">Agent collecte (B.06)</label><input class="form-input" id="household-agent"></div>
             </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Code SSRTE producteur (B.07)</label><input class="form-input" id="hh-producer-code"></div>
+              <div class="form-group"><label class="form-label">Code agent (B.05)</label><input class="form-input" id="hh-agent-code"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Fournisseur (B.02)</label><input class="form-input" id="hh-supplier"></div>
+              <div class="form-group"><label class="form-label">Sous-prefecture (B.03)</label><input class="form-input" id="hh-sub-prefecture"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Localite (B.04)</label><input class="form-input" id="hh-locality"></div>
+              <div class="form-group"><label class="form-label">Type d'enquete</label><select class="form-input" id="hh-survey-type"><option value="">—</option><option>SSRTE</option><option>Visite communautaire</option></select></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group">
+                <label class="form-label">GPS plantation (B.09a)</label>
+                <div style="display:flex;gap:8px"><input class="form-input" id="hh-gps-start"><button class="btn btn-outline btn-icon" type="button" onclick="grabGPSInto('hh-gps-start')" title="GPS"><span class="material-symbols-outlined" style="font-size:18px">my_location</span></button></div>
+              </div>
+              <div class="form-group"><label class="form-label">Heure debut (B.09b)</label><input class="form-input" type="time" id="hh-time-start"></div>
+              <div class="form-group"><label class="form-label">Heure fin (B.09c)</label><input class="form-input" type="time" id="hh-time-end"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Producteur disponible (B.10a)</label><select class="form-input" id="hh-available" onchange="toggleFicheB()"><option value="">—</option><option value="oui">Oui</option><option value="non">Non</option></select></div>
+              <div class="form-group" id="wrap-unavailable" style="display:none"><label class="form-label">Raison (B.10b)</label><select class="form-input" id="hh-unavailable-reason"><option value="">—</option><option>Temporairement absent</option><option>Refus</option><option>Décédé</option><option>Non-résident</option><option>Sorti de la Coopérative</option></select></div>
+            </div>
+            <div class="form-group"><label class="form-label">Statut de la personne visitee (B.15)</label><select class="form-input" id="hh-person-status"><option value="">—</option><option>Propriétaire</option><option>Gérant</option><option>Métayer</option><option>Autre</option></select></div>
             <div class="mini-row">
               <div class="form-group"><label class="form-label">Taille menage</label><input class="form-input" type="number" min="0" id="household-size"></div>
               <div class="form-group"><label class="form-label">Nombre enfants</label><input class="form-input" type="number" min="0" id="children-count"></div>
@@ -202,6 +227,19 @@
               <div class="form-group"><label class="form-label">Production cafe (kg/an)</label><input class="form-input" type="number" min="0" id="coffee-prod"></div>
             </div>
 
+            <div class="section-title" style="font-size:13px;margin-top:6px">Travailleurs (B.18)</div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Personnes exterieures (B.18b)</label><input class="form-input" type="number" min="0" id="hh-ext-workers"></div>
+              <div class="form-group"><label class="form-label">Dont journaliers (B.18c)</label><input class="form-input" type="number" min="0" id="hh-daily-workers"></div>
+            </div>
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Travailleurs non-journaliers (B.18d)</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addNonDailyWorker()"><span class="material-symbols-outlined" style="font-size:16px">engineering</span> Travailleur</button>
+              </div>
+              <div id="ndworkers-rows"></div>
+            </div>
+
             <div class="form-group"><label class="form-label">Vulnerabilites</label><input class="form-input" id="vulnerabilities" placeholder="Veuvage, maladie, revenu faible..."></div>
             <div class="form-group"><label class="form-label">Declarations travail enfant</label><input class="form-input" id="work-declarations" placeholder="Nom:tache, Nom:tache dangereuse"></div>
             <div class="form-group"><label class="form-label">Contraintes scolaires</label><input class="form-input" id="school-constraints" placeholder="Distance, frais, absence d'acte..."></div>
@@ -217,7 +255,9 @@
 
             <label class="check-row"><input type="checkbox" id="household-consent"> Consentement obtenu</label>
             <div class="form-group"><label class="form-label">Signature parent/producteur</label><input class="form-input" id="household-signature"></div>
-            <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="household-notes" rows="3"></textarea></div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Identification & visite</label><textarea class="form-input" id="hh-note-identification" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Travailleurs</label><textarea class="form-input" id="hh-note-workers" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Observations eventuelles (B.37)</label><textarea class="form-input" id="household-notes" rows="3"></textarea></div>
             <button class="btn btn-primary" onclick="saveHousehold()" style="width:100%;justify-content:center">Enregistrer F1</button>
           </div>
 
@@ -485,6 +525,39 @@ function farmInfo() {
   };
 }
 
+// Affiche/masque la raison d'indisponibilite (Fiche B).
+function toggleFicheB() {
+  const el = document.getElementById('wrap-unavailable');
+  if (el) el.style.display = document.getElementById('hh-available').value === 'non' ? '' : 'none';
+}
+
+const ND_WORKER_STATUS = ['Permanent (toute l’annee)', 'Saisonnier', 'Metayer', 'Ne sait pas'];
+
+function addNonDailyWorker(v = {}) {
+  const wrap = document.getElementById('ndworkers-rows');
+  const div = document.createElement('div');
+  div.className = 'ndworker-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms</label><input class="form-input nd-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Statut</label><select class="form-input nd-status">${_opts(ND_WORKER_STATUS, v.status)}</select></div>
+       <div class="form-group"><label class="form-label">Telephone</label><input class="form-input nd-phone" value="${v.phone||''}"></div>
+     </div>
+     <div style="display:flex;justify-content:flex-end">
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.ndworker-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+}
+
+function nonDailyWorkerRows() {
+  return [...document.querySelectorAll('#ndworkers-rows .ndworker-card')].map(c => ({
+    name: c.querySelector('.nd-name').value.trim(),
+    status: c.querySelector('.nd-status').value,
+    phone: c.querySelector('.nd-phone').value.trim() || null,
+  })).filter(w => w.name);
+}
+
 /* ── Adultes & travailleurs presents (Fiche C, C.10a/C.10c) ──────── */
 const WORKER_STATUS = ['Permanent', 'Saisonnier', 'Metayer (abougnon)', 'Journalier', 'Autre'];
 
@@ -729,10 +802,26 @@ function workRows() {
 }
 
 async function saveHousehold() {
+  const available = val('hh-available');
   const body = {
     producer_id: Number(document.getElementById('producer').value),
     interview_date: val('household-date') || today(),
     interviewer_name: val('household-agent') || null,
+    supplier: val('hh-supplier') || null,
+    sub_prefecture: val('hh-sub-prefecture') || null,
+    locality: val('hh-locality') || null,
+    collection_agent_code: val('hh-agent-code') || null,
+    producer_ssrte_code: val('hh-producer-code') || null,
+    gps_start: val('hh-gps-start') || null,
+    time_start: val('hh-time-start') || null,
+    time_end: val('hh-time-end') || null,
+    survey_type: val('hh-survey-type') || null,
+    producer_available: available === '' ? null : (available === 'oui'),
+    unavailable_reason: available === 'non' ? (val('hh-unavailable-reason') || null) : null,
+    visited_person_status: val('hh-person-status') || null,
+    external_workers_count: num('hh-ext-workers'),
+    daily_workers_count: num('hh-daily-workers'),
+    non_daily_workers: nonDailyWorkerRows(),
     household_size: num('household-size'),
     children_count: num('children-count'),
     school_age_children_count: num('school-age-count'),
@@ -744,6 +833,10 @@ async function saveHousehold() {
     school_constraints: csv('school-constraints'),
     consent_given: document.getElementById('household-consent').checked,
     signature_data: val('household-signature') ? { signed_by: val('household-signature'), signed_at: new Date().toISOString() } : null,
+    section_notes: {
+      identification: val('hh-note-identification') || null,
+      workers: val('hh-note-workers') || null,
+    },
     notes: val('household-notes') || null
   };
   if (!body.producer_id) return alert('Producteur obligatoire.');

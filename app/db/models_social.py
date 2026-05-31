@@ -756,6 +756,27 @@ class SsrteHouseholdProfile(Base):
     producer_id = Column(Integer, ForeignKey("producers.id", ondelete="CASCADE"), nullable=False, index=True)
     interview_date = Column(Date, nullable=False, index=True)
     interviewer_name = Column(String(200), nullable=True)
+    # Identification administrative (B.02-B.07)
+    supplier = Column(String(200), nullable=True)              # B.02
+    sub_prefecture = Column(String(200), nullable=True)        # B.03
+    locality = Column(String(200), nullable=True)              # B.04
+    collection_agent_code = Column(String(100), nullable=True) # B.05
+    producer_ssrte_code = Column(String(100), nullable=True)   # B.07
+    # GPS + heures (B.09a/b/c)
+    gps_start = Column(String(120), nullable=True)
+    time_start = Column(String(20), nullable=True)
+    time_end = Column(String(20), nullable=True)
+    # Type d'enquete + statut de la visite (B.10a/b, B.15)
+    survey_type = Column(String(40), nullable=True)            # SSRTE / Visite communautaire
+    producer_available = Column(Boolean, nullable=True)        # B.10a
+    unavailable_reason = Column(String(60), nullable=True)     # B.10b
+    visited_person_status = Column(String(60), nullable=True)  # B.15
+    # Travailleurs (B.18b/c/d)
+    external_workers_count = Column(Integer, nullable=True)    # B.18b
+    daily_workers_count = Column(Integer, nullable=True)       # B.18c
+    non_daily_workers = Column(JSON, nullable=True)            # B.18d (nom/statut/telephone)
+    # Remarques + actions proposees, une entree par section
+    section_notes = Column(JSON, nullable=True)
     household_size = Column(Integer, nullable=True)
     children_count = Column(Integer, nullable=True)
     school_age_children_count = Column(Integer, nullable=True)
