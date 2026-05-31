@@ -9,7 +9,15 @@
 > ⚠️ **Ne pas dire au client que les Fiches SSRTE sont « terminées ».** Elles sont
 > **fonctionnelles sur l'essentiel**, mais incomplètes par rapport aux formulaires officiels.
 
-Dernière mise à jour : 2026-05-30.
+Dernière mise à jour : 2026-05-31.
+
+> ✅ **P1 livré (2026-05-31)** : les trois gros blocs manquants sont désormais capturés
+> de bout en bout (modèle JSON + API + PDF + UI mobile) :
+> - **Fiche A** — tableau détaillé des écoles (A.22-A.29) → colonne `schools`
+> - **Fiche B** — informations exploitation (B.16-B.23, cacao & café) → colonne `farm_info`
+> - **Fiche C** — adultes présents (C.10a) + travailleurs non-journaliers (C.10c) → `adults_observed`, `workers_present`
+>
+> Restent **P2** (détails par indicateur, GPS/heures) et **P3** (champs administratifs).
 
 ---
 
@@ -38,14 +46,14 @@ Dernière mise à jour : 2026-05-30.
 | A.12b | **Origine de l'électricité** (réseau national / solaire) | on n'a que oui/non |
 | A.13b | **Distance du point d'eau** (0-100 m / 100-500 m / >500 m) | on n'a que oui/non |
 | A.18b/c/d | **Noms des organisations** (Structure d'État / ONG / autres) | on n'a que oui/non |
-| A.21a | **Nombre** de classes secondaires | on n'a qu'un booléen |
-| **A.22 → A.29** | **Tableau détaillé des écoles** (le plus gros bloc) | **entièrement manquant** |
+| A.21a | **Nombre** de classes secondaires | on n'a qu'un booléen (P2) |
+| ~~**A.22 → A.29**~~ | ~~**Tableau détaillé des écoles**~~ | ✅ **FAIT (P1, 2026-05-31)** — colonne `schools` |
 
-**Détail du tableau des écoles manquant (A.22-A.29), par école primaire :**
-nom de l'école · A.22b GPS de l'école · A.23 type d'école · A.24 construite par ·
-A.25 nb de salles de classe · A.26 nb d'enseignants (titulaires / autres) ·
-A.27 nb d'élèves inscrits (garçons / filles) · A.28 cantine (existence / service par
-semaine / coût par ration) · A.29 latrines (existence / bloc séparé H-F).
+**~~Détail du tableau des écoles manquant (A.22-A.29)~~ → ✅ capturé** (colonne `schools`, par école) :
+nom de l'école · GPS de l'école · type d'école · construite par ·
+nb de salles de classe · nb d'enseignants (total / titulaires) ·
+nb d'élèves inscrits (garçons / filles) · cantine (existence / repas par
+semaine / coût par ration) · latrines (existence / bloc séparé H-F).
 
 ---
 
@@ -62,8 +70,8 @@ semaine / coût par ration) · A.29 latrines (existence / bloc séparé H-F).
 ### ❌ Manquant (à implémenter)
 - **Statut de la visite** (producteur disponible / absent / refus / décédé / non-résident)
   et les **branches conditionnelles** associées
-- **Informations exploitation** : B.16 nb parcelles cacao, B.17 superficie cacao,
-  B.19 production annuelle cacao, B.20-B.23 idem café
+- ~~**Informations exploitation** : B.16 nb parcelles cacao, B.17 superficie cacao,
+  B.19 production annuelle cacao, B.20-B.23 idem café~~ → ✅ **FAIT (P1, 2026-05-31)** — colonne `farm_info`
 - **Travailleurs non-journaliers** (B.18d) : nom, statut (permanent/saisonnier/métayer), téléphone
 - **Situation économique** : B.25 type de logement, B.26 possessions du ménage
   (moto, véhicule, réfrigérateur, cuisinière, télévision…)
@@ -81,8 +89,8 @@ semaine / coût par ration) · A.29 latrines (existence / bloc séparé H-F).
 - Export PDF Fiche C
 
 ### ❌ Manquant (à implémenter)
-- **Adultes présents** dans la plantation (C.10a) + **travailleurs non-journaliers**
-  (C.10c : nom, statut, téléphone)
+- ~~**Adultes présents** dans la plantation (C.10a) + **travailleurs non-journaliers**
+  (C.10c : nom, statut, téléphone)~~ → ✅ **FAIT (P1, 2026-05-31)** — `adults_observed`, `workers_present`
 - **Heures de début / fin** de visite (C.09b / C.09c)
 - Distinction détaillée **enfants membres / non-membres du ménage** (V01-V10, code SSRTE C.20)
 - Déclenchement explicite de la **Fiche D** (remédiation) quand une tâche dangereuse est observée
@@ -92,10 +100,10 @@ semaine / coût par ration) · A.29 latrines (existence / bloc séparé H-F).
 
 ## Proposition de priorisation
 
-- **P1 — vrais blocs manquants** :
-  - Fiche A : **tableau détaillé des écoles** (A.22-A.29)
-  - Fiche B : **informations exploitation** (parcelles / superficie / production cacao & café)
-  - Fiche C : **adultes + travailleurs présents**
+- ~~**P1 — vrais blocs manquants**~~ ✅ **LIVRÉ (2026-05-31)** :
+  - Fiche A : ~~tableau détaillé des écoles (A.22-A.29)~~ ✅
+  - Fiche B : ~~informations exploitation (parcelles / superficie / production cacao & café)~~ ✅
+  - Fiche C : ~~adultes + travailleurs présents~~ ✅
 - **P2 — détails par indicateur** : origine électricité, distance point d'eau, noms des
   organisations, nombre de classes secondaires ; GPS + heures de visite (A, B, C).
 - **P3 — champs administratifs** : fournisseur, sous-préfecture, codes/noms agent de collecte.

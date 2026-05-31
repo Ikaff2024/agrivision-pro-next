@@ -116,6 +116,16 @@
               </div>
             </div>
             <div class="form-group"><label class="form-label">Membres du comite protection enfant</label><input class="form-input" id="committee-members" placeholder="Nom (role), Nom (role)..."></div>
+
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Ecoles de la localite (A.22-A.29)</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addSchool()"><span class="material-symbols-outlined" style="font-size:16px">school</span> Ecole</button>
+              </div>
+              <div id="schools-rows"></div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.4">Recensez chaque ecole (primaire/secondaire) : type, salles, enseignants, eleves, cantine et latrines.</div>
+            </div>
+
             <div class="form-group"><label class="form-label">Risques identifies</label><input class="form-input" id="community-risks" placeholder="Descolarisation, migration, travaux dangereux..."></div>
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
             <button class="btn btn-primary" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
@@ -136,6 +146,20 @@
               <div class="form-group"><label class="form-label">Enfants age scolaire</label><input class="form-input" type="number" min="0" id="school-age-count"></div>
               <div class="form-group"><label class="form-label">Enfants scolarises</label><input class="form-input" type="number" min="0" id="enrolled-count"></div>
             </div>
+            <div class="section-title" style="font-size:13px;margin-top:6px">Informations exploitation (B.16-B.23)</div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Parcelles cacao</label><input class="form-input" type="number" min="0" id="cocoa-parcels"></div>
+              <div class="form-group"><label class="form-label">Superficie cacao (ha)</label><input class="form-input" type="number" min="0" step="0.1" id="cocoa-area"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Production cacao (kg/an)</label><input class="form-input" type="number" min="0" id="cocoa-prod"></div>
+              <div class="form-group"><label class="form-label">Parcelles cafe</label><input class="form-input" type="number" min="0" id="coffee-parcels"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Superficie cafe (ha)</label><input class="form-input" type="number" min="0" step="0.1" id="coffee-area"></div>
+              <div class="form-group"><label class="form-label">Production cafe (kg/an)</label><input class="form-input" type="number" min="0" id="coffee-prod"></div>
+            </div>
+
             <div class="form-group"><label class="form-label">Vulnerabilites</label><input class="form-input" id="vulnerabilities" placeholder="Veuvage, maladie, revenu faible..."></div>
             <div class="form-group"><label class="form-label">Declarations travail enfant</label><input class="form-input" id="work-declarations" placeholder="Nom:tache, Nom:tache dangereuse"></div>
             <div class="form-group"><label class="form-label">Contraintes scolaires</label><input class="form-input" id="school-constraints" placeholder="Distance, frais, absence d'acte..."></div>
@@ -185,6 +209,20 @@
               </div>
               <div id="visit-children-rows"></div>
               <div style="font-size:11px;color:var(--muted);line-height:1.4">Pour chaque enfant vu (moins de 18 ans), precisez s'il est du menage et les taches dangereuses observees. Toute tache dangereuse declenche automatiquement une suspicion + alerte.</div>
+            </div>
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Adultes presents (C.10a)</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addAdult()"><span class="material-symbols-outlined" style="font-size:16px">group</span> Adulte</button>
+              </div>
+              <div id="adults-rows"></div>
+            </div>
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Travailleurs non-journaliers (C.10c)</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addWorker()"><span class="material-symbols-outlined" style="font-size:16px">engineering</span> Travailleur</button>
+              </div>
+              <div id="workers-rows"></div>
             </div>
             <label class="check-row"><input type="checkbox" id="suspected"> Suspicion travail enfant <span style="color:var(--muted);font-size:11px">(coche auto si tache dangereuse)</span></label>
             <div class="form-group"><label class="form-label">Actions immediates</label><textarea class="form-input" id="immediate-actions" rows="2"></textarea></div>
@@ -320,6 +358,136 @@ function memberWorkDeclarations() {
   return memberRows()
     .filter(m => (m.hazardous_tasks || []).length)
     .map(m => ({ child: m.name, task: m.hazardous_tasks.join(', '), dangerous: true }));
+}
+
+/* ── Tableau des ecoles (Fiche A, A.22-A.29) ─────────────────────── */
+const SCHOOL_TYPES = ['Publique', 'Privee confessionnelle', 'Privee laique', 'Communautaire', 'Coranique', 'Autre'];
+
+function addSchool(v = {}) {
+  const wrap = document.getElementById('schools-rows');
+  const div = document.createElement('div');
+  div.className = 'school-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom de l'ecole</label><input class="form-input s-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Type</label><select class="form-input s-type">${_opts(SCHOOL_TYPES, v.type)}</select></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Construite par</label><input class="form-input s-built" value="${v.built_by||''}"></div>
+       <div class="form-group"><label class="form-label">Salles de classe</label><input class="form-input s-class" type="number" min="0" value="${v.classrooms!=null?v.classrooms:''}"></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Enseignants (total)</label><input class="form-input s-teach" type="number" min="0" value="${v.teachers_total!=null?v.teachers_total:''}"></div>
+       <div class="form-group"><label class="form-label">dont titulaires</label><input class="form-input s-teach-cert" type="number" min="0" value="${v.teachers_certified!=null?v.teachers_certified:''}"></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Eleves garcons</label><input class="form-input s-boys" type="number" min="0" value="${v.students_boys!=null?v.students_boys:''}"></div>
+       <div class="form-group"><label class="form-label">Eleves filles</label><input class="form-input s-girls" type="number" min="0" value="${v.students_girls!=null?v.students_girls:''}"></div>
+     </div>
+     <div class="mini-row">
+       <label class="check-row"><input type="checkbox" class="s-canteen" ${v.canteen?'checked':''}> Cantine</label>
+       <div class="form-group"><label class="form-label">Repas/semaine</label><input class="form-input s-meals" type="number" min="0" value="${v.canteen_meals_per_week!=null?v.canteen_meals_per_week:''}"></div>
+       <div class="form-group"><label class="form-label">Cout/ration (FCFA)</label><input class="form-input s-ration" type="number" min="0" value="${v.canteen_cost_per_ration!=null?v.canteen_cost_per_ration:''}"></div>
+     </div>
+     <div class="mini-row">
+       <label class="check-row"><input type="checkbox" class="s-latrines" ${v.latrines?'checked':''}> Latrines</label>
+       <label class="check-row"><input type="checkbox" class="s-latrines-sep" ${v.latrines_separated?'checked':''}> Bloc H/F separe</label>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">GPS de l'ecole</label><input class="form-input s-gps" value="${v.gps||''}"></div>
+       <div style="display:flex;align-items:flex-end;justify-content:flex-end">
+         <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.school-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+       </div>
+     </div>`;
+  wrap.appendChild(div);
+}
+
+function schoolRows() {
+  return [...document.querySelectorAll('#schools-rows .school-card')].map(c => {
+    const n = (sel) => { const v = c.querySelector(sel).value; return v === '' ? null : Number(v); };
+    return {
+      name: c.querySelector('.s-name').value.trim(),
+      type: c.querySelector('.s-type').value,
+      built_by: c.querySelector('.s-built').value.trim() || null,
+      classrooms: n('.s-class'),
+      teachers_total: n('.s-teach'),
+      teachers_certified: n('.s-teach-cert'),
+      students_boys: n('.s-boys'),
+      students_girls: n('.s-girls'),
+      canteen: c.querySelector('.s-canteen').checked,
+      canteen_meals_per_week: n('.s-meals'),
+      canteen_cost_per_ration: n('.s-ration'),
+      latrines: c.querySelector('.s-latrines').checked,
+      latrines_separated: c.querySelector('.s-latrines-sep').checked,
+      gps: c.querySelector('.s-gps').value.trim() || null,
+    };
+  }).filter(s => s.name);
+}
+
+/* ── Informations exploitation (Fiche B, B.16-B.23) ──────────────── */
+function farmInfo() {
+  return {
+    cocoa_parcels: num('cocoa-parcels'),
+    cocoa_area_ha: num('cocoa-area'),
+    cocoa_production_kg: num('cocoa-prod'),
+    coffee_parcels: num('coffee-parcels'),
+    coffee_area_ha: num('coffee-area'),
+    coffee_production_kg: num('coffee-prod'),
+  };
+}
+
+/* ── Adultes & travailleurs presents (Fiche C, C.10a/C.10c) ──────── */
+const WORKER_STATUS = ['Permanent', 'Saisonnier', 'Metayer (abougnon)', 'Journalier', 'Autre'];
+
+function addAdult(v = {}) {
+  const wrap = document.getElementById('adults-rows');
+  const div = document.createElement('div');
+  div.className = 'adult-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms</label><input class="form-input a-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Lien / role</label><input class="form-input a-rel" value="${v.relation||''}"></div>
+       <div class="form-group"><label class="form-label">Age</label><input class="form-input a-age" type="number" min="18" value="${v.age||''}"></div>
+     </div>
+     <div style="display:flex;justify-content:flex-end">
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.adult-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+}
+
+function adultRows() {
+  return [...document.querySelectorAll('#adults-rows .adult-card')].map(c => ({
+    name: c.querySelector('.a-name').value.trim(),
+    relation: c.querySelector('.a-rel').value.trim() || null,
+    age: c.querySelector('.a-age').value ? Number(c.querySelector('.a-age').value) : null,
+  })).filter(a => a.name);
+}
+
+function addWorker(v = {}) {
+  const wrap = document.getElementById('workers-rows');
+  const div = document.createElement('div');
+  div.className = 'worker-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms</label><input class="form-input w-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Statut</label><select class="form-input w-status">${_opts(WORKER_STATUS, v.status)}</select></div>
+       <div class="form-group"><label class="form-label">Telephone</label><input class="form-input w-phone" value="${v.phone||''}"></div>
+     </div>
+     <div style="display:flex;justify-content:flex-end">
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.worker-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+}
+
+function workerRows() {
+  return [...document.querySelectorAll('#workers-rows .worker-card')].map(c => ({
+    name: c.querySelector('.w-name').value.trim(),
+    status: c.querySelector('.w-status').value,
+    phone: c.querySelector('.w-phone').value.trim() || null,
+  })).filter(w => w.name);
 }
 
 async function postSsrte(path, body, label) {
@@ -459,6 +627,7 @@ async function saveCommunity() {
     nearest_school_distance_km: num('school-distance'),
     has_child_protection_committee: document.getElementById('committee').checked,
     committee_members: csv('committee-members').map(m => ({ name: m })),
+    schools: schoolRows(),
     risks_identified: csv('community-risks'),
     services_available: communityServices(),
     notes: val('community-notes') || null
@@ -490,6 +659,7 @@ async function saveHousehold() {
     school_age_children_count: num('school-age-count'),
     enrolled_children_count: num('enrolled-count'),
     household_members: memberRows(),
+    farm_info: farmInfo(),
     vulnerabilities: csv('vulnerabilities'),
     child_work_declarations: [...workRows(), ...memberWorkDeclarations()],
     school_constraints: csv('school-constraints'),
@@ -567,6 +737,8 @@ async function saveVisit() {
     gps_accuracy: gpsAccuracy,
     checklist_data: visitChecklist(),
     children_observed: observedChildren(),
+    adults_observed: adultRows(),
+    workers_present: workerRows(),
     dangerous_tasks_observed: visitDangerousTasks(),
     suspected_child_labor: document.getElementById('suspected').checked || visitDangerousTasks().length > 0,
     immediate_actions_taken: val('immediate-actions') || null,

@@ -57,6 +57,7 @@ class CommunityProfilePayload(BaseModel):
     committee_members: list[dict] = Field(default_factory=list)
     risks_identified: list[str] = Field(default_factory=list)
     services_available: dict = Field(default_factory=dict)
+    schools: list[dict] = Field(default_factory=list)
     notes: Optional[str] = None
 
 
@@ -72,6 +73,7 @@ class HouseholdProfilePayload(BaseModel):
     vulnerabilities: list[str] = Field(default_factory=list)
     child_work_declarations: list[dict] = Field(default_factory=list)
     school_constraints: list[str] = Field(default_factory=list)
+    farm_info: dict = Field(default_factory=dict)
     consent_given: bool = False
     signature_data: Optional[dict] = None
     notes: Optional[str] = None
@@ -86,6 +88,8 @@ class PlantationVisitPayload(BaseModel):
     gps_accuracy: Optional[float] = Field(None, ge=0)
     checklist_data: dict = Field(default_factory=dict)
     children_observed: list[dict] = Field(default_factory=list)
+    adults_observed: list[dict] = Field(default_factory=list)
+    workers_present: list[dict] = Field(default_factory=list)
     dangerous_tasks_observed: list[str] = Field(default_factory=list)
     suspected_child_labor: bool = False
     immediate_actions_taken: Optional[str] = None
@@ -225,6 +229,7 @@ def community_to_dict(row: SsrteCommunityProfile) -> dict:
         "committee_members": row.committee_members or [],
         "risks_identified": row.risks_identified or [],
         "services_available": row.services_available or {},
+        "schools": row.schools or [],
         "notes": row.notes,
         "created_at": row.created_at,
     }
@@ -245,6 +250,7 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
         "vulnerabilities": row.vulnerabilities or [],
         "child_work_declarations": row.child_work_declarations or [],
         "school_constraints": row.school_constraints or [],
+        "farm_info": row.farm_info or {},
         "risk_score": float(row.risk_score or 0),
         "risk_level": row.risk_level.value,
         "consent_given": bool(row.consent_given),
@@ -267,6 +273,8 @@ def visit_to_dict(row: SsrtePlantationVisit) -> dict:
         "gps_accuracy": row.gps_accuracy,
         "checklist_data": row.checklist_data or {},
         "children_observed": row.children_observed or [],
+        "adults_observed": row.adults_observed or [],
+        "workers_present": row.workers_present or [],
         "dangerous_tasks_observed": row.dangerous_tasks_observed or [],
         "suspected_child_labor": bool(row.suspected_child_labor),
         "immediate_actions_taken": row.immediate_actions_taken,

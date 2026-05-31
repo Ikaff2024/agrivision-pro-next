@@ -4,7 +4,11 @@
 > contexte, état actuel, ce qui a été livré, ce qui reste, et les pièges connus.
 > Lire aussi : `README.md`, `AGRIVISION_CONTEXT.md`, `docs/SSRTE_GAP_ANALYSIS.md`.
 
-Dernière mise à jour : **2026-05-30** · Branche : **`codex/cacaoguard-fusion`** · Dernier commit : **`4a7f6f6`**.
+Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`** · Dernier commit : **`4a7f6f6`**.
+
+> **MAJ 2026-05-31** : ✅ backlog **#1** (cloisonnement CacaoGuard par coopérative) **fait** ;
+> ✅ backlog **#2 P1** (SSRTE — tableau écoles Fiche A, infos exploitation Fiche B,
+> adultes/travailleurs Fiche C) **fait** (modèle + API + PDF + UI). Reste SSRTE P2/P3.
 
 ---
 
@@ -69,7 +73,7 @@ git push origin HEAD
 
 ## 6. RESTE À FAIRE (backlog priorisé)
 
-1. **🔴 Cloisonnement des rapports CacaoGuard par coopérative** (bug multi-tenant).
+1. ✅ **FAIT (2026-05-31) — Cloisonnement des rapports CacaoGuard par coopérative** (bug multi-tenant).
    Les compteurs sont **globaux** au lieu d'être limités à la coopérative de l'utilisateur
    (ex. la page Rapports affiche ~7000 producteurs alors que la coop n'en a qu'un).
    - Fichiers : `app/api/cacaoguard_routes.py` → `get_cacaoguard_summary` ;
@@ -80,7 +84,7 @@ git push origin HEAD
    - **Une tentative a été faite puis ANNULÉE** (`git checkout`) car non finalisée → repartir propre. Une **puce de tâche** a été créée pour ça.
 
 2. **🟠 SSRTE — compléter les fiches** (voir `docs/SSRTE_GAP_ANALYSIS.md`) :
-   - **P1** : tableau détaillé des écoles (Fiche A, A.22-A.29) ; infos exploitation (Fiche B) ; adultes/travailleurs présents (Fiche C).
+   - ✅ **P1 FAIT (2026-05-31)** : tableau détaillé des écoles (Fiche A, A.22-A.29, colonne `schools`) ; infos exploitation (Fiche B, `farm_info`) ; adultes/travailleurs présents (Fiche C, `adults_observed`/`workers_present`). Modèle + API + PDF + UI mobile.
    - **P2** : détails par indicateur (origine électricité, distance eau, noms organisations, classes secondaires) + GPS/heures.
    - **P3** : champs administratifs (fournisseur, sous-préfecture, codes agent).
 

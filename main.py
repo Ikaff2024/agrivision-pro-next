@@ -150,6 +150,17 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migration FarmForce : OK (household_expense_items, net_income_cfa)")
+
+                # SSRTE P1 : blocs detailles des fiches A/B/C
+                for col_ddl in [
+                    "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS schools JSON",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS farm_info JSON",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS adults_observed JSON",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS workers_present JSON",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration SSRTE P1 : OK (schools, farm_info, adults_observed, workers_present)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

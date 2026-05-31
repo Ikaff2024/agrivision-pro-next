@@ -43,6 +43,9 @@
   .chip-no { background: #f3f4f6; color: #6b7280; }
   .empty { color: var(--avp-muted); font-style: italic; }
   .notes { background: var(--avp-bg-soft); border: 1pt solid var(--avp-border); border-radius: 3mm; padding: 10pt 12pt; font-size: 9pt; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-top: 6pt; }
+  table.tbl th { background: var(--avp-primary-light); color: var(--avp-primary-dark); text-align: left; padding: 5pt 6pt; border: 1pt solid var(--avp-border); font-size: 8pt; }
+  table.tbl td { padding: 4pt 6pt; border: 1pt solid var(--avp-border); vertical-align: top; }
   .legal { font-size: 8pt; color: var(--avp-muted); margin-top: 16pt; border-top: 1pt solid var(--avp-border); padding-top: 8pt; line-height: 1.5; }
 </style>
 </head>
@@ -116,6 +119,37 @@
     <div class="card-label">Risques identifies</div>
     <div style="margin-top:3pt">{% if risks_identified %}{% for r in risks_identified %}<span class="chip chip-no">{{ r }}</span>{% endfor %}{% else %}<span class="empty">Aucun</span>{% endif %}</div>
   </div>
+</div>
+
+<div class="section">
+  <h2>Tableau des ecoles (A.22-A.29)</h2>
+  {% if schools %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Ecole</th><th>Type</th><th>Construite par</th><th>Salles</th>
+        <th>Enseignants</th><th>Eleves (G/F)</th><th>Cantine</th><th>Latrines</th><th>GPS</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in schools %}
+      <tr>
+        <td>{{ s.name or s.nom or "—" }}</td>
+        <td>{{ s.type or s.school_type or "—" }}</td>
+        <td>{{ s.built_by or s.construite_par or "—" }}</td>
+        <td>{{ s.classrooms if s.classrooms is not none else (s.salles if s.salles is not none else "—") }}</td>
+        <td>{% if s.teachers_total is not none %}{{ s.teachers_total }}{% elif s.teachers is not none %}{{ s.teachers }}{% else %}—{% endif %}{% if s.teachers_certified is not none %} (dont {{ s.teachers_certified }} titulaires){% endif %}</td>
+        <td>{{ s.students_boys if s.students_boys is not none else "—" }} / {{ s.students_girls if s.students_girls is not none else "—" }}</td>
+        <td>{% if s.canteen %}Oui{% if s.canteen_meals_per_week %} — {{ s.canteen_meals_per_week }}/sem{% endif %}{% if s.canteen_cost_per_ration %} — {{ s.canteen_cost_per_ration }} FCFA/ration{% endif %}{% else %}Non{% endif %}</td>
+        <td>{% if s.latrines %}Oui{% if s.latrines_separated %} (H/F separes){% endif %}{% else %}Non{% endif %}</td>
+        <td>{{ s.gps or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="card"><span class="empty">Aucune ecole recensee.</span></div>
+  {% endif %}
 </div>
 
 {% if notes %}

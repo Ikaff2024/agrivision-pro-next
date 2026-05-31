@@ -231,6 +231,66 @@ def test_ssrte_plantation_visit_creates_alert_on_suspicion(client):
     assert "SSRTE" in blocks[0]["block_description"]
 
 
+def test_ssrte_fichea_schools_table_persists(client):
+    """Le tableau detaille des ecoles (A.22-A.29) est stocke, relu et exporte."""
+    schools = [
+        {"name": "EPP Yeyasso", "type": "Publique", "built_by": "Etat",
+         "classrooms": 6, "teachers_total": 5, "teachers_certified": 4,
+         "students_boys": 80, "students_girls": 70,
+         "canteen": True, "canteen_meals_per_week": 5, "canteen_cost_per_ration": 100,
+         "latrines": True, "latrines_separated": True, "gps": "7.4N,7.5W"},
+    ]
+    created = client.post("/ssrte/communities", json={
+        "locality": "Yeyasso",
+        "schools": schools,
+    }).json()
+    assert len(created["schools"]) == 1
+    assert created["schools"][0]["name"] == "EPP Yeyasso"
+    assert created["schools"][0]["classrooms"] == 6
+
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
+def test_ssrte_ficheb_farm_info_persists(client):
+    """Les informations exploitation (B.16-B.23) sont stockees, relues et exportees."""
+    producer_id, _ = _seed_producer_and_plantation()
+    farm_info = {
+        "cocoa_parcels": 2, "cocoa_area_ha": 3.5, "cocoa_production_kg": 900,
+        "coffee_parcels": 1, "coffee_area_ha": 1.0, "coffee_production_kg": 200,
+    }
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "farm_info": farm_info,
+        "consent_given": True,
+    }).json()
+    assert created["farm_info"]["cocoa_parcels"] == 2
+    assert created["farm_info"]["coffee_production_kg"] == 200
+
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
+def test_ssrte_fichec_adults_and_workers_persist(client):
+    """Les adultes (C.10a) et travailleurs non-journaliers (C.10c) sont stockes et exportes."""
+    producer_id, plantation_id = _seed_producer_and_plantation()
+    created = client.post("/ssrte/plantation-visits", json={
+        "plantation_id": plantation_id,
+        "producer_id": producer_id,
+        "adults_observed": [{"name": "Yao Pere", "relation": "Chef de menage", "age": 45}],
+        "workers_present": [{"name": "Koffi Ouvrier", "status": "permanent", "phone": "0700000000"}],
+        "consent_given": True,
+    }).json()
+    assert created["adults_observed"][0]["name"] == "Yao Pere"
+    assert created["workers_present"][0]["status"] == "permanent"
+
+    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
 def test_ssrte_summary_counts_forms(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
     client.post("/ssrte/communities", json={"locality": "Yeyasso"})

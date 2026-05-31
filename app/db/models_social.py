@@ -725,6 +725,9 @@ class SsrteCommunityProfile(Base):
     committee_members = Column(JSON, nullable=True)
     risks_identified = Column(JSON, nullable=True)
     services_available = Column(JSON, nullable=True)
+    # Tableau detaille des ecoles (A.22-A.29) : liste de dicts par ecole
+    # (nom, gps, type, construite_par, salles, enseignants, eleves, cantine, latrines).
+    schools = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -749,6 +752,9 @@ class SsrteHouseholdProfile(Base):
     vulnerabilities = Column(JSON, nullable=True)
     child_work_declarations = Column(JSON, nullable=True)
     school_constraints = Column(JSON, nullable=True)
+    # Informations exploitation (B.16-B.23) : parcelles, superficie et
+    # production cacao & cafe. Dict de cles scalaires.
+    farm_info = Column(JSON, nullable=True)
     risk_score = Column(Numeric(5, 2), default=0, nullable=False)
     risk_level = Column(SQLEnum(RiskLevel), default=RiskLevel.NONE, nullable=False, index=True)
     consent_given = Column(Boolean, default=False, nullable=False)
@@ -776,6 +782,10 @@ class SsrtePlantationVisit(Base):
     gps_accuracy = Column(Float, nullable=True)
     checklist_data = Column(JSON, nullable=True)
     children_observed = Column(JSON, nullable=True)
+    # Adultes presents (C.10a) et travailleurs non-journaliers (C.10c) :
+    # listes de dicts (nom, statut, telephone...).
+    adults_observed = Column(JSON, nullable=True)
+    workers_present = Column(JSON, nullable=True)
     dangerous_tasks_observed = Column(JSON, nullable=True)
     suspected_child_labor = Column(Boolean, default=False, nullable=False, index=True)
     immediate_actions_taken = Column(Text, nullable=True)

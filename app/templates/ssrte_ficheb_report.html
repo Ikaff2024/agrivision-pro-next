@@ -104,6 +104,19 @@
   </div>
 </div>
 
+{# ─── INFORMATIONS EXPLOITATION (B.16-B.23) ─── #}
+<div class="section">
+  <h2>Informations sur l'exploitation</h2>
+  <div class="grid-4">
+    <div class="card"><div class="card-label">Parcelles cacao</div><div class="card-value">{{ farm_info.cocoa_parcels if farm_info.cocoa_parcels is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Superficie cacao (ha)</div><div class="card-value">{{ farm_info.cocoa_area_ha if farm_info.cocoa_area_ha is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Production cacao (kg/an)</div><div class="card-value">{{ farm_info.cocoa_production_kg if farm_info.cocoa_production_kg is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Parcelles cafe</div><div class="card-value">{{ farm_info.coffee_parcels if farm_info.coffee_parcels is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Superficie cafe (ha)</div><div class="card-value">{{ farm_info.coffee_area_ha if farm_info.coffee_area_ha is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Production cafe (kg/an)</div><div class="card-value">{{ farm_info.coffee_production_kg if farm_info.coffee_production_kg is not none else "—" }}</div></div>
+  </div>
+</div>
+
 {# ─── MEMBRES ─── #}
 <div class="section">
   <h2>Membres du menage</h2>

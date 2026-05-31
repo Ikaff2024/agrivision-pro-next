@@ -114,6 +114,42 @@
 </div>
 
 <div class="section">
+  <h2>Adultes presents dans la plantation</h2>
+  {% if adults_observed %}
+  <table>
+    <thead><tr><th>Nom</th><th>Lien / role</th><th class="num">Age</th></tr></thead>
+    <tbody>
+      {% for a in adults_observed %}
+      <tr>
+        <td>{{ a.name or a.nom or "—" }}</td>
+        <td>{{ a.relation or a.role or "" }}</td>
+        <td class="num">{{ a.age or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun adulte observe lors de la visite.</div>{% endif %}
+</div>
+
+<div class="section">
+  <h2>Travailleurs non-journaliers (C.10c)</h2>
+  {% if workers_present %}
+  <table>
+    <thead><tr><th>Nom</th><th>Statut</th><th>Telephone</th></tr></thead>
+    <tbody>
+      {% for w in workers_present %}
+      <tr>
+        <td>{{ w.name or w.nom or "—" }}</td>
+        <td>{{ w.status or w.statut or "" }}</td>
+        <td>{{ w.phone or w.telephone or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun travailleur non-journalier recense.</div>{% endif %}
+</div>
+
+<div class="section">
   <h2>Taches dangereuses & actions</h2>
   <div class="grid-2">
     <div class="card">
