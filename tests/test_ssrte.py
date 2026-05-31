@@ -405,6 +405,35 @@ def test_ssrte_fichec_full_questionnaire_coverage(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def _auth(client, email, coop):
+    client.post("/auth/register", json={
+        "email": email, "password": "pass1234", "role": "admin",
+        "cooperative_name": coop, "country": "CI",
+    })
+    tok = client.post("/auth/login", json={"email": email, "password": "pass1234"}).json()["access_token"]
+    return {"Authorization": "Bearer " + tok}
+
+
+def test_ssrte_summary_is_cooperative_scoped(client):
+    """Le summary SSRTE ne doit compter que la coop de l'utilisateur (anti-fuite)."""
+    ha = _auth(client, "ssrte.scopeA@test.ci", "SSRTE Scope A")
+    hb = _auth(client, "ssrte.scopeB@test.ci", "SSRTE Scope B")
+    # Coop A : 1 plantation (producteur auto), 1 communaute, 1 menage
+    pa = client.post("/plantations", json={
+        "name": "PA", "owner_name": "A Owner", "country": "CI", "hectares": 2,
+    }, headers=ha).json()
+    client.post("/ssrte/communities", json={"locality": "Loc A"}, headers=ha)
+    client.post("/ssrte/households", json={"producer_id": pa["producer_id"]}, headers=ha)
+
+    sa = client.get("/ssrte/summary", headers=ha).json()
+    assert sa["community_profiles"] >= 1 and sa["household_profiles"] >= 1
+    # Coop B ne voit rien de la coop A
+    sb = client.get("/ssrte/summary", headers=hb).json()
+    assert sb["community_profiles"] == 0 and sb["household_profiles"] == 0
+    assert client.get("/ssrte/households", headers=hb).json() == []
+    assert client.get("/ssrte/communities", headers=hb).json() == []
+
+
 def test_ssrte_summary_counts_forms(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
     client.post("/ssrte/communities", json={"locality": "Yeyasso"})

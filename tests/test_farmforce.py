@@ -204,3 +204,33 @@ def test_import_farmforce_excel_endpoint_creates_assessment(client):
     data = response.json()
     assert data["status"] == "success"
     assert data["assessment"]["producer_id"] == producer_id
+
+
+def _ff_auth(client, email, coop):
+    client.post("/auth/register", json={
+        "email": email, "password": "pass1234", "role": "admin",
+        "cooperative_name": coop, "country": "CI",
+    })
+    tok = client.post("/auth/login", json={"email": email, "password": "pass1234"}).json()["access_token"]
+    return {"Authorization": "Bearer " + tok}
+
+
+def test_farmforce_summary_is_cooperative_scoped(client):
+    """Le summary FarmForce ne doit agreger que la coop de l'utilisateur."""
+    ha = _ff_auth(client, "ff.scopeA@test.ci", "FF Scope A")
+    hb = _ff_auth(client, "ff.scopeB@test.ci", "FF Scope B")
+    pa = client.post("/plantations", json={
+        "name": "FFA", "owner_name": "FF Owner", "country": "CI", "hectares": 2,
+    }, headers=ha).json()
+    # Cree une evaluation FarmForce pour la coop A
+    client.post("/farmforce/assessments", json={
+        "producer_id": pa["producer_id"], "campaign_label": "2025-2026",
+        "revenue_items": [{"label": "cacao", "amount_cfa": 500000}],
+    }, headers=ha)
+
+    sa = client.get("/farmforce/summary", headers=ha).json()
+    assert sa["assessments"] >= 1
+    # Coop B ne voit pas les evaluations de A
+    sb = client.get("/farmforce/summary", headers=hb).json()
+    assert sb["assessments"] == 0
+    assert client.get("/farmforce/assessments", headers=hb).json() == []

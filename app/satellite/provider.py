@@ -136,6 +136,35 @@ def _ndmi_status(ndmi: float) -> dict:
     return {"moisture_status": "TRES_SEC", "interpretation": "Stress hydrique marqué"}
 
 
+def _interpret_ndvi(ndvi: float) -> dict:
+    """
+    Interpretation NDVI ALIGNEE sur app/api/routes._interpret_ndvi (garde-fou
+    anti-detracteur), pour une coherence stricte entre /satellite/ndvi et
+    /satellite/indices. Seuils cacaoculture : <=0.35 indetermine (sol nu/eau,
+    confiance faible, pas de reco), 0.35-0.50 stressee, 0.50-0.70 moderee, >0.70 saine.
+    """
+    if ndvi <= 0.35:
+        return {
+            "ndvi_status": "INDETERMINE",
+            "ndvi_interpretation": "Indéterminée",
+            "confidence": "low",
+            "recommendation": (
+                "Indice de végétation très faible (NDVI = "
+                f"{ndvi:.2f}) : sol nu, zone urbaine/eau ou couvert très dégradé. "
+                "Vérifiez que les coordonnées correspondent à la plantation. "
+                "Aucune recommandation agronomique automatique."
+            ),
+        }
+    if ndvi <= 0.50:
+        return {"ndvi_status": "STRESSED", "ndvi_interpretation": "Stressée", "confidence": "high",
+                "recommendation": "Stress végétatif : vérifier irrigation/fertilisation, inspection conseillée."}
+    if ndvi <= 0.70:
+        return {"ndvi_status": "MODERATE", "ndvi_interpretation": "Modérée", "confidence": "high",
+                "recommendation": "Végétation moyenne à dense : poursuivre l'entretien habituel."}
+    return {"ndvi_status": "HEALTHY", "ndvi_interpretation": "Saine", "confidence": "high",
+            "recommendation": "Couvert dense et en bonne santé."}
+
+
 def get_indices(latitude: float, longitude: float) -> dict:
     """NDVI + NDMI + statuts. Source réelle si token, sinon simulation."""
     ndvi_result = get_ndvi(latitude, longitude)
@@ -152,13 +181,15 @@ def get_indices(latitude: float, longitude: float) -> dict:
     if ndmi is None:
         ndmi = _ndmi_stub(latitude, longitude)
 
+    interp = _interpret_ndvi(ndvi)
     return {
         "ndvi": ndvi,
-        "ndvi_status": ndvi_result.get("vegetation_status"),
-        "ndvi_interpretation": ndvi_result.get("interpretation"),
+        "ndvi_status": interp["ndvi_status"],
+        "ndvi_interpretation": interp["ndvi_interpretation"],
+        "ndvi_confidence": interp["confidence"],
         "ndmi": ndmi,
         **_ndmi_status(ndmi),
-        "recommendation": ndvi_result.get("recommendation"),
+        "recommendation": interp["recommendation"],
         "source": source,
     }
 

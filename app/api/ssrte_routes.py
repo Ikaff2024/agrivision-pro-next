@@ -45,6 +45,13 @@ def get_optional_current_user(
     return user
 
 
+def _coop_producer_subq(db: Session, cooperative_id: int | None):
+    """Sous-requete des producteurs d'une coop (None => pas de filtre = global)."""
+    if cooperative_id is None:
+        return None
+    return db.query(Producer.id).filter(Producer.cooperative_id == cooperative_id).subquery()
+
+
 class CommunityProfilePayload(BaseModel):
     locality: str = Field(..., min_length=2, max_length=200)
     section: Optional[str] = Field(None, max_length=100)
@@ -379,15 +386,24 @@ def visit_to_dict(row: SsrtePlantationVisit) -> dict:
 
 
 @router.get("/summary")
-def ssrte_summary(db: Session = Depends(get_db)):
-    households = db.query(func.count(SsrteHouseholdProfile.id)).scalar() or 0
-    visits = db.query(func.count(SsrtePlantationVisit.id)).scalar() or 0
-    communities = db.query(func.count(SsrteCommunityProfile.id)).scalar() or 0
+def ssrte_summary(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _coop_producer_subq(db, coop_id)
+    hh_filter = [SsrteHouseholdProfile.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    pv_filter = [SsrtePlantationVisit.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    com_filter = [SsrteCommunityProfile.cooperative_id == coop_id] if coop_id is not None else []
+
+    households = db.query(func.count(SsrteHouseholdProfile.id)).filter(*hh_filter).scalar() or 0
+    visits = db.query(func.count(SsrtePlantationVisit.id)).filter(*pv_filter).scalar() or 0
+    communities = db.query(func.count(SsrteCommunityProfile.id)).filter(*com_filter).scalar() or 0
     suspected = db.query(func.count(SsrtePlantationVisit.id)).filter(
-        SsrtePlantationVisit.suspected_child_labor == True,
+        SsrtePlantationVisit.suspected_child_labor == True, *pv_filter,
     ).scalar() or 0
     high_households = db.query(func.count(SsrteHouseholdProfile.id)).filter(
-        SsrteHouseholdProfile.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+        SsrteHouseholdProfile.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]), *hh_filter,
     ).scalar() or 0
     return {
         "community_profiles": communities,
@@ -399,8 +415,16 @@ def ssrte_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/communities")
-def list_communities(limit: int = Query(100, ge=1, le=500), db: Session = Depends(get_db)):
-    rows = db.query(SsrteCommunityProfile).order_by(SsrteCommunityProfile.created_at.desc()).limit(limit).all()
+def list_communities(
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    query = db.query(SsrteCommunityProfile)
+    coop_id = current_user.cooperative_id if current_user else None
+    if coop_id is not None:
+        query = query.filter(SsrteCommunityProfile.cooperative_id == coop_id)
+    rows = query.order_by(SsrteCommunityProfile.created_at.desc()).limit(limit).all()
     return [community_to_dict(row) for row in rows]
 
 
@@ -426,10 +450,15 @@ def list_households(
     producer_id: Optional[int] = None,
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     query = db.query(SsrteHouseholdProfile)
     if producer_id:
         query = query.filter(SsrteHouseholdProfile.producer_id == producer_id)
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _coop_producer_subq(db, coop_id)
+    if prod_subq is not None:
+        query = query.filter(SsrteHouseholdProfile.producer_id.in_(prod_subq))
     rows = query.order_by(SsrteHouseholdProfile.created_at.desc()).limit(limit).all()
     return [household_to_dict(row) for row in rows]
 
@@ -528,12 +557,17 @@ def list_plantation_visits(
     producer_id: Optional[int] = None,
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     query = db.query(SsrtePlantationVisit)
     if plantation_id:
         query = query.filter(SsrtePlantationVisit.plantation_id == plantation_id)
     if producer_id:
         query = query.filter(SsrtePlantationVisit.producer_id == producer_id)
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _coop_producer_subq(db, coop_id)
+    if prod_subq is not None:
+        query = query.filter(SsrtePlantationVisit.producer_id.in_(prod_subq))
     rows = query.order_by(SsrtePlantationVisit.created_at.desc()).limit(limit).all()
     return [visit_to_dict(row) for row in rows]
 

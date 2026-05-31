@@ -6,12 +6,14 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth.auth_service import decode_token
 from app.db.database import get_db
-from app.db.models import FarmForceAssessment, Producer
+from app.db.models import FarmForceAssessment, Producer, User
 from app.importers.farmforce_excel import parse_farmforce_excel
 from app.services.farmforce_reports import (
     build_farmforce_context,
@@ -21,6 +23,27 @@ from app.services.farmforce_reports import (
 
 router = APIRouter(prefix="/farmforce", tags=["FarmForce"])
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    payload = decode_token(credentials.credentials)
+    if payload.get("type") != "access":
+        return None
+    user = db.query(User).filter(User.email == payload.get("sub")).first()
+    return user if (user and user.is_active) else None
+
+
+def _coop_producer_subq(db: Session, cooperative_id: int | None):
+    """Sous-requete des producteurs d'une coop (None => global)."""
+    if cooperative_id is None:
+        return None
+    return db.query(Producer.id).filter(Producer.cooperative_id == cooperative_id).subquery()
 
 # Verdict revenu vital : helper partage (defini dans le service pour eviter
 # un import circulaire routes <-> reports).
@@ -187,15 +210,21 @@ def _create_assessment_from_payload(data: FarmForcePayload, db: Session) -> Farm
 
 
 @router.get("/summary")
-def farmforce_summary(db: Session = Depends(get_db)):
-    count = db.query(func.count(FarmForceAssessment.id)).scalar() or 0
+def farmforce_summary(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _coop_producer_subq(db, coop_id)
+    ff_filter = [FarmForceAssessment.producer_id.in_(prod_subq)] if prod_subq is not None else []
+    count = db.query(func.count(FarmForceAssessment.id)).filter(*ff_filter).scalar() or 0
     totals = db.query(
         func.coalesce(func.sum(FarmForceAssessment.total_revenue_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.total_cost_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.profit_cfa), 0),
         func.coalesce(func.sum(FarmForceAssessment.family_labor_days), 0),
-    ).one()
-    avg_return = db.query(func.avg(FarmForceAssessment.return_per_family_day_cfa)).scalar()
+    ).filter(*ff_filter).one()
+    avg_return = db.query(func.avg(FarmForceAssessment.return_per_family_day_cfa)).filter(*ff_filter).scalar()
     return {
         "assessments": count,
         "total_revenue_cfa": float(totals[0] or 0),
@@ -212,12 +241,17 @@ def list_assessments(
     campaign_label: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     query = db.query(FarmForceAssessment)
     if producer_id:
         query = query.filter(FarmForceAssessment.producer_id == producer_id)
     if campaign_label:
         query = query.filter(FarmForceAssessment.campaign_label == campaign_label)
+    coop_id = current_user.cooperative_id if current_user else None
+    prod_subq = _coop_producer_subq(db, coop_id)
+    if prod_subq is not None:
+        query = query.filter(FarmForceAssessment.producer_id.in_(prod_subq))
     rows = query.order_by(FarmForceAssessment.created_at.desc()).limit(limit).all()
     return [_serialize(row) for row in rows]
 
