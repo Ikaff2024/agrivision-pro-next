@@ -207,6 +207,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           </div>
         </div>
 
+        <!-- Répartition par plan -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Plans d'abonnement</div>
+          </div>
+          <div class="card-body">
+            <div class="mini-stats" id="plan-stats">
+              <div class="loading-overlay"><div class="spinner" style="border-top-color:var(--accent)"></div></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -330,6 +342,31 @@ function renderDashboard(data) {
       ${s.inactive_cooperatives_30d > 0
         ? '<span class="kpi-trend trend-warn">À relancer</span>'
         : '<span class="kpi-trend trend-up">Tout est actif</span>'}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">👨‍👩‍👧</div>
+      <div class="kpi-val">${(s.total_children ?? 0).toLocaleString('fr-FR')}</div>
+      <div class="kpi-lbl">Enfants suivis</div>
+      <div class="kpi-sub">${(s.high_risk_children ?? 0).toLocaleString('fr-FR')} à risque élevé/critique</div>
+      ${(s.high_risk_children ?? 0) > 0 ? '<span class="kpi-trend trend-warn">Vigilance</span>' : '<span class="kpi-trend trend-up">RAS</span>'}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🚫</div>
+      <div class="kpi-val" style="color:${(s.active_traceability_blocks ?? 0) > 0 ? 'var(--high)' : 'var(--low)'}">${(s.active_traceability_blocks ?? 0).toLocaleString('fr-FR')}</div>
+      <div class="kpi-lbl">Blocages traçabilité</div>
+      <div class="kpi-sub">${(s.suspected_child_labor_visits ?? 0).toLocaleString('fr-FR')} visite(s) avec suspicion</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-val">${(s.total_lots ?? 0).toLocaleString('fr-FR')}</div>
+      <div class="kpi-lbl">Lots tracés</div>
+      <div class="kpi-sub">${(s.total_purchase_volume_kg ?? 0).toLocaleString('fr-FR')} kg achetés</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">👥</div>
+      <div class="kpi-val">${(s.total_producers ?? 0).toLocaleString('fr-FR')}</div>
+      <div class="kpi-lbl">Producteurs</div>
+      <div class="kpi-sub">${(s.total_purchase_amount_fcfa ?? 0).toLocaleString('fr-FR')} FCFA d'achats</div>
     </div>`;
 
   // ── Table coopératives ────────────────────────────────────────────────────
@@ -366,6 +403,16 @@ function renderDashboard(data) {
       <span class="mini-stat-lbl">Utilisateurs</span>
       <span class="mini-stat-val">${s.total_users}</span>
     </div>`;
+
+  // ── Répartition par plan d'abonnement ──────────────────────────────────────
+  const pd = data.plan_distribution || {};
+  const planEl = document.getElementById('plan-stats');
+  if (planEl) {
+    const order = [['starter','Starter'],['compliance','Conformité'],['pro','Pro'],['enterprise','Entreprise']];
+    planEl.innerHTML = order.map(([k,l]) =>
+      `<div class="mini-stat"><span class="mini-stat-lbl">${l}</span><span class="mini-stat-val">${pd[k]||0}</span></div>`
+    ).join('');
+  }
 }
 
 function riskBar(label, count, total, color) {
@@ -430,6 +477,7 @@ function renderCoopTable(coops) {
           <th>Plantations</th>
           <th>Diagnostics (30j)</th>
           <th>Dernière activité</th>
+          <th>Plan</th>
           <th>Statut</th>
         </tr>
       </thead>
@@ -457,6 +505,13 @@ function renderCoopTable(coops) {
             </td>
             <td style="font-size:13px;color:var(--muted)">${lastAct}</td>
             <td>
+              <select onchange="changePlan(${c.id}, this.value, this)"
+                style="padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit;font-size:12.5px;background:var(--surface);cursor:pointer">
+                ${['starter','compliance','pro','enterprise'].map(p =>
+                  `<option value="${p}" ${(c.plan||'enterprise')===p?'selected':''}>${planLabel(p)}</option>`).join('')}
+              </select>
+            </td>
+            <td>
               ${suspended
                 ? '<span class="status-badge status-suspended">Suspendue</span>'
                 : `<span class="status-badge ${st.cls}">
@@ -471,6 +526,33 @@ function renderCoopTable(coops) {
 }
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
+
+function planLabel(p) {
+  return {starter:'Starter', compliance:'Conformité', pro:'Pro', enterprise:'Entreprise'}[p] || p;
+}
+
+// Change le plan d'une coopérative (réservé propriétaire IKAFFANAN).
+async function changePlan(coopId, plan, el) {
+  const prev = el.getAttribute('data-prev') || plan;
+  try {
+    const res = await fetch(`${API_BASE}/owner/cooperatives/${coopId}/plan`, {
+      method: 'PUT',
+      headers: { 'X-Owner-Key': ownerKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Échec');
+    el.setAttribute('data-prev', plan);
+    // Met à jour le cache local + la répartition par plan
+    const coop = allCoops.find(c => c.id === coopId);
+    if (coop) coop.plan = plan;
+    el.style.borderColor = 'var(--low)';
+    setTimeout(() => { el.style.borderColor = 'var(--border)'; }, 1200);
+    loadStats();
+  } catch (e) {
+    alert('Changement de plan impossible : ' + e.message);
+    el.value = prev;
+  }
+}
 
 // Actualisation automatique toutes les 5 minutes
 setInterval(() => { if (ownerKey) loadStats(); }, 5 * 60 * 1000);

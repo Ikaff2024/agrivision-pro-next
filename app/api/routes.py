@@ -1504,18 +1504,25 @@ def owner_stats(
             Plantation.cooperative_id == c.id
         ).order_by(Diagnostic.created_at.desc()).first()
 
+        from app.services.plans import normalize_plan
+        # Comparaison tz-safe : SQLite renvoie des datetimes naïfs, Postgres aware.
+        created = c.created_at
+        if created is not None and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        is_new = bool(created and created >= thirty_days_ago)
         coop_stats.append({
             "id": c.id,
             "name": c.name,
             "country": c.country,
             "is_active": c.is_active,
+            "plan": normalize_plan(getattr(c, "plan", None)),
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "users_count": n_users,
             "plantations_count": n_plantations,
             "diagnostics_total": n_diags,
             "diagnostics_last_30d": n_diags_30d,
             "last_activity": last_diag.created_at.isoformat() if last_diag and last_diag.created_at else None,
-            "status": "active" if n_diags_30d > 0 else ("new" if c.created_at and c.created_at >= thirty_days_ago else "inactive"),
+            "status": "active" if n_diags_30d > 0 else ("new" if is_new else "inactive"),
         })
 
     # Distribution des risques globale
@@ -1527,6 +1534,34 @@ def owner_stats(
             seen_plantations.add(d.plantation_id)
             risk_counts[d.global_risk_level] = risk_counts.get(d.global_risk_level, 0) + 1
 
+    # KPIs plateforme issus des modules recents (protection enfant, tracabilite,
+    # commercial). Agregats globaux peu couteux (count/sum), tous coops confondus.
+    from app.db.models import Lot, Producer, PurchaseRecord  # noqa: E402
+    from app.db.models_social import (  # noqa: E402
+        BlockStatus, Child, RiskLevel, SsrtePlantationVisit, TraceabilityBlock,
+    )
+    from app.services.plans import PLAN_CATEGORIES, normalize_plan as _np  # noqa: E402
+
+    total_producers = db.query(func.count(Producer.id)).filter(Producer.is_active == True).scalar() or 0
+    total_children = db.query(func.count(Child.id)).filter(Child.is_active == True).scalar() or 0
+    high_risk_children = db.query(func.count(Child.id)).filter(
+        Child.is_active == True, Child.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
+    ).scalar() or 0
+    active_blocks = db.query(func.count(TraceabilityBlock.id)).filter(
+        TraceabilityBlock.status == BlockStatus.ACTIVE,
+    ).scalar() or 0
+    suspected_visits = db.query(func.count(SsrtePlantationVisit.id)).filter(
+        SsrtePlantationVisit.suspected_child_labor == True,
+    ).scalar() or 0
+    total_lots = db.query(func.count(Lot.id)).scalar() or 0
+    purchase_volume_kg = db.query(func.coalesce(func.sum(PurchaseRecord.net_weight_kg), 0)).scalar() or 0
+    purchase_amount = db.query(func.coalesce(func.sum(PurchaseRecord.total_amount_fcfa), 0)).scalar() or 0
+
+    # Repartition par plan d'abonnement
+    plan_distribution = {p: 0 for p in PLAN_CATEGORIES}
+    for c in coops:
+        plan_distribution[_np(getattr(c, "plan", None))] = plan_distribution.get(_np(getattr(c, "plan", None)), 0) + 1
+
     return {
         "generated_at": now.isoformat(),
         "summary": {
@@ -1536,13 +1571,48 @@ def owner_stats(
             "inactive_cooperatives_30d": inactive_coop_count,
             "total_users": total_users,
             "total_plantations": total_plantations,
+            "total_producers": total_producers,
             "total_diagnostics": total_diagnostics,
             "diagnostics_last_30d": diags_last_30d,
             "diagnostics_last_7d": diags_last_7d,
+            # Protection de l'enfant / tracabilite
+            "total_children": total_children,
+            "high_risk_children": high_risk_children,
+            "active_traceability_blocks": active_blocks,
+            "suspected_child_labor_visits": suspected_visits,
+            # Commercial & tracabilite
+            "total_lots": total_lots,
+            "total_purchase_volume_kg": round(float(purchase_volume_kg), 1),
+            "total_purchase_amount_fcfa": round(float(purchase_amount), 0),
         },
         "risk_distribution": risk_counts,
+        "plan_distribution": plan_distribution,
         "cooperatives": coop_stats,
     }
+
+
+class OwnerPlanUpdate(BaseModel):
+    plan: str
+
+
+@router.put("/owner/cooperatives/{coop_id}/plan")
+def owner_set_cooperative_plan(
+    coop_id: int,
+    data: OwnerPlanUpdate,
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Change le plan d'abonnement d'une cooperative. Reserve IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    from app.services.plans import PLAN_CATEGORIES
+    if data.plan not in PLAN_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Plan invalide : {sorted(PLAN_CATEGORIES)}.")
+    coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
+    if not coop:
+        raise HTTPException(status_code=404, detail="Cooperative introuvable.")
+    coop.plan = data.plan
+    db.commit()
+    return {"coop_id": coop.id, "name": coop.name, "plan": coop.plan}
 
 
 @router.put("/admin/members/{user_id}/reset-password")
