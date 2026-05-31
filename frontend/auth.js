@@ -301,12 +301,26 @@ function startTokenAutoRefresh() {
 }
 
 /* ── Auth guards ─────────────────────────────────────────────── */
-function requireAuth() {
-  // Authentification désactivée - accès libre
-  return true;
+// Pages publiques (accessibles sans authentification).
+const PUBLIC_PAGES = ['login.html', 'register.html', 'reset_password.html', 'owner.html'];
+
+function _currentPage() {
+  const path = (window.location.pathname || '').split('/').pop();
+  return path || 'index.html';
 }
 
-function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+function requireAuth() {
+  // Sur une page applicative, exiger un jeton valide : sinon rediriger vers la
+  // connexion (evite l'affichage d'un tableau de bord vide apres deconnexion).
+  if (PUBLIC_PAGES.includes(_currentPage())) return true;
+  const token = getToken();
+  // Jeton present et encore exploitable (ou rafraichissable) => OK.
+  if (token && (!isTokenExpired(token) || getRefreshToken())) return true;
+  window.location.replace('login.html');
+  return false;
+}
+
+function logout() { localStorage.clear(); window.location.replace('login.html'); }
 
 /* ── Changer mon mot de passe (self-service, tous roles) ───────── */
 function ensureChangePasswordModal() {
