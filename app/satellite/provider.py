@@ -230,10 +230,35 @@ def get_timeseries(latitude: float, longitude: float, index: str = "ndvi", month
 
 # ── Déforestation ────────────────────────────────────────────────────────────────
 
-_GFW_BASE = "https://data-api.globalforestwatch.org"
+_GFW_HOST = "data-api.globalforestwatch.org"
 _GFW_DATASET = "gfw_integrated_alerts"  # GLAD-L + GLAD-S2 + RADD combinés
 _EUDR_CUTOFF = "2020-12-31"             # déforestation interdite après cette date (EUDR)
 _gfw_version_cache: dict = {"version": None, "fetched_at": 0}
+
+
+def _gfw_request(method: str, path: str, key: str, body: Optional[bytes] = None, timeout: int = 60):
+    """
+    Requête HTTPS vers la GFW Data API via http.client.
+
+    ⚠️ L'en-tête doit être EXACTEMENT `x-api-key` en minuscules : la GFW Data API
+    est sensible à la casse et rejette `X-Api-Key` (urllib capitalise, d'où ce
+    client bas niveau qui préserve la casse).
+    """
+    import http.client
+    conn = http.client.HTTPSConnection(_GFW_HOST, timeout=timeout)
+    headers = {"x-api-key": key}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    try:
+        conn.request(method, path, body=body, headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status != 200:
+            logger.warning("GFW %s %s -> HTTP %d : %s", method, path, resp.status, raw[:200])
+            return None
+        return json.loads(raw)
+    finally:
+        conn.close()
 
 
 def _gfw_latest_version(key: str) -> Optional[str]:
@@ -242,10 +267,8 @@ def _gfw_latest_version(key: str) -> Optional[str]:
     if _gfw_version_cache["version"] and time.time() < _gfw_version_cache["fetched_at"] + 86400:
         return _gfw_version_cache["version"]
     try:
-        req = urllib.request.Request(f"{_GFW_BASE}/dataset/{_GFW_DATASET}", method="GET")
-        req.add_header("x-api-key", key)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            versions = json.loads(resp.read()).get("data", {}).get("versions", [])
+        data = _gfw_request("GET", f"/dataset/{_GFW_DATASET}", key, timeout=15)
+        versions = (data or {}).get("data", {}).get("versions", [])
         if not versions:
             return None
         _gfw_version_cache["version"] = versions[-1]
@@ -275,13 +298,12 @@ def _fetch_deforestation(latitude: float, longitude: float, key: str) -> Optiona
         "geometry": polygon,
     }).encode("utf-8")
     try:
-        req = urllib.request.Request(
-            f"{_GFW_BASE}/dataset/{_GFW_DATASET}/{version}/query/json", data=body, method="POST"
+        data = _gfw_request(
+            "POST", f"/dataset/{_GFW_DATASET}/{version}/query/json", key, body=body, timeout=90
         )
-        req.add_header("x-api-key", key)
-        req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            rows = json.loads(resp.read()).get("data", [])
+        if data is None:
+            return None
+        rows = data.get("data", [])
     except Exception as exc:  # noqa: BLE001
         logger.warning("GFW : requête alertes échouée : %s", exc)
         return None
