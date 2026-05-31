@@ -813,6 +813,26 @@ class SsrtePlantationVisit(Base):
     interviewer_name = Column(String(200), nullable=True)
     gps_location = Column(String(255), nullable=True)
     gps_accuracy = Column(Float, nullable=True)
+    # Identification administrative (C.01-C.07)
+    section = Column(String(100), nullable=True)               # C.01
+    supplier = Column(String(200), nullable=True)              # C.02
+    sub_prefecture = Column(String(200), nullable=True)        # C.03
+    locality = Column(String(200), nullable=True)              # C.04
+    collection_agent_code = Column(String(100), nullable=True) # C.05
+    producer_ssrte_code = Column(String(100), nullable=True)   # C.07
+    # Heures de visite (C.09b/c)
+    time_start = Column(String(20), nullable=True)
+    time_end = Column(String(20), nullable=True)
+    # Comptages adultes / travailleurs / enfants (C.10a/b/d, C.11, C.12)
+    adults_count = Column(Integer, nullable=True)              # C.10a
+    daily_workers_count = Column(Integer, nullable=True)       # C.10b
+    allow_worker_interview = Column(Boolean, nullable=True)    # C.10d
+    children_present_count = Column(Integer, nullable=True)    # C.11
+    non_household_children_count = Column(Integer, nullable=True)  # C.12
+    # Enfants non-membres du menage presents (V01-V10, C.14-C.18)
+    non_household_children = Column(JSON, nullable=True)
+    # Remarques + actions proposees, une entree par section
+    section_notes = Column(JSON, nullable=True)
     checklist_data = Column(JSON, nullable=True)
     children_observed = Column(JSON, nullable=True)
     # Adultes presents (C.10a) et travailleurs non-journaliers (C.10c) :

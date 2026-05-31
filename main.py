@@ -200,6 +200,28 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migration SSRTE Fiche B : OK (admin, visite, travailleurs, section_notes)")
+
+                # SSRTE - couverture complete Fiche C : admin, comptages, enfants hors menage
+                for col_ddl in [
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS section VARCHAR(100)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS supplier VARCHAR(200)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS sub_prefecture VARCHAR(200)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS locality VARCHAR(200)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS collection_agent_code VARCHAR(100)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS producer_ssrte_code VARCHAR(100)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS time_start VARCHAR(20)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS time_end VARCHAR(20)",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS adults_count INTEGER",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS daily_workers_count INTEGER",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS allow_worker_interview BOOLEAN",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS children_present_count INTEGER",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS non_household_children_count INTEGER",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS non_household_children JSON",
+                    "ALTER TABLE ssrte_plantation_visits ADD COLUMN IF NOT EXISTS section_notes JSON",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration SSRTE Fiche C : OK (admin, comptages, enfants hors menage, section_notes)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

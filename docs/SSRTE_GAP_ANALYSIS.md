@@ -11,13 +11,21 @@
 
 Dernière mise à jour : 2026-05-31.
 
-> ✅ **P1 livré (2026-05-31)** : les trois gros blocs manquants sont désormais capturés
-> de bout en bout (modèle JSON + API + PDF + UI mobile) :
-> - **Fiche A** — tableau détaillé des écoles (A.22-A.29) → colonne `schools`
-> - **Fiche B** — informations exploitation (B.16-B.23, cacao & café) → colonne `farm_info`
-> - **Fiche C** — adultes présents (C.10a) + travailleurs non-journaliers (C.10c) → `adults_observed`, `workers_present`
+> ✅ **COUVERTURE COMPLÈTE livrée (2026-05-31)** : après audit ligne par ligne des **3 PDF officiels**
+> (Fiche A 25 p., F1 Ménage 50 p., Fiche C 35 p.), **tous les champs de données** des questionnaires
+> sont désormais capturés de bout en bout (modèle + API + PDF + UI mobile/tablette) :
+> - **Fiche A** : identification admin (A.02-A.06), GPS+heures (A.07a/b/c), origine électricité (A.12b),
+>   distance eau (A.13b), noms organisations (A.18b/c/d), classes secondaires (A.21a/b),
+>   tableau écoles complet (A.22-A.29 : titulaires/bénévoles, élèves H/F, cantine service+coût, latrines).
+> - **Fiche B** : admin (B.02-B.07), GPS+heures (B.09a/b/c), type d'enquête, statut visite (B.10a/b),
+>   statut personne (B.15), exploitation (B.16-B.23), travailleurs (B.18b/c/d), membres M01+ (B.27-B.36).
+> - **Fiche C** : admin (C.01-C.07), heures (C.09b/c), comptages adultes/journaliers (C.10a/b/d),
+>   enfants présents + hors ménage (C.11/C.12), bloc enfants non-membres V01-V10 (C.14-C.18).
+> - **Transversal** : « Remarques + actions proposées » gérées **par section** ; **branches conditionnelles**
+>   rendues par affichage dynamique côté UI (allège la saisie terrain).
 >
-> Restent **P2** (détails par indicateur, GPS/heures) et **P3** (champs administratifs).
+> Décisions de design (à confirmer avec le client au feedback) : remarques **par section** plutôt que
+> par question ; listes de choix alignées sur le PDF ; champs Coopérative repris du contexte utilisateur.
 
 ---
 
@@ -104,9 +112,9 @@ semaine / coût par ration) · latrines (existence / bloc séparé H-F).
   - Fiche A : ~~tableau détaillé des écoles (A.22-A.29)~~ ✅
   - Fiche B : ~~informations exploitation (parcelles / superficie / production cacao & café)~~ ✅
   - Fiche C : ~~adultes + travailleurs présents~~ ✅
-- **P2 — détails par indicateur** : origine électricité, distance point d'eau, noms des
-  organisations, nombre de classes secondaires ; GPS + heures de visite (A, B, C).
-- **P3 — champs administratifs** : fournisseur, sous-préfecture, codes/noms agent de collecte.
+- ~~**P2 — détails par indicateur** : origine électricité, distance point d'eau, noms des
+  organisations, nombre de classes secondaires ; GPS + heures de visite (A, B, C)~~ ✅ **FAIT (2026-05-31)**.
+- ~~**P3 — champs administratifs** : fournisseur, sous-préfecture, codes/noms agent de collecte~~ ✅ **FAIT (2026-05-31)**.
 
 > Chaque bloc est indépendant et peut être ajouté de façon incrémentale, sans casser l'existant
 > (le modèle de données stocke déjà des sections en JSON, ce qui facilite l'ajout de champs).

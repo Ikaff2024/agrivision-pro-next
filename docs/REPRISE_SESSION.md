@@ -7,8 +7,10 @@
 Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`** · Dernier commit : **`4a7f6f6`**.
 
 > **MAJ 2026-05-31** : ✅ backlog **#1** (cloisonnement CacaoGuard par coopérative) **fait** ;
-> ✅ backlog **#2 P1** (SSRTE — tableau écoles Fiche A, infos exploitation Fiche B,
-> adultes/travailleurs Fiche C) **fait** (modèle + API + PDF + UI). Reste SSRTE P2/P3.
+> ✅ backlog **#2 SSRTE COMPLET** : après audit ligne par ligne des 3 PDF officiels, **tous les
+> champs des questionnaires** Fiches A/B/C sont capturés (admin, GPS/heures, listes de choix,
+> blocs répétables écoles/membres/travailleurs/enfants hors ménage V01-V10, remarques par section,
+> affichage conditionnel). Modèle + API + PDF + UI mobile. Reste à confirmer au feedback client.
 
 ---
 
@@ -84,9 +86,11 @@ git push origin HEAD
    - **Une tentative a été faite puis ANNULÉE** (`git checkout`) car non finalisée → repartir propre. Une **puce de tâche** a été créée pour ça.
 
 2. **🟠 SSRTE — compléter les fiches** (voir `docs/SSRTE_GAP_ANALYSIS.md`) :
-   - ✅ **P1 FAIT (2026-05-31)** : tableau détaillé des écoles (Fiche A, A.22-A.29, colonne `schools`) ; infos exploitation (Fiche B, `farm_info`) ; adultes/travailleurs présents (Fiche C, `adults_observed`/`workers_present`). Modèle + API + PDF + UI mobile.
-   - **P2** : détails par indicateur (origine électricité, distance eau, noms organisations, classes secondaires) + GPS/heures.
-   - **P3** : champs administratifs (fournisseur, sous-préfecture, codes agent).
+   - ✅ **COMPLET (2026-05-31)** : audit des 3 PDF officiels puis couverture de **tous** les champs.
+     P1 (écoles/exploitation/adultes-travailleurs), P2 (origine élec, distance eau, noms orgs, classes
+     secondaires, GPS/heures) et P3 (admin : fournisseur, sous-préfecture, codes agent, code SSRTE) **faits**.
+     \+ enfants hors ménage V01-V10 (Fiche C), statut de visite (Fiche B), remarques par section, UI conditionnelle.
+     Modèle + API + PDF + UI mobile. **À valider au feedback client** (granularité remarques, libellés de choix).
 
 3. **🟡 EUDR-01b — détection déforestation automatique** : le **cadre** est fait ; il manque la **source satellite** (Hansen Global Forest Change / Global Forest Watch via Google Earth Engine) → nécessite **clés API / quotas** à fournir.
 

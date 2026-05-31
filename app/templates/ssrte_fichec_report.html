@@ -82,12 +82,29 @@
   <h2>Informations de visite</h2>
   <div class="grid-3">
     <div class="card"><div class="card-label">Plantation</div><div class="card-value">{{ plantation_name }}</div></div>
-    <div class="card"><div class="card-label">Producteur</div><div class="card-value">{{ producer_name }}</div></div>
-    <div class="card"><div class="card-label">Date de visite</div><div class="card-value">{{ visit_date }}</div></div>
-    <div class="card"><div class="card-label">Agent</div><div class="card-value">{{ interviewer_name }}</div></div>
-    <div class="card"><div class="card-label">GPS / lieu</div><div class="card-value">{{ gps_location }}</div></div>
+    <div class="card"><div class="card-label">Producteur (C.08)</div><div class="card-value">{{ producer_name }}</div></div>
+    <div class="card"><div class="card-label">Code SSRTE prod. (C.07)</div><div class="card-value" style="font-size:11pt">{{ producer_ssrte_code }}</div></div>
+    <div class="card"><div class="card-label">Localite (C.04)</div><div class="card-value" style="font-size:11pt">{{ locality }}</div></div>
+    <div class="card"><div class="card-label">Fournisseur (C.02)</div><div class="card-value" style="font-size:11pt">{{ supplier }}</div></div>
+    <div class="card"><div class="card-label">Sous-prefecture (C.03)</div><div class="card-value" style="font-size:11pt">{{ sub_prefecture }}</div></div>
+    <div class="card"><div class="card-label">Date de visite (C.09)</div><div class="card-value">{{ visit_date }}</div></div>
+    <div class="card"><div class="card-label">Heure debut / fin (C.09b/c)</div><div class="card-value" style="font-size:11pt">{{ time_start }} → {{ time_end }}</div></div>
+    <div class="card"><div class="card-label">Agent (C.06) / code (C.05)</div><div class="card-value" style="font-size:11pt">{{ interviewer_name }}</div></div>
+    <div class="card"><div class="card-label">GPS plantation (C.09)</div><div class="card-value" style="font-size:9pt">{{ gps_location }}</div></div>
     <div class="card"><div class="card-label">Consentement preuves</div><div class="card-value">{{ "Oui" if consent_given else "Non" }}</div></div>
   </div>
+</div>
+
+<div class="section">
+  <h2>Comptages de la visite</h2>
+  <div class="grid-3">
+    <div class="card"><div class="card-label">Adultes presents (C.10a)</div><div class="card-value">{{ adults_count if adults_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Dont journaliers (C.10b)</div><div class="card-value">{{ daily_workers_count if daily_workers_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Entretien travailleurs autorise (C.10d)</div><div class="card-value">{% if allow_worker_interview %}Oui{% elif allow_worker_interview is false %}Non{% else %}—{% endif %}</div></div>
+    <div class="card"><div class="card-label">Enfants presents (C.11)</div><div class="card-value">{{ children_present_count if children_present_count is not none else "—" }}</div></div>
+    <div class="card"><div class="card-label">Dont hors menage (C.12)</div><div class="card-value">{{ non_household_children_count if non_household_children_count is not none else "—" }}</div></div>
+  </div>
+  {% if section_notes.identification %}<div class="notes" style="margin-top:6pt">{{ section_notes.identification }}</div>{% endif %}
 </div>
 
 <div class="section">
@@ -147,6 +164,26 @@
     </tbody>
   </table>
   {% else %}<div class="empty">Aucun travailleur non-journalier recense.</div>{% endif %}
+</div>
+
+<div class="section">
+  <h2>Enfants non-membres du menage (V01-V10, C.14-C.18)</h2>
+  {% if non_household_children %}
+  <table>
+    <thead><tr><th>Nom et prenoms</th><th class="num">Naissance</th><th>Sexe</th><th>Extrait</th><th>Scolarisation</th></tr></thead>
+    <tbody>
+      {% for c in non_household_children %}
+      <tr>
+        <td>{{ c.name or c.nom or "—" }}</td>
+        <td class="num">{{ c.birth_date or c.birth_year or "" }}</td>
+        <td>{{ c.sex or c.sexe or "" }}</td>
+        <td>{{ c.birth_certificate or "" }}</td>
+        <td>{{ c.school_status or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucun enfant non-membre du menage recense.</div>{% endif %}
 </div>
 
 <div class="section">

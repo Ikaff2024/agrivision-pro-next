@@ -119,6 +119,24 @@ class PlantationVisitPayload(BaseModel):
     interviewer_name: Optional[str] = Field(None, max_length=200)
     gps_location: Optional[str] = Field(None, max_length=255)
     gps_accuracy: Optional[float] = Field(None, ge=0)
+    # Identification administrative (C.01-C.07)
+    section: Optional[str] = Field(None, max_length=100)
+    supplier: Optional[str] = Field(None, max_length=200)
+    sub_prefecture: Optional[str] = Field(None, max_length=200)
+    locality: Optional[str] = Field(None, max_length=200)
+    collection_agent_code: Optional[str] = Field(None, max_length=100)
+    producer_ssrte_code: Optional[str] = Field(None, max_length=100)
+    # Heures (C.09b/c)
+    time_start: Optional[str] = Field(None, max_length=20)
+    time_end: Optional[str] = Field(None, max_length=20)
+    # Comptages (C.10a/b/d, C.11, C.12)
+    adults_count: Optional[int] = Field(None, ge=0)
+    daily_workers_count: Optional[int] = Field(None, ge=0)
+    allow_worker_interview: Optional[bool] = None
+    children_present_count: Optional[int] = Field(None, ge=0)
+    non_household_children_count: Optional[int] = Field(None, ge=0)
+    non_household_children: list[dict] = Field(default_factory=list)
+    section_notes: dict = Field(default_factory=dict)
     checklist_data: dict = Field(default_factory=dict)
     children_observed: list[dict] = Field(default_factory=list)
     adults_observed: list[dict] = Field(default_factory=list)
@@ -329,6 +347,21 @@ def visit_to_dict(row: SsrtePlantationVisit) -> dict:
         "interviewer_name": row.interviewer_name,
         "gps_location": row.gps_location,
         "gps_accuracy": row.gps_accuracy,
+        "section": row.section,
+        "supplier": row.supplier,
+        "sub_prefecture": row.sub_prefecture,
+        "locality": row.locality,
+        "collection_agent_code": row.collection_agent_code,
+        "producer_ssrte_code": row.producer_ssrte_code,
+        "time_start": row.time_start,
+        "time_end": row.time_end,
+        "adults_count": row.adults_count,
+        "daily_workers_count": row.daily_workers_count,
+        "allow_worker_interview": row.allow_worker_interview,
+        "children_present_count": row.children_present_count,
+        "non_household_children_count": row.non_household_children_count,
+        "non_household_children": row.non_household_children or [],
+        "section_notes": row.section_notes or {},
         "checklist_data": row.checklist_data or {},
         "children_observed": row.children_observed or [],
         "adults_observed": row.adults_observed or [],

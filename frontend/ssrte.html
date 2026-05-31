@@ -265,8 +265,24 @@
             <div class="section-title">Visite plantation</div>
             <div class="form-group"><label class="form-label">Plantation</label><select class="form-input" id="plantation"></select></div>
             <div class="mini-row">
-              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="visit-date"></div>
-              <div class="form-group"><label class="form-label">Agent</label><input class="form-input" id="visit-agent"></div>
+              <div class="form-group"><label class="form-label">Date (C.09)</label><input class="form-input" type="date" id="visit-date"></div>
+              <div class="form-group"><label class="form-label">Agent collecte (C.06)</label><input class="form-input" id="visit-agent"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Code SSRTE producteur (C.07)</label><input class="form-input" id="vc-producer-code"></div>
+              <div class="form-group"><label class="form-label">Code agent (C.05)</label><input class="form-input" id="vc-agent-code"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Section (C.01)</label><input class="form-input" id="vc-section"></div>
+              <div class="form-group"><label class="form-label">Fournisseur (C.02)</label><input class="form-input" id="vc-supplier"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Sous-prefecture (C.03)</label><input class="form-input" id="vc-sub-prefecture"></div>
+              <div class="form-group"><label class="form-label">Localite (C.04)</label><input class="form-input" id="vc-locality"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Heure debut (C.09b)</label><input class="form-input" type="time" id="vc-time-start"></div>
+              <div class="form-group"><label class="form-label">Heure fin (C.09c)</label><input class="form-input" type="time" id="vc-time-end"></div>
             </div>
             <div class="form-group">
               <label class="form-label">GPS / lieu</label>
@@ -284,6 +300,16 @@
                 <label class="check-row"><input type="checkbox" class="visit-check" value="school_discussed"> Scolarisation discutee</label>
               </div>
             </div>
+            <div class="section-title" style="font-size:13px;margin-top:6px">Comptages (C.10 / C.11 / C.12)</div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Adultes presents (C.10a)</label><input class="form-input" type="number" min="0" id="vc-adults-count"></div>
+              <div class="form-group"><label class="form-label">Dont journaliers (C.10b)</label><input class="form-input" type="number" min="0" id="vc-daily-count"></div>
+            </div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Enfants presents (C.11)</label><input class="form-input" type="number" min="0" id="vc-children-count"></div>
+              <div class="form-group"><label class="form-label">Dont hors menage (C.12)</label><input class="form-input" type="number" min="0" id="vc-nonhh-count"></div>
+            </div>
+            <label class="check-row"><input type="checkbox" id="vc-allow-interview"> Producteur autorise l'entretien avec les travailleurs (C.10d)</label>
             <div class="form-group">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                 <label class="form-label" style="margin:0">Enfants presents dans la plantation</label>
@@ -306,6 +332,13 @@
               </div>
               <div id="workers-rows"></div>
             </div>
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="form-label" style="margin:0">Enfants non-membres du menage (V01-V10, C.14-C.18)</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addNonHhChild()"><span class="material-symbols-outlined" style="font-size:16px">child_care</span> Enfant</button>
+              </div>
+              <div id="nonhh-children-rows"></div>
+            </div>
             <label class="check-row"><input type="checkbox" id="suspected"> Suspicion travail enfant <span style="color:var(--muted);font-size:11px">(coche auto si tache dangereuse)</span></label>
             <div class="form-group"><label class="form-label">Actions immediates</label><textarea class="form-input" id="immediate-actions" rows="2"></textarea></div>
             <div class="mini-row">
@@ -316,6 +349,7 @@
               <div class="form-group"><label class="form-label">Signature producteur</label><input class="form-input" id="producer-signature"></div>
               <div class="form-group"><label class="form-label">Signature agent</label><input class="form-input" id="assessor-signature"></div>
             </div>
+            <div class="form-group"><label class="form-label">Remarques / actions — Visite</label><textarea class="form-input" id="vc-note-identification" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="visit-notes" rows="3"></textarea></div>
             <button class="btn btn-primary" onclick="saveVisit()" style="width:100%;justify-content:center">Enregistrer Fiche C</button>
           </div>
@@ -609,6 +643,38 @@ function workerRows() {
     status: c.querySelector('.w-status').value,
     phone: c.querySelector('.w-phone').value.trim() || null,
   })).filter(w => w.name);
+}
+
+/* ── Enfants non-membres du menage (Fiche C, V01-V10) ────────────── */
+function addNonHhChild(v = {}) {
+  const wrap = document.getElementById('nonhh-children-rows');
+  const div = document.createElement('div');
+  div.className = 'nonhh-card';
+  div.style.cssText = 'border:1px solid var(--border-l,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff';
+  div.innerHTML =
+    `<div class="mini-row">
+       <div class="form-group"><label class="form-label">Nom et prenoms (C.14)</label><input class="form-input nh-name" value="${v.name||''}"></div>
+       <div class="form-group"><label class="form-label">Date naissance (C.16)</label><input class="form-input nh-birth" value="${v.birth_date||''}" placeholder="aaaa ou jj.mm.aaaa"></div>
+     </div>
+     <div class="mini-row">
+       <div class="form-group"><label class="form-label">Sexe (C.15)</label><select class="form-input nh-sex"><option value="">—</option><option ${v.sex==='M'?'selected':''}>M</option><option ${v.sex==='F'?'selected':''}>F</option></select></div>
+       <div class="form-group"><label class="form-label">Extrait (C.17)</label><select class="form-input nh-cert"><option value="">—</option><option ${v.birth_certificate==='Oui'?'selected':''}>Oui</option><option ${v.birth_certificate==='Non'?'selected':''}>Non</option><option ${v.birth_certificate==='Ne sait pas'?'selected':''}>Ne sait pas</option></select></div>
+       <div class="form-group"><label class="form-label">Scolarisation (C.18)</label><select class="form-input nh-school">${_opts(SCHOOL_STATUS, v.school_status)}</select></div>
+     </div>
+     <div style="display:flex;justify-content:flex-end">
+       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.nonhh-card').remove()"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+     </div>`;
+  wrap.appendChild(div);
+}
+
+function nonHhChildRows() {
+  return [...document.querySelectorAll('#nonhh-children-rows .nonhh-card')].map(c => ({
+    name: c.querySelector('.nh-name').value.trim(),
+    birth_date: c.querySelector('.nh-birth').value.trim() || null,
+    sex: c.querySelector('.nh-sex').value || null,
+    birth_certificate: c.querySelector('.nh-cert').value || null,
+    school_status: c.querySelector('.nh-school').value || null,
+  })).filter(c => c.name);
 }
 
 async function postSsrte(path, body, label) {
@@ -907,6 +973,21 @@ async function saveVisit() {
     interviewer_name: val('visit-agent') || null,
     gps_location: val('visit-gps') || null,
     gps_accuracy: gpsAccuracy,
+    section: val('vc-section') || null,
+    supplier: val('vc-supplier') || null,
+    sub_prefecture: val('vc-sub-prefecture') || null,
+    locality: val('vc-locality') || null,
+    collection_agent_code: val('vc-agent-code') || null,
+    producer_ssrte_code: val('vc-producer-code') || null,
+    time_start: val('vc-time-start') || null,
+    time_end: val('vc-time-end') || null,
+    adults_count: num('vc-adults-count'),
+    daily_workers_count: num('vc-daily-count'),
+    allow_worker_interview: document.getElementById('vc-allow-interview').checked,
+    children_present_count: num('vc-children-count'),
+    non_household_children_count: num('vc-nonhh-count'),
+    non_household_children: nonHhChildRows(),
+    section_notes: { identification: val('vc-note-identification') || null },
     checklist_data: visitChecklist(),
     children_observed: observedChildren(),
     adults_observed: adultRows(),

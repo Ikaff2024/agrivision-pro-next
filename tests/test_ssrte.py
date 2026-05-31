@@ -367,6 +367,44 @@ def test_ssrte_fichec_adults_and_workers_persist(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def test_ssrte_fichec_full_questionnaire_coverage(client):
+    """La Fiche C capture admin, heures, comptages et enfants non-membres du menage (V01-V10)."""
+    producer_id, plantation_id = _seed_producer_and_plantation()
+    created = client.post("/ssrte/plantation-visits", json={
+        "plantation_id": plantation_id,
+        "producer_id": producer_id,
+        "section": "Man",
+        "supplier": "Fournisseur X",
+        "sub_prefecture": "Sous-pref Y",
+        "locality": "Yeyasso",
+        "collection_agent_code": "AG-09",
+        "producer_ssrte_code": "SSRTE-PR-001",
+        "time_start": "08:00",
+        "time_end": "09:30",
+        "adults_count": 2,
+        "daily_workers_count": 1,
+        "allow_worker_interview": True,
+        "children_present_count": 3,
+        "non_household_children_count": 1,
+        "non_household_children": [
+            {"name": "Enfant Externe", "birth_date": "2012", "sex": "M",
+             "birth_certificate": "Non", "school_status": "Non scolarise"},
+        ],
+        "section_notes": {"identification": "Visite OK"},
+        "consent_given": True,
+    }).json()
+    assert created["producer_ssrte_code"] == "SSRTE-PR-001"
+    assert created["adults_count"] == 2
+    assert created["allow_worker_interview"] is True
+    assert created["non_household_children_count"] == 1
+    assert created["non_household_children"][0]["name"] == "Enfant Externe"
+    assert created["section_notes"]["identification"] == "Visite OK"
+
+    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf")
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
 def test_ssrte_summary_counts_forms(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
     client.post("/ssrte/communities", json={"locality": "Yeyasso"})
