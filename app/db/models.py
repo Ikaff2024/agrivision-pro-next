@@ -641,3 +641,56 @@ class LotMovement(Base):
     created_by_id     = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     lot = relationship("Lot", back_populates="movements")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Achats producteurs (bons d'achat / pesees bord champ) — module #2
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PurchaseRecord(Base):
+    """
+    Achat de cacao a un producteur (bord champ / reception magasin).
+
+    Enregistre la pesee et le bon d'achat. Peut generer automatiquement une
+    Harvest (rattachee a une plantation) afin d'alimenter les volumes et la
+    tracabilite des lots. Le suivi de paiement est purement COMPTABLE
+    (statut paye / en attente) : aucun mouvement d'argent n'est execute ici.
+    """
+    __tablename__ = "purchase_records"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    cooperative_id   = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    producer_id      = Column(Integer, ForeignKey("producers.id"), nullable=False, index=True)
+    plantation_id    = Column(Integer, ForeignKey("plantations.id"), nullable=True, index=True)
+    harvest_id       = Column(Integer, ForeignKey("harvests.id"), nullable=True, index=True)
+
+    receipt_number   = Column(String, nullable=True, index=True)   # numero du bon d'achat
+    purchase_date    = Column(DateTime(timezone=True), nullable=False, index=True)
+    season           = Column(String, nullable=True, index=True)
+    certification_id = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    quality          = Column(String, nullable=True)
+
+    # Pesee
+    gross_weight_kg  = Column(Float, nullable=True)   # poids brut (avec sacs)
+    tare_kg          = Column(Float, default=0, nullable=False)  # tare (sacs)
+    net_weight_kg    = Column(Float, nullable=False)  # poids net achete
+    bag_count        = Column(Integer, default=0, nullable=False)
+
+    # Montant
+    price_per_kg_fcfa = Column(Float, nullable=True)
+    total_amount_fcfa = Column(Float, default=0, nullable=False)
+
+    # Suivi paiement (comptable uniquement)
+    payment_status   = Column(String, default="pending", nullable=False, index=True)  # pending|paid|cancelled
+    payment_date     = Column(DateTime(timezone=True), nullable=True)
+    payment_method   = Column(String, nullable=True)  # cash|mobile_money|bank|autre
+
+    buyer_name       = Column(String, nullable=True)  # agent acheteur
+    notes            = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    created_by_id    = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    producer      = relationship("Producer")
+    plantation    = relationship("Plantation")
+    certification = relationship("Certification")
+    harvest       = relationship("Harvest")

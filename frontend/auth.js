@@ -544,6 +544,7 @@ function renderSidebar(activePage) {
     { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
     { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie' },
     { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },
+    { id: 'purchases', href: 'achats.html', icon: 'shopping_cart', label: 'Achats' },
     { id: 'lots', href: 'lots.html', icon: 'inventory_2', label: 'Traçabilité lots' },
     { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce' },
     { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard' },

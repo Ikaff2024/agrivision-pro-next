@@ -47,10 +47,14 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
    d'affecter une récolte dont le producteur a un blocage de traçabilité ACTIF. UI `lots.html`
    (liste, création, détail+passeport+mouvements+statuts, entrepôts). Cloisonné coopérative. 7 tests.
    **Reste possible** : QR code imprimable du passeport (génération image), split de lot, lien achats.
-2. **Achats producteurs** (#2) — `PurchaseRecord` (bord champ : producteur, poids,
-   prix/kg, prime, reçu) → alimente automatiquement `Harvest` + volume du lot.
-   ⚠️ Volet **paiements** : à cadrer prudemment (traçabilité financière, droits,
-   audit). À faire en module séparé après le foncier achat/pesée.
+2. **Achats producteurs** (#2) — ✅ **livré (2026-05-31, hors exécution financière)**.
+   `PurchaseRecord` (producteur, plantation, bon d'achat, pesée brut/tare/net, prix/kg,
+   montant, qualité, campagne). Génère automatiquement une `Harvest` traçable (→ volumes → lots).
+   Endpoints `/purchases` (GET/POST + filtres), `/purchases/summary`, `/purchases/{id}`,
+   `/purchases/{id}/mark-paid`. Suivi de paiement **comptable uniquement** (statut pending/paid),
+   signale les producteurs sous blocage CacaoGuard. UI `achats.html`. Cloisonné coop. 7 tests.
+   ⚠️ **Reste à cadrer avec le client** : l'**exécution financière** réelle (virements / mobile
+   money / intégration bancaire) n'est PAS implémentée — décision produit + conformité requise.
 3. **Certification** (#3) — étendre le modèle `Certification`/`PlantationCertification`
    déjà présent : audits, non-conformités, plans d'action, échéances, alertes.
 4. **Satellite avancé** (#4) — ✅ **abstraction livrée (2026-05-31)**. `app/satellite/provider.py`

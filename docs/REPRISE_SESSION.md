@@ -28,6 +28,9 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > endpoints `/warehouses` `/lots` `/lots/merge` `/lots/{id}/passport` `/lots/{id}/movements`,
 > page `lots.html`. Code lot auto, mouvements, fusion, passeport (compo + EUDR + blocages),
 > **refus CacaoGuard** si producteur bloqué. Cloisonné coop. 7 tests.
+> ✅ **Achats producteurs (#2)** : `PurchaseRecord` (bon d'achat + pesée brut/tare/net + montant),
+> génère une récolte traçable (→ lots). Endpoints `/purchases*`, page `achats.html`. Suivi
+> paiement **comptable** (pending/paid), pas d'exécution financière (à cadrer). Cloisonné coop. 7 tests.
 
 ---
 

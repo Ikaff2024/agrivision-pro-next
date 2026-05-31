@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Achats producteurs</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="auth.js?v=achats1"></script>
+  <style>
+    .buy-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:20px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+    th{background:var(--surface-warm);text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:var(--muted)}
+    td{padding:6px 8px;border-bottom:1px solid var(--border-l)}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px}
+    .b-paid{background:#eafaf1;color:#1e6b43}.b-pending{background:#fef9e7;color:#9a6200}.b-cancelled{background:#f3f4f6;color:#6b7280}
+    .warn{font-size:12px;color:#922b21;font-weight:700}
+    @media(max-width:1000px){.buy-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Achats producteurs</div>
+        <div class="page-sub">Bons d'achat & pesées bord champ — alimente récoltes et traçabilité</div>
+      </div>
+      <button class="btn btn-outline" onclick="loadAll()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpis">
+        <div class="kpi"><strong id="k-count">0</strong><span>Achats</span></div>
+        <div class="kpi"><strong id="k-kg">0</strong><span>Net acheté (kg)</span></div>
+        <div class="kpi"><strong id="k-amount">0</strong><span>Montant (FCFA)</span></div>
+        <div class="kpi"><strong id="k-pending">0</strong><span>À payer (FCFA)</span></div>
+      </div>
+
+      <div class="buy-grid">
+        <div class="panel">
+          <div class="section-title">Nouvel achat</div>
+          <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="b-producer" onchange="onProducer()"></select></div>
+          <div id="b-blocked" class="warn" style="display:none;margin-bottom:8px">🚫 Producteur sous blocage CacaoGuard — vente non traçable vers un lot.</div>
+          <div class="form-group"><label class="form-label">Plantation (génère une récolte traçable)</label><select class="form-input" id="b-plantation"><option value="">— Aucune —</option></select></div>
+          <div class="mini-row">
+            <div class="form-group"><label class="form-label">N° bon d'achat</label><input class="form-input" id="b-receipt"></div>
+            <div class="form-group"><label class="form-label">Campagne</label><input class="form-input" id="b-season" placeholder="2025-2026"></div>
+          </div>
+          <div class="mini-row">
+            <div class="form-group"><label class="form-label">Poids brut (kg)</label><input class="form-input" type="number" min="0" step="0.1" id="b-gross" oninput="recalc()"></div>
+            <div class="form-group"><label class="form-label">Tare / sacs (kg)</label><input class="form-input" type="number" min="0" step="0.1" id="b-tare" value="0" oninput="recalc()"></div>
+          </div>
+          <div class="mini-row">
+            <div class="form-group"><label class="form-label">Poids net (kg)</label><input class="form-input" type="number" min="0" step="0.1" id="b-net" oninput="recalc()"></div>
+            <div class="form-group"><label class="form-label">Nb sacs</label><input class="form-input" type="number" min="0" id="b-bags"></div>
+          </div>
+          <div class="mini-row">
+            <div class="form-group"><label class="form-label">Prix /kg (FCFA)</label><input class="form-input" type="number" min="0" id="b-price" oninput="recalc()"></div>
+            <div class="form-group"><label class="form-label">Qualité</label><select class="form-input" id="b-quality"><option value="">—</option><option>Bonne</option><option>Moyenne</option><option>Defauts</option></select></div>
+          </div>
+          <div class="form-group"><label class="form-label">Montant total (FCFA)</label><input class="form-input" id="b-total" readonly style="background:var(--surface-warm);font-weight:700"></div>
+          <div class="mini-row">
+            <div class="form-group"><label class="form-label">Acheteur</label><input class="form-input" id="b-buyer"></div>
+            <div class="form-group"><label class="form-label">Paiement</label><select class="form-input" id="b-pay"><option value="pending">En attente</option><option value="paid">Payé</option></select></div>
+          </div>
+          <button class="btn btn-primary" onclick="createPurchase()" style="width:100%;justify-content:center">Enregistrer l'achat</button>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">Achats récents</div>
+          <div style="overflow:auto">
+            <table>
+              <thead><tr><th>Date</th><th>Producteur</th><th>Net kg</th><th>Montant</th><th>Bon</th><th>Paiement</th><th></th></tr></thead>
+              <tbody id="buy-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Chargement…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('purchases');
+let _producers = [], _plantations = [];
+
+function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
+function payBadge(s){ return {paid:'b-paid',pending:'b-pending',cancelled:'b-cancelled'}[s]||'b-pending'; }
+
+async function loadAll(){
+  const rp = await authFetch('/producers?limit=5000'); _producers = rp?.ok ? await rp.json() : [];
+  document.getElementById('b-producer').innerHTML = _producers.map(p=>`<option value="${p.id}">${p.nom_complet}${p.localite?' - '+p.localite:''}</option>`).join('');
+  const rpl = await authFetch('/plantations?limit=5000'); _plantations = rpl?.ok ? await rpl.json() : [];
+  onProducer();
+  await Promise.all([loadSummary(), loadList()]);
+}
+
+function onProducer(){
+  const pid = Number(document.getElementById('b-producer').value);
+  // plantations du producteur
+  const mine = _plantations.filter(p=>p.producer_id===pid);
+  document.getElementById('b-plantation').innerHTML = '<option value="">— Aucune —</option>' +
+    mine.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function recalc(){
+  const gross = parseFloat(document.getElementById('b-gross').value)||0;
+  const tare = parseFloat(document.getElementById('b-tare').value)||0;
+  let net = parseFloat(document.getElementById('b-net').value)||0;
+  if(!net && gross){ net = Math.max(0, gross-tare); document.getElementById('b-net').value = net||''; }
+  const price = parseFloat(document.getElementById('b-price').value)||0;
+  document.getElementById('b-total').value = fmt(Math.round(net*price));
+}
+
+async function loadSummary(){
+  const r = await authFetch('/purchases/summary'); const s = r?.ok ? await r.json() : {};
+  document.getElementById('k-count').textContent = fmt(s.purchases);
+  document.getElementById('k-kg').textContent = fmt(s.total_net_kg);
+  document.getElementById('k-amount').textContent = fmt(s.total_amount_fcfa);
+  document.getElementById('k-pending').textContent = fmt(s.pending_amount_fcfa);
+}
+
+async function loadList(){
+  const r = await authFetch('/purchases'); const rows = r?.ok ? await r.json() : [];
+  const tb = document.getElementById('buy-tbody');
+  tb.innerHTML = rows.length ? rows.map(p=>`
+    <tr>
+      <td>${(p.purchase_date||'').slice(0,10)}</td>
+      <td>${p.producer_name||'—'}${p.producer_blocked?' 🚫':''}</td>
+      <td>${fmt(p.net_weight_kg)}</td>
+      <td>${fmt(p.total_amount_fcfa)}</td>
+      <td>${p.receipt_number||'—'}</td>
+      <td><span class="badge ${payBadge(p.payment_status)}">${p.payment_status}</span></td>
+      <td>${p.payment_status==='pending'?`<button class="btn btn-outline btn-sm" onclick="markPaid(${p.id})">Marquer payé</button>`:''}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Aucun achat enregistré.</td></tr>';
+}
+
+async function createPurchase(){
+  const pid = Number(document.getElementById('b-producer').value);
+  if(!pid) return alert('Choisissez un producteur.');
+  const body = {
+    producer_id: pid,
+    plantation_id: Number(document.getElementById('b-plantation').value)||null,
+    receipt_number: document.getElementById('b-receipt').value.trim()||null,
+    season: document.getElementById('b-season').value.trim()||null,
+    gross_weight_kg: parseFloat(document.getElementById('b-gross').value)||null,
+    tare_kg: parseFloat(document.getElementById('b-tare').value)||0,
+    net_weight_kg: parseFloat(document.getElementById('b-net').value)||null,
+    bag_count: parseInt(document.getElementById('b-bags').value)||0,
+    price_per_kg_fcfa: parseFloat(document.getElementById('b-price').value)||null,
+    quality: document.getElementById('b-quality').value||null,
+    buyer_name: document.getElementById('b-buyer').value.trim()||null,
+    payment_status: document.getElementById('b-pay').value,
+  };
+  const r = await authFetch('/purchases',{method:'POST',body:JSON.stringify(body)});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) return alert('Enregistrement impossible : '+(d.detail||''));
+  ['b-receipt','b-gross','b-net','b-bags','b-price','b-total','b-buyer'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('b-tare').value='0';
+  await loadAll();
+  alert('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
+}
+
+async function markPaid(id){
+  if(!confirm('Marquer cet achat comme payé ? (suivi comptable, aucun virement exécuté)')) return;
+  const r = await authFetch(`/purchases/${id}/mark-paid`,{method:'POST',body:JSON.stringify({})});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Action impossible : '+(e.detail||'')); }
+  await Promise.all([loadSummary(), loadList()]);
+}
+
+function onProducerBlockedCheck(){}
+loadAll();
+</script>
+</body>
+</html>
