@@ -1,15 +1,16 @@
 """
-Moteur de scoring EUDR — 5 regles deterministes (Sprint EUDR-01a).
+Moteur de scoring EUDR — 6 regles deterministes (methodologie eudr-1.1b).
 
-Chaque regle retourne `(passed: bool, reason: str)`. Le score total est
-le nombre de regles passees (0-5). Le statut global se deduit :
-- >= 4 : conforme (vert)
-- 2-3  : a_verifier (orange)
-- 0-1  : non_conforme (rouge)
+Regles : polygone valide, superficie coherente, GPS en zone cacao, inspection
+recente, absence de blocage tracabilite actif, absence de deforestation post-2020.
+Chaque regle retourne `(passed: bool, reason: str)`. Le score est le nombre de
+regles passees (0-6) ; le statut se deduit AU PRORATA (independant du nombre de
+regles, cf. _status_from_score) :
+- >= 80 % : conforme (vert)
+- 40-79 % : a_verifier (orange)
+- < 40 %  : non_conforme (rouge)
 
 Les regles sont volontairement simples et expliquables a un auditeur EUDR.
-Les regles avancees (Hansen forest cover, geocoding chains) viendront en
-EUDR-01b/01c.
 """
 from __future__ import annotations
 
@@ -368,11 +369,12 @@ def rule_no_deforestation(plantation: Plantation, db: Session) -> RuleResult:
 # Orchestrateur
 # ---------------------------------------------------------------------------
 
-def _status_from_score(score: int, max_score: int = 5) -> tuple[str, str]:
-    """Retourne (status, badge_color) selon le seuil EUDR-01a.
+def _status_from_score(score: int, max_score: int = 6) -> tuple[str, str]:
+    """Retourne (status, badge_color) selon le seuil EUDR, AU PRORATA du max.
 
-    Avec max_score = 5 : >=4 conforme, 2-3 a_verifier, 0-1 non_conforme.
-    Generalise au prorata si max change : 80%+, 40-79%, < 40%.
+    Seuils en pourcentage (independants du nombre de regles) :
+    >= 80 % conforme, 40-79 % a_verifier, < 40 % non_conforme.
+    Ex. avec 6 regles : >= 5 conforme, 3-4 a_verifier, 0-2 non_conforme.
     """
     if max_score <= 0:
         return "a_verifier", "orange"
