@@ -10,8 +10,15 @@ from app.auth.auth_service import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_password_reset_token,
     decode_token,
     get_current_user,
+    _password_fingerprint,
+)
+from app.services.email_service import (
+    app_base_url,
+    send_password_reset_email,
+    smtp_is_configured,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -38,6 +45,15 @@ class RefreshRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
+    new_password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     new_password: str
 
 
@@ -147,6 +163,68 @@ def change_password(
     current_user.password_hash = get_password_hash(req.new_password)
     db.commit()
     return {"status": "ok", "message": "Mot de passe modifie avec succes."}
+
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Demande de reinitialisation de mot de passe (self-service).
+
+    Renvoie TOUJOURS le meme message generique (anti-enumeration d'emails).
+    Si l'email correspond a un compte actif, un lien de reinitialisation
+    (valable 1 h, usage unique) est envoye par email. En l'absence de SMTP
+    configure, le lien est journalise cote serveur (le champ `reset_link`
+    n'est expose que sur les environnements non-production, cf. SMTP non
+    configure, pour permettre la recuperation d'un admin unique en lockout).
+    """
+    generic = {
+        "status": "ok",
+        "message": "Si un compte est associe a cet email, un lien de reinitialisation a ete envoye.",
+    }
+    email = (req.email or "").strip().lower()
+    if not email:
+        return generic
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.is_active:
+        return generic
+
+    token = create_password_reset_token(user.email, user.password_hash)
+    reset_link = f"{app_base_url()}/reset_password.html?token={token}"
+    sent = send_password_reset_email(user.email, reset_link)
+
+    # Filet de securite pour l'admin unique en lockout : si aucun SMTP n'est
+    # configure, on expose le lien dans la reponse (sinon impossible a recuperer).
+    if not sent and not smtp_is_configured():
+        return {**generic, "reset_link": reset_link, "smtp_configured": False}
+    return generic
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Definit un nouveau mot de passe a partir d'un token de reinitialisation."""
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Nouveau mot de passe trop court (minimum 6 caracteres).")
+
+    payload = decode_token(req.token)
+    if payload.get("type") != "password_reset":
+        raise HTTPException(status_code=400, detail="Lien de reinitialisation invalide.")
+
+    email = payload.get("sub")
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="Lien de reinitialisation invalide.")
+
+    # Usage unique : l'empreinte doit correspondre au mot de passe actuel.
+    if payload.get("fp") != _password_fingerprint(user.password_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="Ce lien a deja ete utilise ou n'est plus valide. Refaites une demande.",
+        )
+
+    user.password_hash = get_password_hash(req.new_password)
+    db.commit()
+    return {"status": "ok", "message": "Mot de passe reinitialise avec succes. Vous pouvez vous connecter."}
 
 
 @router.post("/refresh")

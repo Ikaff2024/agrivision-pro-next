@@ -1,3 +1,4 @@
+import hashlib
 import os
 import jwt
 from jwt.exceptions import PyJWTError
@@ -23,6 +24,7 @@ if not SECRET_KEY:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 REFRESH_TOKEN_EXPIRE_DAYS    = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+RESET_TOKEN_EXPIRE_MINUTES   = int(os.getenv("RESET_TOKEN_EXPIRE_MINUTES", "60"))
 
 pwd_context   = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -50,6 +52,27 @@ def create_access_token(data: dict) -> str:
 def create_refresh_token(data: dict) -> str:
     return _encode({**data, "type": "refresh"},
                    timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+
+
+def _password_fingerprint(password_hash: str) -> str:
+    """
+    Empreinte courte du hash de mot de passe. Incluse dans le token de reset
+    pour le rendre a usage unique : des que le mot de passe change, l'empreinte
+    change et tout ancien token de reset devient invalide.
+    """
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def create_password_reset_token(email: str, password_hash: str) -> str:
+    """Cree un token JWT de reinitialisation (courte duree, usage unique)."""
+    return _encode(
+        {
+            "sub": email,
+            "type": "password_reset",
+            "fp": _password_fingerprint(password_hash),
+        },
+        timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
+    )
 
 
 def decode_token(token: str) -> dict:

@@ -420,6 +420,22 @@
         <div class="spinner" id="spin"></div>
       </button>
 
+      <div style="text-align:right;margin-top:10px">
+        <a href="#" id="forgot-link" onclick="toggleForgot(true);return false"
+           style="color:var(--primary);font-weight:600;font-size:13px">Mot de passe oublié ?</a>
+      </div>
+
+      <div id="forgot-box" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:16px">
+        <p class="auth-sub" style="margin-bottom:12px">Saisissez votre email : si un compte existe, vous recevrez un lien de réinitialisation.</p>
+        <div class="form-group">
+          <label class="form-label">Adresse email</label>
+          <input class="form-input" id="forgot-email" type="email" placeholder="vous@cooperative.ci">
+        </div>
+        <button class="btn-go" id="forgot-btn" onclick="doForgot()"><span id="forgot-btn-text">Envoyer le lien</span></button>
+        <div id="forgot-msg" style="display:none;margin-top:12px;font-size:13px;line-height:1.5;color:var(--muted)"></div>
+        <div style="text-align:center;margin-top:10px"><a href="#" onclick="toggleForgot(false);return false" style="color:var(--muted);font-size:13px">Retour à la connexion</a></div>
+      </div>
+
       <div class="auth-bottom">Pas encore de compte ? <a href="register.html">Créer un compte</a></div>
     </div>
   </div>
@@ -470,6 +486,45 @@
         showError(error.message);
       } finally {
         setLoading(false);
+      }
+    }
+
+    function toggleForgot(show) {
+      document.getElementById('forgot-box').style.display = show ? 'block' : 'none';
+      document.getElementById('forgot-link').style.display = show ? 'none' : 'inline';
+      document.getElementById('err').style.display = 'none';
+      if (show) {
+        document.getElementById('forgot-email').value = document.getElementById('email').value;
+      }
+    }
+
+    async function doForgot() {
+      const email = document.getElementById('forgot-email').value.trim();
+      const msg = document.getElementById('forgot-msg');
+      if (!email) { showError('Email requis.'); return; }
+      const btn = document.getElementById('forgot-btn');
+      btn.disabled = true;
+      document.getElementById('forgot-btn-text').textContent = 'Envoi…';
+      try {
+        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json().catch(() => ({}));
+        msg.style.display = 'block';
+        if (data.reset_link) {
+          // SMTP non configuré : on affiche le lien directement (récupération admin).
+          msg.innerHTML = `Aucun service email n'est configuré. Lien de réinitialisation :<br>`
+            + `<a href="${data.reset_link}" style="color:var(--primary);word-break:break-all">${data.reset_link}</a>`;
+        } else {
+          msg.textContent = data.message || 'Si un compte est associé à cet email, un lien a été envoyé.';
+        }
+      } catch (e) {
+        showError("Demande impossible. Réessayez plus tard.");
+      } finally {
+        btn.disabled = false;
+        document.getElementById('forgot-btn-text').textContent = 'Envoyer le lien';
       }
     }
 

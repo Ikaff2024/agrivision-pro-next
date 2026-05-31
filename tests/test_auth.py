@@ -113,3 +113,55 @@ def test_protected_route_without_token(client):
 def test_protected_route_with_invalid_token(client):
     res = client.get("/plantations", headers={"Authorization": "Bearer fake.token.here"})
     assert res.status_code == 401
+
+
+# ─── Mot de passe oublié (self-service) ──────────────────────────────────────
+
+def test_forgot_password_unknown_email_is_generic(client):
+    """Email inconnu => message générique 200 (anti-énumération), pas de lien."""
+    res = client.post("/auth/forgot-password", json={"email": "inconnu@test.ci"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+    assert "reset_link" not in res.json()
+
+
+def test_forgot_then_reset_password_flow(client):
+    """Sans SMTP configuré, le lien est renvoyé ; le token réinitialise le mot de passe."""
+    _register_login(client, "forgot@test.ci", "oldpass1")
+    res = client.post("/auth/forgot-password", json={"email": "forgot@test.ci"})
+    assert res.status_code == 200
+    body = res.json()
+    # SMTP non configuré en test => lien exposé pour récupération
+    assert "reset_link" in body and "token=" in body["reset_link"]
+    token = body["reset_link"].split("token=", 1)[1]
+
+    res = client.post("/auth/reset-password", json={"token": token, "new_password": "newpass2"})
+    assert res.status_code == 200, res.text
+
+    # L'ancien mot de passe ne marche plus, le nouveau oui
+    assert client.post("/auth/login", json={"email": "forgot@test.ci", "password": "oldpass1"}).status_code == 401
+    assert client.post("/auth/login", json={"email": "forgot@test.ci", "password": "newpass2"}).status_code == 200
+
+
+def test_reset_token_is_single_use(client):
+    """Le token de reset devient invalide après usage (empreinte du hash)."""
+    _register_login(client, "single@test.ci", "oldpass1")
+    body = client.post("/auth/forgot-password", json={"email": "single@test.ci"}).json()
+    token = body["reset_link"].split("token=", 1)[1]
+    assert client.post("/auth/reset-password", json={"token": token, "new_password": "newpass2"}).status_code == 200
+    # Réutilisation du même token => refusé
+    res = client.post("/auth/reset-password", json={"token": token, "new_password": "another3"})
+    assert res.status_code == 400
+
+
+def test_reset_password_invalid_token(client):
+    res = client.post("/auth/reset-password", json={"token": "fake.token.here", "new_password": "newpass2"})
+    assert res.status_code == 401
+
+
+def test_reset_password_too_short(client):
+    _register_login(client, "short@test.ci", "oldpass1")
+    body = client.post("/auth/forgot-password", json={"email": "short@test.ci"}).json()
+    token = body["reset_link"].split("token=", 1)[1]
+    res = client.post("/auth/reset-password", json={"token": token, "new_password": "123"})
+    assert res.status_code == 400
