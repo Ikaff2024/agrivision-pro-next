@@ -16,6 +16,9 @@ class Cooperative(Base):
     name       = Column(String, index=True)
     country    = Column(String)
     is_active  = Column(Boolean, default=True, nullable=False)
+    # Plan d'abonnement (feature-gating). Defaut 'enterprise' = tout active,
+    # afin de ne rien changer tant qu'un plan n'est pas explicitement assigne.
+    plan       = Column(String, default="enterprise", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

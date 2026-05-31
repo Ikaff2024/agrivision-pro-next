@@ -608,16 +608,37 @@ function renderSidebar(activePage) {
     <nav class="sb-nav">
       <div class="sb-sec">Navigation</div>
       ${links.map(l => `
-        <a href="${l.href}" class="nav-link ${activePage === l.id ? 'active' : ''}" onclick="closeSidebar()">
+        <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}" onclick="closeSidebar()">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`).join('')}
     </nav>
     ${userBlock}`;
 }
+// Masque les modules de menu hors plan de la cooperative (feature-gating).
+// Non-bloquant : si l'appel echoue ou plan inconnu, on n'enleve rien.
+async function applyPlanFeatures(activePage) {
+  try {
+    const res = await authFetch('/me/features');
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const allowed = new Set(data.modules || []);
+    if (!allowed.size) return;
+    document.querySelectorAll('#sidebar a.nav-link[data-mod]').forEach(a => {
+      const mod = a.getAttribute('data-mod');
+      if (!allowed.has(mod)) a.style.display = 'none';
+    });
+    // Si la page courante n'est pas autorisee par le plan, rediriger vers l'accueil.
+    if (activePage && !allowed.has(activePage) && activePage !== 'dashboard') {
+      window.location.replace('index.html');
+    }
+  } catch (e) { /* non-bloquant */ }
+}
+
 function initApp(page) {
   setupNetworkBanner();  // Sprint Honnetete-Offline
   if (!requireAuth()) return;
   renderSidebar(page);
+  applyPlanFeatures(page);    // feature-gating du menu selon le plan de la coop
   setupNotificationWidget();  // Sprint P1 - notifications in-app
   startTokenAutoRefresh();    // renouvellement proactif du jeton (anti-deconnexion)
 }

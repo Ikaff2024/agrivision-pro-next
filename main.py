@@ -20,6 +20,7 @@ from app.api.satellite_routes import router as satellite_router
 from app.api.lot_routes import router as lot_router
 from app.api.purchase_routes import router as purchase_router
 from app.api.certification_routes import router as certification_router
+from app.api.plan_routes import router as plan_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
@@ -235,6 +236,13 @@ async def lifespan(app: FastAPI):
                 ))
                 conn.commit()
                 logger.info("Migration Tracabilite lots : OK (harvests.lot_id)")
+
+                # Plans d'abonnement (feature-gating) : defaut 'enterprise' = tout active
+                conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'enterprise' NOT NULL"
+                ))
+                conn.commit()
+                logger.info("Migration Plans : OK (cooperatives.plan)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
@@ -321,3 +329,4 @@ app.include_router(satellite_router)
 app.include_router(lot_router)
 app.include_router(purchase_router)
 app.include_router(certification_router)
+app.include_router(plan_router)

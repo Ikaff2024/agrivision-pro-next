@@ -78,6 +78,24 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
 
 ---
 
+## Plans d'abonnement / feature-gating (livré 2026-05-31, fondation)
+
+Système de paliers par coopérative, **non-cassant** (défaut `enterprise` = tout activé).
+- **Catalogue central** : `app/services/plans.py` — `CATEGORY_OF` (module→catégorie) et
+  `PLAN_CATEGORIES` (plan→catégories). **Seul fichier à éditer** pour ajuster le découpage.
+- **Catégories** : `core` (agronomie), `compliance` (conformité/durabilité),
+  `commercial` (achats/lots/certif), `premium` (satellite, FarmForce).
+- **Plans** : starter (core) · compliance (+conformité) · pro (+commercial) · enterprise (tout).
+- **Modèle** : `Cooperative.plan` (défaut `enterprise`), migration idempotente.
+- **API** : `GET /me`, `GET /me/features` (plan + modules autorisés), `PATCH /cooperatives/{id}/plan` (admin).
+- **Frontend** : `auth.js` masque les modules de menu hors plan + redirige si page non autorisée.
+- **Garde-fou API** : `require_module("...")` (dans `plan_routes.py`) prêt à protéger les routes
+  côté serveur **quand le découpage business sera figé** (non appliqué massivement pour rester non-cassant).
+
+**Reste à décider (business)** : noms/prix des paliers et répartition fine des modules ;
+puis activer `require_module` sur les routes des modules payants pour une vraie protection API
+(aujourd'hui le gating est au niveau menu/UX).
+
 ## Principes d'architecture à respecter pour la suite
 
 - **Multi-tenant strict** : tout nouvel agrégat scopé par `cooperative_id`
