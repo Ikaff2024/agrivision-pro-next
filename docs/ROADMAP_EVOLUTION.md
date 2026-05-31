@@ -50,9 +50,17 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
    audit). À faire en module séparé après le foncier achat/pesée.
 3. **Certification** (#3) — étendre le modèle `Certification`/`PlantationCertification`
    déjà présent : audits, non-conformités, plans d'action, échéances, alertes.
-4. **Satellite avancé** (#4) — **bloqué** tant que les accès Google Earth Engine /
-   Sentinel Hub (clés + quotas) ne sont pas fournis. Préparer l'abstraction de
-   service (interface `SatelliteProvider`) pour brancher le fournisseur le jour J.
+4. **Satellite avancé** (#4) — ✅ **abstraction livrée (2026-05-31)**. `app/satellite/provider.py`
+   expose `get_indices` (NDVI+NDMI), `get_timeseries` (séries mensuelles) et
+   `get_deforestation_signal`, avec **fallback simulation déterministe** (fonctionne
+   sans clé) et **bascule automatique** sur Copernicus dès que `SENTINEL_CLIENT_ID/SECRET`
+   sont définis (l'intégration CDSE NDVI ponctuelle existait déjà). Endpoints
+   `/satellite/indices|timeseries|deforestation|status` + `/satellite/plantations/{id}/advanced`
+   (cloisonné coop). UI : carte « Analyse avancée » dans `satellite.html` (NDMI, sparklines
+   NDVI/NDMI, statut déforestation). **Reste à faire le jour des clés** : brancher l'evalscript
+   NDMI réel + l'agrégation mensuelle P1M (signatures inchangées) et l'API Global Forest Watch
+   (`GFW_API_KEY`). On a délibérément **écarté Google Earth Engine** (licence commerciale payante)
+   au profit de Copernicus Data Space + GFW (gratuits).
 
 ---
 

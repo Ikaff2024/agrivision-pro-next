@@ -17,6 +17,10 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > ✅ **Tableau de bord direction** (proposition d'amélioration #5) : `GET /dashboard/direction` +
 > `direction.html` — vue exécutive read-only, scopée coopérative (EUDR, enfants, revenu vital,
 > volumes/certif, alertes). Voir `docs/ROADMAP_EVOLUTION.md` pour la suite (lots, achats, certif, satellite).
+> ✅ **Satellite avancé — abstraction** (#4) : `app/satellite/provider.py` (NDVI/NDMI, séries
+> temporelles, déforestation) + endpoints `/satellite/*` + UI avancée. Fallback simulation sans clé,
+> bascule auto sur **Copernicus Data Space** (gratuit) via `SENTINEL_CLIENT_ID/SECRET` et
+> **Global Forest Watch** via `GFW_API_KEY`. GEE écarté (licence commerciale payante).
 
 ---
 

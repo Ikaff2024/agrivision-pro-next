@@ -183,6 +183,30 @@
                 letter-spacing:.06em;margin-bottom:12px">Recommandation</div>
               <div style="font-size:14px;line-height:1.7;color:var(--text)" id="r-advice-text">—</div>
             </div>
+
+            <!-- Advanced analysis card (NDMI + temporal + deforestation) -->
+            <div class="card" id="r-advanced" style="margin-top:20px;display:none">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Analyse avancée</div>
+                <span id="adv-source" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div style="background:var(--surface-warm);border-radius:8px;padding:12px;text-align:center">
+                  <div style="font-size:11.5px;color:var(--muted);text-transform:uppercase">NDMI (humidité)</div>
+                  <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:700" id="adv-ndmi">—</div>
+                  <div style="font-size:12px;color:var(--muted)" id="adv-ndmi-status">—</div>
+                </div>
+                <div style="background:var(--surface-warm);border-radius:8px;padding:12px;text-align:center">
+                  <div style="font-size:11.5px;color:var(--muted);text-transform:uppercase">Déforestation (post-2020)</div>
+                  <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;margin-top:6px" id="adv-defor">—</div>
+                  <div style="font-size:11px;color:var(--muted)" id="adv-defor-note"></div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Évolution NDVI (12 mois)</div>
+              <svg id="spark-ndvi" viewBox="0 0 300 70" width="100%" height="70" style="margin-bottom:12px"></svg>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Évolution NDMI (12 mois)</div>
+              <svg id="spark-ndmi" viewBox="0 0 300 70" width="100%" height="70"></svg>
+            </div>
           </div>
         </div>
       </div>
@@ -288,6 +312,73 @@ function showResult(data) {
   }
 }
 
+// ── Analyse avancée (NDMI + séries temporelles + déforestation) ──────────────
+function _sparkline(svgId, series, color) {
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const pts = (series || []).map(p => p.value);
+  if (!pts.length) { svg.innerHTML = ''; return; }
+  const W = 300, H = 70, pad = 6;
+  const min = Math.min(...pts, 0), max = Math.max(...pts, 1);
+  const span = (max - min) || 1;
+  const step = (W - 2 * pad) / Math.max(1, pts.length - 1);
+  const coords = pts.map((v, i) => {
+    const x = pad + i * step;
+    const y = H - pad - ((v - min) / span) * (H - 2 * pad);
+    return [x, y];
+  });
+  const line = coords.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
+  const area = line + ` L${coords[coords.length-1][0].toFixed(1)} ${H-pad} L${coords[0][0].toFixed(1)} ${H-pad} Z`;
+  const dots = coords.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="${color}"/>`).join('');
+  svg.innerHTML =
+    `<path d="${area}" fill="${color}" opacity="0.12"/>`
+    + `<path d="${line}" fill="none" stroke="${color}" stroke-width="2"/>`
+    + dots;
+}
+
+function renderAdvanced(payload) {
+  const card = document.getElementById('r-advanced');
+  if (!card || !payload) return;
+  card.style.display = 'block';
+  const idx = payload.indices || {};
+  document.getElementById('adv-ndmi').textContent = (idx.ndmi != null ? idx.ndmi.toFixed(2) : '—');
+  document.getElementById('adv-ndmi-status').textContent = idx.interpretation || idx.moisture_status || '';
+  const def = payload.deforestation || {};
+  const defEl = document.getElementById('adv-defor');
+  defEl.textContent = def.loss_detected ? '⚠ Perte détectée' : '✓ Aucune perte';
+  defEl.style.color = def.loss_detected ? '#922b21' : '#1a6b3a';
+  document.getElementById('adv-defor-note').textContent =
+    def.source === 'simulation' ? 'Simulation (clé GFW non configurée)' : (def.note || '');
+  document.getElementById('adv-source').textContent =
+    'Source : ' + ((idx.source === 'simulation') ? 'simulation (clés Sentinel non configurées)' : 'Sentinel-2 (Copernicus)');
+  _sparkline('spark-ndvi', (payload.ndvi_timeseries || {}).series, '#1a6b3a');
+  _sparkline('spark-ndmi', (payload.ndmi_timeseries || {}).series, '#2563eb');
+}
+
+async function loadAdvancedByPlantation(pid) {
+  try {
+    const r = await authFetch(`/satellite/plantations/${pid}/advanced?months=12`);
+    if (r?.ok) renderAdvanced(await r.json());
+  } catch {}
+}
+
+async function loadAdvancedByCoords(lat, lon) {
+  try {
+    const [ri, rn, rm, rd] = await Promise.all([
+      authFetch(`/satellite/indices?latitude=${lat}&longitude=${lon}`),
+      authFetch(`/satellite/timeseries?latitude=${lat}&longitude=${lon}&index=ndvi&months=12`),
+      authFetch(`/satellite/timeseries?latitude=${lat}&longitude=${lon}&index=ndmi&months=12`),
+      authFetch(`/satellite/deforestation?latitude=${lat}&longitude=${lon}`),
+    ]);
+    renderAdvanced({
+      indices: ri?.ok ? await ri.json() : {},
+      ndvi_timeseries: rn?.ok ? await rn.json() : {},
+      ndmi_timeseries: rm?.ok ? await rm.json() : {},
+      deforestation: rd?.ok ? await rd.json() : {},
+    });
+  } catch {}
+}
+
 async function runByPlantation() {
   const sel = document.getElementById('p-select');
   const pid = sel.value;
@@ -303,6 +394,7 @@ async function runByPlantation() {
     if (!r?.ok) { const e = await r?.json().catch(()=>({})); throw new Error(e.detail || 'Coordonnées GPS manquantes pour cette plantation.'); }
     const data = await r.json();
     showResult(data);
+    loadAdvancedByPlantation(pid);
     toast('Analyse NDVI terminée.');
   } catch(e) {
     toast(e.message, 'error');
@@ -328,6 +420,7 @@ async function runByCoords() {
     if (!r?.ok) throw new Error('Erreur lors de l\'analyse.');
     const data = await r.json();
     showResult(data);
+    loadAdvancedByCoords(lat, lng);
     toast('Analyse NDVI terminée.');
   } catch(e) {
     toast(e.message, 'error');
