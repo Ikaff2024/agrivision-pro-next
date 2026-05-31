@@ -31,6 +31,10 @@ Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`
 > ✅ **Achats producteurs (#2)** : `PurchaseRecord` (bon d'achat + pesée brut/tare/net + montant),
 > génère une récolte traçable (→ lots). Endpoints `/purchases*`, page `achats.html`. Suivi
 > paiement **comptable** (pending/paid), pas d'exécution financière (à cadrer). Cloisonné coop. 7 tests.
+> ✅ **Certification (#3)** : modèles `CertificationAudit` + `NonConformity` (sévérité, action
+> corrective, échéance, retard). Endpoints `/certifications` `/certification-audits` `/non-conformities`
+> `/certification/summary`, page `certification.html`. Cloisonné coop. 6 tests.
+> ➡️ **Les 5 modules de la proposition d'amélioration sont livrés** (#1→#5).
 
 ---
 

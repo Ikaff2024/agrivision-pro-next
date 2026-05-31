@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Certification</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="auth.js?v=cert1"></script>
+  <style>
+    .cert-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px;margin-bottom:18px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:22px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .item{border:1px solid var(--border-l);border-radius:8px;background:#fff;padding:12px;margin-bottom:10px}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;margin-left:6px}
+    .b-planned{background:#eef6ff;color:#1d4ed8}.b-completed{background:#eafaf1;color:#1e6b43}
+    .b-minor{background:#f3f4f6;color:#6b7280}.b-major{background:#fef9e7;color:#9a6200}.b-critical{background:#fdedec;color:#922b21}
+    .b-open{background:#fef9e7;color:#9a6200}.b-resolved{background:#eafaf1;color:#1e6b43}.b-overdue{background:#fdedec;color:#922b21}
+    @media(max-width:1000px){.cert-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Certification</div>
+        <div class="page-sub">Audits, non-conformités, actions correctives & échéances</div>
+      </div>
+      <button class="btn btn-outline" onclick="loadAll()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpis">
+        <div class="kpi"><strong id="k-audits">0</strong><span>Audits</span></div>
+        <div class="kpi"><strong id="k-nc">0</strong><span>NC ouvertes</span></div>
+        <div class="kpi"><strong id="k-overdue" style="color:#922b21">0</strong><span>NC en retard</span></div>
+        <div class="kpi"><strong id="k-planned">0</strong><span>Audits planifiés</span></div>
+      </div>
+
+      <div class="cert-grid">
+        <div>
+          <div class="panel">
+            <div class="section-title">Nouvel audit</div>
+            <div class="form-group"><label class="form-label">Standard</label><select class="form-input" id="a-cert"><option value="">—</option></select></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Type</label><select class="form-input" id="a-type"><option value="internal">Interne</option><option value="external">Externe</option><option value="surveillance">Surveillance</option></select></div>
+              <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="a-date"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Organisme certificateur</label><input class="form-input" id="a-body" placeholder="FLOCERT, RA…"></div>
+            <div class="form-group"><label class="form-label">Périmètre</label><textarea class="form-input" id="a-scope" rows="2"></textarea></div>
+            <button class="btn btn-primary" onclick="createAudit()" style="width:100%;justify-content:center">Créer l'audit</button>
+          </div>
+
+          <div class="panel">
+            <div class="section-title">Nouvelle non-conformité</div>
+            <div class="form-group"><label class="form-label">Audit lié</label><select class="form-input" id="n-audit"><option value="">— Aucun —</option></select></div>
+            <div class="mini-row">
+              <div class="form-group"><label class="form-label">Sévérité</label><select class="form-input" id="n-sev"><option value="minor">Mineure</option><option value="major">Majeure</option><option value="critical">Critique</option></select></div>
+              <div class="form-group"><label class="form-label">Échéance</label><input class="form-input" type="date" id="n-due"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="n-desc" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Action corrective</label><textarea class="form-input" id="n-action" rows="2"></textarea></div>
+            <div class="form-group"><label class="form-label">Responsable</label><input class="form-input" id="n-resp"></div>
+            <button class="btn btn-primary" onclick="createNC()" style="width:100%;justify-content:center">Enregistrer la NC</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel">
+            <div class="section-title">Audits</div>
+            <div id="audits-list"><div class="empty-state" style="padding:20px">Chargement…</div></div>
+          </div>
+          <div class="panel">
+            <div class="section-title">Non-conformités</div>
+            <div id="nc-list"><div class="empty-state" style="padding:20px">Chargement…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('certification');
+let _audits = [];
+
+function today(){ return new Date().toISOString().slice(0,10); }
+
+async function loadAll(){
+  const rc = await authFetch('/certifications'); const certs = rc?.ok ? await rc.json() : [];
+  document.getElementById('a-cert').innerHTML = '<option value="">—</option>' + certs.map(c=>`<option value="${c.id}">${c.code} — ${c.nom_complet}</option>`).join('');
+  await Promise.all([loadSummary(), loadAudits(), loadNCs()]);
+}
+
+async function loadSummary(){
+  const r = await authFetch('/certification/summary'); const s = r?.ok ? await r.json() : {};
+  document.getElementById('k-audits').textContent = s.audits_total||0;
+  document.getElementById('k-nc').textContent = s.non_conformities_open||0;
+  document.getElementById('k-overdue').textContent = s.non_conformities_overdue||0;
+  document.getElementById('k-planned').textContent = s.audits_planned||0;
+}
+
+async function loadAudits(){
+  const r = await authFetch('/certification-audits'); _audits = r?.ok ? await r.json() : [];
+  document.getElementById('n-audit').innerHTML = '<option value="">— Aucun —</option>' +
+    _audits.map(a=>`<option value="${a.id}">#${a.id} ${a.certification_code||''} ${(a.audit_date||'').slice(0,10)}</option>`).join('');
+  const el = document.getElementById('audits-list');
+  el.innerHTML = _audits.length ? _audits.map(a=>`
+    <div class="item">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>${a.certification_code||'Audit'} · ${a.audit_type}</strong>
+          <span class="badge ${a.status==='completed'?'b-completed':'b-planned'}">${a.status}</span>
+          ${a.result?`<span class="badge b-completed">${a.result}${a.score_pct!=null?' '+a.score_pct+'%':''}</span>`:''}
+        </div>
+        ${a.status!=='completed'?`<button class="btn btn-outline btn-sm" onclick="completeAudit(${a.id})">Clôturer</button>`:''}
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${(a.audit_date||'').slice(0,10)} · ${a.auditor_body||'—'} · ${a.non_conformity_count} NC</div>
+    </div>`).join('') : '<div class="empty-state" style="padding:20px">Aucun audit.</div>';
+}
+
+async function loadNCs(){
+  const r = await authFetch('/non-conformities'); const ncs = r?.ok ? await r.json() : [];
+  const el = document.getElementById('nc-list');
+  el.innerHTML = ncs.length ? ncs.map(n=>`
+    <div class="item">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1">
+          <strong>${n.reference||'NC'}</strong>
+          <span class="badge b-${n.severity}">${n.severity}</span>
+          <span class="badge ${n.status==='open'||n.status==='in_progress'?'b-open':'b-resolved'}">${n.status}</span>
+          ${n.overdue?'<span class="badge b-overdue">en retard</span>':''}
+          <div style="font-size:13px;margin-top:5px">${n.description}</div>
+          ${n.corrective_action?`<div style="font-size:12px;color:var(--muted);margin-top:3px">Action : ${n.corrective_action}</div>`:''}
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${n.due_date?'Échéance : '+n.due_date:''}${n.responsible?' · '+n.responsible:''}</div>
+        </div>
+        ${(n.status!=='resolved'&&n.status!=='closed')?`<button class="btn btn-outline btn-sm" onclick="resolveNC(${n.id})">Résoudre</button>`:''}
+      </div>
+    </div>`).join('') : '<div class="empty-state" style="padding:20px">Aucune non-conformité.</div>';
+}
+
+async function createAudit(){
+  const body = {
+    certification_id: Number(document.getElementById('a-cert').value)||null,
+    audit_type: document.getElementById('a-type').value,
+    audit_date: document.getElementById('a-date').value ? document.getElementById('a-date').value+'T00:00:00' : null,
+    auditor_body: document.getElementById('a-body').value.trim()||null,
+    scope: document.getElementById('a-scope').value.trim()||null,
+  };
+  const r = await authFetch('/certification-audits',{method:'POST',body:JSON.stringify(body)});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Création impossible : '+(e.detail||'')); }
+  document.getElementById('a-body').value=''; document.getElementById('a-scope').value='';
+  await loadAll(); alert('Audit créé.');
+}
+
+async function completeAudit(id){
+  const result = prompt('Résultat de l\'audit ? (pass / conditional / fail)');
+  if(!result) return;
+  const score = prompt('Score % (optionnel) ?');
+  const r = await authFetch(`/certification-audits/${id}/complete`,{method:'POST',body:JSON.stringify({result:result.trim(),score_pct:score?Number(score):null})});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Clôture impossible : '+(e.detail||'')); }
+  await loadAll();
+}
+
+async function createNC(){
+  const desc = document.getElementById('n-desc').value.trim();
+  if(desc.length<3) return alert('Description requise (min. 3 caractères).');
+  const body = {
+    audit_id: Number(document.getElementById('n-audit').value)||null,
+    severity: document.getElementById('n-sev').value,
+    description: desc,
+    corrective_action: document.getElementById('n-action').value.trim()||null,
+    responsible: document.getElementById('n-resp').value.trim()||null,
+    due_date: document.getElementById('n-due').value||null,
+  };
+  const r = await authFetch('/non-conformities',{method:'POST',body:JSON.stringify(body)});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Enregistrement impossible : '+(e.detail||'')); }
+  ['n-desc','n-action','n-resp','n-due'].forEach(id=>document.getElementById(id).value='');
+  await loadAll(); alert('Non-conformité enregistrée.');
+}
+
+async function resolveNC(id){
+  const notes = prompt('Notes de résolution (optionnel) :')||'';
+  const r = await authFetch(`/non-conformities/${id}`,{method:'PATCH',body:JSON.stringify({status:'resolved',resolution_notes:notes||null})});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Action impossible : '+(e.detail||'')); }
+  await loadAll();
+}
+
+document.getElementById('a-date').value = today();
+loadAll();
+</script>
+</body>
+</html>

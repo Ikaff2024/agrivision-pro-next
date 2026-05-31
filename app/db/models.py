@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
+﻿from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy import JSON
 from sqlalchemy.sql import func
@@ -694,3 +694,63 @@ class PurchaseRecord(Base):
     plantation    = relationship("Plantation")
     certification = relationship("Certification")
     harvest       = relationship("Harvest")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Certification : audits, non-conformites, actions correctives — module #3
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CertificationAudit(Base):
+    """
+    Audit de certification (Rainforest Alliance, Fairtrade, Cocoa Horizons...).
+    Statuts : planned -> in_progress -> completed. Resultat : pass | conditional | fail.
+    """
+    __tablename__ = "certification_audits"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    cooperative_id   = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    certification_id = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    audit_date       = Column(DateTime(timezone=True), nullable=False, index=True)
+    audit_type       = Column(String, default="internal", nullable=False)  # internal|external|surveillance
+    auditor_name     = Column(String, nullable=True)
+    auditor_body     = Column(String, nullable=True)   # organisme certificateur
+    scope            = Column(Text, nullable=True)
+    status           = Column(String, default="planned", nullable=False, index=True)  # planned|in_progress|completed
+    result           = Column(String, nullable=True)   # pass|conditional|fail
+    score_pct        = Column(Float, nullable=True)
+    notes            = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    created_by_id    = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    cooperative   = relationship("Cooperative")
+    certification = relationship("Certification")
+    non_conformities = relationship("NonConformity", back_populates="audit",
+                                    cascade="all, delete-orphan")
+
+
+class NonConformity(Base):
+    """
+    Non-conformite relevee (lors d'un audit ou en continu) + action corrective.
+    Severite : minor | major | critical. Statut : open|in_progress|resolved|closed.
+    """
+    __tablename__ = "non_conformities"
+
+    id                 = Column(Integer, primary_key=True, index=True)
+    cooperative_id     = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    audit_id           = Column(Integer, ForeignKey("certification_audits.id", ondelete="CASCADE"), nullable=True, index=True)
+    certification_id   = Column(Integer, ForeignKey("certifications.id"), nullable=True, index=True)
+    reference          = Column(String, nullable=True)   # code/critere du referentiel
+    severity           = Column(String, default="minor", nullable=False, index=True)
+    description        = Column(Text, nullable=False)
+    corrective_action  = Column(Text, nullable=True)     # plan d'action
+    responsible        = Column(String, nullable=True)
+    due_date           = Column(Date, nullable=True, index=True)   # echeance
+    status             = Column(String, default="open", nullable=False, index=True)
+    resolved_date      = Column(Date, nullable=True)
+    resolution_notes   = Column(Text, nullable=True)
+    created_at         = Column(DateTime(timezone=True), server_default=func.now())
+    created_by_id      = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    cooperative   = relationship("Cooperative")
+    audit         = relationship("CertificationAudit", back_populates="non_conformities")
+    certification = relationship("Certification")

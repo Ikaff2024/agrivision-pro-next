@@ -55,8 +55,12 @@ seuil, revenu net moyen), volumes & taux certifié, alertes ouvertes.
    signale les producteurs sous blocage CacaoGuard. UI `achats.html`. Cloisonné coop. 7 tests.
    ⚠️ **Reste à cadrer avec le client** : l'**exécution financière** réelle (virements / mobile
    money / intégration bancaire) n'est PAS implémentée — décision produit + conformité requise.
-3. **Certification** (#3) — étendre le modèle `Certification`/`PlantationCertification`
-   déjà présent : audits, non-conformités, plans d'action, échéances, alertes.
+3. **Certification** (#3) — ✅ **livré (2026-05-31)**. Modèles `CertificationAudit`
+   (planned/in_progress/completed, résultat pass/conditional/fail, score) et `NonConformity`
+   (sévérité minor/major/critical, action corrective, échéance, statut, détection retard).
+   Endpoints `/certifications` (référentiel), `/certification-audits` (+ `/complete`),
+   `/non-conformities` (+ PATCH résolution), `/certification/summary`. UI `certification.html`.
+   Cloisonné coop. 6 tests. Étend le `Certification`/`PlantationCertification` existant.
 4. **Satellite avancé** (#4) — ✅ **abstraction livrée (2026-05-31)**. `app/satellite/provider.py`
    expose `get_indices` (NDVI+NDMI), `get_timeseries` (séries mensuelles) et
    `get_deforestation_signal`, avec **fallback simulation déterministe** (fonctionne
