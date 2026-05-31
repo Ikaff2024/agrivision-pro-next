@@ -4,7 +4,18 @@
 > contexte, état actuel, ce qui a été livré, ce qui reste, et les pièges connus.
 > Lire aussi : `README.md`, `AGRIVISION_CONTEXT.md`, `docs/SSRTE_GAP_ANALYSIS.md`.
 
-Dernière mise à jour : **2026-05-31** · Branche : **`codex/cacaoguard-fusion`** · Dernier commit : **`4a7f6f6`**.
+Dernière mise à jour : **2026-05-31 (session étendue)** · Branche : **`codex/cacaoguard-fusion`** · Dernier commit : **`003cff2`** (+ ce commit doc).
+
+> **Récap session étendue 2026-05-31** (tout poussé sur `origin/codex/cacaoguard-fusion`, **476 tests verts**, rien sur la PROD) :
+> CacaoGuard multi-tenant · SSRTE 3 fiches complètes · mot de passe oublié (SMTP) · Dashboard direction ·
+> **Satellite réel** (Copernicus NDVI/NDMI/séries + Global Forest Watch déforestation, clés posées sur Railway staging, 0 €) ·
+> Traçabilité des lots · Achats producteurs (hors exécution financière) · Certification ·
+> **fusion Dashboard+Analytique** (Direction reste distinct) · **audit de cohérence inter-modules** (SSRTE/FarmForce scopés, NDVI aligné) ·
+> **fix dropdown producteurs** (cap 5000 + scoping) · **plans d'abonnement / feature-gating** (`app/services/plans.py`, `/me/features`, menu filtré) ·
+> **dashboard propriétaire enrichi** (KPIs enfants/blocages/lots/achats/producteurs + gestion du plan par coop via `PUT /owner/cooperatives/{id}/plan`).
+>
+> **À décider / faire (côté client)** : nettoyage données de test (`Import Test Coop` id 2 + `Coop CAMER`, ~14k plantations) ; brancher un SMTP réel ; figer le découpage business des plans puis activer `require_module()` (enforcement API) ; rotation mot de passe PostgreSQL ; **checklist de promotion PROD** quand go explicite.
+> Voir `docs/ROADMAP_EVOLUTION.md` pour le détail des 5 modules d'évolution (tous livrés).
 
 > **MAJ 2026-05-31** : ✅ backlog **#1** (cloisonnement CacaoGuard par coopérative) **fait** ;
 > ✅ backlog **#2 SSRTE COMPLET** : après audit ligne par ligne des 3 PDF officiels, **tous les
