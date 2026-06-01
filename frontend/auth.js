@@ -627,8 +627,13 @@ async function applyPlanFeatures(activePage) {
       const mod = a.getAttribute('data-mod');
       if (!allowed.has(mod)) a.style.display = 'none';
     });
-    // Si la page courante n'est pas autorisee par le plan, rediriger vers l'accueil.
-    if (activePage && !allowed.has(activePage) && activePage !== 'dashboard') {
+    // Rediriger UNIQUEMENT si la page courante est un vrai module de menu bloque
+    // par le plan. Les pages hors-menu (import, assignment, producer-profile,
+    // plantation_detail...) ne sont jamais des modules gates => pas de redirection.
+    const navLink = activePage
+      ? document.querySelector(`#sidebar a.nav-link[data-mod="${(window.CSS && CSS.escape) ? CSS.escape(activePage) : activePage}"]`)
+      : null;
+    if (navLink && !allowed.has(activePage) && activePage !== 'dashboard') {
       window.location.replace('index.html');
     }
   } catch (e) { /* non-bloquant */ }
