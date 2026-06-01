@@ -229,9 +229,18 @@ async function doMovement(type){
   await loadLots(); openLot(_currentLot.id);
 }
 
-function printPassport(){
+async function printPassport(){
   if(!_currentLot) return;
-  window.print();
+  try {
+    const r = await authFetch(`/lots/${_currentLot.id}/passport.pdf`);
+    if(!r || !r.ok) throw new Error('génération impossible');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch(e) {
+    alert('Passeport PDF impossible : ' + e.message);
+  }
 }
 
 loadAll();

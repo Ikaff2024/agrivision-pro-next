@@ -60,6 +60,18 @@ def test_lot_passport_structure(client):
     assert "eudr_compliance_rate_pct" in pp["summary"]
 
 
+def test_lot_passport_pdf(client):
+    h = _login(client, "lot.pdf@test.ci", coop="Coop PDF")
+    p = _plantation(client, h)
+    hv = _harvest(client, h, p["id"], 500)
+    lot = client.post("/lots", json={"harvest_ids": [hv["id"]]}, headers=h).json()
+    r = client.get(f"/lots/{lot['id']}/passport.pdf", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+    assert "Passeport_" in r.headers.get("content-disposition", "")
+
+
 def test_lot_merge(client):
     h = _login(client, "lot.m@test.ci", coop="Coop M")
     p = _plantation(client, h)

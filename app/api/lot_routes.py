@@ -389,10 +389,8 @@ def merge_lots(
     return lot_to_dict(target, include_movements=True)
 
 
-@router.get("/lots/{lot_id:int}/passport")
-def lot_passport(lot_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Passeport de tracabilite : composition, conformite et historique du lot."""
-    lot = _scoped_lot(lot_id, db, current_user)
+def build_lot_passport(db: Session, lot: Lot) -> dict:
+    """Construit le passeport de tracabilite d'un lot (composition, EUDR, mouvements)."""
     harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
 
     # Composition par producteur + statut EUDR + blocage par parcelle.
@@ -449,3 +447,28 @@ def lot_passport(lot_id: int, db: Session = Depends(get_db), current_user: User 
         },
         "movements": [movement_to_dict(m) for m in lot.movements],
     }
+
+
+@router.get("/lots/{lot_id:int}/passport")
+def lot_passport(lot_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Passeport de tracabilite : composition, conformite et historique du lot (JSON)."""
+    lot = _scoped_lot(lot_id, db, current_user)
+    return build_lot_passport(db, lot)
+
+
+@router.get("/lots/{lot_id:int}/passport.pdf")
+def lot_passport_pdf(lot_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Passeport de tracabilite au format PDF (charte AgriVision)."""
+    from urllib.parse import quote
+    from fastapi.responses import StreamingResponse
+    from app.services.lot_reports import (
+        build_lot_passport_context, generate_lot_passport_pdf, lot_passport_filename,
+    )
+    lot = _scoped_lot(lot_id, db, current_user)
+    passport = build_lot_passport(db, lot)
+    context = build_lot_passport_context(passport)
+    pdf_bytes = generate_lot_passport_pdf(context)
+    filename = lot_passport_filename(lot)
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf",
+                             headers={"Content-Disposition": disposition})
