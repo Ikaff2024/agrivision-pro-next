@@ -11,12 +11,33 @@ import datetime
 from app.services.reports import _jinja_env, _pdf_escape, slugify
 
 
+def _fmt_dt(value) -> str:
+    """Formate un horodatage (datetime ou ISO str) en 'JJ/MM/AAAA HH:MM'."""
+    if value in (None, ""):
+        return ""
+    try:
+        if isinstance(value, str):
+            value = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(value)[:16]
+
+
 def build_lot_passport_context(passport: dict) -> dict:
     """Construit le contexte Jinja2 pour le template passeport de lot."""
     lot = passport.get("lot", {}) or {}
     summary = passport.get("summary", {}) or {}
     cert = passport.get("certification") or {}
     wh = passport.get("warehouse") or {}
+    movements = [
+        {
+            "movement_type": m.get("movement_type"),
+            "quantity_kg": m.get("quantity_kg") or 0,
+            "reference": m.get("reference"),
+            "date": _fmt_dt(m.get("created_at")),
+        }
+        for m in (passport.get("movements") or [])
+    ]
     return {
         "generation_date": datetime.date.today().isoformat(),
         "code": passport.get("code") or lot.get("code") or "—",
@@ -34,7 +55,7 @@ def build_lot_passport_context(passport: dict) -> dict:
         "eudr_total_plantations": summary.get("eudr_total_plantations", 0),
         "blocked_producers": summary.get("blocked_producers", 0),
         "composition": passport.get("composition", []) or [],
-        "movements": passport.get("movements", []) or [],
+        "movements": movements,
     }
 
 

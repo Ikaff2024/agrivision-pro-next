@@ -128,7 +128,7 @@
   <ul class="timeline">
     {% for m in movements %}
     <li><strong>{{ m.movement_type }}</strong> — {{ "%.1f"|format(m.quantity_kg or 0) }} kg{% if m.reference %} · réf. {{ m.reference }}{% endif %}
-      <span style="color:var(--avp-muted)"> ({{ m.created_at }})</span></li>
+      {% if m.date %}<span style="color:var(--avp-muted)"> ({{ m.date }})</span>{% endif %}</li>
     {% endfor %}
   </ul>
   {% else %}<div class="card"><span class="empty">Aucun mouvement enregistré.</span></div>{% endif %}
