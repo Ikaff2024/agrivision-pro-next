@@ -205,7 +205,7 @@
      style="position:fixed;bottom:8px;right:10px;z-index:9999;font:11px/1.4 system-ui,sans-serif;
             color:#6a7d64;background:rgba(255,255,255,.85);border:1px solid #e6ddd0;
             border-radius:6px;padding:2px 8px;pointer-events:none;user-select:none">
-  build avp-v4.14-fix-import-redirect
+  build avp-v4.15-boundary-quick-square
 </div>
 <div class="avp-layout">
   <nav id="sidebar"></nav>
@@ -299,13 +299,18 @@
 
         <!-- Toolbar délimitation -->
         <div class="boundary-toolbar" id="boundary-toolbar" style="display:none">
+          <button class="boundary-btn" id="btn-quick" onclick="quickSquare()"
+            style="border-color:var(--accent);background:#f0faf5;color:var(--primary);font-weight:700">
+            <span class="material-symbols-outlined ms">bolt</span>
+            Générer (surface) ⭐
+          </button>
           <button class="boundary-btn" id="btn-draw" onclick="startDraw()">
             <span class="material-symbols-outlined ms">edit_location</span>
-            Dessiner les limites
+            Dessiner à la main
           </button>
           <button class="boundary-btn" id="btn-gps" onclick="startGPS()">
             <span class="material-symbols-outlined ms">directions_walk</span>
-            Tracer par GPS
+            Tracer par GPS (terrain)
           </button>
           <button class="boundary-btn" id="btn-save" onclick="saveBoundary()" style="display:none;background:var(--accent);color:#fff;border-color:var(--accent)">
             <span class="material-symbols-outlined ms">save</span>
@@ -583,6 +588,7 @@ let drawControl = null;
 let currentBoundaryLayer = null;
 let selectedPlantationId = null;
 let selectedDeclaredHa = null;   // superficie declaree de la plantation selectionnee
+let selectedCenter = null;       // [lat, lng] de la plantation (pour generation rapide)
 let gpsWatchId = null;
 let gpsPoints = [];
 let gpsPolyline = null;
@@ -693,6 +699,7 @@ map.on('draw:edited', function(e) {
 function selectPlantationForBoundary(pid) {
   selectedPlantationId = pid;
   selectedDeclaredHa = null;
+  selectedCenter = null;
 
   // Réinitialiser les layers sans perdre selectedPlantationId
   drawnItems.clearLayers();
@@ -725,6 +732,7 @@ async function loadDeclaredHectaresHint(pid) {
     if (!r?.ok) return;
     const p = await r.json();
     selectedDeclaredHa = p.hectares || null;
+    selectedCenter = (p.latitude && p.longitude) ? [p.latitude, p.longitude] : null;
     if (selectedDeclaredHa) {
       // Cote d'un carre equivalent en metres
       const side = Math.round(Math.sqrt(selectedDeclaredHa * 10000));
@@ -765,6 +773,60 @@ async function loadExistingBoundary(pid) {
       data.method === 'gps_track' ? 'Tracé GPS' : 'Dessin manuel';
     updateSaveBtn(false);
   } catch {}
+}
+
+// ── Génération rapide : carré équivalent à la superficie déclarée ──────────────
+// Le moyen le plus simple : 1 clic. On centre sur le point GPS de la parcelle
+// (ou le centre de la carte) et on dessine un carré de la superficie déclarée,
+// dont les coins sont ensuite déplaçables au doigt pour ajuster.
+function quickSquare() {
+  if (!selectedPlantationId) { toast("Selectionnez une plantation.", "error"); return; }
+
+  let ha = selectedDeclaredHa;
+  if (!ha || ha <= 0) {
+    const v = prompt("Superficie de la parcelle en hectares ?", "1");
+    ha = parseFloat((v || '').replace(',', '.'));
+    if (!ha || ha <= 0) { toast("Superficie invalide.", "error"); return; }
+    selectedDeclaredHa = ha;
+  }
+
+  let center = selectedCenter;
+  if (!center) { const c = map.getCenter(); center = [c.lat, c.lng]; }
+  const lat = center[0], lng = center[1];
+
+  const side = Math.sqrt(ha * 10000);          // côté du carré en mètres
+  const half = side / 2;
+  const dLat = half / 111320;
+  const dLng = half / (111320 * Math.cos(lat * Math.PI / 180));
+  const corners = [
+    [lat - dLat, lng - dLng],
+    [lat - dLat, lng + dLng],
+    [lat + dLat, lng + dLng],
+    [lat + dLat, lng - dLng],
+  ];
+
+  // Réinitialiser et poser le carré
+  drawnItems.clearLayers();
+  if (gpsPolyline) { map.removeLayer(gpsPolyline); gpsPolyline = null; }
+  if (drawControl) { map.removeControl(drawControl); drawControl = null; }
+  currentBoundaryLayer = L.polygon(corners, { color: '#52b788', fillOpacity: 0.15, weight: 2 });
+  drawnItems.addLayer(currentBoundaryLayer);
+  drawMode = 'manual';
+  map.fitBounds(currentBoundaryLayer.getBounds(), { padding: [40, 40] });
+
+  // Rendre les coins déplaçables (ajustement au doigt)
+  try { currentBoundaryLayer.editing.enable(); } catch (_) {}
+
+  const coords = currentBoundaryLayer.getLatLngs()[0];
+  document.getElementById('boundary-panel').style.display = '';
+  document.getElementById('bp-pts').textContent = coords.length + ' points';
+  document.getElementById('bp-method').textContent = 'Carré rapide (ajustable)';
+  updateLiveAreaDisplay(computeAreaHectaresFromLatLngs(coords));
+  document.getElementById('btn-clear').style.display = 'flex';
+  updateSaveBtn(true);
+  toast(selectedCenter
+    ? "Carré généré sur le point GPS de la parcelle. Glissez les coins pour ajuster, puis Enregistrer."
+    : "Carré généré au centre de la carte. Déplacez/ajustez les coins, puis Enregistrer.");
 }
 
 function startDraw() {
