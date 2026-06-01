@@ -534,6 +534,33 @@ def find_sheet(workbook, hints: list) -> Optional[str]:
     return None
 
 
+def _synthesize_producers_from_plantations(result: RegistryParseResult) -> int:
+    """
+    Cree des producteurs a partir des plantations quand le registre ne contient
+    pas de feuille 'producteurs' dediee (registre centre plantations).
+
+    Le nom n'etant pas disponible dans ce format, on utilise le code producteur
+    comme nom provisoire ; la certification (projet) et le GPS sont repris de la
+    premiere plantation du producteur. Retourne le nombre de producteurs crees.
+    """
+    seen: dict[str, ParsedProducer] = {}
+    for plant in result.plantations:
+        code = (plant.code_producteur or "").strip()
+        if not code or code in seen:
+            continue
+        seen[code] = ParsedProducer(
+            code_yeyasso=code,
+            nom_complet=code,  # nom indisponible dans ce format -> code provisoire
+            code_plantation=plant.code_plantation,
+            projet=plant.projet,
+            latitude=plant.latitude,
+            longitude=plant.longitude,
+            row_index=plant.row_index,
+        )
+    result.producers.extend(seen.values())
+    return len(seen)
+
+
 def parse_registry(file_path: str, filename: str = None) -> RegistryParseResult:
     """
     Parse un fichier Registre cooperative complet.
@@ -562,12 +589,8 @@ def parse_registry(file_path: str, filename: str = None) -> RegistryParseResult:
         sheet_plant = find_sheet(wb, SHEET_PLANTATIONS_HINTS)
         sheet_form = find_sheet(wb, SHEET_FORMATIONS_HINTS)
 
-        if sheet_prod:
-            logger.info("Parsing feuille producteurs : %s", sheet_prod)
-            _parse_producers_sheet(wb[sheet_prod], result)
-        else:
-            result.errors.append("Aucune feuille 'producteurs' detectee.")
-
+        # On parse les plantations d'abord : elles permettent de synthetiser les
+        # producteurs si le registre ne contient pas de feuille dediee.
         if sheet_plant:
             logger.info("Parsing feuille plantations : %s", sheet_plant)
             _parse_plantations_sheet(wb[sheet_plant], result)
@@ -575,6 +598,23 @@ def parse_registry(file_path: str, filename: str = None) -> RegistryParseResult:
             result.warnings.append(ParseWarning(
                 "global", 0, "Aucune feuille 'plantations' detectee."
             ))
+
+        if sheet_prod:
+            logger.info("Parsing feuille producteurs : %s", sheet_prod)
+            _parse_producers_sheet(wb[sheet_prod], result)
+        elif result.plantations:
+            # Registre centre plantations : on deduit les producteurs des codes.
+            n = _synthesize_producers_from_plantations(result)
+            logger.info("Aucune feuille producteurs : %d producteurs deduits des plantations.", n)
+            result.warnings.append(ParseWarning(
+                "global", 0,
+                f"Aucune feuille 'producteurs' : {n} producteur(s) deduit(s) des plantations "
+                "(nom provisoire = code, a completer ensuite)."
+            ))
+        else:
+            result.errors.append(
+                "Aucune feuille 'producteurs' ni 'plantations' detectee dans le fichier."
+            )
 
         if sheet_form:
             logger.info("Parsing feuille formations : %s", sheet_form)
