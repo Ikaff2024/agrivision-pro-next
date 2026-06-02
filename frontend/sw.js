@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.19-deforestation-parcelle';
+const CACHE_VERSION = 'avp-v4.20-guide-in-app';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -42,6 +42,7 @@ const STATIC_ASSETS = [
   '/monitoring.html',
   '/plantations.html',
   '/producers.html',
+  '/guide.html',
   '/remediation.html',
   '/reports_cacaoguard.html',
   '/risk_assessment.html',

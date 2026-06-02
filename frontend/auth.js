@@ -559,6 +559,7 @@ function renderSidebar(activePage) {
     { id: 'certification', href: 'certification.html', icon: 'workspace_premium', label: 'Certification' },
     { id: 'eudr', href: 'eudr.html', icon: 'eco', label: 'EUDR' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
+    { id: 'guide', href: 'guide.html', icon: 'menu_book', label: 'Aide / Guide' },
   ];
   if (user && user.role === 'admin') {
     links.push({ id: 'admin', href: 'admin.html', icon: 'admin_panel_settings', label: 'Administration' });

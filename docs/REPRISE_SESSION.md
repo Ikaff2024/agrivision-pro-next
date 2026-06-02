@@ -20,7 +20,8 @@ Dernière mise à jour : **2026-05-31 (session étendue)** · Branche : **`codex
 > **Ajouts ultérieurs 2026-06-01** : passeport de lot en **vrai PDF** charte (`lot_reports.py`) ;
 > import **registres centrés-plantations** (producteurs déduits) ; **délimitation 1 clic** (carré depuis surface) ;
 > **auto-remplissage GPS** au choix d'une plantation (satellite) ; nouvelle page **Producteurs** (`producers.html`, annuaire) ;
-> **guides utilisateur détaillés** par module dans `docs/guide/` (12 fiches + index).
+> **guides utilisateur détaillés** par module (12 fiches + index), consultables **dans l'app**
+> via le menu **Aide / Guide** (`frontend/guide.html` + `frontend/guide/*.md`).
 
 > **MAJ 2026-05-31** : ✅ backlog **#1** (cloisonnement CacaoGuard par coopérative) **fait** ;
 > ✅ backlog **#2 SSRTE COMPLET** : après audit ligne par ligne des 3 PDF officiels, **tous les

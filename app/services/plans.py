@@ -31,6 +31,7 @@ CATEGORY_OF = {
     "map": "core",
     "agroforestry": "core",
     "harvests": "core",
+    "guide": "core",
     # Conformité & durabilité
     "eudr": "compliance",
     "cacaoguard": "compliance",
