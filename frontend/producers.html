@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Producteurs</title>
+  <script src="config.js?v=staging1"></script>
+  <script src="auth.js?v=producers1"></script>
+  <style>
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+    .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
+    .kpi strong{display:block;font-family:'Fraunces',serif;font-size:24px;line-height:1}
+    .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+    .search{flex:1;min-width:220px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none}
+    .search:focus{border-color:var(--accent)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{background:var(--surface-warm);text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em;border-bottom:2px solid var(--border)}
+    td{padding:10px;border-bottom:1px solid var(--border-l,#f0ead8)}
+    tr:hover td{background:var(--bg)}
+    .code{font-weight:700;color:var(--text)}
+    .muted{color:var(--muted)}
+    .empty{text-align:center;padding:40px;color:var(--muted)}
+    .lnk{color:var(--primary,#15803d);font-weight:700;text-decoration:none}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Producteurs</div>
+        <div class="page-sub">Annuaire des producteurs de la coopérative</div>
+      </div>
+      <button class="btn btn-outline" onclick="load()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+    </div>
+
+    <div class="avp-content">
+      <div class="kpis">
+        <div class="kpi"><strong id="k-total">0</strong><span>Producteurs</span></div>
+        <div class="kpi"><strong id="k-shown">0</strong><span>Affichés</span></div>
+        <div class="kpi"><strong id="k-localites">0</strong><span>Localités</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="toolbar">
+          <input class="search" id="search" placeholder="Rechercher par nom, code ou téléphone…" oninput="onSearch()">
+          <span class="muted" id="hint" style="font-size:12.5px"></span>
+        </div>
+        <div style="overflow:auto">
+          <table>
+            <thead>
+              <tr><th>Code</th><th>Nom et prénoms</th><th>Localité</th><th>Section</th><th>Téléphone</th><th></th></tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="6" class="empty">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('producers');
+let _all = [];
+let _searchTimer = null;
+
+function esc(s){ const d=document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+
+async function load(search) {
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '<tr><td colspan="6" class="empty">Chargement…</td></tr>';
+  const qs = search ? ('?search=' + encodeURIComponent(search) + '&limit=5000') : '?limit=5000';
+  let rows = [];
+  try {
+    const r = await authFetch('/producers' + qs);
+    rows = r?.ok ? await r.json() : [];
+  } catch { rows = []; }
+  _all = rows;
+  render(rows);
+  // KPIs (sur le jeu courant)
+  document.getElementById('k-total').textContent = rows.length;
+  document.getElementById('k-shown').textContent = rows.length;
+  document.getElementById('k-localites').textContent = new Set(rows.map(p => p.localite).filter(Boolean)).size;
+}
+
+function render(rows) {
+  const tb = document.getElementById('tbody');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun producteur. Importez un registre ou créez une plantation.</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(p => `
+    <tr>
+      <td class="code">${esc(p.code_yeyasso || '—')}</td>
+      <td>${esc(p.nom_complet || '—')}</td>
+      <td>${esc(p.localite || '—')}</td>
+      <td>${esc(p.section || '—')}</td>
+      <td class="muted">${esc(p.telephone || '—')}</td>
+      <td><a class="lnk" href="producer_profile.html?id=${p.id}">Profil →</a></td>
+    </tr>`).join('');
+  document.getElementById('k-shown').textContent = rows.length;
+}
+
+function onSearch() {
+  const q = document.getElementById('search').value.trim();
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => load(q || null), 300);
+}
+
+load();
+</script>
+</body>
+</html>

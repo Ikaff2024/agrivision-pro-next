@@ -26,6 +26,7 @@ CATEGORY_OF = {
     # Cœur agronomique
     "dashboard": "core",
     "plantations": "core",
+    "producers": "core",
     "diagnostic": "core",
     "map": "core",
     "agroforestry": "core",

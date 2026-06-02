@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.16-lot-passport-pdf';
+const CACHE_VERSION = 'avp-v4.17-producers-list-satfill';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -41,6 +41,7 @@ const STATIC_ASSETS = [
   '/index.html',
   '/monitoring.html',
   '/plantations.html',
+  '/producers.html',
   '/remediation.html',
   '/reports_cacaoguard.html',
   '/risk_assessment.html',

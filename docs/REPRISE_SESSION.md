@@ -16,6 +16,11 @@ Dernière mise à jour : **2026-05-31 (session étendue)** · Branche : **`codex
 >
 > **À décider / faire (côté client)** : nettoyage données de test (`Import Test Coop` id 2 + `Coop CAMER`, ~14k plantations) ; brancher un SMTP réel ; figer le découpage business des plans puis activer `require_module()` (enforcement API) ; rotation mot de passe PostgreSQL ; **checklist de promotion PROD** quand go explicite.
 > Voir `docs/ROADMAP_EVOLUTION.md` pour le détail des 5 modules d'évolution (tous livrés).
+>
+> **Ajouts ultérieurs 2026-06-01** : passeport de lot en **vrai PDF** charte (`lot_reports.py`) ;
+> import **registres centrés-plantations** (producteurs déduits) ; **délimitation 1 clic** (carré depuis surface) ;
+> **auto-remplissage GPS** au choix d'une plantation (satellite) ; nouvelle page **Producteurs** (`producers.html`, annuaire) ;
+> **guides utilisateur détaillés** par module dans `docs/guide/` (12 fiches + index).
 
 > **MAJ 2026-05-31** : ✅ backlog **#1** (cloisonnement CacaoGuard par coopérative) **fait** ;
 > ✅ backlog **#2 SSRTE COMPLET** : après audit ligne par ligne des 3 PDF officiels, **tous les

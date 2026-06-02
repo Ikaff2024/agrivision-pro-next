@@ -76,7 +76,7 @@
             <div class="form-section-title">Analyse par plantation</div>
             <div class="form-group">
               <label class="form-label">Sélectionner une plantation</label>
-              <select class="form-input" id="p-select">
+              <select class="form-input" id="p-select" onchange="onPlantationSelect()">
                 <option value="">— Choisir —</option>
               </select>
             </div>
@@ -262,6 +262,7 @@ async function loadPlantations() {
   document.getElementById('p-select').innerHTML = '<option value="">— Choisir —</option>' + html;
   const pid = new URLSearchParams(location.search).get('id');
   if (pid) { document.getElementById('p-select').value = pid; }
+  onPlantationSelect();  // pré-remplit les coordonnées de la plantation choisie
 }
 
 function showResult(data) {
@@ -377,6 +378,22 @@ async function loadAdvancedByCoords(lat, lon) {
       deforestation: rd?.ok ? await rd.json() : {},
     });
   } catch {}
+}
+
+// Auto-remplit les coordonnées dès qu'une plantation est choisie.
+function onPlantationSelect() {
+  const sel = document.getElementById('p-select');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  const lat = opt.getAttribute('data-lat');
+  const lng = opt.getAttribute('data-lng');
+  if (lat && lng) {
+    document.getElementById('lat').value = lat;
+    document.getElementById('lng').value = lng;
+  } else {
+    document.getElementById('lat').value = '';
+    document.getElementById('lng').value = '';
+  }
 }
 
 async function runByPlantation() {

@@ -538,6 +538,7 @@ function renderSidebar(activePage) {
     { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard' },
     { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction' },
     { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations' },
+    { id: 'producers', href: 'producers.html', icon: 'groups', label: 'Producteurs' },
     { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
     { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },
     { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
