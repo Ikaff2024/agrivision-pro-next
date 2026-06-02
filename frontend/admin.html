@@ -309,7 +309,7 @@ async function changeRole(userId, selectEl) {
     });
     if (!r?.ok) {
       const e = await r.json().catch(()=>({}));
-      throw new Error(e.detail || 'Erreur modification rôle.');
+      throw new Error(e.detail || 'Modification du rôle impossible — réessayez.');
     }
     selectEl.dataset.original = newRole;
     toast(`Rôle mis à jour : ${ROLE_LABELS[newRole]}.`);
@@ -328,7 +328,7 @@ async function doReset(userId, email) {
     const r = await authFetch('/admin/members/' + userId + '/reset-password', { method: 'PUT' });
     if (!r?.ok) {
       const e = await r.json().catch(()=>({}));
-      throw new Error(e.detail || 'Erreur réinitialisation.');
+      throw new Error(e.detail || 'Réinitialisation impossible — réessayez.');
     }
     const data = await r.json();
     document.getElementById('pwd-body').textContent =
@@ -377,7 +377,7 @@ async function doRemove() {
     const r = await authFetch(`/admin/members/${pendingRemoveId}`, { method: 'DELETE' });
     if (!r?.ok) {
       const e = await r.json().catch(()=>({}));
-      throw new Error(e.detail || 'Erreur suppression.');
+      throw new Error(e.detail || 'Suppression impossible — réessayez.');
     }
     toast('Membre retiré avec succès.');
     load();

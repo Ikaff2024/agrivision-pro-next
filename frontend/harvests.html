@@ -234,7 +234,7 @@ async function init() {
     _renderPlantationsSelector();
   } catch (e) {
     if (!cachedPlantations) {
-      document.getElementById("page-sub").textContent = "Erreur de chargement.";
+      document.getElementById("page-sub").textContent = "Chargement impossible — vérifiez votre connexion.";
     }
   }
 }
@@ -605,7 +605,7 @@ async function submitForm() {
     if (!r) throw new Error("Pas de r&eacute;ponse serveur");
     if (r.status === 403) { toast("Vous n'avez pas les droits pour cette action.", "error"); return; }
     if (!r.ok) {
-      let detail = "Erreur serveur";
+      let detail = "Problème serveur — réessayez dans un instant.";
       try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
       throw new Error(detail);
     }
@@ -646,7 +646,7 @@ async function confirmDelete() {
     if (!r) throw new Error("Pas de r&eacute;ponse serveur");
     if (r.status === 403) { toast("Vous n'avez pas les droits administrateur.", "error"); return; }
     if (!r.ok) {
-      let detail = "Erreur serveur";
+      let detail = "Problème serveur — réessayez dans un instant.";
       try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
       throw new Error(detail);
     }

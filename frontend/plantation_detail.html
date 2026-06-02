@@ -647,7 +647,7 @@ async function savePlantCount() {
   if (isNaN(val) || val < 0) { toast("Nombre de plants invalide.", "error"); return; }
   try {
     const r = await authFetch("/plantations/" + pid + "/plants?plant_count=" + val, { method: "PUT" });
-    if (!r || !r.ok) throw new Error("Erreur serveur");
+    if (!r || !r.ok) throw new Error("Problème serveur — réessayez dans un instant.");
     display.textContent = val.toLocaleString() + " plants";
     toast("Nombre de plants enregistre.");
     setTimeout(() => location.reload(), 700);
@@ -706,7 +706,7 @@ async function savePlantationEdit() {
     });
     if (r && r.status === 422) { throw new Error("Superficie invalide (entre 0.25 et 500 ha)."); }
     if (r && r.status === 403) { throw new Error("Droits administrateur requis."); }
-    if (!r || !r.ok) throw new Error('Erreur serveur.');
+    if (!r || !r.ok) throw new Error('Problème serveur — réessayez dans un instant.');
     toast('Plantation mise a jour.');
     closeEditModal();
     setTimeout(() => location.reload(), 600);
@@ -758,7 +758,7 @@ async function saveDefoCheck() {
     });
     if (r && r.status === 403) throw new Error("Reserve aux admin/agronome.");
     if (r && r.status === 422) throw new Error("Verdict invalide.");
-    if (!r || !r.ok) throw new Error('Erreur serveur.');
+    if (!r || !r.ok) throw new Error('Problème serveur — réessayez dans un instant.');
     toast('Controle deforestation enregistre.');
     closeDefoModal();
     renderEudrCard();  // rafraichit la carte EUDR (score mis a jour)
@@ -1072,7 +1072,7 @@ async function submitHarvest() {
     if (!r) throw new Error("Pas de reponse serveur");
     if (r.status === 403) { toast("Vous n'avez pas les droits pour saisir une recolte.", "error"); return; }
     if (!r.ok) {
-      let detail = "Erreur serveur";
+      let detail = "Problème serveur — réessayez dans un instant.";
       try { const e = await r.json(); detail = e.detail || detail; } catch(e){}
       throw new Error(detail);
     }

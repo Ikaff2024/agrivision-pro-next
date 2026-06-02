@@ -480,7 +480,7 @@ async function submitEscalate() {
       method:'POST', body: JSON.stringify({ reason: r })
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.detail || 'Erreur escalade.');
+    if (!res.ok) throw new Error(body.detail || 'Escalade impossible — réessayez.');
     toast('Plan escalade.');
     closeEscalate();
     await loadPlans();

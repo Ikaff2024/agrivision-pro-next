@@ -518,7 +518,7 @@ function grabGPS() {
         2: 'Position indisponible — vérifiez le GPS de votre appareil.',
         3: 'Délai dépassé — réessayez en extérieur.'
       };
-      err.textContent = msgs[e.code] || 'Erreur de localisation.';
+      err.textContent = msgs[e.code] || 'Localisation GPS impossible — autorisez la position.';
       err.style.display = 'block';
       txt.textContent = 'Utiliser ma position GPS';
       btn.disabled = false;

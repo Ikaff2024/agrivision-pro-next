@@ -662,7 +662,7 @@ async function runDiagnostic() {
     showResult(report);
     toast('Diagnostic enregistré.');
   } catch(e) {
-    toast(e.message || 'Erreur lors du diagnostic.', 'error');
+    toast(e.message || 'Diagnostic impossible — réessayez.', 'error');
   } finally {
     btn.disabled=false;
     document.getElementById('run-spin').style.display='none';

@@ -637,7 +637,7 @@ async function saveSpecies() {
         notes: document.getElementById('m-notes').value.trim() || null,
       })
     });
-    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Erreur.'); }
+    if (!res?.ok) { const e = await res?.json().catch(()=>({})); throw new Error(e.detail||'Une erreur est survenue. Réessayez.'); }
     closeModal();
     toast('Espèce ajoutée avec succès.');
     await loadInventory(currentPid);
@@ -659,7 +659,7 @@ async function deleteRecord(recordId) {
     await loadInventory(currentPid);
     await refreshSummary();
   } catch(e) {
-    toast('Erreur lors de la suppression.', 'error');
+    toast('Suppression impossible — réessayez.', 'error');
   }
 }
 

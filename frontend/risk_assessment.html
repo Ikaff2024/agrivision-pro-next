@@ -422,7 +422,7 @@ async function saveAssessment() {
     }
     if (!res.response || !res.response.ok) {
       const e = await res.response?.json().catch(() => ({}));
-      throw new Error(e.detail || 'Erreur enregistrement.');
+      throw new Error(e.detail || 'Enregistrement impossible — réessayez.');
     }
     toast('Evaluation enregistree.');
     await loadChildren();

@@ -414,7 +414,7 @@ function grabGPS() {
     },
     e => {
       const msgs = {1:'Permission refusée.',2:'Position indisponible.',3:'Délai dépassé.'};
-      err.textContent = msgs[e.code] || 'Erreur de localisation.';
+      err.textContent = msgs[e.code] || 'Localisation GPS impossible — autorisez la position.';
       err.style.display = 'block';
       txt.textContent = 'Utiliser ma position GPS';
       btn.disabled = false;

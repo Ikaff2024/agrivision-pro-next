@@ -401,7 +401,7 @@ async function submitNew() {
   try {
     const res = await cgFetch('/complaints', { method: 'POST', body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.detail || 'Erreur enregistrement.');
+    if (!res.ok) throw new Error(body.detail || 'Enregistrement impossible — réessayez.');
     toast(`Signalement ${body.reference} enregistré.`);
     closeNewModal();
     await loadComplaints();
@@ -542,7 +542,7 @@ async function submitEscalate() {
   try {
     const res = await cgFetch(`/complaints/${currentDetailId}/escalate`, { method: 'POST', body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.detail || 'Erreur escalade.');
+    if (!res.ok) throw new Error(body.detail || 'Escalade impossible — réessayez.');
     toast('Signalement escaladé.');
     closeEscalateModal();
     closeDetailModal();
