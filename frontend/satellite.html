@@ -206,6 +206,26 @@
               <svg id="spark-ndvi" viewBox="0 0 300 70" width="100%" height="70" style="margin-bottom:12px"></svg>
               <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Évolution NDMI (12 mois)</div>
               <svg id="spark-ndmi" viewBox="0 0 300 70" width="100%" height="70"></svg>
+
+              <!-- Aide à l'interprétation -->
+              <details style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+                <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--primary)">❓ Comment lire ces résultats ?</summary>
+                <div style="font-size:12.5px;color:var(--text);line-height:1.6;margin-top:8px">
+                  <p><strong>NDVI</strong> — vigueur de la végétation (0 à 1).
+                    &gt; 0,70 saine · 0,50–0,70 modérée · 0,35–0,50 stressée ·
+                    ≤ 0,35 « indéterminée » (sol nu/eau → vérifiez le GPS).</p>
+                  <p><strong>NDMI</strong> — teneur en eau du couvert (humidité). Plus c'est haut, mieux c'est hydraté.</p>
+                  <p><strong>Déforestation (post-2020)</strong> — alertes satellite dans une <strong>zone d'environ 1 km</strong>
+                    autour du point (donc pas forcément sur la parcelle exacte). « Perte détectée » =
+                    <strong>signal EUDR à vérifier</strong> : délimitez la parcelle au plus juste (tracé GPS) et faites un
+                    <strong>constat terrain</strong> avant de conclure.</p>
+                  <p style="background:#fdf6ec;border-left:3px solid var(--accent);padding:8px 10px;border-radius:4px">
+                    ⚠️ <strong>À retenir</strong> : une végétation « saine » <em>et</em> une déforestation détectée ne se
+                    contredisent pas — c'est le cas typique d'une forêt défrichée après 2020 puis plantée en cacao.
+                    Un bon NDVI ne signifie donc <strong>pas</strong> automatiquement « conforme EUDR ».
+                  </p>
+                </div>
+              </details>
             </div>
           </div>
         </div>
@@ -349,7 +369,9 @@ function renderAdvanced(payload) {
   defEl.textContent = def.loss_detected ? '⚠ Perte détectée' : '✓ Aucune perte';
   defEl.style.color = def.loss_detected ? '#922b21' : '#1a6b3a';
   document.getElementById('adv-defor-note').textContent =
-    def.source === 'simulation' ? 'Simulation (clé GFW non configurée)' : (def.note || '');
+    def.source === 'simulation'
+      ? 'Simulation (clé GFW non configurée)'
+      : ((def.note || '') + (def.loss_detected ? ' — zone ~1 km autour du point, à confirmer sur le terrain.' : ''));
   document.getElementById('adv-source').textContent =
     'Source : ' + ((idx.source === 'simulation') ? 'simulation (clés Sentinel non configurées)' : 'Sentinel-2 (Copernicus)');
   _sparkline('spark-ndvi', (payload.ndvi_timeseries || {}).series, '#1a6b3a');

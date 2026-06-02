@@ -78,6 +78,16 @@ voir l'**évolution sur 12 mois**, et les **alertes de déforestation** — sans
 > La **source** est affichée : « Sentinel‑2 (Copernicus) » = données réelles ; « simulation » = clés satellite
 > non configurées (données de démonstration). C'est honnête et volontaire.
 
+### ⚠️ Point d'interprétation important (déforestation vs NDVI)
+- Les **alertes de déforestation** couvrent une **zone d'environ 1 km** autour du point — donc
+  **pas forcément la parcelle exacte**. « Perte détectée » = **signal à vérifier**, pas une condamnation.
+- **Un bon NDVI ne veut PAS dire « conforme EUDR »** : une forêt défrichée après 2020 puis plantée en
+  cacao donne un couvert dense (NDVI élevé) **tout en étant** une déforestation. C'est exactement le cas
+  que l'EUDR cible.
+- **Que faire si « Perte détectée » ?** 1) délimitez la parcelle au plus juste (tracé GPS terrain),
+  2) faites un **constat terrain** dans le module **EUDR**, 3) traitez la non‑conformité si confirmée.
+- Un panneau **« Comment lire ces résultats ? »** est disponible directement sous l'analyse avancée.
+
 ### En cas de problème
 | Problème | Solution |
 |---|---|

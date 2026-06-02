@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.17-producers-list-satfill';
+const CACHE_VERSION = 'avp-v4.18-satellite-interpretation';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
