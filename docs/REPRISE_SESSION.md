@@ -1,5 +1,8 @@
 # AgriVision Pro — Document de reprise (handoff)
 
+> 👉 **Prochaine session : voir `docs/REPRISE_PROCHAINE_SESSION.md`** (4 points priorisés issus des tests :
+> inscription restreinte à l'admin, coût API par coop, annulation d'import erroné, champ n° reçu en saisie récolte).
+
 > **But.** Permettre de reprendre le projet dans une nouvelle session **sans rien perdre** :
 > contexte, état actuel, ce qui a été livré, ce qui reste, et les pièges connus.
 > Lire aussi : `README.md`, `AGRIVISION_CONTEXT.md`, `docs/SSRTE_GAP_ANALYSIS.md`.
