@@ -45,6 +45,15 @@ def test_provider_deforestation_default_safe():
     sig = get_deforestation_signal(7.41, -7.55)
     assert sig["loss_detected"] is False
     assert sig["source"] == "simulation"
+    assert sig["scope"] == "buffer_1km"
+
+
+def test_provider_deforestation_geometry_scope():
+    from app.satellite.provider import get_deforestation_for_geometry
+    geom = {"type": "Polygon", "coordinates": [[[-7.36, 5.84], [-7.34, 5.84], [-7.34, 5.86], [-7.36, 5.86], [-7.36, 5.84]]]}
+    sig = get_deforestation_for_geometry(geom)
+    assert sig["scope"] == "parcel"
+    assert sig["loss_detected"] is False  # simulation sans clé
 
 
 def test_provider_status_unconfigured_in_test():
@@ -86,3 +95,16 @@ def test_satellite_plantation_advanced(client):
     assert data["plantation_id"] == pid
     assert "indices" in data and "ndvi_timeseries" in data and "deforestation" in data
     assert len(data["ndvi_timeseries"]["series"]) == 12
+    # Sans délimitation : déforestation calculée sur la zone ~1 km (buffer)
+    assert data["has_boundary"] is False
+    assert data["deforestation"]["scope"] == "buffer_1km"
+
+    # Avec délimitation : déforestation calculée sur le polygone exact de la parcelle
+    geojson = '{"type":"Polygon","coordinates":[[[-7.56,7.40],[-7.54,7.40],[-7.54,7.42],[-7.56,7.42],[-7.56,7.40]]]}'
+    br = client.post(f"/plantations/{pid}/boundary", json={"geojson": geojson, "method": "manual"}, headers=h)
+    assert br.status_code in (200, 201), br.text
+    r2 = client.get(f"/satellite/plantations/{pid}/advanced", headers=h)
+    assert r2.status_code == 200, r2.text
+    d2 = r2.json()
+    assert d2["has_boundary"] is True
+    assert d2["deforestation"]["scope"] == "parcel"

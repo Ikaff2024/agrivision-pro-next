@@ -371,7 +371,9 @@ function renderAdvanced(payload) {
   document.getElementById('adv-defor-note').textContent =
     def.source === 'simulation'
       ? 'Simulation (clé GFW non configurée)'
-      : ((def.note || '') + (def.loss_detected ? ' — zone ~1 km autour du point, à confirmer sur le terrain.' : ''));
+      : ((def.note || '')
+          + (def.scope === 'parcel' ? ' (polygone exact de la parcelle)' : '')
+          + (def.loss_detected && def.scope !== 'parcel' ? ' À confirmer sur le terrain.' : ''));
   document.getElementById('adv-source').textContent =
     'Source : ' + ((idx.source === 'simulation') ? 'simulation (clés Sentinel non configurées)' : 'Sentinel-2 (Copernicus)');
   _sparkline('spark-ndvi', (payload.ndvi_timeseries || {}).series, '#1a6b3a');

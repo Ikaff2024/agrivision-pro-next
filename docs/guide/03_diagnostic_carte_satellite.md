@@ -79,8 +79,10 @@ voir l'**évolution sur 12 mois**, et les **alertes de déforestation** — sans
 > non configurées (données de démonstration). C'est honnête et volontaire.
 
 ### ⚠️ Point d'interprétation important (déforestation vs NDVI)
-- Les **alertes de déforestation** couvrent une **zone d'environ 1 km** autour du point — donc
-  **pas forcément la parcelle exacte**. « Perte détectée » = **signal à vérifier**, pas une condamnation.
+- Les **alertes de déforestation** sont calculées sur le **polygone exact de la parcelle** si elle est
+  **délimitée** (le plus juste pour l'EUDR) ; sinon sur une **zone d'environ 1 km** autour du point.
+  Le texte sous l'indicateur précise le périmètre utilisé. 👉 **Délimitez vos parcelles** pour un compte fiable.
+- « Perte détectée » = **signal à vérifier**, pas une condamnation.
 - **Un bon NDVI ne veut PAS dire « conforme EUDR »** : une forêt défrichée après 2020 puis plantée en
   cacao donne un couvert dense (NDVI élevé) **tout en étant** une déforestation. C'est exactement le cas
   que l'EUDR cible.

@@ -5,6 +5,8 @@ signal de déforestation. S'appuie sur l'abstraction `app.satellite.provider`
 """
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,7 @@ from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Plantation, User
 from app.satellite.provider import (
+    get_deforestation_for_geometry,
     get_deforestation_signal,
     get_indices,
     get_timeseries,
@@ -84,13 +87,31 @@ def plantation_advanced(
         raise HTTPException(status_code=400, detail="Plantation sans coordonnées GPS.")
 
     lat, lon = plantation.latitude, plantation.longitude
+
+    # Déforestation : sur le POLYGONE EXACT de la parcelle si délimitée (plus juste
+    # pour l'EUDR), sinon sur une zone ~1 km autour du point GPS.
+    deforestation = None
+    boundary = plantation.boundary  # relation 1-1 (PlantationBoundary)
+    if boundary and boundary.geojson:
+        try:
+            geom = json.loads(boundary.geojson)
+            if isinstance(geom, dict) and geom.get("type") == "Feature":
+                geom = geom.get("geometry")
+            if geom and geom.get("type") in ("Polygon", "MultiPolygon"):
+                deforestation = get_deforestation_for_geometry(geom)
+        except Exception:
+            deforestation = None
+    if deforestation is None:
+        deforestation = get_deforestation_signal(lat, lon)
+
     return {
         "plantation_id": plantation.id,
         "plantation_name": plantation.name,
         "latitude": lat,
         "longitude": lon,
+        "has_boundary": bool(boundary and boundary.geojson),
         "indices": get_indices(lat, lon),
         "ndvi_timeseries": get_timeseries(lat, lon, index="ndvi", months=months),
         "ndmi_timeseries": get_timeseries(lat, lon, index="ndmi", months=months),
-        "deforestation": get_deforestation_signal(lat, lon),
+        "deforestation": deforestation,
     }
