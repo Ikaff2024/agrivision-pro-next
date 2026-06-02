@@ -58,10 +58,10 @@ Ce qui rassure le plus un acheteur/auditeur sérieux :
 
 | Prio | Action | Effort | Risque | Impact perçu |
 |---|---|---|---|---|
-| **P1** | Remplacer tous les `alert()` par `toast()` (cohérence) | Moyen | Faible | ⭐⭐⭐ |
+| ✅ **P1** | ~~Remplacer tous les `alert()` par `toast()`~~ **FAIT** (46 conversions, type auto) | Moyen | Faible | ⭐⭐⭐ |
 | **P1** | Réécrire les messages d'erreur génériques en messages clairs + action | Moyen | Faible | ⭐⭐⭐ |
-| **P2** | Modale maison pour `confirm()` / `prompt()` | Moyen+ | Faible | ⭐⭐ |
-| **P2** | Nettoyer les `console.*` | Faible | Nul | ⭐ (revue technique) |
+| ✅ **P2** | ~~Modale maison pour `confirm()` / `prompt()`~~ **FAIT** (`avpConfirm`/`avpPrompt`, 11 conversions) | Moyen+ | Faible | ⭐⭐ |
+| ✅ **P2** | ~~Nettoyer les `console.*`~~ **FAIT** (11 retirés) | Faible | Nul | ⭐ (revue technique) |
 | **P3** | Centraliser `API_BASE`, harmoniser états vides/chargement, badge version, a11y | Faible-Moyen | Faible | ⭐⭐ |
 | **OPS** | Sauvegardes DB + domaine/HTTPS prod + rotation secrets + page statut | Variable | — | ⭐⭐⭐ (confiance) |
 

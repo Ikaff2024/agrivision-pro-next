@@ -327,6 +327,48 @@ function requireAuth() {
 
 function logout() { localStorage.clear(); window.location.replace('login.html'); }
 
+/* ── Modale maison (remplace confirm()/prompt() natifs) ─────────────────────
+   avpConfirm(message, opts) -> Promise<bool>
+   avpPrompt(message, opts)  -> Promise<string|null>   (opts: defaultValue, placeholder, multiline, okText, danger)
+   Style inline (indépendant du CSS de la page). Échap = annuler, Entrée = valider. */
+function _avpModal({ message, input = false, defaultValue = '', placeholder = '', multiline = false, okText = 'Confirmer', cancelText = 'Annuler', danger = false }) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(12,32,24,.55);display:flex;align-items:center;justify-content:center;z-index:10001;padding:20px';
+    const field = input
+      ? (multiline
+          ? `<textarea id="_avp-mf" rows="3" style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font:14px/1.4 system-ui,sans-serif;margin-top:12px" placeholder="${placeholder}"></textarea>`
+          : `<input id="_avp-mf" style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font:14px system-ui,sans-serif;margin-top:12px" placeholder="${placeholder}">`)
+      : '';
+    ov.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:22px 24px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:system-ui,sans-serif">
+        <div style="font-size:14.5px;line-height:1.5;color:#1a2218;white-space:pre-line">${message}</div>
+        ${field}
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+          <button id="_avp-cancel" style="padding:9px 16px;border:1px solid #e5e7eb;background:#fff;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">${cancelText}</button>
+          <button id="_avp-ok" style="padding:9px 16px;border:none;background:${danger ? '#922b21' : '#1a4231'};color:#fff;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">${okText}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    const f = ov.querySelector('#_avp-mf');
+    if (f) setTimeout(() => f.focus(), 50);
+    const done = (val) => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const onOk = () => done(input ? (f ? f.value : '') : true);
+    const onCancel = () => done(input ? null : false);
+    ov.querySelector('#_avp-ok').onclick = onOk;
+    ov.querySelector('#_avp-cancel').onclick = onCancel;
+    ov.addEventListener('click', (e) => { if (e.target === ov) onCancel(); });
+    function onKey(e) {
+      if (e.key === 'Escape') onCancel();
+      else if (e.key === 'Enter' && (!multiline || e.ctrlKey)) onOk();
+    }
+    document.addEventListener('keydown', onKey);
+    if (f && defaultValue) f.value = defaultValue;
+  });
+}
+function avpConfirm(message, opts = {}) { return _avpModal({ message, input: false, ...opts }); }
+function avpPrompt(message, opts = {}) { return _avpModal({ message, input: true, ...opts }); }
+
 /* ── Changer mon mot de passe (self-service, tous roles) ───────── */
 function ensureChangePasswordModal() {
   if (document.getElementById('avp-cp-overlay')) return;

@@ -336,15 +336,15 @@ document.getElementById("btn-unassign").addEventListener("click", function() {
 });
 
 /* ── Pré-remplir depuis le registre ────────────────────────────── */
-document.getElementById("btn-from-registry").addEventListener("click", function() {
+document.getElementById("btn-from-registry").addEventListener("click", async function() {
   if (!currentTechId) return;
   var sel = document.getElementById("tech-select");
   var email = sel.options[sel.selectedIndex].textContent;
-  var formateur = prompt(
+  var formateur = await avpPrompt(
     "Pré-remplissage depuis le registre.\n\n" +
     "Saisissez le nom du formateur tel qu'il apparaît dans le registre Excel.\n" +
     "Toutes les plantations de ce formateur seront attribuées à ce technicien.",
-    ""
+    { placeholder: "Nom du formateur", okText: "Pré-remplir" }
   );
   if (!formateur || !formateur.trim()) return;
 
@@ -371,13 +371,13 @@ document.getElementById("btn-from-registry").addEventListener("click", function(
 });
 
 /* ── Attribuer une section ─────────────────────────────────────── */
-document.getElementById("section-select").addEventListener("change", function() {
+document.getElementById("section-select").addEventListener("change", async function() {
   var section = this.value;
   if (!section || !currentTechId) return;
   var sectionSel = this;
 
-  if (!confirm("Attribuer toutes les plantations de la section \"" + section +
-               "\" à ce technicien ?")) {
+  if (!(await avpConfirm("Attribuer toutes les plantations de la section \"" + section +
+               "\" à ce technicien ?", {okText:"Attribuer"}))) {
     sectionSel.value = "";
     return;
   }
@@ -399,7 +399,7 @@ document.getElementById("section-select").addEventListener("change", function() 
 });
 
 /* ── Tout retirer pour ce technicien ───────────────────────────── */
-document.getElementById("btn-unassign-all").addEventListener("click", function() {
+document.getElementById("btn-unassign-all").addEventListener("click", async function() {
   if (!currentTechId) return;
   var sel = document.getElementById("tech-select");
   var email = sel.options[sel.selectedIndex].textContent;
@@ -408,8 +408,8 @@ document.getElementById("btn-unassign-all").addEventListener("click", function()
     toast("Ce technicien n'a aucune parcelle a retirer.", "error");
     return;
   }
-  if (!confirm("Retirer TOUTES les " + count + " parcelles de " + email + " ?\n\n" +
-               "Les parcelles redeviendront non attribuees. Cette action est en masse.")) {
+  if (!(await avpConfirm("Retirer TOUTES les " + count + " parcelles de " + email + " ?\n\n" +
+               "Les parcelles redeviendront non attribuées. Cette action est en masse.", {okText:"Tout retirer", danger:true}))) {
     return;
   }
   var btn = this;

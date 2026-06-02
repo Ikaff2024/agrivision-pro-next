@@ -651,7 +651,7 @@ async function saveSpecies() {
 }
 
 async function deleteRecord(recordId) {
-  if (!confirm('Supprimer cet enregistrement ?')) return;
+  if (!(await avpConfirm('Supprimer cet enregistrement ?', {okText:'Supprimer', danger:true}))) return;
   try {
     const res = await authFetch(`/agroforestry/${recordId}`, { method:'DELETE' });
     if (!res?.ok) throw new Error();

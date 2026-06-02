@@ -323,7 +323,7 @@ async function changeRole(userId, selectEl) {
 
 // ── Reset mot de passe ───────────────────────────────────────────────────────
 async function doReset(userId, email) {
-  if (!confirm('Réinitialiser le mot de passe de ' + email + ' ?')) return;
+  if (!(await avpConfirm('Réinitialiser le mot de passe de ' + email + ' ?', {okText:'Réinitialiser'}))) return;
   try {
     const r = await authFetch('/admin/members/' + userId + '/reset-password', { method: 'PUT' });
     if (!r?.ok) {

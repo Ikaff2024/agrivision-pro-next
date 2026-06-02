@@ -268,7 +268,7 @@ async function createBlock(producerId, childId) {
 }
 
 async function resolveBlock(id) {
-  const notes = prompt('Note de resolution du blocage');
+  const notes = await avpPrompt('Note de résolution du blocage :', {multiline:true, okText:'Résoudre'});
   if (!notes) return;
   const res = await cgFetch(`/compliance/blocks/${id}/resolve`, {
     method:'POST',

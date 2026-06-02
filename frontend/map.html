@@ -205,7 +205,7 @@
      style="position:fixed;bottom:8px;right:10px;z-index:9999;font:11px/1.4 system-ui,sans-serif;
             color:#6a7d64;background:rgba(255,255,255,.85);border:1px solid #e6ddd0;
             border-radius:6px;padding:2px 8px;pointer-events:none;user-select:none">
-  build avp-v4.21-polish-toasts
+  build avp-v4.22-modale-maison
 </div>
 <div class="avp-layout">
   <nav id="sidebar"></nav>
@@ -779,12 +779,13 @@ async function loadExistingBoundary(pid) {
 // Le moyen le plus simple : 1 clic. On centre sur le point GPS de la parcelle
 // (ou le centre de la carte) et on dessine un carré de la superficie déclarée,
 // dont les coins sont ensuite déplaçables au doigt pour ajuster.
-function quickSquare() {
+async function quickSquare() {
   if (!selectedPlantationId) { toast("Selectionnez une plantation.", "error"); return; }
 
   let ha = selectedDeclaredHa;
   if (!ha || ha <= 0) {
-    const v = prompt("Superficie de la parcelle en hectares ?", "1");
+    const v = await avpPrompt("Superficie de la parcelle en hectares ?", {defaultValue:"1", placeholder:"ex. 1.5", okText:"Générer"});
+    if (v === null) return;
     ha = parseFloat((v || '').replace(',', '.'));
     if (!ha || ha <= 0) { toast("Superficie invalide.", "error"); return; }
     selectedDeclaredHa = ha;

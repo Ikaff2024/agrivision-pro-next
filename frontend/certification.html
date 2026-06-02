@@ -160,9 +160,10 @@ async function createAudit(){
 }
 
 async function completeAudit(id){
-  const result = prompt('Résultat de l\'audit ? (pass / conditional / fail)');
+  const result = await avpPrompt('Résultat de l\'audit ? (pass / conditional / fail)', {defaultValue:'conditional', okText:'Clôturer'});
   if(!result) return;
-  const score = prompt('Score % (optionnel) ?');
+  if(!['pass','conditional','fail'].includes(result.trim())) return toast('Résultat invalide : pass, conditional ou fail.');
+  const score = await avpPrompt('Score % (optionnel) ?', {placeholder:'0 à 100'});
   const r = await authFetch(`/certification-audits/${id}/complete`,{method:'POST',body:JSON.stringify({result:result.trim(),score_pct:score?Number(score):null})});
   if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Clôture impossible : '+(e.detail||'')); }
   await loadAll();
@@ -186,7 +187,7 @@ async function createNC(){
 }
 
 async function resolveNC(id){
-  const notes = prompt('Notes de résolution (optionnel) :')||'';
+  const notes = (await avpPrompt('Notes de résolution (optionnel) :', {multiline:true, okText:'Résoudre'})) || '';
   const r = await authFetch(`/non-conformities/${id}`,{method:'PATCH',body:JSON.stringify({status:'resolved',resolution_notes:notes||null})});
   if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Action impossible : '+(e.detail||'')); }
   await loadAll();
