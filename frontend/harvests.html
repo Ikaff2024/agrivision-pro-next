@@ -235,7 +235,6 @@ async function init() {
   } catch (e) {
     if (!cachedPlantations) {
       document.getElementById("page-sub").textContent = "Erreur de chargement.";
-      console.error(e);
     }
   }
 }
@@ -332,7 +331,6 @@ async function loadHarvests() {
         '<div style="font-weight:600;margin-bottom:4px">Données non disponibles hors ligne</div>' +
         '<div style="font-size:13px;color:var(--muted)">Reconnectez-vous pour synchroniser les récoltes.</div>' +
         '</div>';
-      console.error(e);
     }
   }
 }

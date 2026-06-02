@@ -359,7 +359,7 @@ function editAssessment(id) {
 
 async function saveAssessment() {
   const body = payload();
-  if (!body.producer_id) return alert('Selectionne un producteur.');
+  if (!body.producer_id) return toast('Selectionne un producteur.');
   const editing = editingId !== null;
   const path = editing ? `/farmforce/assessments/${editingId}` : '/farmforce/assessments';
   const res = await ffFetch(path, {
@@ -367,9 +367,9 @@ async function saveAssessment() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (!res.ok) return alert('Enregistrement impossible.');
+  if (!res.ok) return toast('Enregistrement impossible.');
   const saved = await res.json();
-  alert(`${editing ? 'Livret mis a jour' : 'Livret enregistre'}. Revenu net: ${money(saved.net_income_cfa)} CFA`);
+  toast(`${editing ? 'Livret mis a jour' : 'Livret enregistre'}. Revenu net: ${money(saved.net_income_cfa)} CFA`);
   resetForm();
   loadAssessments();
 }
@@ -392,7 +392,7 @@ async function importExcel(file) {
     await loadAssessments();
   } catch (e) {
     status.textContent = '';
-    alert(e.message || 'Import impossible.');
+    toast(e.message || 'Import impossible.');
   } finally {
     document.getElementById('excel-import').value = '';
   }

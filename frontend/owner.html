@@ -284,7 +284,6 @@ async function loadStats() {
     const data = await res.json();
     renderDashboard(data);
   } catch(e) {
-    console.error(e);
   }
 }
 

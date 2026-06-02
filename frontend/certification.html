@@ -154,9 +154,9 @@ async function createAudit(){
     scope: document.getElementById('a-scope').value.trim()||null,
   };
   const r = await authFetch('/certification-audits',{method:'POST',body:JSON.stringify(body)});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Création impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Création impossible : '+(e.detail||'')); }
   document.getElementById('a-body').value=''; document.getElementById('a-scope').value='';
-  await loadAll(); alert('Audit créé.');
+  await loadAll(); toast('Audit créé.');
 }
 
 async function completeAudit(id){
@@ -164,13 +164,13 @@ async function completeAudit(id){
   if(!result) return;
   const score = prompt('Score % (optionnel) ?');
   const r = await authFetch(`/certification-audits/${id}/complete`,{method:'POST',body:JSON.stringify({result:result.trim(),score_pct:score?Number(score):null})});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Clôture impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Clôture impossible : '+(e.detail||'')); }
   await loadAll();
 }
 
 async function createNC(){
   const desc = document.getElementById('n-desc').value.trim();
-  if(desc.length<3) return alert('Description requise (min. 3 caractères).');
+  if(desc.length<3) return toast('Description requise (min. 3 caractères).');
   const body = {
     audit_id: Number(document.getElementById('n-audit').value)||null,
     severity: document.getElementById('n-sev').value,
@@ -180,15 +180,15 @@ async function createNC(){
     due_date: document.getElementById('n-due').value||null,
   };
   const r = await authFetch('/non-conformities',{method:'POST',body:JSON.stringify(body)});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Enregistrement impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Enregistrement impossible : '+(e.detail||'')); }
   ['n-desc','n-action','n-resp','n-due'].forEach(id=>document.getElementById(id).value='');
-  await loadAll(); alert('Non-conformité enregistrée.');
+  await loadAll(); toast('Non-conformité enregistrée.');
 }
 
 async function resolveNC(id){
   const notes = prompt('Notes de résolution (optionnel) :')||'';
   const r = await authFetch(`/non-conformities/${id}`,{method:'PATCH',body:JSON.stringify({status:'resolved',resolution_notes:notes||null})});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Action impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Action impossible : '+(e.detail||'')); }
   await loadAll();
 }
 

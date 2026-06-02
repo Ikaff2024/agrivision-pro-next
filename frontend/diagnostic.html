@@ -641,7 +641,6 @@ async function runDiagnostic() {
       });
     } catch (netErr) {
       // Echec reseau (DNS, timeout, fetch failed) = offline reel meme si navigator.onLine=true
-      console.warn('[Phase4] Network failed, falling back to queue:', netErr.message);
       await _enqueueDiagnosticOffline(pid, inputs, plantLabel);
       return;
     }
@@ -687,7 +686,6 @@ async function _enqueueDiagnosticOffline(pid, inputs, plantLabel) {
     _showOfflineDiagnosticStub(inputs, plantLabel, localId);
     toast('✓ Diagnostic enregistré localement. Synchronisation auto à la reconnexion.', 'success');
   } catch (e) {
-    console.error('[Phase4] enqueueWrite failed:', e);
     toast('Échec enregistrement local. Réessayez.', 'error');
   }
 }
@@ -961,7 +959,6 @@ function submitFeedback(verdict) {
   document.getElementById('feedback-thanks').style.display = 'block';
 
   // Log pour debug (à remplacer par un vrai endpoint en V2)
-  console.log('[ML Feedback]', JSON.stringify({ ..._lastAnalysis, verdict }));
 }
 
 function esc(s) { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }

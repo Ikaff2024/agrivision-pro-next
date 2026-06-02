@@ -191,7 +191,6 @@ async function loadInitial() {
       });
     }
   } catch(e) {
-    console.error(e);
     toast("Erreur de chargement.", "error");
   }
 }
@@ -233,7 +232,6 @@ async function loadTechnicianView() {
     renderPane("left");
     renderPane("right");
   } catch(e) {
-    console.error(e);
     toast("Erreur de chargement des parcelles.", "error");
   }
 }

@@ -711,11 +711,11 @@ async function syncSsrteQueue() {
   await updateOfflineQueueStatus();
   if (result && result.synced) {
     await loadAll();
-    alert(`${result.synced} fiche(s) synchronisee(s).`);
+    toast(`${result.synced} fiche(s) synchronisee(s).`);
   } else if (result && result.errors) {
-    alert('Certaines fiches restent en attente. Verifiez la connexion ou les champs requis.');
+    toast('Certaines fiches restent en attente. Verifiez la connexion ou les champs requis.');
   } else {
-    alert('Aucune fiche SSRTE en attente.');
+    toast('Aucune fiche SSRTE en attente.');
   }
 }
 
@@ -850,13 +850,13 @@ async function saveCommunity() {
     },
     notes: val('community-notes') || null
   };
-  if (!body.locality) return alert('Localite obligatoire.');
+  if (!body.locality) return toast('Localite obligatoire.');
   const result = await postSsrte('/ssrte/communities', body, `SSRTE Fiche A - ${body.locality}`);
-  if (result.queued) return alert('Fiche A conservee hors ligne. Elle sera synchronisee automatiquement.');
+  if (result.queued) return toast('Fiche A conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return alert('Enregistrement Fiche A impossible.');
+  if (!res.ok) return toast('Enregistrement Fiche A impossible.');
   await loadAll();
-  alert('Fiche A enregistree.');
+  toast('Fiche A enregistree.');
 }
 
 function workRows() {
@@ -905,15 +905,15 @@ async function saveHousehold() {
     },
     notes: val('household-notes') || null
   };
-  if (!body.producer_id) return alert('Producteur obligatoire.');
+  if (!body.producer_id) return toast('Producteur obligatoire.');
   const producerLabel = document.getElementById('producer').selectedOptions[0]?.textContent || 'producteur';
   const result = await postSsrte('/ssrte/households', body, `SSRTE F1 - ${producerLabel}`);
-  if (result.queued) return alert('F1 conservee hors ligne. Elle sera synchronisee automatiquement.');
+  if (result.queued) return toast('F1 conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return alert('Enregistrement F1 impossible.');
+  if (!res.ok) return toast('Enregistrement F1 impossible.');
   const saved = await res.json();
   await loadAll();
-  alert(`F1 enregistree. Risque: ${saved.risk_level} (${saved.risk_score}).`);
+  toast(`F1 enregistree. Risque: ${saved.risk_level} (${saved.risk_score}).`);
 }
 
 function visitChecklist() {
@@ -1001,24 +1001,24 @@ async function saveVisit() {
     assessor_signature_data: val('assessor-signature') ? { signed_by: val('assessor-signature'), signed_at: new Date().toISOString() } : null,
     notes: val('visit-notes') || null
   };
-  if (!body.plantation_id) return alert('Plantation obligatoire.');
+  if (!body.plantation_id) return toast('Plantation obligatoire.');
   const plantationLabel = document.getElementById('plantation').selectedOptions[0]?.textContent || 'plantation';
   const result = await postSsrte('/ssrte/plantation-visits', body, `SSRTE Fiche C - ${plantationLabel}`);
-  if (result.queued) return alert('Fiche C conservee hors ligne. Elle sera synchronisee automatiquement.');
+  if (result.queued) return toast('Fiche C conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return alert('Enregistrement Fiche C impossible.');
+  if (!res.ok) return toast('Enregistrement Fiche C impossible.');
   await loadAll();
-  alert('Fiche C enregistree.');
+  toast('Fiche C enregistree.');
 }
 
 function grabGPSInto(target) {
   const el = typeof target === 'string' ? document.getElementById(target) : target;
   if (!el) return;
-  if (!navigator.geolocation) return alert('GPS indisponible sur cet appareil.');
+  if (!navigator.geolocation) return toast('GPS indisponible sur cet appareil.');
   navigator.geolocation.getCurrentPosition(pos => {
     gpsAccuracy = pos.coords.accuracy;
     el.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-  }, () => alert('Capture GPS impossible.'));
+  }, () => toast('Capture GPS impossible.'));
 }
 function grabGPS() { grabGPSInto('visit-gps'); }
 

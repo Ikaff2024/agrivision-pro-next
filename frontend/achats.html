@@ -146,7 +146,7 @@ async function loadList(){
 
 async function createPurchase(){
   const pid = Number(document.getElementById('b-producer').value);
-  if(!pid) return alert('Choisissez un producteur.');
+  if(!pid) return toast('Choisissez un producteur.');
   const body = {
     producer_id: pid,
     plantation_id: Number(document.getElementById('b-plantation').value)||null,
@@ -163,17 +163,17 @@ async function createPurchase(){
   };
   const r = await authFetch('/purchases',{method:'POST',body:JSON.stringify(body)});
   const d = await r.json().catch(()=>({}));
-  if(!r.ok) return alert('Enregistrement impossible : '+(d.detail||''));
+  if(!r.ok) return toast('Enregistrement impossible : '+(d.detail||''));
   ['b-receipt','b-gross','b-net','b-bags','b-price','b-total','b-buyer'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('b-tare').value='0';
   await loadAll();
-  alert('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
+  toast('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
 }
 
 async function markPaid(id){
   if(!confirm('Marquer cet achat comme payé ? (suivi comptable, aucun virement exécuté)')) return;
   const r = await authFetch(`/purchases/${id}/mark-paid`,{method:'POST',body:JSON.stringify({})});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Action impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Action impossible : '+(e.detail||'')); }
   await Promise.all([loadSummary(), loadList()]);
 }
 

@@ -219,7 +219,12 @@ window.API_BASE = API_BASE;
 })();
 
 /* ── Toast ──────────────────────────────────────────────────── */
-function toast(msg, type = 'success') {
+function toast(msg, type) {
+  // Auto-détection du type quand non précisé : un message d'erreur s'affiche en rouge.
+  if (!type) {
+    type = /impossible|erreur|invalide|requis|obligatoire|refus|incorrect|échec|echec|trop court|introuvable|manquant|non autoris|interdit|échou/i.test(String(msg))
+      ? 'error' : 'success';
+  }
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
   el.textContent = msg;

@@ -324,7 +324,6 @@ async function load() {
       const subEl = document.getElementById('page-sub');
       if (subEl) subEl.textContent = 'Hors ligne — données non disponibles';
     }
-    console.warn('[Phase3a] Network refresh failed:', e);
   }
 }
 
@@ -954,7 +953,7 @@ async function downloadDdsPdf() {
     if (typeof toast === 'function') toast('DDS PDF telecharge.');
   } catch (e) {
     if (typeof toast === 'function') toast(e.message, 'error');
-    else alert(e.message);
+    else toast(e.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1120,11 +1119,11 @@ async function downloadPlantationReport() {
       } catch (e) {}
 
       if (response.status === 403) {
-        alert("Acces refuse : seuls les admins et agronomes peuvent generer le rapport PDF.");
+        toast("Acces refuse : seuls les admins et agronomes peuvent generer le rapport PDF.");
       } else if (response.status === 404) {
-        alert("Plantation introuvable.");
+        toast("Plantation introuvable.");
       } else {
-        alert("Echec de la generation du rapport :\n" + detail);
+        toast("Echec de la generation du rapport :\n" + detail);
       }
       return;
     }
@@ -1150,8 +1149,7 @@ async function downloadPlantationReport() {
     setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 1000);
 
   } catch (err) {
-    console.error("Erreur generation PDF :", err);
-    alert("Erreur reseau lors de la generation du PDF. Verifiez votre connexion et reessayez.");
+    toast("Erreur reseau lors de la generation du PDF. Verifiez votre connexion et reessayez.");
   } finally {
     btn.disabled = false;
     label.textContent = originalLabel;
@@ -1201,7 +1199,6 @@ async function avpCheckPlantationNdvi(plantationId, recoContainerId) {
     }
   } catch (e) {
     // Echec silencieux : le helper est purement informatif
-    console.warn("avpCheckPlantationNdvi: ", e);
   }
 }
 

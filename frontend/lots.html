@@ -176,11 +176,11 @@ function pickedHarvests(){ return [...document.querySelectorAll('.hv:checked')].
 
 async function createWarehouse(){
   const name = document.getElementById('w-name').value.trim();
-  if(!name) return alert('Nom de l\'entrepôt requis.');
+  if(!name) return toast('Nom de l\'entrepôt requis.');
   const r = await authFetch('/warehouses',{method:'POST',body:JSON.stringify({name,location:document.getElementById('w-loc').value.trim()||null})});
-  if(!r.ok) return alert('Création impossible.');
+  if(!r.ok) return toast('Création impossible.');
   document.getElementById('w-name').value=''; document.getElementById('w-loc').value='';
-  await loadWarehouses(); alert('Entrepôt créé.');
+  await loadWarehouses(); toast('Entrepôt créé.');
 }
 
 async function createLot(){
@@ -192,11 +192,11 @@ async function createLot(){
   };
   const r = await authFetch('/lots',{method:'POST',body:JSON.stringify(body)});
   const data = await r.json().catch(()=>({}));
-  if(r.status===409){ alert('Refusé : '+(data.detail?.message||'producteur sous blocage CacaoGuard.')); return; }
-  if(!r.ok){ alert('Création impossible : '+(data.detail||'')); return; }
+  if(r.status===409){ toast('Refusé : '+(data.detail?.message||'producteur sous blocage CacaoGuard.')); return; }
+  if(!r.ok){ toast('Création impossible : '+(data.detail||'')); return; }
   document.getElementById('l-season').value=''; document.getElementById('l-notes').value='';
   document.getElementById('harvest-picker').innerHTML=''; document.getElementById('l-plantation').value='';
-  await loadAll(); openLot(data.id); alert('Lot '+data.code+' créé.');
+  await loadAll(); openLot(data.id); toast('Lot '+data.code+' créé.');
 }
 
 async function openLot(id){
@@ -223,9 +223,9 @@ function closeDetail(){ document.getElementById('detail').classList.add('hidden'
 async function doMovement(type){
   if(!_currentLot) return;
   const body = { movement_type: type };
-  if(type==='warehouse_in'){ const w=Number(document.getElementById('mv-warehouse').value); if(!w) return alert('Choisissez un entrepôt.'); body.to_warehouse_id=w; }
+  if(type==='warehouse_in'){ const w=Number(document.getElementById('mv-warehouse').value); if(!w) return toast('Choisissez un entrepôt.'); body.to_warehouse_id=w; }
   const r = await authFetch(`/lots/${_currentLot.id}/movements`,{method:'POST',body:JSON.stringify(body)});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return alert('Mouvement impossible : '+(e.detail||'')); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Mouvement impossible : '+(e.detail||'')); }
   await loadLots(); openLot(_currentLot.id);
 }
 
@@ -239,7 +239,7 @@ async function printPassport(){
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch(e) {
-    alert('Passeport PDF impossible : ' + e.message);
+    toast('Passeport PDF impossible : ' + e.message);
   }
 }
 
