@@ -14,6 +14,8 @@ Tests « bout en bout » qui pilotent un vrai navigateur sur l'application, pour
 | `tests/harvest.spec.ts` | **Saisie récolte avec n° de reçu d'achat** (Point #4) |
 | `tests/boundary.spec.ts` | **Délimitation de parcelle → conformité EUDR (`has_polygon` false→true) → DDS PDF** |
 | `tests/import.spec.ts` | **Import d'un registre Excel + annulation du lot** (Point #3, via l'UI) |
+| `tests/achats.spec.ts` | **Enregistrement d'un achat producteur** (sélection producteur, poids, prix, n° de bon) |
+| `tests/lot_passport.spec.ts` | **Traçabilité : parcelle → récolte → lot → passeport de lot PDF** (signature `%PDF`) |
 
 Le scénario `demo` prépare ses données via l'API (compte + parcelle géolocalisée), puis
 déroule le parcours **via l'interface** (c'est ce que filme la vidéo).
@@ -74,5 +76,5 @@ AVP_BASE_URL="https://VOTRE-SITE.netlify.app" AVP_TEST_EMAIL="admin@coop.ci" AVP
 - **Dessin Leaflet** réel sur la carte (clics/`quickSquare`) : `boundary.spec.ts` couvre la chaîne
   métier (tracé→conformité→DDS) via l'endpoint de délimitation ; le dessin sur la carte lui-même
   reste vérifié manuellement (interaction canvas peu déterministe en CI).
-- Scénarios **Achats producteurs** et **Traçabilité lots** (passeport de lot PDF).
 - Convertir une `.webm` en `.mp4` (ffmpeg) pour partage commercial / Loom.
+- Workflow CI : publier l'E2E **en commentaire de PR** + nommer les artefacts vidéo par date.
