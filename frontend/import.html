@@ -286,6 +286,24 @@
         </div>
 
       </div>
+
+      <!-- Historique des imports -->
+      <div class="card" style="margin-top:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+          <div>
+            <div class="page-title" style="font-size:17px">Historique des imports</div>
+            <div class="page-sub" style="font-size:12.5px">Annulez un import erroné : seules les fiches créées par cet import sont supprimées. L'annulation est refusée si des données en dépendent (récoltes, diagnostics…).</div>
+          </div>
+          <button class="btn btn-outline" onclick="loadImportHistory()">
+            <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+            Actualiser
+          </button>
+        </div>
+        <div id="import-history">
+          <div style="color:var(--muted);padding:8px">Chargement…</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -475,6 +493,7 @@ document.getElementById('btn-import').addEventListener('click', function() {
 
     if (isOk) toast('Import réussi : ' + (rep.producers_created || 0) + ' producteurs.');
     else toast('Import terminé avec des erreurs.', 'error');
+    loadImportHistory();
   }).catch(function() {
     document.getElementById('import-loading').style.display = 'none';
     toast("Erreur lors de l'import.", 'error');
@@ -486,6 +505,89 @@ function esc(s) {
   el.textContent = (s === null || s === undefined) ? '' : String(s);
   return el.innerHTML;
 }
+
+/* ── Historique des imports & annulation ───────────────────── */
+function loadImportHistory() {
+  var wrap = document.getElementById('import-history');
+  authFetch('/import/batches').then(function(r) {
+    if (!r || !r.ok) throw new Error('http');
+    return r.json();
+  }).then(function(batches) {
+    renderImportHistory(batches || []);
+  }).catch(function() {
+    wrap.innerHTML = '<div style="color:var(--muted);padding:8px">Historique indisponible.</div>';
+  });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  catch (e) { return iso; }
+}
+
+function renderImportHistory(batches) {
+  var wrap = document.getElementById('import-history');
+  if (!batches.length) {
+    wrap.innerHTML = '<div style="color:var(--muted);padding:8px">Aucun import enregistré pour le moment.</div>';
+    return;
+  }
+  var rows = batches.map(function(b) {
+    var cancelled = b.status === 'cancelled';
+    var statusBadge = cancelled
+      ? '<span style="font-size:11px;font-weight:600;color:#9ca3af">Annulé</span>'
+      : '<span style="font-size:11px;font-weight:600;color:var(--accent,#52b788)">Actif</span>';
+    var action = cancelled
+      ? '<span style="color:var(--faint,#bbb);font-size:12px">—</span>'
+      : '<button class="btn btn-outline" style="padding:5px 10px;font-size:12px;color:var(--high,#c0392b);border-color:var(--high,#c0392b)"' +
+        ' onclick="cancelImport(\'' + b.batch_uuid + '\', \'' + esc(b.fichier_source || '') + '\')">Annuler cet import</button>';
+    return '<tr style="border-top:1px solid var(--border)">' +
+      '<td style="padding:9px 8px">' + esc(b.fichier_source || '(sans nom)') +
+        (b.campaign ? ' <span style="color:var(--faint,#aaa);font-size:11px">· ' + esc(b.campaign) + '</span>' : '') + '</td>' +
+      '<td style="padding:9px 8px;color:var(--muted);font-size:12.5px">' + fmtDateTime(b.created_at) + '</td>' +
+      '<td style="padding:9px 8px;text-align:center">' + (b.producers_created || 0) + '</td>' +
+      '<td style="padding:9px 8px;text-align:center">' + (b.plantations_created || 0) + '</td>' +
+      '<td style="padding:9px 8px;text-align:center">' + statusBadge + '</td>' +
+      '<td style="padding:9px 8px;text-align:right">' + action + '</td>' +
+    '</tr>';
+  }).join('');
+  wrap.innerHTML =
+    '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13.5px">' +
+      '<thead><tr style="text-align:left;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em">' +
+        '<th style="padding:6px 8px">Fichier</th>' +
+        '<th style="padding:6px 8px">Date</th>' +
+        '<th style="padding:6px 8px;text-align:center">Producteurs</th>' +
+        '<th style="padding:6px 8px;text-align:center">Plantations</th>' +
+        '<th style="padding:6px 8px;text-align:center">Statut</th>' +
+        '<th style="padding:6px 8px"></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function cancelImport(batchUuid, fichier) {
+  var msg = 'Annuler définitivement l\'import' + (fichier ? ' « ' + fichier + ' »' : '') +
+    ' ? Les producteurs et plantations créés par cet import seront supprimés. ' +
+    'Cette action est irréversible.';
+  avpConfirm(msg, { okText: "Annuler l'import", cancelText: 'Garder', danger: true }).then(function(ok) {
+    if (!ok) return;
+    authFetch('/import/batches/' + encodeURIComponent(batchUuid), { method: 'DELETE' }).then(function(r) {
+      return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; });
+    }).then(function(res) {
+      if (res.ok) {
+        toast('Import annulé : ' + (res.data.producers_deleted || 0) + ' producteur(s), ' +
+          (res.data.plantations_deleted || 0) + ' plantation(s) supprimés.');
+        loadImportHistory();
+      } else if (res.status === 409) {
+        toast(res.data.detail || 'Annulation impossible : des données dépendent de cet import.', 'error');
+      } else {
+        toast(res.data.detail || "Annulation impossible.", 'error');
+      }
+    }).catch(function() {
+      toast('Erreur réseau lors de l\'annulation.', 'error');
+    });
+  });
+}
+
+// Charge l'historique au démarrage (page réservée admin).
+loadImportHistory();
 </script>
 </body>
 </html>

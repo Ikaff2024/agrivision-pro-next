@@ -243,6 +243,16 @@ async def lifespan(app: FastAPI):
                 ))
                 conn.commit()
                 logger.info("Migration Plans : OK (cooperatives.plan)")
+
+                # Lot d'import (annulation d'un import errone) : tag sur producteurs/plantations
+                # (la table import_batches est creee par create_all)
+                for col_ddl in [
+                    "ALTER TABLE producers ADD COLUMN IF NOT EXISTS import_batch_id VARCHAR",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS import_batch_id VARCHAR",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration Import batch : OK (producers/plantations.import_batch_id)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

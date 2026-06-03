@@ -50,6 +50,7 @@ PROJET_CERTIFICATION_MAP = {
 @dataclass
 class ImportReport:
     campaign: str = None
+    batch_uuid: str = None
     producers_created: int = 0
     producers_updated: int = 0
     plantations_created: int = 0
@@ -65,6 +66,7 @@ class ImportReport:
     def as_dict(self) -> dict:
         return {
             "campaign": self.campaign,
+            "batch_uuid": self.batch_uuid,
             "producers_created": self.producers_created,
             "producers_updated": self.producers_updated,
             "plantations_created": self.plantations_created,
@@ -102,7 +104,7 @@ def _ensure_base_certifications(db):
     db.flush()
 
 
-def load_registry(parse_result, db, cooperative_id, fichier_source=None):
+def load_registry(parse_result, db, cooperative_id, fichier_source=None, user_id=None):
     """
     Insere en base le resultat d'un parsing de registre.
 
@@ -111,14 +113,17 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
         db            : session SQLAlchemy
         cooperative_id: id de la cooperative cible
         fichier_source: nom du fichier importe (tracabilite)
+        user_id       : id de l'utilisateur a l'origine de l'import (tracabilite)
 
     Returns:
         ImportReport
     """
     import time
+    import uuid as _uuid
     from app.db.models import (
         Producer, Plantation, Campagne, Certification,
         PlantationCertification, FormationSession, FormationParticipant,
+        ImportBatch,
     )
 
     t0 = time.time()
@@ -127,6 +132,19 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
     if parse_result.errors:
         report.errors.extend(parse_result.errors)
         return report
+
+    # --- Lot d'import : permet d'annuler cet import en masse plus tard --------
+    batch_uuid = _uuid.uuid4().hex
+    report.batch_uuid = batch_uuid
+    import_batch = ImportBatch(
+        batch_uuid=batch_uuid,
+        cooperative_id=cooperative_id,
+        user_id=user_id,
+        fichier_source=fichier_source,
+        status="active",
+    )
+    db.add(import_batch)
+    db.flush()
 
     # --- Vague 1 : Campagne -------------------------------------------------
     campagne = None
@@ -215,6 +233,7 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
                 latitude=pp.latitude,
                 longitude=pp.longitude,
                 is_active=True,
+                import_batch_id=batch_uuid,
             )
             db.add(new_p)
             report.producers_created += 1
@@ -254,6 +273,7 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
                 code_yeyasso=pp_plant.code_producteur,
                 nom_complet=pp_plant.code_producteur,  # nom inconnu : on met le code
                 is_active=True,
+                import_batch_id=batch_uuid,
             )
             db.add(producer)
             db.flush()
@@ -284,6 +304,7 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
                 longitude=pp_plant.longitude,
                 cooperative_id=cooperative_id,
                 producer_id=producer.id,
+                import_batch_id=batch_uuid,
             )
             # code_plantation : colonne ajoutee au Sprint #0
             if hasattr(plantation, "code_plantation"):
@@ -365,6 +386,11 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None):
             ))
             existing_participations.add(key)
             report.formation_participations_created += 1
+
+    # Finalise le lot d'import (compteurs + campagne) pour l'historique.
+    import_batch.campaign = report.campaign
+    import_batch.producers_created = report.producers_created
+    import_batch.plantations_created = report.plantations_created
 
     db.commit()
     report.duration_seconds = time.time() - t0
