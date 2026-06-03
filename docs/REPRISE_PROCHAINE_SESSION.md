@@ -158,7 +158,22 @@ bon d'achat, mais **le champ n'existe pas** dans le formulaire de saisie Récolt
 
 ---
 
-## 5. 🎬 Tests E2E + vidéos de démo automatiques (Playwright)
+## 5. 🎬 Tests E2E + vidéos de démo automatiques (Playwright)  ✅ FAIT (scaffold)
+
+> **Implémenté (session 2026-06-03)** : dossier **`e2e/`** Playwright isolé (Node, n'impacte pas le
+> backend Python). 2 specs **vertes** : `smoke.spec.ts` (page de connexion) et **`demo.spec.ts`**
+> (parcours `Connexion → Plantation → Producteur → Analyse satellite NDVI réelle → EUDR`, 12 s).
+> Stratégie : **setup via API** (compte + parcelle géolocalisée), **parcours via l'UI** (filmé).
+> Le frontend de la branche est **servi en local** (port **5510**, déjà dans l'allowlist CORS) et l'API
+> **Railway réelle** est injectée via `addInitScript` → teste les fichiers de la branche contre le vrai
+> backend, sans dépendre du déploiement Netlify. **Vidéo `.webm` + rapport HTML** générés à chaque run.
+> Réutilisable contre le staging Netlify via `AVP_BASE_URL`. Voir `e2e/README.md`.
+>
+> **Reste à faire (extensions)** : scénarios EUDR complet (tracé → conformité → **DDS PDF**), import +
+> annulation de lot, récolte avec n° de reçu ; **GitHub Action** post-déploiement (artefact vidéo) ;
+> compte de démo dédié pour éviter les coops jetables `E2E Demo …` (cf. `AVP_TEST_EMAIL`).
+
+<details><summary>Note de conception (avant implémentation)</summary>
 
 **Idée (validée)** : ajouter des tests **end-to-end** qui pilotent un vrai navigateur, pour
 (a) **non-régression frontend** (on n'en a aucune aujourd'hui — seulement des smoke tests de présence
@@ -183,6 +198,8 @@ de fichiers) et (b) **vidéos de démo** auto-générées pour la vente/LinkedIn
 **Node.js** comme outillage de test (isolé) ; où publier les vidéos (artefacts CI / drive).
 
 **Fichiers** : nouveau `e2e/` (package.json, playwright.config, specs), éventuel workflow CI.
+
+</details>
 
 ---
 
