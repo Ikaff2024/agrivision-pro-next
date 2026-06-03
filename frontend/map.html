@@ -205,7 +205,7 @@
      style="position:fixed;bottom:8px;right:10px;z-index:9999;font:11px/1.4 system-ui,sans-serif;
             color:#6a7d64;background:rgba(255,255,255,.85);border:1px solid #e6ddd0;
             border-radius:6px;padding:2px 8px;pointer-events:none;user-select:none">
-  build avp-v4.24-recu-cout-import
+  build avp-v4.25-fond-satellite
 </div>
 <div class="avp-layout">
   <nav id="sidebar"></nav>
@@ -353,9 +353,34 @@ const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
 
 // Init map centered on Côte d'Ivoire
 map = L.map('map', { zoomControl: true }).setView([6.8, -5.5], 7);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+
+// Fonds de carte : « Carte » (claire, vue d'ensemble) et « Satellite » (Esri World
+// Imagery — gratuit, sans clé). L'imagerie satellite est précieuse pour tracer une
+// parcelle : on voit les arbres et les limites réelles.
+const baseCarte = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap, © CARTO', maxZoom: 19
-}).addTo(map);
+});
+const baseSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Imagerie © Esri, Maxar, Earthstar Geographics', maxZoom: 19
+});
+baseCarte.addTo(map);  // fond par défaut
+
+L.control.layers(
+  { 'Carte': baseCarte, 'Satellite': baseSatellite },
+  null,
+  { position: 'bottomleft' }
+).addTo(map);
+
+// Bascule programmatique du fond (utilisée à l'entrée du mode délimitation).
+function setBasemap(which) {
+  if (which === 'sat') {
+    if (map.hasLayer(baseCarte)) map.removeLayer(baseCarte);
+    if (!map.hasLayer(baseSatellite)) baseSatellite.addTo(map);
+  } else {
+    if (map.hasLayer(baseSatellite)) map.removeLayer(baseSatellite);
+    if (!map.hasLayer(baseCarte)) baseCarte.addTo(map);
+  }
+}
 
 function makeIcon(risk) {
   const color = RC[risk] || '#888';
@@ -534,6 +559,7 @@ function toggleBoundaryMode() {
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
     btn.style.borderColor = 'var(--accent)';
+    setBasemap('sat');  // imagerie satellite : tracé plus précis des limites
     if (window.innerWidth <= 768) {
       showMobilePicker();
     } else {
