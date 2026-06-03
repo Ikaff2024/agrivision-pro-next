@@ -4,9 +4,33 @@
 > **approche proposée**, **décisions à confirmer**, **fichiers concernés**.
 > Branche : `codex/cacaoguard-fusion`. Règle d'or : tests verts avant push, push **origin** uniquement.
 
+## ✅ Avancement — session 2026-06-02
+
+- **Point 1 (inscription admin-only)** : ✅ FAIT — auto-inscription sur coop existante bloquée (403),
+  message frontend adapté, 9 fichiers de tests migrés vers `create_member_headers`, 2 tests ajoutés.
+- **Point 2 (coût API IA par coop)** : ✅ FAIT — clarifié = coût réel des tokens **Claude** (module
+  Conseil agronomique). Table `AiUsage`, tarif config serveur (défaut Sonnet 4 : 3/15 USD/M), conversion
+  FCFA paramétrable, endpoints owner `/owner/ai-cost` + `/owner/cooperatives/{id}/ai-cost`, affichage
+  `owner.html`. 9 tests dédiés (`tests/test_ai_cost.py`).
+- **Point 4 (N° reçu d'achat en Récolte)** : ✅ FAIT — `numero_recu_achat` + `nbre_sacs` exposés au
+  schéma `HarvestCreate` et au formulaire `harvests.html` (+ colonne tableau).
+- **Point 3 (annuler un import erroné en masse)** : ✅ FAIT — `import_batch_id` sur Producer/Plantation +
+  table `ImportBatch` ; `load_registry` tague les entités créées ; endpoints `GET /import/batches`,
+  `DELETE /import/batches/{uuid}` (admin, scope coop) et `DELETE /import/owner/batches/{uuid}` (IKAFFANAN) ;
+  garde-fou bloquant si données dérivées (récoltes/diagnostics/agroforesterie/délimitations/enfants) ;
+  UI « Historique des imports » + bouton Annuler dans `import.html` (confirmation `avpConfirm`). 10 tests
+  (`tests/test_import_batches.py`).
+- **Tests** : 500 verts. **SW** bumpé `avp-v4.24-recu-cout-import` (sw.js + map.html).
+
+**Décisions prises (Point 3, choix recommandés)** : peut annuler = **admin de la coop** (ses imports) **+
+propriétaire IKAFFANAN** (toute coop, pour purger une coop de test) ; données dérivées → **blocage** avec
+message clair (pas de cascade destructive). Reste à faire côté données (pas du code) : purger « Import Test
+Coop » (id 2) et statuer sur « Coop CAMER » — désormais possible via `DELETE /import/owner/batches/{uuid}`
+si ces données proviennent d'un import tracé (sinon nettoyage manuel).
+
 ---
 
-## 1. 🔒 Inscription : seul l'admin crée des comptes sur une coopérative existante
+## 1. 🔒 Inscription : seul l'admin crée des comptes sur une coopérative existante  ✅ FAIT
 
 **Besoin** : empêcher que n'importe qui s'auto-inscrive dans une coopérative **déjà existante**
 (et accède à des infos sans habilitation). La création de compte sur une coop existante doit
@@ -33,7 +57,23 @@ passer **uniquement** par l'administrateur.
 
 ---
 
-## 2. 💰 Estimation du coût API par coopérative sur une période (dashboard propriétaire)
+## 2. 💰 Estimation du coût API par coopérative sur une période (dashboard propriétaire)  ✅ FAIT
+
+> **Clarification client** : « coût API » = coût de revient réel des appels à **l'API Claude** par le
+> module Conseil agronomique IA (plus une coop l'utilise, plus la facture mensuelle monte). C'est
+> mesurable au token près (l'API renvoie `usage.input_tokens`/`output_tokens`).
+>
+> **Implémenté** : table `AiUsage` (coop, user, plantation, modèle, tokens, `cost_usd` figé à
+> l'enregistrement) ; `app/services/ai_cost.py` (tarifs Sonnet 4 par défaut, surchargeables par env
+> `AI_COST_INPUT_PER_1M_USD` / `AI_COST_OUTPUT_PER_1M_USD` / `USD_TO_FCFA_RATE`) ; `get_ai_advice`
+> renvoie `(result, usage)` et l'endpoint `/ai-advice` enregistre l'usage (best-effort) ; endpoints
+> owner `GET /owner/ai-cost?from=&to=` (ventilé par coop) et `GET /owner/cooperatives/{id}/ai-cost` ;
+> carte « Coût de revient IA » dans `owner.html` (période sélectionnable, USD + FCFA). Tests :
+> `tests/test_ai_cost.py`. Le seul appel Claude est `app/ai_advisor.py` (GFW + Space HF restent gratuits).
+
+<details><summary>Note historique (avant clarification)</summary>
+
+**Besoin initial** : afficher dans l'espace propriétaire une estimation du coût API d'une coopérative.
 
 **Besoin** : afficher dans l'espace propriétaire une **estimation du coût API** d'une coopérative
 sur une période donnée.
@@ -61,9 +101,11 @@ flush périodique, ou comptage au niveau du log).
 
 **Fichiers** : `main.py` (middleware), nouveau `app/api/usage_*` + modèle, `frontend/owner.html`.
 
+</details>
+
 ---
 
-## 3. 🧹 Corriger un import de producteurs erroné (sans le faire un par un)
+## 3. 🧹 Corriger un import de producteurs erroné (sans le faire un par un)  ✅ FAIT
 
 **Besoin** : après un import de fichier **erroné**, pouvoir **annuler/corriger en masse** (pas
 producteur par producteur). Qui : **admin** de la coop et/ou **IKAFFANAN** ?
@@ -93,7 +135,7 @@ de masse est par ailleurs **bloquée par le garde-fou de sécurité**. (Lié au 
 
 ---
 
-## 4. 🧾 Champ « N° de reçu d'achat » manquant dans la saisie Récoltes
+## 4. 🧾 Champ « N° de reçu d'achat » manquant dans la saisie Récoltes  ✅ FAIT
 
 **Besoin** : le guide indique de renseigner le **numéro du reçu d'achat** pour relier la récolte au
 bon d'achat, mais **le champ n'existe pas** dans le formulaire de saisie Récoltes.

@@ -96,6 +96,14 @@ PAGE_MARKERS = {
         "downloadFicheA",     # export PDF de la Fiche A
     ],
     "complaints.html": [],  # existence suffit
+    "owner.html": [
+        "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative
+        "renderAiCost",
+    ],
+    "import.html": [
+        "loadImportHistory",   # historique des imports
+        "cancelImport",        # annulation d'un import erroné (lot d'import)
+    ],
     "auth.js": [
         "setupNotificationWidget",
         "refreshNotifBadge",
