@@ -11,6 +11,9 @@ Tests « bout en bout » qui pilotent un vrai navigateur sur l'application, pour
 | `tests/smoke.spec.ts` | La page de connexion se charge (sanity) |
 | `tests/demo.spec.ts` | **Connexion → Plantation → Producteur → Analyse satellite (NDVI réel) → EUDR** |
 | `tests/eudr.spec.ts` | **Conformité EUDR → génération + téléchargement du DDS PDF** (vérifie la signature `%PDF`) |
+| `tests/harvest.spec.ts` | **Saisie récolte avec n° de reçu d'achat** (Point #4) |
+| `tests/boundary.spec.ts` | **Délimitation de parcelle → conformité EUDR (`has_polygon` false→true) → DDS PDF** |
+| `tests/import.spec.ts` | **Import d'un registre Excel + annulation du lot** (Point #3, via l'UI) |
 
 Le scénario `demo` prépare ses données via l'API (compte + parcelle géolocalisée), puis
 déroule le parcours **via l'interface** (c'est ce que filme la vidéo).
@@ -68,7 +71,8 @@ AVP_BASE_URL="https://VOTRE-SITE.netlify.app" AVP_TEST_EMAIL="admin@coop.ci" AVP
 
 ## Idées d'extensions (prochaines passes)
 
-- Scénario EUDR **avec tracé de parcelle sur la carte** (Leaflet) → recalcul de conformité (le DDS PDF est déjà couvert par `eudr.spec.ts`).
-- Scénario **import de registre** + annulation de lot (Point #3).
-- Scénario **récolte** avec n° de reçu d'achat (Point #4).
+- **Dessin Leaflet** réel sur la carte (clics/`quickSquare`) : `boundary.spec.ts` couvre la chaîne
+  métier (tracé→conformité→DDS) via l'endpoint de délimitation ; le dessin sur la carte lui-même
+  reste vérifié manuellement (interaction canvas peu déterministe en CI).
+- Scénarios **Achats producteurs** et **Traçabilité lots** (passeport de lot PDF).
 - Convertir une `.webm` en `.mp4` (ffmpeg) pour partage commercial / Loom.
