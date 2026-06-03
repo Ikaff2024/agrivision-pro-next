@@ -465,7 +465,8 @@ document.getElementById('btn-import').addEventListener('click', function() {
 
     var banner = document.getElementById('report-banner');
     banner.className = 'result-banner ' + (isOk ? 'ok' : 'err');
-    banner.querySelector('.ms').textContent = isOk ? 'check_circle' : 'error';
+    var bannerIcon = banner.querySelector('.material-symbols-outlined');
+    if (bannerIcon) bannerIcon.textContent = isOk ? 'check_circle' : 'error';
     document.getElementById('report-title').textContent =
       isOk ? 'Import terminé avec succès' : 'Import terminé avec des erreurs';
     document.getElementById('report-sub').textContent =
