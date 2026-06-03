@@ -8,6 +8,7 @@ import pytest
 from datetime import datetime
 
 from app.api.routes import compute_season
+from tests.conftest import create_member_headers
 
 
 # ------ Payloads de reference ------------------------------------------------
@@ -42,33 +43,13 @@ HARVEST_DEFAUTS = {
 @pytest.fixture
 def agro_headers(client, auth_headers):
     """Agronome dans la meme cooperative que l'admin fixture."""
-    client.post("/auth/register", json={
-        "email": "agro_h@harvest.ci",
-        "password": "pass123",
-        "role": "agronomist",
-        "cooperative_name": "Coop Test Fixture",
-        "country": "Cote d'Ivoire",
-    })
-    token = client.post("/auth/login", json={
-        "email": "agro_h@harvest.ci", "password": "pass123"
-    }).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return create_member_headers(client, auth_headers, "agro_h@harvest.ci", "agronomist")
 
 
 @pytest.fixture
 def tech_headers(client, auth_headers):
     """Technicien dans la meme cooperative."""
-    client.post("/auth/register", json={
-        "email": "tech_h@harvest.ci",
-        "password": "pass123",
-        "role": "technician",
-        "cooperative_name": "Coop Test Fixture",
-        "country": "Cote d'Ivoire",
-    })
-    token = client.post("/auth/login", json={
-        "email": "tech_h@harvest.ci", "password": "pass123"
-    }).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return create_member_headers(client, auth_headers, "tech_h@harvest.ci", "technician")
 
 
 @pytest.fixture

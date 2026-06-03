@@ -66,6 +66,16 @@ def auth_headers(client):
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
+def create_member_headers(client, admin_headers, email, role):
+    """Crée un membre via l'endpoint admin et retourne ses headers d'authentification."""
+    r = client.post("/admin/members", json={"email": email, "role": role}, headers=admin_headers)
+    assert r.status_code < 300, f"create_member_headers échoué: {r.text}"
+    temp_password = r.json()["temp_password"]
+    r2 = client.post("/auth/login", json={"email": email, "password": temp_password})
+    assert r2.status_code == 200, f"Login membre {email} échoué: {r2.text}"
+    return {"Authorization": f"Bearer {r2.json()['access_token']}"}
+
+
 @pytest.fixture(scope="function")
 def plantation_id(client, auth_headers):
     r = client.post("/plantations", json={

@@ -1,5 +1,7 @@
 """Tests d'integration — tableau de bord direction (lecture seule, scope coop)."""
 
+from tests.conftest import create_member_headers
+
 
 def _register_login(client, email, password, role="admin", coop="Coop Dash"):
     client.post("/auth/register", json={
@@ -47,8 +49,7 @@ def test_direction_dashboard_reflects_plantation(client):
 
 
 def test_direction_dashboard_forbidden_for_technician(client):
-    # Admin fondateur crée la coop, puis un technicien rejoint la même coop
-    _register_login(client, "dir.founder@test.ci", "pass1234", coop="Coop Tech")
-    h_tech = _register_login(client, "dir.tech@test.ci", "pass1234", role="technician", coop="Coop Tech")
+    h_admin = _register_login(client, "dir.founder@test.ci", "pass1234", coop="Coop Tech")
+    h_tech = create_member_headers(client, h_admin, "dir.tech@test.ci", "technician")
     res = client.get("/dashboard/direction", headers=h_tech)
     assert res.status_code == 403

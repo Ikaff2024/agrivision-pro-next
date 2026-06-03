@@ -585,7 +585,13 @@
     function onCoopInput() {
       const info = document.getElementById('coop-info');
       const coop = document.getElementById('coop').value.trim();
-      info.textContent = coop ? 'Si cette cooperative est nouvelle, ce compte deviendra admin fondateur.' : '';
+      if (coop) {
+        info.innerHTML = '<strong>Nouvelle coopérative ?</strong> Ce compte deviendra admin fondateur.<br>' +
+          '<span style="color:var(--warning,#e67e22)">⚠ Coopérative déjà existante ?</span> ' +
+          'Contactez son administrateur — seul lui peut créer des comptes membres.';
+      } else {
+        info.textContent = '';
+      }
       info.style.display = coop ? 'block' : 'none';
     }
 

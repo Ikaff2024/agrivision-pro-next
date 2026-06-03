@@ -5,6 +5,7 @@ Couvre : bibliothèque espèces, inventaire, métriques, suppression, bilan coop
 """
 
 import pytest
+from tests.conftest import create_member_headers
 
 # ─── Payloads de référence ─────────────────────────────────────────────────────
 
@@ -39,33 +40,13 @@ MANGUIER = {
 @pytest.fixture
 def agro_headers(client, auth_headers):
     """Agronome dans la même coopérative que l'admin fixture."""
-    client.post("/auth/register", json={
-        "email": "agro@agro.ci",
-        "password": "pass123",
-        "role": "agronomist",
-        "cooperative_name": "Coop Test Fixture",
-        "country": "Côte d'Ivoire",
-    })
-    token = client.post("/auth/login", json={
-        "email": "agro@agro.ci", "password": "pass123"
-    }).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return create_member_headers(client, auth_headers, "agro@agro.ci", "agronomist")
 
 
 @pytest.fixture
 def tech_headers(client, auth_headers):
     """Technicien dans la même coopérative."""
-    client.post("/auth/register", json={
-        "email": "tech@agro.ci",
-        "password": "pass123",
-        "role": "technician",
-        "cooperative_name": "Coop Test Fixture",
-        "country": "Côte d'Ivoire",
-    })
-    token = client.post("/auth/login", json={
-        "email": "tech@agro.ci", "password": "pass123"
-    }).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return create_member_headers(client, auth_headers, "tech@agro.ci", "technician")
 
 
 @pytest.fixture

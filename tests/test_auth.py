@@ -37,6 +37,42 @@ def test_register_invalid_role(client):
     assert res.status_code == 400
 
 
+def test_register_existing_coop_blocked(client):
+    """Toute tentative de rejoindre une coopérative existante via /register doit retourner 403."""
+    # Créer la coop (fondateur)
+    client.post("/auth/register", json={
+        "email": "founder@test.ci",
+        "password": "pass1234",
+        "role": "admin",
+        "cooperative_name": "Coop Existante",
+        "country": "CI",
+    })
+    # Tentative d'un autre utilisateur sur la même coop (peu importe le rôle)
+    for role in ("agronomist", "technician", "admin"):
+        res = client.post("/auth/register", json={
+            "email": f"intrus_{role}@test.ci",
+            "password": "pass1234",
+            "role": role,
+            "cooperative_name": "Coop Existante",
+            "country": "CI",
+        })
+        assert res.status_code == 403, f"Attendu 403 pour rôle {role}, obtenu {res.status_code}"
+        assert "administrateur" in res.json()["detail"].lower()
+
+
+def test_register_new_coop_creates_founder_admin(client):
+    """Créer une nouvelle coopérative → le fondateur obtient toujours le rôle admin."""
+    res = client.post("/auth/register", json={
+        "email": "fondateur@test.ci",
+        "password": "pass1234",
+        "role": "technician",   # demande technician, doit devenir admin
+        "cooperative_name": "Nouvelle Coop Test",
+        "country": "CI",
+    })
+    assert res.status_code == 201
+    assert res.json()["role"] == "admin"
+
+
 def test_login_success(client):
     client.post("/auth/register", json={
         "email": "login@test.ci",

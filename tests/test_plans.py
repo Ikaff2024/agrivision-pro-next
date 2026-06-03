@@ -1,5 +1,6 @@
 """Tests — plans d'abonnement & feature-gating."""
 from app.services.plans import allowed_modules, has_module, normalize_plan, plan_overview
+from tests.conftest import create_member_headers
 
 
 def _login(client, email, coop="Coop Plan", role="admin"):
@@ -67,8 +68,8 @@ def test_set_plan_invalid(client):
 
 
 def test_set_plan_requires_admin(client):
-    _login(client, "plan.founder@test.ci", coop="Coop PlanRole")
-    h_tech = _login(client, "plan.tech@test.ci", coop="Coop PlanRole", role="technician")
+    h_admin = _login(client, "plan.founder@test.ci", coop="Coop PlanRole")
+    h_tech = create_member_headers(client, h_admin, "plan.tech@test.ci", "technician")
     coop_id = client.get("/me", headers=h_tech).json()["cooperative_id"]
     r = client.patch(f"/cooperatives/{coop_id}/plan", json={"plan": "pro"}, headers=h_tech)
     assert r.status_code == 403

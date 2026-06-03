@@ -1,5 +1,7 @@
 """Tests d'intégration — moteur diagnostique."""
 
+from tests.conftest import create_member_headers
+
 VALID_INPUTS = {
     "country": "Côte d'Ivoire",
     "region": "Soubré",
@@ -47,20 +49,11 @@ def test_diagnostic_unknown_plantation(client, auth_headers):
 
 
 def test_diagnostic_requires_agronomist_or_admin(client, auth_headers, plantation_id):
-    # Technicien ne peut pas lancer un diagnostic agronomique
-    # Il rejoint la MÊME coop que l'admin (coop existante → pas admin)
-    client.post("/auth/register", json={
-        "email": "tech@test.ci", "password": "pass123",
-        "role": "technician", "cooperative_name": "Coop Test Fixture", "country": "CI"
-    })
-    token = client.post("/auth/login", json={
-        "email": "tech@test.ci", "password": "pass123"
-    }).json()["access_token"]
-
+    tech = create_member_headers(client, auth_headers, "tech@test.ci", "technician")
     res = client.post(
         f"/cacao/diagnostic?plantation_id={plantation_id}",
         json=VALID_INPUTS,
-        headers={"Authorization": f"Bearer {token}"},
+        headers=tech,
     )
     assert res.status_code == 403
 

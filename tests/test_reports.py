@@ -15,6 +15,7 @@ Stratégie fixtures (alignée sur la logique métier d'AgriVision) :
 import sys
 import types
 import pytest
+from tests.conftest import create_member_headers
 
 
 # ─── Mock global de WeasyPrint ────────────────────────────────────────────────
@@ -70,19 +71,14 @@ def _register(client, email, role, coop_name, password="testpass123"):
 # ─── Fixtures users de la même coopérative ────────────────────────────────────
 @pytest.fixture
 def agronomist_in_same_coop(client, auth_headers):
-    """
-    Crée un agronomist dans la coopérative "Coop Test Fixture" (créée par auth_headers).
-    auth_headers est demandé pour s'assurer que la coop existe AVANT le register.
-    """
-    _register(client, "agro@fixture.ci", "agronomist", "Coop Test Fixture")
-    return _login(client, "agro@fixture.ci")
+    """Agronomist dans la coopérative de l'admin fixture."""
+    return create_member_headers(client, auth_headers, "agro@fixture.ci", "agronomist")
 
 
 @pytest.fixture
 def technician_in_same_coop(client, auth_headers):
     """Technicien dans la même coop que le admin de fixture."""
-    _register(client, "tech@fixture.ci", "technician", "Coop Test Fixture")
-    return _login(client, "tech@fixture.ci")
+    return create_member_headers(client, auth_headers, "tech@fixture.ci", "technician")
 
 
 @pytest.fixture

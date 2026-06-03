@@ -1,5 +1,7 @@
 """Tests d'integration — tracabilite des lots (module #1)."""
 
+from tests.conftest import create_member_headers
+
 
 def _login(client, email, password="pass1234", role="admin", coop="Coop Lots"):
     client.post("/auth/register", json={
@@ -125,9 +127,8 @@ def test_lot_blocks_child_labor_producer(client):
 
 def test_lot_requires_auth_and_role(client):
     assert client.get("/lots").status_code == 401
-    # 1er inscrit d'une coop = admin force ; on cree le fondateur, puis un vrai technicien
-    _login(client, "lot.founder@test.ci", coop="Coop Tech L")
-    h_tech = _login(client, "lot.tech@test.ci", role="technician", coop="Coop Tech L")
+    h_admin = _login(client, "lot.founder@test.ci", coop="Coop Tech L")
+    h_tech = create_member_headers(client, h_admin, "lot.tech@test.ci", "technician")
     # lecture autorisee
     assert client.get("/lots", headers=h_tech).status_code == 200
     # creation interdite au technicien

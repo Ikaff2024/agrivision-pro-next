@@ -3,7 +3,7 @@
 
 from app.auth.auth_service import create_access_token
 from app.db.models import Cooperative, Plantation, PlantationAssignment, Producer, User
-from tests.conftest import TestingSessionLocal
+from tests.conftest import TestingSessionLocal, create_member_headers
 
 
 def test_create_plantation(client, auth_headers):
@@ -113,21 +113,10 @@ def test_create_plantation_reuses_existing_producer(client, auth_headers):
 
 
 def test_create_plantation_requires_admin(client, auth_headers):
-    # L'agronome rejoint la coop existante → reste agronomist → ne peut pas créer
-    client.post("/auth/register", json={
-        "email": "agro@test.ci",
-        "password": "pass123",
-        "role": "agronomist",
-        "cooperative_name": "Coop Test Fixture",  # coop existante → pas admin
-        "country": "Côte d'Ivoire",
-    })
-    token = client.post("/auth/login", json={
-        "email": "agro@test.ci", "password": "pass123"
-    }).json()["access_token"]
-
+    agro = create_member_headers(client, auth_headers, "agro@test.ci", "agronomist")
     res = client.post("/plantations", json={
         "name": "P", "owner_name": "O", "country": "CI"
-    }, headers={"Authorization": f"Bearer {token}"})
+    }, headers=agro)
     assert res.status_code == 403
 
 

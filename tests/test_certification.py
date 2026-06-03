@@ -1,7 +1,10 @@
 """Tests d'integration — certification (audits, non-conformites) module #3."""
 
+from tests.conftest import create_member_headers
+
 
 def _login(client, email, password="pass1234", role="admin", coop="Coop Cert"):
+    """Crée un compte FONDATEUR (nouvelle coop) et retourne ses headers."""
     client.post("/auth/register", json={
         "email": email, "password": password, "role": role,
         "cooperative_name": coop, "country": "CI",
@@ -73,8 +76,8 @@ def test_certification_summary(client):
 
 
 def test_certification_write_role(client):
-    _login(client, "cert.founder@test.ci", coop="Coop WR")
-    h_tech = _login(client, "cert.tech@test.ci", role="technician", coop="Coop WR")
+    h_admin = _login(client, "cert.founder@test.ci", coop="Coop WR")
+    h_tech = create_member_headers(client, h_admin, "cert.tech@test.ci", "technician")
     assert client.get("/certification-audits", headers=h_tech).status_code == 200
     assert client.post("/certification-audits", json={"audit_type": "internal"}, headers=h_tech).status_code == 403
 

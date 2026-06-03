@@ -96,16 +96,14 @@ def register_user(req: RegisterUserRequest, db: Session = Depends(get_db)):
         db.refresh(coop)
         assigned_role = "admin"  # fondateur, toujours admin
     else:
-        # ── Coopérative existante : Admin interdit en self-service ──
-        if req.role == "admin":
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "Le rôle Admin ne peut pas être auto-attribué sur une coopérative existante. "
-                    "Contactez l'administrateur de votre coopérative."
-                ),
-            )
-        assigned_role = req.role
+        # ── Coopérative existante : inscription publique interdite ──
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "L'inscription sur une coopérative existante se fait via son administrateur. "
+                "Demandez-lui de créer votre compte depuis le panneau d'administration."
+            ),
+        )
 
     new_user = User(
         email=req.email,
