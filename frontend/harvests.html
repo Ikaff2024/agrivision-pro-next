@@ -161,6 +161,16 @@ tr:hover .row-actions{opacity:1}
       <label class="h-form-label">Prix au kg (FCFA) <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
       <input type="number" id="h-price" class="h-form-input" min="0" step="1" placeholder="Ex: 1200">
     </div>
+    <div class="h-form-row">
+      <div class="h-form-group">
+        <label class="h-form-label">N&deg; de re&ccedil;u d'achat <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+        <input type="text" id="h-receipt" class="h-form-input" placeholder="Ex: REC-2024-001">
+      </div>
+      <div class="h-form-group">
+        <label class="h-form-label">Nombre de sacs <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
+        <input type="number" id="h-bags" class="h-form-input" min="0" step="1" placeholder="Ex: 12">
+      </div>
+    </div>
     <div class="h-form-group">
       <label class="h-form-label">Notes <span style="color:var(--faint);font-weight:400">- optionnel</span></label>
       <textarea id="h-notes" class="h-form-textarea" placeholder="Conditions, observations..."></textarea>
@@ -482,6 +492,7 @@ function renderTable() {
         '<th style="text-align:right">Quantit&eacute;</th>' +
         '<th>Qualit&eacute;</th>' +
         '<th style="text-align:right">Prix kg</th>' +
+        '<th class="mob-hide">N&deg; re&ccedil;u</th>' +
         '<th class="mob-hide">Notes</th>' +
         (canEdit ? '<th style="text-align:right">Actions</th>' : '') +
       '</tr></thead>' +
@@ -494,6 +505,7 @@ function renderTable() {
           '<td style="text-align:right;font-weight:600">' + h.quantity_kg.toLocaleString() + ' kg</td>' +
           '<td><span class="qual-pill qual-' + h.quality + '">' + (h.quality === "Defauts" ? "D&eacute;fauts" : h.quality) + '</span></td>' +
           '<td style="text-align:right;color:var(--muted)">' + (h.price_per_kg_fcfa != null ? h.price_per_kg_fcfa.toLocaleString() + ' FCFA' : '&mdash;') + '</td>' +
+          '<td class="mob-hide" style="color:var(--muted);font-size:12.5px">' + (h.numero_recu_achat ? esc(h.numero_recu_achat) : '&mdash;') + '</td>' +
           '<td class="mob-hide" style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (h.notes ? esc(h.notes) : '&mdash;') + '</td>' +
           (canEdit ? '<td><div class="row-actions">' +
             '<button class="act-btn" onclick="openModal(\'edit\',' + h.id + ')" title="Modifier"><span class="material-symbols-outlined ms">edit</span></button>' +
@@ -518,6 +530,8 @@ function openModal(mode, harvestId) {
   const qtyEl = document.getElementById("h-quantity");
   const qualEl = document.getElementById("h-quality");
   const priceEl = document.getElementById("h-price");
+  const receiptEl = document.getElementById("h-receipt");
+  const bagsEl = document.getElementById("h-bags");
   const notesEl = document.getElementById("h-notes");
 
   if (mode === "edit" && harvestId != null) {
@@ -529,6 +543,8 @@ function openModal(mode, harvestId) {
     qtyEl.value = h.quantity_kg;
     qualEl.value = h.quality;
     priceEl.value = h.price_per_kg_fcfa != null ? h.price_per_kg_fcfa : "";
+    receiptEl.value = h.numero_recu_achat || "";
+    bagsEl.value = h.nbre_sacs != null ? h.nbre_sacs : "";
     notesEl.value = h.notes || "";
   } else if (mode === "historic") {
     titleEl.innerHTML = "&#128338; Saisie historique";
@@ -536,6 +552,8 @@ function openModal(mode, harvestId) {
     qtyEl.value = "";
     qualEl.value = "Bonne";
     priceEl.value = "";
+    receiptEl.value = "";
+    bagsEl.value = "";
     notesEl.value = "";
   } else {
     titleEl.innerHTML = "&#127806; Saisir une r&eacute;colte";
@@ -543,6 +561,8 @@ function openModal(mode, harvestId) {
     qtyEl.value = "";
     qualEl.value = "Bonne";
     priceEl.value = "";
+    receiptEl.value = "";
+    bagsEl.value = "";
     notesEl.value = "";
   }
 
@@ -560,6 +580,8 @@ async function submitForm() {
   const qty = parseFloat(document.getElementById("h-quantity").value);
   const quality = document.getElementById("h-quality").value;
   const priceVal = document.getElementById("h-price").value;
+  const receiptVal = document.getElementById("h-receipt").value.trim();
+  const bagsVal = document.getElementById("h-bags").value;
   const notes = document.getElementById("h-notes").value.trim();
 
   if (!date) { toast("Date obligatoire.", "error"); return; }
@@ -574,6 +596,8 @@ async function submitForm() {
     is_historical: isHistoric || (editingHarvestId == null && new Date(date) < new Date(new Date().setMonth(new Date().getMonth() - 6)))
   };
   if (priceVal !== "" && !isNaN(parseFloat(priceVal))) payload.price_per_kg_fcfa = parseFloat(priceVal);
+  if (receiptVal) payload.numero_recu_achat = receiptVal;
+  if (bagsVal !== "" && !isNaN(parseInt(bagsVal, 10))) payload.nbre_sacs = parseInt(bagsVal, 10);
   if (notes) payload.notes = notes;
 
   const submitBtn = document.getElementById("h-submit-btn");

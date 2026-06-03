@@ -2123,6 +2123,8 @@ class HarvestCreate(BaseModel):
     price_per_kg_fcfa: Optional[float] = None
     notes: Optional[str] = None
     is_historical: bool = False
+    numero_recu_achat: Optional[str] = None
+    nbre_sacs: Optional[int] = None
 
 
 class HarvestUpdate(BaseModel):
@@ -2194,6 +2196,8 @@ def create_harvest(
         notes=harvest.notes,
         is_historical=harvest.is_historical,
         created_by_user_id=current_user.id,
+        numero_recu_achat=harvest.numero_recu_achat,
+        nbre_sacs=harvest.nbre_sacs,
     )
     db.add(new_harvest)
     db.commit()
