@@ -158,6 +158,34 @@ bon d'achat, mais **le champ n'existe pas** dans le formulaire de saisie Récolt
 
 ---
 
+## 5. 🎬 Tests E2E + vidéos de démo automatiques (Playwright)
+
+**Idée (validée)** : ajouter des tests **end-to-end** qui pilotent un vrai navigateur, pour
+(a) **non-régression frontend** (on n'en a aucune aujourd'hui — seulement des smoke tests de présence
+de fichiers) et (b) **vidéos de démo** auto-générées pour la vente/LinkedIn.
+
+**Décision d'outil (CTO)** :
+- ✅ **Playwright** — recommandé. Compatible avec notre frontend **vanilla** (pilote le navigateur réel).
+  Enregistre **vidéo MP4 + captures + trace** nativement. Aurait détecté plusieurs bugs trouvés
+  manuellement (import qui disparaît, dropdown vide, passeport non conforme).
+- ❌ **Storybook** — non adapté (sert aux composants React/Vue ; on n'en a pas).
+- 🟡 **Loom** — enregistrement manuel narré, pour démo commerciale (complémentaire, pas du test).
+- 🟡 **Browser Use / OpenHands** — agent IA navigateur : bien pour explorer, mais non déterministe et
+  coût LLM par run → **pas pour le CI** ni pour des vidéos reproductibles.
+
+**Approche proposée** :
+- Dossier `e2e/` (Node isolé, n'impacte pas le backend Python) avec Playwright.
+- Scénario principal : `Connexion → Producteur → Parcelle → Satellite → EUDR → DDS PDF` → vidéo + captures.
+- Cible : **staging** (compte de test + clés satellite déjà en place = vraie démo).
+- Plus tard : **GitHub Action** post-déploiement (test de non-régression + artefact vidéo).
+
+**Décisions à confirmer** : créer un **compte de test dédié** sur le staging ; accepter l'ajout de
+**Node.js** comme outillage de test (isolé) ; où publier les vidéos (artefacts CI / drive).
+
+**Fichiers** : nouveau `e2e/` (package.json, playwright.config, specs), éventuel workflow CI.
+
+---
+
 ## Notes générales pour la reprise
 - **Tests** : `python -m pytest -q` (≈480 tests). Frontend : `tests/test_frontend_smoke.py` (badge SW = `map.html`).
 - **SW** : bump `CACHE_VERSION` dans `frontend/sw.js` **et** le badge `build …` dans `frontend/map.html` à chaque lot front.
