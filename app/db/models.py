@@ -56,6 +56,9 @@ class Plantation(Base):
     plant_count    = Column(Integer, nullable=True)
     cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True)
     producer_id    = Column(Integer, ForeignKey("producers.id"), nullable=True, index=True)
+    # Lot d'import (UUID) si cette plantation a ete creee par un import de registre.
+    # Permet d'annuler un import errone en ciblant uniquement ses entites.
+    import_batch_id = Column(String, nullable=True, index=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     cooperative  = relationship("Cooperative", back_populates="plantations")
@@ -175,6 +178,56 @@ class Harvest(Base):
     lot           = relationship("Lot", back_populates="harvests")
 
 
+class AiUsage(Base):
+    """
+    Trace chaque appel reussi au module Conseil agronomique IA (API Claude).
+    Une ligne = un appel facture (tokens reellement consommes), ce qui permet
+    d'estimer le cout de revient mensuel par cooperative.
+
+    Le cout en USD est fige a l'enregistrement (grille tarifaire du moment),
+    de sorte qu'un changement de tarif ulterieur ne reecrit pas l'historique.
+    """
+    __tablename__ = "ai_usage"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    user_id        = Column(Integer, ForeignKey("users.id"), nullable=True)
+    plantation_id  = Column(Integer, ForeignKey("plantations.id"), nullable=True)
+    feature        = Column(String, default="ai_advice", nullable=False)  # extensible : autres usages IA
+    model          = Column(String, nullable=False)
+    input_tokens   = Column(Integer, default=0, nullable=False)
+    output_tokens  = Column(Integer, default=0, nullable=False)
+    cost_usd       = Column(Float, default=0.0, nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    cooperative = relationship("Cooperative")
+
+
+class ImportBatch(Base):
+    """
+    Trace un import de registre cooperative (un fichier = un lot).
+    Permet d'afficher l'historique des imports et d'annuler un import errone
+    en supprimant uniquement les entites (producteurs/plantations) qu'il a creees,
+    avec garde-fou : refus si des donnees derivees existent (recoltes, diagnostics...).
+    """
+    __tablename__ = "import_batches"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    batch_uuid          = Column(String, unique=True, index=True, nullable=False)
+    cooperative_id      = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    user_id             = Column(Integer, ForeignKey("users.id"), nullable=True)  # auteur de l'import
+    fichier_source      = Column(String, nullable=True)
+    campaign            = Column(String, nullable=True)
+    producers_created   = Column(Integer, default=0, nullable=False)
+    plantations_created = Column(Integer, default=0, nullable=False)
+    status              = Column(String, default="active", nullable=False)  # active | cancelled
+    created_at          = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    cancelled_at        = Column(DateTime(timezone=True), nullable=True)
+    cancelled_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    cooperative = relationship("Cooperative")
+
+
 class Producer(Base):
     """
     Producteur membre d'une cooperative cacao.
@@ -185,6 +238,8 @@ class Producer(Base):
 
     id                      = Column(Integer, primary_key=True, index=True)
     cooperative_id          = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    # Lot d'import (UUID) si ce producteur a ete cree par un import de registre.
+    import_batch_id         = Column(String, nullable=True, index=True)
 
     # Identite
     nom_complet             = Column(String, nullable=False, index=True)

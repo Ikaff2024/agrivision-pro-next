@@ -86,13 +86,18 @@ Sur la base de ces données, fournis une analyse agronomique structurée en JSON
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après. Sois précis, concret et adapté aux réalités ivoiriennes."""
 
 
-async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict) -> dict:
+async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict):
     """
     Appelle Claude API et retourne l'analyse agronomique structurée.
+
+    Retourne un tuple ``(result, usage)`` :
+      - ``result`` : le dict d'analyse (ou ``{"error": ...}`` en cas d'echec) ;
+      - ``usage``  : ``{"model", "input_tokens", "output_tokens"}`` lorsque l'appel
+        a effectivement consomme des tokens (pour le suivi de cout), sinon ``None``.
     """
     if not ANTHROPIC_API_KEY:
         logger.error("ANTHROPIC_API_KEY non configurée")
-        return {"error": "Clé API IA non configurée. Contactez l'administrateur."}
+        return {"error": "Clé API IA non configurée. Contactez l'administrateur."}, None
 
     prompt = build_agro_prompt(plantation, latest_diag, agro_records, boundary)
 
@@ -116,6 +121,14 @@ async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list,
             response.raise_for_status()
             data = response.json()
 
+            # Usage reel renvoye par l'API (pour le suivi du cout de revient).
+            usage_raw = data.get("usage") or {}
+            usage = {
+                "model": data.get("model", CLAUDE_MODEL),
+                "input_tokens": int(usage_raw.get("input_tokens", 0) or 0),
+                "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
+            }
+
             raw_text = data["content"][0]["text"].strip()
 
             # Parser le JSON retourné par Claude
@@ -127,14 +140,14 @@ async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list,
                     raw_text = raw_text[4:]
             result = json.loads(raw_text.strip())
             logger.info("AI advice OK pour plantation %s", plantation.get('id'))
-            return result
+            return result, usage
 
     except httpx.TimeoutException:
         logger.warning("AI advice timeout")
-        return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}
+        return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}, None
     except httpx.HTTPStatusError as e:
         logger.warning("AI advice HTTP error %s", e.response.status_code)
-        return {"error": f"Erreur API IA ({e.response.status_code}). Réessayez dans quelques instants."}
+        return {"error": f"Erreur API IA ({e.response.status_code}). Réessayez dans quelques instants."}, None
     except Exception as e:
         logger.warning("AI advice erreur : %s", e)
-        return {"error": "Analyse IA temporairement indisponible."}
+        return {"error": "Analyse IA temporairement indisponible."}, None

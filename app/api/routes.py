@@ -1615,6 +1615,148 @@ def owner_set_cooperative_plan(
     return {"coop_id": coop.id, "name": coop.name, "plan": coop.plan}
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# ─── Cout de revient IA (API Claude) par cooperative — IKAFFANAN LTD ────────
+# ════════════════════════════════════════════════════════════════════════════
+
+def _parse_ai_cost_period(from_: Optional[str], to: Optional[str]):
+    """
+    Parse une periode optionnelle (YYYY-MM-DD). Defaut : 30 derniers jours.
+    Retourne (start_dt, end_dt) en UTC ; `end_dt` inclut toute la journee `to`.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+
+    def _parse_day(s, default):
+        if not s:
+            return default
+        try:
+            d = datetime.strptime(s.strip()[:10], "%Y-%m-%d")
+            return d.replace(tzinfo=timezone.utc)
+        except (ValueError, AttributeError):
+            return default
+
+    start = _parse_day(from_, now - timedelta(days=30))
+    end_day = _parse_day(to, now)
+    # Borne haute inclusive : fin de la journee demandee.
+    end = end_day.replace(hour=23, minute=59, second=59, microsecond=999999)
+    return start, end
+
+
+def _ai_cost_summary_query(db: Session, start, end, coop_id: Optional[int] = None):
+    """Agrege l'usage IA (nb d'appels, tokens, cout USD) sur la periode."""
+    from app.db.models import AiUsage
+    q = db.query(
+        func.count(AiUsage.id),
+        func.coalesce(func.sum(AiUsage.input_tokens), 0),
+        func.coalesce(func.sum(AiUsage.output_tokens), 0),
+        func.coalesce(func.sum(AiUsage.cost_usd), 0.0),
+    ).filter(AiUsage.created_at >= start, AiUsage.created_at <= end)
+    if coop_id is not None:
+        q = q.filter(AiUsage.cooperative_id == coop_id)
+    calls, in_tok, out_tok, cost_usd = q.one()
+    return {
+        "calls": int(calls or 0),
+        "input_tokens": int(in_tok or 0),
+        "output_tokens": int(out_tok or 0),
+        "cost_usd": round(float(cost_usd or 0.0), 4),
+    }
+
+
+@router.get("/owner/ai-cost")
+def owner_ai_cost(
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """
+    Cout de revient des appels IA (API Claude) sur une periode, ventile par
+    cooperative. Reserve IKAFFANAN LTD. Le cout USD est fige a l'enregistrement
+    (vraie facturation Anthropic) ; la conversion FCFA est indicative au taux courant.
+    """
+    _check_owner_key(x_owner_key)
+    from app.db.models import AiUsage
+    from app.services.ai_cost import pricing_info, usd_to_fcfa
+
+    start, end = _parse_ai_cost_period(from_, to)
+
+    # Agregat par cooperative
+    rows = (
+        db.query(
+            AiUsage.cooperative_id,
+            func.count(AiUsage.id),
+            func.coalesce(func.sum(AiUsage.input_tokens), 0),
+            func.coalesce(func.sum(AiUsage.output_tokens), 0),
+            func.coalesce(func.sum(AiUsage.cost_usd), 0.0),
+        )
+        .filter(AiUsage.created_at >= start, AiUsage.created_at <= end)
+        .group_by(AiUsage.cooperative_id)
+        .all()
+    )
+
+    # Noms des cooperatives concernees (une seule requete)
+    coop_ids = [r[0] for r in rows if r[0] is not None]
+    names = {}
+    if coop_ids:
+        for c in db.query(Cooperative).filter(Cooperative.id.in_(coop_ids)).all():
+            names[c.id] = c.name
+
+    by_coop = []
+    for coop_id, calls, in_tok, out_tok, cost_usd in rows:
+        cost_usd = round(float(cost_usd or 0.0), 4)
+        by_coop.append({
+            "cooperative_id": coop_id,
+            "cooperative_name": names.get(coop_id, "—") if coop_id else "(sans coopérative)",
+            "calls": int(calls or 0),
+            "input_tokens": int(in_tok or 0),
+            "output_tokens": int(out_tok or 0),
+            "cost_usd": cost_usd,
+            "cost_fcfa": usd_to_fcfa(cost_usd),
+        })
+    by_coop.sort(key=lambda x: x["cost_usd"], reverse=True)
+
+    totals = _ai_cost_summary_query(db, start, end)
+    totals["cost_fcfa"] = usd_to_fcfa(totals["cost_usd"])
+
+    return {
+        "period": {"from": start.date().isoformat(), "to": end.date().isoformat()},
+        "pricing": pricing_info(),
+        "totals": totals,
+        "by_cooperative": by_coop,
+    }
+
+
+@router.get("/owner/cooperatives/{coop_id}/ai-cost")
+def owner_cooperative_ai_cost(
+    coop_id: int,
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Cout de revient IA d'une cooperative donnee sur une periode. Reserve IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    from app.services.ai_cost import pricing_info, usd_to_fcfa
+
+    coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
+    if not coop:
+        raise HTTPException(status_code=404, detail="Coopérative introuvable.")
+
+    start, end = _parse_ai_cost_period(from_, to)
+    totals = _ai_cost_summary_query(db, start, end, coop_id=coop_id)
+    totals["cost_fcfa"] = usd_to_fcfa(totals["cost_usd"])
+
+    return {
+        "cooperative_id": coop.id,
+        "cooperative_name": coop.name,
+        "period": {"from": start.date().isoformat(), "to": end.date().isoformat()},
+        "pricing": pricing_info(),
+        "totals": totals,
+    }
+
+
 @router.put("/admin/members/{user_id}/reset-password")
 def reset_member_password(
     user_id: int,
@@ -1775,7 +1917,30 @@ async def plantation_ai_advice(
         if boundary else {"has_boundary": False}
     )
 
-    result = await get_ai_advice(plantation_dict, diag_dict, agro_list, boundary_dict)
+    result, usage = await get_ai_advice(plantation_dict, diag_dict, agro_list, boundary_dict)
+
+    # Suivi du cout de revient : on enregistre les tokens reellement consommes.
+    # Best-effort : un echec d'enregistrement ne doit jamais casser la reponse IA.
+    if usage:
+        try:
+            from app.db.models import AiUsage
+            from app.services.ai_cost import compute_cost_usd
+            db.add(AiUsage(
+                cooperative_id=current_user.cooperative_id,
+                user_id=current_user.id,
+                plantation_id=plantation_id,
+                feature="ai_advice",
+                model=usage.get("model", ""),
+                input_tokens=usage.get("input_tokens", 0),
+                output_tokens=usage.get("output_tokens", 0),
+                cost_usd=compute_cost_usd(usage.get("input_tokens", 0), usage.get("output_tokens", 0)),
+            ))
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            import logging
+            logging.getLogger("agrivision").warning("Enregistrement AiUsage echoue (ignore) : %s", e)
+
     return result
 
 
