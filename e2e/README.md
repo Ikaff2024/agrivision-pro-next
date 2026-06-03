@@ -65,7 +65,23 @@ AVP_BASE_URL="https://VOTRE-SITE.netlify.app" AVP_TEST_EMAIL="admin@coop.ci" AVP
 ## Où sont les vidéos ?
 
 - `test-results/**/video.webm` (une par test)
-- `playwright-report/` (rapport HTML navigable, ouvre les vidéos/traces)
+- `playwright-report/` (rapport HTML navigable, ouvre les vidéos/traces) — `npm run report`
+
+### Convertir en MP4 partageable (WhatsApp / PowerPoint)
+
+Les `.webm` se lisent dans un navigateur ; pour un partage commercial, convertir en `.mp4` (H.264)
+avec **ffmpeg** :
+
+```bash
+# une vidéo
+ffmpeg -i "test-results/demo-.../video.webm" -c:v libx264 -pix_fmt yuv420p -movflags +faststart demo.mp4
+
+# toutes les vidéos -> dossier mp4/
+mkdir -p mp4
+find test-results -name video.webm | while read -r f; do \
+  name=$(basename "$(dirname "$f")"); \
+  ffmpeg -y -i "$f" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "mp4/${name%%-*}.mp4"; done
+```
 
 > ⚠️ Sans `AVP_TEST_EMAIL`, chaque exécution **crée une coopérative jetable** (`E2E Demo <timestamp>`)
 > sur le backend visé. Sur le staging, l'admin/IKAFFANAN peut la purger (module d'annulation d'import
