@@ -270,6 +270,9 @@ function renderTable() {
           <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); downloadDds(${p.id}, '${escapeHtml(p.name || '')}')" style="margin-top:6px;font-size:11px;padding:4px 8px">
             <span class="material-symbols-outlined" style="font-size:13px">picture_as_pdf</span> DDS
           </button>
+          ${p.has_polygon ? `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); autoDeforestation(${p.id})" style="margin-top:6px;margin-left:4px;font-size:11px;padding:4px 8px" title="Contrôle déforestation par satellite (Global Forest Watch)">
+            <span class="material-symbols-outlined" style="font-size:13px">satellite_alt</span> Déforestation
+          </button>` : ''}
         </td>
       </tr>`;
     }).join('');
@@ -294,6 +297,27 @@ async function downloadDds(plantationId, plantationName) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     if (typeof toast === 'function') toast('DDS PDF telecharge.');
+  } catch (e) {
+    if (typeof toast === 'function') toast(e.message, 'error');
+  }
+}
+
+async function autoDeforestation(plantationId) {
+  if (typeof toast === 'function') toast('Analyse satellite en cours…');
+  try {
+    const res = await cgFetch('/plantations/' + plantationId + '/deforestation-check/auto', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Echec du controle deforestation.');
+    const verdict = data.check && data.check.verdict;
+    const MSG = {
+      clear: 'Aucune deforestation depuis 2020 — regle EUDR satisfaite.',
+      deforestation_detected: '⚠ Deforestation detectee sur la parcelle !',
+      inconclusive: 'Resultat non concluant (cle satellite absente cote serveur : controle reel a refaire).',
+    };
+    if (typeof toast === 'function') {
+      toast(MSG[verdict] || 'Controle enregistre.', verdict === 'deforestation_detected' ? 'error' : undefined);
+    }
+    await loadAll();   // rafraichit le score EUDR et les badges
   } catch (e) {
     if (typeof toast === 'function') toast(e.message, 'error');
   }

@@ -16,6 +16,7 @@ Permissions :
 - viewer : interdit
 """
 import datetime
+import json
 from typing import List, Optional
 from urllib.parse import quote
 
@@ -291,6 +292,85 @@ def list_deforestation_checks(
         "cutoff_year": EUDR_CUTOFF_YEAR,
         "count": len(checks),
         "checks": [_deforestation_check_to_dict(c) for c in checks],
+    }
+
+
+def _verdict_from_deforestation_signal(signal: dict) -> tuple[str, str]:
+    """Traduit un signal satellite (Global Forest Watch) en verdict EUDR R6.
+
+    Choix RESPONSABLE : sans donnees reelles (cle GFW absente => 'simulation'),
+    on ne declare JAMAIS 'clear' (pas de fausse attestation), on renvoie
+    'inconclusive' pour signaler qu'un controle reel reste a faire.
+    Retourne (verdict, source).
+    """
+    if (signal.get("source") or "").lower() == "simulation":
+        return "inconclusive", "gfw_simulation"
+    if signal.get("loss_detected"):
+        return "deforestation_detected", "gfw"
+    return "clear", "gfw"
+
+
+@router.post("/plantations/{plantation_id}/deforestation-check/auto", status_code=201)
+def auto_deforestation_check(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Controle de deforestation AUTOMATIQUE via Global Forest Watch (regle R6).
+
+    Interroge GFW sur le POLYGONE de la parcelle et enregistre le verdict, ce qui
+    met a jour le score EUDR sans saisie manuelle. Requiert une delimitation.
+    Reserve admin/agronomist.
+
+    Mapping (cf. _verdict_from_deforestation_signal) :
+      - donnees reelles, 0 alerte post-2020 -> clear (R6 passe)
+      - donnees reelles, >=1 alerte          -> deforestation_detected (R6 echoue)
+      - simulation (GFW_API_KEY absente)      -> inconclusive (controle reel a faire)
+    """
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Controle deforestation reserve aux admin/agronome.")
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+
+    boundary = plantation.boundary
+    if boundary is None or not boundary.geojson:
+        raise HTTPException(
+            status_code=400,
+            detail="Delimitez d'abord la parcelle : un polygone est requis pour l'analyse satellite.",
+        )
+    try:
+        geometry = json.loads(boundary.geojson)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=400, detail="Polygone de la parcelle illisible (GeoJSON invalide).")
+    if isinstance(geometry, dict) and geometry.get("type") == "Feature":
+        geometry = geometry.get("geometry") or {}
+
+    # Import local : isole la dependance satellite (reseau) du chargement du module.
+    from app.satellite.provider import get_deforestation_for_geometry
+
+    signal = get_deforestation_for_geometry(geometry)
+    verdict, source = _verdict_from_deforestation_signal(signal)
+
+    check = DeforestationCheck(
+        plantation_id=plantation_id,
+        verdict=verdict,
+        source=source,
+        forest_loss_year=None,
+        notes=signal.get("note"),
+        check_date=datetime.datetime.utcnow(),
+    )
+    db.add(check)
+    db.commit()
+    db.refresh(check)
+
+    score = compute_eudr_score(plantation, db)
+    return {
+        "check": _deforestation_check_to_dict(check),
+        "deforestation": signal,
+        "eudr_score": score.to_dict(),
+        "auto": True,
     }
 
 
