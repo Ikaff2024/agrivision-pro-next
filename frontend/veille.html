@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Veille Marché Cacao</title>
+  <script src="config.js"></script>
+  <script src="avp-offline.js"></script>
+  <script src="auth.js"></script>
+  <style>
+    .vm-banner{background:linear-gradient(135deg,#1a4231,#0c2018);color:#fff;border-radius:var(--rl,14px);padding:22px 26px;margin-bottom:22px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
+    .vm-banner .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.6)}
+    .vm-banner .days{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1.1}
+    .vm-banner .sub{font-size:12.5px;color:rgba(255,255,255,.7);margin-top:2px}
+    .vm-banner .req{text-align:right;font-size:12.5px;color:rgba(255,255,255,.82);line-height:1.5}
+    .vm-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+    .vm-card{background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:18px;box-shadow:var(--sh);border-left:3px solid var(--primary,#1a4231)}
+    .vm-card .cap{font-size:11px;color:var(--muted,#6a7d64);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px}
+    .vm-card .val{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1}
+    .vm-card .chg{font-size:12px;font-weight:600;margin-top:5px}
+    .vm-card .meta{font-size:11px;color:var(--muted,#6a7d64);margin-top:5px}
+    .up{color:#1a6b3a}.down{color:#922b21}
+    .vm-indic{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:99px;margin-left:6px;vertical-align:middle}
+    .vm-ai{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:var(--r,10px);padding:18px;margin-bottom:22px}
+    .vm-ai .h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#166534;margin-bottom:8px}
+    .vm-ai p{font-size:13.5px;color:#14532d;line-height:1.6}
+    .vm-info{background:var(--surface-warm,#f7f4ee);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:12px 16px;font-size:13px;color:var(--muted,#6a7d64);margin-bottom:18px}
+    .vm-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .vm-chip{padding:6px 13px;border:1px solid var(--border,#e6ddd0);border-radius:99px;font-size:12.5px;font-weight:600;color:var(--muted,#6a7d64);background:var(--surface,#fff);cursor:pointer;transition:.15s}
+    .vm-chip.active{background:var(--primary,#1a4231);color:#fff;border-color:var(--primary,#1a4231)}
+    .vm-news{display:flex;flex-direction:column;gap:12px}
+    .vm-news-card{background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:16px;display:flex;gap:12px;align-items:flex-start}
+    .vm-news-card .t{font-size:13.5px;font-weight:600;line-height:1.35;margin-bottom:3px}
+    .vm-news-card .s{font-size:12px;color:var(--muted,#6a7d64);line-height:1.5}
+    .vm-news-card .src{font-size:11.5px;color:var(--muted,#6a7d64);margin-top:5px}
+    .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+    .b-eudr{background:#dbeafe;color:#1d4ed8}.b-marche{background:#dcfce7;color:#166534}
+    .b-sante{background:#fee2e2;color:#991b1b}.b-politique{background:#fef9c3;color:#854d0e}.b-autre{background:#f1f5f9;color:#475569}
+    .vm-skel{height:74px;border-radius:var(--r,10px);background:linear-gradient(90deg,#eee,#f5f5f5,#eee);background-size:200% 100%;animation:vmsh 1.3s infinite}
+    @keyframes vmsh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    @media(max-width:760px){.vm-banner{grid-template-columns:1fr}.vm-banner .req{text-align:left}.vm-prices{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Veille Marché Cacao</div>
+        <div class="page-sub" id="vm-status">Chargement…</div>
+      </div>
+      <button class="btn btn-outline" id="vm-refresh" onclick="refreshMarket()">
+        <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser
+      </button>
+    </div>
+
+    <div class="avp-content">
+
+      <!-- Compteur EUDR -->
+      <div class="vm-banner">
+        <div>
+          <div class="lbl">Échéance EUDR</div>
+          <div class="days" id="vm-eudr-days">—</div>
+          <div class="sub">jours avant le 30 décembre 2026</div>
+        </div>
+        <div class="req">
+          Conformité requise pour<br>
+          <strong>Cargill · Barry Callebaut</strong><br>
+          <strong>Nestlé · Marchés UE</strong>
+        </div>
+      </div>
+
+      <!-- Prix -->
+      <div class="vm-prices">
+        <div class="vm-card">
+          <div class="cap">Bord-champ — CCC Côte d'Ivoire</div>
+          <div class="val" id="vm-ccc">—</div>
+          <div class="meta" id="vm-ccc-note">Prix officiel CCC</div>
+        </div>
+        <div class="vm-card">
+          <div class="cap">Cacao Londres — LME <span class="vm-indic">indicatif</span></div>
+          <div class="val" id="vm-london">—</div>
+          <div class="chg" id="vm-london-chg"></div>
+          <div class="meta">Futures ($/tonne)</div>
+        </div>
+        <div class="vm-card">
+          <div class="cap">Cacao New York — ICE <span class="vm-indic">indicatif</span></div>
+          <div class="val" id="vm-ny">—</div>
+          <div class="chg" id="vm-ny-chg"></div>
+          <div class="meta">Futures ($/tonne)</div>
+        </div>
+      </div>
+
+      <!-- Message d'info (fallback / cache périmé) -->
+      <div class="vm-info" id="vm-info" style="display:none"></div>
+
+      <!-- Synthèse IA -->
+      <div class="vm-ai" id="vm-ai" style="display:none">
+        <div class="h"><span class="material-symbols-outlined" style="font-size:18px">smart_toy</span> Synthèse IA — coopératives ivoiriennes</div>
+        <p id="vm-ai-text"></p>
+      </div>
+
+      <!-- Actualités -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+        <div class="section-title" style="margin:0">Actualités récentes</div>
+      </div>
+      <div class="vm-chips" id="vm-chips">
+        <span class="vm-chip active" onclick="setFilter('tous',this)">Tous</span>
+        <span class="vm-chip" onclick="setFilter('EUDR',this)">EUDR</span>
+        <span class="vm-chip" onclick="setFilter('Marché',this)">Marchés</span>
+        <span class="vm-chip" onclick="setFilter('Santé',this)">Maladies</span>
+        <span class="vm-chip" onclick="setFilter('Politique',this)">Politique</span>
+      </div>
+
+      <div class="vm-news" id="vm-skeleton">
+        <div class="vm-skel"></div><div class="vm-skel"></div><div class="vm-skel"></div>
+      </div>
+      <div class="vm-news" id="vm-news" style="display:none"></div>
+      <div id="vm-empty" style="display:none;text-align:center;padding:36px;color:var(--muted,#6a7d64)">Aucune actualité dans cette catégorie.</div>
+
+      <p style="font-size:11.5px;color:var(--muted,#6a7d64);text-align:center;margin-top:18px">
+        Données via recherche web IA · cours mondiaux <strong>indicatifs</strong> — vérifiez toujours le prix officiel CCC avant décision commerciale.
+      </p>
+
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('veille');
+
+let _allNews = [];
+let _filter = 'tous';
+
+document.addEventListener('DOMContentLoaded', () => {
+  computeEudrDays();
+  loadMarket(false);
+});
+
+function computeEudrDays() {
+  const deadline = new Date('2026-12-30T00:00:00');
+  const days = Math.max(0, Math.ceil((deadline - new Date()) / 86400000));
+  const el = document.getElementById('vm-eudr-days');
+  if (el) el.textContent = days.toLocaleString('fr-FR');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function refreshMarket() { loadMarket(true); }
+
+async function loadMarket(force) {
+  const btn = document.getElementById('vm-refresh');
+  const icon = btn ? btn.querySelector('.material-symbols-outlined') : null;
+  if (icon) icon.style.animation = 'spin 0.8s linear infinite';
+  document.getElementById('vm-skeleton').style.display = 'flex';
+  document.getElementById('vm-news').style.display = 'none';
+  document.getElementById('vm-empty').style.display = 'none';
+  document.getElementById('vm-status').textContent = 'Chargement…';
+
+  try {
+    const r = await authFetch('/market/intelligence' + (force ? '?refresh=true' : ''));
+    if (!r || !r.ok) {
+      if (r && r.status === 403) throw new Error('Module Veille réservé au plan premium.');
+      throw new Error('Service indisponible');
+    }
+    applyMarket(await r.json());
+  } catch (e) {
+    document.getElementById('vm-status').textContent = 'Erreur de chargement';
+    document.getElementById('vm-skeleton').style.display = 'none';
+    const info = document.getElementById('vm-info');
+    info.style.display = 'block';
+    info.textContent = e.message || 'Impossible de charger la veille marché.';
+    if (typeof toast === 'function') toast(e.message || 'Veille indisponible.', 'error');
+  } finally {
+    if (icon) icon.style.animation = '';
+  }
+}
+
+function applyMarket(d) {
+  const p = d.prices || {};
+  // CCC (officiel)
+  if (p.ccc) {
+    document.getElementById('vm-ccc').textContent =
+      Number(p.ccc.fcfa_kg || 0).toLocaleString('fr-FR') + ' FCFA/kg';
+    document.getElementById('vm-ccc-note').textContent = p.ccc.note || 'Prix officiel CCC';
+  }
+  // Londres / NY (indicatifs)
+  setPrice('vm-london', 'vm-london-chg', p.london);
+  setPrice('vm-ny', 'vm-ny-chg', p.ny);
+
+  // Synthèse IA
+  const ai = document.getElementById('vm-ai');
+  if (d.ai_summary) {
+    document.getElementById('vm-ai-text').textContent = d.ai_summary;
+    ai.style.display = 'block';
+  } else { ai.style.display = 'none'; }
+
+  // Message d'info (fallback / cache périmé)
+  const info = document.getElementById('vm-info');
+  if (d.note) { info.textContent = d.note; info.style.display = 'block'; }
+  else if (d.stale) { info.textContent = 'Données en cache (service momentanément injoignable).'; info.style.display = 'block'; }
+  else { info.style.display = 'none'; }
+
+  // Statut
+  const when = d.generated_at ? new Date(d.generated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+  document.getElementById('vm-status').textContent =
+    (d.live ? (d.cached ? 'Cache · ' : 'Données en direct · ') : 'Données indisponibles · ') + (when ? 'maj ' + when : '');
+
+  // Actualités
+  _allNews = Array.isArray(d.news) ? d.news : [];
+  renderNews();
+}
+
+function setPrice(valId, chgId, obj) {
+  const v = document.getElementById(valId), c = document.getElementById(chgId);
+  if (!obj || !obj.value) { v.textContent = 'N/A'; c.textContent = ''; return; }
+  v.textContent = obj.value;
+  c.textContent = obj.change || '';
+  c.className = 'chg ' + (obj.up === false ? 'down' : 'up');
+}
+
+const BADGE = { 'eudr': 'b-eudr', 'marché': 'b-marche', 'marche': 'b-marche', 'santé': 'b-sante', 'sante': 'b-sante', 'politique': 'b-politique' };
+function badgeClass(cat) { return BADGE[(cat || '').toLowerCase()] || 'b-autre'; }
+
+function setFilter(cat, el) {
+  _filter = cat;
+  document.querySelectorAll('.vm-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderNews();
+}
+
+function renderNews() {
+  document.getElementById('vm-skeleton').style.display = 'none';
+  const list = document.getElementById('vm-news');
+  const empty = document.getElementById('vm-empty');
+  const items = _filter === 'tous'
+    ? _allNews
+    : _allNews.filter(n => (n.cat || '').toLowerCase() === _filter.toLowerCase());
+  if (!items.length) {
+    list.style.display = 'none';
+    empty.style.display = 'block';
+    empty.textContent = _allNews.length ? 'Aucune actualité dans cette catégorie.' : 'Aucune actualité disponible pour le moment.';
+    return;
+  }
+  empty.style.display = 'none';
+  list.style.display = 'flex';
+  list.innerHTML = items.map(n => `
+    <div class="vm-news-card">
+      <span class="badge ${badgeClass(n.cat)}">${esc(n.cat || 'Autre')}</span>
+      <div style="flex:1;min-width:0">
+        <div class="t">${esc(n.title)}</div>
+        ${n.summary ? `<div class="s">${esc(n.summary)}</div>` : ''}
+        <div class="src"><strong>${esc(n.source || '')}</strong>${n.date ? ' · ' + esc(n.date) : ''}</div>
+      </div>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>

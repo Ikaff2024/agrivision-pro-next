@@ -52,6 +52,7 @@ CATEGORY_OF = {
     # Premium / avancé
     "satellite": "premium",
     "farmforce": "premium",
+    "veille": "premium",
 }
 
 # Plan -> categories incluses

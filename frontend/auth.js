@@ -593,6 +593,7 @@ function renderSidebar(activePage) {
     { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },
     { id: 'purchases', href: 'achats.html', icon: 'shopping_cart', label: 'Achats' },
     { id: 'lots', href: 'lots.html', icon: 'inventory_2', label: 'Traçabilité lots' },
+    { id: 'veille', href: 'veille.html', icon: 'trending_up', label: 'Veille Marché' },
     { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce' },
     { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard' },
     { id: 'children', href: 'children.html', icon: 'diversity_3', label: 'Protection enfant' },
