@@ -44,7 +44,7 @@ def _patch_claude_ok(monkeypatch):
                 {"title": "Forum cacao à Abidjan en juin", "source": "CCC",
                  "date": "à venir", "cat": "Événement", "summary": "Conférence filière."},
             ],
-            "ai_summary": "Marché en baisse, pression EUDR : numériser vite.",
+            "ai_summary": '<cite index="12-1,42-2">Marché en baisse</cite>, pression EUDR : numériser vite.',
         }
         usage = {"model": "claude-sonnet-4-20250514", "input_tokens": 1200, "output_tokens": 600}
         return parsed, usage
@@ -91,6 +91,8 @@ def test_live_records_cost_and_events(client, monkeypatch):
     assert body["prices"]["london"]["value"] == "3 400 £/t"
     assert body["prices"]["london"]["indicative"] is True
     assert body["ai_summary"]
+    assert "<cite" not in body["ai_summary"]   # balises de citation web nettoyées
+    assert body["ai_summary"].startswith("Marché en baisse")
 
     db = TestingSessionLocal()
     try:

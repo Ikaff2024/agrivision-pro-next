@@ -43,6 +43,16 @@ def _ttl_seconds() -> int:
         return 1800
 
 
+_CITE_RE = re.compile(r"</?cite[^>]*>")
+
+
+def _clean(text):
+    """Retire les balises de citation <cite ...> injectées par la recherche web."""
+    if not isinstance(text, str):
+        return text
+    return _CITE_RE.sub("", text).strip()
+
+
 def _ccc_price() -> dict:
     """Prix bord-champ officiel CCC (config) — valeur fiable, pas devinée par le LLM."""
     try:
@@ -169,14 +179,18 @@ def _build(ny: Optional[dict], parsed: Optional[dict]) -> dict:
             "up": parsed.get("ny_up", True), "source": "estimation IA", "indicative": True,
         }
 
-    news = parsed.get("news") if isinstance(parsed.get("news"), list) else []
+    raw_news = parsed.get("news") if isinstance(parsed.get("news"), list) else []
+    news = [
+        {**n, "title": _clean(n.get("title")), "summary": _clean(n.get("summary"))}
+        for n in raw_news if isinstance(n, dict)
+    ]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "live": bool(parsed),  # actualités + synthèse présentes
         "cached": False,
         "prices": {"ccc": _ccc_price(), "ny": ny_block, "london": london},
         "news": news,
-        "ai_summary": parsed.get("ai_summary"),
+        "ai_summary": _clean(parsed.get("ai_summary")),
         "note": None if parsed else (
             "Actualités et synthèse IA momentanément indisponibles "
             "(service IA non configuré ou injoignable). Les prix restent à jour."
