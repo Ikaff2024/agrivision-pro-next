@@ -1,4 +1,9 @@
-"""Tests — Veille Marché (GET /market/intelligence). L'appel Claude est mocké."""
+"""Tests — Veille Marché (GET /market/intelligence).
+
+Le cours réel (Yahoo) ET l'appel Claude sont mockés → aucun accès réseau.
+"""
+import pytest
+
 import app.services.market_intel as mi
 from app.db.models import AiUsage
 from tests.conftest import TestingSessionLocal
@@ -15,105 +20,110 @@ def _admin(client, email, coop="Coop Veille"):
     return h, coop_id
 
 
-def _reset_cache():
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Évite tout appel réseau : pas de cours réel par défaut, cache réinitialisé."""
+    async def _none():
+        return None
+    monkeypatch.setattr(mi, "_fetch_ny_cocoa", _none)
+    mi._CACHE["data"] = None
+    mi._CACHE["ts"] = 0.0
+    yield
     mi._CACHE["data"] = None
     mi._CACHE["ts"] = 0.0
 
 
-def _fake_claude_ok():
+def _patch_claude_ok(monkeypatch):
     async def _fake():
         parsed = {
-            "london": "3 400 $/t", "london_change": "-2.1%", "london_up": False,
-            "ny": "3 350 $/t", "ny_change": "-1.8%", "ny_up": False,
+            "london": "3 400 £/t", "london_change": "-2.1%", "london_up": False,
+            "ny": "3 950 $/t", "ny_change": "-1.8%", "ny_up": False,
             "news": [
                 {"title": "EUDR : les coops s'organisent", "source": "Mongabay",
                  "date": "il y a 2 jours", "cat": "EUDR", "summary": "Préparation à la traçabilité."},
-                {"title": "CSSVD en hausse", "source": "Ecofin", "date": "il y a 5 jours",
-                 "cat": "Santé", "summary": "41% des exploitations touchées."},
+                {"title": "Forum cacao à Abidjan en juin", "source": "CCC",
+                 "date": "à venir", "cat": "Événement", "summary": "Conférence filière."},
             ],
-            "ai_summary": "Marché en baisse, pression EUDR, CSSVD en hausse : numériser vite.",
+            "ai_summary": "Marché en baisse, pression EUDR : numériser vite.",
         }
         usage = {"model": "claude-sonnet-4-20250514", "input_tokens": 1200, "output_tokens": 600}
         return parsed, usage
-    return _fake
+    monkeypatch.setattr(mi, "_call_claude_market", _fake)
 
 
-# ── Fallback gracieux (pas de clé IA → pas de 500, pas de faux prix) ──────────
+# ── Prix réel NY, indépendant de la clé IA ────────────────────────────────────
 
-def test_market_fallback_without_key(client):
-    _reset_cache()
+def test_real_ny_price_without_ai(client, monkeypatch):
+    async def _ny():
+        return {"value": "3 929 $/t", "change": "+0.9%", "up": True,
+                "source": "ICE New York · temps différé", "indicative": False}
+    monkeypatch.setattr(mi, "_fetch_ny_cocoa", _ny)
+    h, _ = _admin(client, "veille.realny@test.ci")
+    body = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert body["prices"]["ny"]["value"] == "3 929 $/t"
+    assert body["prices"]["ny"]["indicative"] is False     # cours réel, pas une estimation
+    assert body["prices"]["ccc"]["fcfa_kg"] > 0
+    assert body["live"] is False                           # actus indisponibles sans clé IA
+    assert body["note"]
+
+
+# ── Fallback total (ni cours réel, ni clé IA) ─────────────────────────────────
+
+def test_full_fallback(client):
     h, _ = _admin(client, "veille.fallback@test.ci")
-    r = client.get("/market/intelligence", headers=h)
-    assert r.status_code == 200, r.text
-    body = r.json()
+    body = client.get("/market/intelligence", headers=h).json()
     assert body["live"] is False
-    assert body["prices"]["ccc"]["fcfa_kg"] > 0      # prix CCC officiel (config) toujours présent
+    assert body["prices"]["ccc"]["fcfa_kg"] > 0     # prix officiel CCC toujours présent
+    assert body["prices"]["ny"] is None
     assert body["news"] == []
-    assert body["note"]                               # message d'indisponibilité
+    assert body["note"]
 
 
-# ── Données live (Claude mocké) + suivi de coût ───────────────────────────────
+# ── Données IA (Claude mocké) + suivi de coût + événements ────────────────────
 
-def test_market_live_records_cost(client, monkeypatch):
-    _reset_cache()
-    monkeypatch.setattr(mi, "_call_claude_market", _fake_claude_ok())
+def test_live_records_cost_and_events(client, monkeypatch):
+    _patch_claude_ok(monkeypatch)
     h, coop_id = _admin(client, "veille.live@test.ci")
-
-    r = client.get("/market/intelligence?refresh=true", headers=h)
-    assert r.status_code == 200, r.text
-    body = r.json()
+    body = client.get("/market/intelligence?refresh=true", headers=h).json()
     assert body["live"] is True
     assert len(body["news"]) == 2
-    assert body["prices"]["london"]["value"] == "3 400 $/t"
-    assert body["prices"]["indicative"] is True
+    assert any(n["cat"] == "Événement" for n in body["news"])   # capte les événements (Q2)
+    assert body["prices"]["london"]["value"] == "3 400 £/t"
+    assert body["prices"]["london"]["indicative"] is True
     assert body["ai_summary"]
 
-    # Le coût a été tracé dans AiUsage (feature dédiée).
     db = TestingSessionLocal()
     try:
         rows = db.query(AiUsage).filter(
-            AiUsage.feature == "market_intelligence",
-            AiUsage.cooperative_id == coop_id,
-        ).all()
+            AiUsage.feature == "market_intelligence", AiUsage.cooperative_id == coop_id).all()
         assert len(rows) == 1
-        assert rows[0].input_tokens == 1200 and rows[0].output_tokens == 600
-        assert rows[0].cost_usd > 0
+        assert rows[0].input_tokens == 1200 and rows[0].cost_usd > 0
     finally:
         db.close()
-    _reset_cache()
 
 
-def test_market_uses_shared_cache(client, monkeypatch):
-    """Le 2e appel (non forcé) sert le cache → aucun nouvel appel/coût."""
-    _reset_cache()
-    monkeypatch.setattr(mi, "_call_claude_market", _fake_claude_ok())
+def test_shared_cache(client, monkeypatch):
+    _patch_claude_ok(monkeypatch)
     h, coop_id = _admin(client, "veille.cache@test.ci")
-
-    client.get("/market/intelligence?refresh=true", headers=h)  # remplit le cache (1 appel)
-    r2 = client.get("/market/intelligence", headers=h)          # doit servir le cache
+    client.get("/market/intelligence?refresh=true", headers=h)   # 1 appel facturé
+    r2 = client.get("/market/intelligence", headers=h)           # sert le cache
     assert r2.json()["cached"] is True
-
     db = TestingSessionLocal()
     try:
         n = db.query(AiUsage).filter(
-            AiUsage.feature == "market_intelligence", AiUsage.cooperative_id == coop_id,
-        ).count()
-        assert n == 1   # un seul appel facturé malgré 2 requêtes
+            AiUsage.feature == "market_intelligence", AiUsage.cooperative_id == coop_id).count()
+        assert n == 1
     finally:
         db.close()
-    _reset_cache()
 
 
-# ── Feature-gating premium ────────────────────────────────────────────────────
+# ── Gating premium + auth ─────────────────────────────────────────────────────
 
-def test_market_gated_by_plan(client):
-    _reset_cache()
+def test_gated_by_plan(client):
     h, coop_id = _admin(client, "veille.gate@test.ci", coop="Coop Veille Gate")
-    # Downgrade en 'starter' (pas de premium) → 403
     assert client.patch(f"/cooperatives/{coop_id}/plan", json={"plan": "starter"}, headers=h).status_code == 200
-    r = client.get("/market/intelligence", headers=h)
-    assert r.status_code == 403
+    assert client.get("/market/intelligence", headers=h).status_code == 403
 
 
-def test_market_requires_auth(client):
+def test_requires_auth(client):
     assert client.get("/market/intelligence").status_code == 401

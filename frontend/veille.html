@@ -37,7 +37,8 @@
     .vm-news-card .src{font-size:11.5px;color:var(--muted,#6a7d64);margin-top:5px}
     .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0}
     .b-eudr{background:#dbeafe;color:#1d4ed8}.b-marche{background:#dcfce7;color:#166534}
-    .b-sante{background:#fee2e2;color:#991b1b}.b-politique{background:#fef9c3;color:#854d0e}.b-autre{background:#f1f5f9;color:#475569}
+    .b-sante{background:#fee2e2;color:#991b1b}.b-politique{background:#fef9c3;color:#854d0e}
+    .b-evenement{background:#ede9fe;color:#6d28d9}.b-autre{background:#f1f5f9;color:#475569}
     .vm-skel{height:74px;border-radius:var(--r,10px);background:linear-gradient(90deg,#eee,#f5f5f5,#eee);background-size:200% 100%;animation:vmsh 1.3s infinite}
     @keyframes vmsh{0%{background-position:200% 0}100%{background-position:-200% 0}}
     @media(max-width:760px){.vm-banner{grid-template-columns:1fr}.vm-banner .req{text-align:left}.vm-prices{grid-template-columns:1fr}}
@@ -81,16 +82,16 @@
           <div class="meta" id="vm-ccc-note">Prix officiel CCC</div>
         </div>
         <div class="vm-card">
-          <div class="cap">Cacao Londres — LME <span class="vm-indic">indicatif</span></div>
-          <div class="val" id="vm-london">—</div>
-          <div class="chg" id="vm-london-chg"></div>
-          <div class="meta">Futures ($/tonne)</div>
-        </div>
-        <div class="vm-card">
-          <div class="cap">Cacao New York — ICE <span class="vm-indic">indicatif</span></div>
+          <div class="cap">Cacao New York — ICE</div>
           <div class="val" id="vm-ny">—</div>
           <div class="chg" id="vm-ny-chg"></div>
-          <div class="meta">Futures ($/tonne)</div>
+          <div class="meta" id="vm-ny-src">Futures cacao</div>
+        </div>
+        <div class="vm-card">
+          <div class="cap">Cacao Londres — ICE</div>
+          <div class="val" id="vm-london">—</div>
+          <div class="chg" id="vm-london-chg"></div>
+          <div class="meta" id="vm-london-src">Futures cacao</div>
         </div>
       </div>
 
@@ -113,6 +114,7 @@
         <span class="vm-chip" onclick="setFilter('Marché',this)">Marchés</span>
         <span class="vm-chip" onclick="setFilter('Santé',this)">Maladies</span>
         <span class="vm-chip" onclick="setFilter('Politique',this)">Politique</span>
+        <span class="vm-chip" onclick="setFilter('Événement',this)">Événements</span>
       </div>
 
       <div class="vm-news" id="vm-skeleton">
@@ -122,7 +124,7 @@
       <div id="vm-empty" style="display:none;text-align:center;padding:36px;color:var(--muted,#6a7d64)">Aucune actualité dans cette catégorie.</div>
 
       <p style="font-size:11.5px;color:var(--muted,#6a7d64);text-align:center;margin-top:18px">
-        Données via recherche web IA · cours mondiaux <strong>indicatifs</strong> — vérifiez toujours le prix officiel CCC avant décision commerciale.
+        Actualités via recherche web IA · cours New York en <strong>temps différé</strong>, Londres estimé — vérifiez le prix officiel CCC avant décision commerciale.
       </p>
 
     </div>
@@ -190,9 +192,9 @@ function applyMarket(d) {
       Number(p.ccc.fcfa_kg || 0).toLocaleString('fr-FR') + ' FCFA/kg';
     document.getElementById('vm-ccc-note').textContent = p.ccc.note || 'Prix officiel CCC';
   }
-  // Londres / NY (indicatifs)
-  setPrice('vm-london', 'vm-london-chg', p.london);
-  setPrice('vm-ny', 'vm-ny-chg', p.ny);
+  // New York (réel, temps différé) + Londres (estimation IA)
+  setPrice('vm-ny', 'vm-ny-chg', 'vm-ny-src', p.ny);
+  setPrice('vm-london', 'vm-london-chg', 'vm-london-src', p.london);
 
   // Synthèse IA
   const ai = document.getElementById('vm-ai');
@@ -217,15 +219,21 @@ function applyMarket(d) {
   renderNews();
 }
 
-function setPrice(valId, chgId, obj) {
-  const v = document.getElementById(valId), c = document.getElementById(chgId);
-  if (!obj || !obj.value) { v.textContent = 'N/A'; c.textContent = ''; return; }
+function setPrice(valId, chgId, srcId, obj) {
+  const v = document.getElementById(valId), c = document.getElementById(chgId), s = document.getElementById(srcId);
+  if (!obj || !obj.value) {
+    v.textContent = 'N/A'; c.textContent = '';
+    if (s) s.textContent = 'Donnée momentanément indisponible';
+    return;
+  }
   v.textContent = obj.value;
   c.textContent = obj.change || '';
   c.className = 'chg ' + (obj.up === false ? 'down' : 'up');
+  if (s) s.innerHTML = esc(obj.source || 'Futures cacao') +
+    (obj.indicative ? ' <span class="vm-indic">indicatif</span>' : '');
 }
 
-const BADGE = { 'eudr': 'b-eudr', 'marché': 'b-marche', 'marche': 'b-marche', 'santé': 'b-sante', 'sante': 'b-sante', 'politique': 'b-politique' };
+const BADGE = { 'eudr': 'b-eudr', 'marché': 'b-marche', 'marche': 'b-marche', 'santé': 'b-sante', 'sante': 'b-sante', 'politique': 'b-politique', 'événement': 'b-evenement', 'evenement': 'b-evenement' };
 function badgeClass(cat) { return BADGE[(cat || '').toLowerCase()] || 'b-autre'; }
 
 function setFilter(cat, el) {

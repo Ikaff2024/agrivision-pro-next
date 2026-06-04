@@ -1,14 +1,15 @@
 """
-Veille Marché Cacao — données de marché via Claude (recherche web), CÔTÉ SERVEUR.
+Veille Marché Cacao — données de marché, CÔTÉ SERVEUR.
 
-Principes (corrigent la version client-side prototype) :
-- l'appel Claude se fait sur le SERVEUR : la clé n'est jamais exposée au navigateur ;
-- cache PARTAGÉ en mémoire (les données marché sont globales, pas par coopérative) →
-  coût borné à ~1 appel/heure pour toute la plateforme ;
-- coût tracé via AiUsage (par l'endpoint) ;
-- dégradation GRACIEUSE si ANTHROPIC_API_KEY absente (pas de 500, pas de faux prix) ;
-- le prix bord-champ CCC vient de la CONFIG (valeur officielle fiable), pas du LLM ;
-  les cours Londres/NY sont marqués « indicatifs ».
+Deux sources, découplées :
+- PRIX : cours réel du cacao ICE New York (benchmark mondial USD) via une source
+  publique gratuite — NE dépend PAS de la clé IA, donc fonctionne toujours.
+  Le prix bord-champ CCC vient de la config (officiel). Londres = estimation IA.
+- ACTUALITÉS + SYNTHÈSE : Claude avec recherche web (nécessite ANTHROPIC_API_KEY +
+  web search activé sur le compte). Inclut explicitement les événements/conférences.
+
+Principes : clé jamais exposée au navigateur, cache PARTAGÉ (coût borné), coût
+tracé via AiUsage (par l'endpoint), dégradation gracieuse (aucun 500, aucun faux prix).
 """
 from __future__ import annotations
 
@@ -28,15 +29,18 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
-# Cache process partagé (suffit pour 1 worker ; sinon 1 appel par worker/heure).
+# Cours réel ICE New York (cacao, USD/tonne) — source publique gratuite.
+NY_COCOA_URL = "https://query1.finance.yahoo.com/v8/finance/chart/CC=F?interval=1d&range=1d"
+
+# Cache process partagé (données marché globales, pas par coopérative).
 _CACHE: dict = {"ts": 0.0, "data": None}
 
 
 def _ttl_seconds() -> int:
     try:
-        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "3600"))
+        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "1800"))  # 30 min
     except ValueError:
-        return 3600
+        return 1800
 
 
 def _ccc_price() -> dict:
@@ -51,27 +55,61 @@ def _ccc_price() -> dict:
     }
 
 
+async def _fetch_ny_cocoa() -> Optional[dict]:
+    """Cours RÉEL (temps différé) du cacao ICE New York via une source publique.
+
+    Best-effort : renvoie None en cas d'échec (jamais d'exception). Indépendant
+    de la clé IA → le prix de référence s'affiche même sans configuration IA.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(NY_COCOA_URL, headers={"User-Agent": "Mozilla/5.0"})
+            r.raise_for_status()
+            results = (r.json().get("chart", {}) or {}).get("result") or []
+        meta = (results[0] or {}).get("meta", {}) if results else {}
+        price = meta.get("regularMarketPrice")
+        prev = meta.get("chartPreviousClose") or meta.get("previousClose")
+        if not price:
+            return None
+        change_pct = ((price - prev) / prev * 100.0) if prev else None
+        cur = meta.get("currency", "USD")
+        unit = "$" if cur == "USD" else cur
+        return {
+            "value": f"{price:,.0f} {unit}/t".replace(",", " "),
+            "change": (f"{change_pct:+.1f}%" if change_pct is not None else None),
+            "up": (change_pct is None or change_pct >= 0),
+            "source": "ICE New York · temps différé",
+            "indicative": False,
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Cours cacao NY indisponible : %s", e)
+        return None
+
+
 _SYSTEM_PROMPT = (
-    "Tu es un analyste du marché mondial du cacao. Réponds UNIQUEMENT par un JSON "
-    "valide, sans aucun texte ni backticks autour. Format STRICT :\n"
-    '{"london":"XXXX $/t","london_change":"+X.X%","london_up":true,'
-    '"ny":"XXXX $/t","ny_change":"-X.X%","ny_up":false,'
-    '"news":[{"title":"...","source":"...","date":"il y a X jours",'
-    '"cat":"EUDR|Marché|Santé|Politique|Autre","summary":"1 phrase"}],'
+    "Tu es un analyste de la filière cacao ouest-africaine. Réponds UNIQUEMENT par un "
+    "JSON valide, sans aucun texte ni backticks autour. Format STRICT :\n"
+    '{"london":"XXXX £/t","london_change":"+X.X%","london_up":true,'
+    '"news":[{"title":"...","source":"...","date":"il y a X jours ou date",'
+    '"cat":"EUDR|Marché|Santé|Politique|Événement|Autre","summary":"1 phrase"}],'
     '"ai_summary":"2-3 phrases stratégiques pour des coopératives ivoiriennes."}\n'
-    "Inclure 6 à 8 actualités récentes et variées (prix, EUDR, maladies CSSVD, "
-    "politique de la filière CCC, exportateurs)."
+    "Inclure 6 à 8 actualités récentes et VARIÉES : prix/marché, EUDR, maladies (CSSVD), "
+    "politique de la filière (CCC), ET notamment les ÉVÉNEMENTS À VENIR pertinents pour "
+    "un gérant de coopérative (conférences, salons, forums, ateliers, missions, foires "
+    "agricoles) en Côte d'Ivoire et dans la filière cacao — avec dates et lieux si connus "
+    '(catégorie "Événement").'
 )
 
 _USER_PROMPT = (
-    "Donne les cours futures du cacao à Londres (LME) et New York (ICE) actuels avec "
-    "leur variation, 6 à 8 actualités récentes (EUDR, marchés, CSSVD, politique CCC), "
-    "et une synthèse stratégique pour des coopératives ivoiriennes."
+    "Donne le cours futures du cacao à Londres (LME/ICE) avec sa variation, 6 à 8 "
+    "actualités récentes (marchés, EUDR, CSSVD, politique CCC) ET les événements/"
+    "conférences/salons à venir dans la filière cacao en Côte d'Ivoire, plus une synthèse "
+    "stratégique pour des coopératives ivoiriennes."
 )
 
 
 async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
-    """Appelle Claude (web search) et renvoie (parsed_json, usage) ou (None, None)."""
+    """Appelle Claude (web search) → (parsed_json, usage) ou (None, None)."""
     if not ANTHROPIC_API_KEY:
         return None, None
     try:
@@ -108,66 +146,66 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
             "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
         }
         return parsed, usage
-    except Exception as e:  # noqa: BLE001 — best-effort, jamais de 500
+    except Exception as e:  # noqa: BLE001
         logger.warning("Veille marché : appel Claude échoué : %s", e)
         return None, None
 
 
-def _fallback(reason: str) -> dict:
+def _build(ny: Optional[dict], parsed: Optional[dict]) -> dict:
+    parsed = parsed or {}
+
+    # Londres : estimation IA (pas de flux officiel branché) → marqué indicatif.
+    london = None
+    if parsed.get("london"):
+        london = {
+            "value": parsed.get("london"), "change": parsed.get("london_change"),
+            "up": parsed.get("london_up", True), "source": "estimation IA", "indicative": True,
+        }
+    # NY : prix réel si dispo, sinon estimation IA en repli.
+    ny_block = ny
+    if ny_block is None and parsed.get("ny"):
+        ny_block = {
+            "value": parsed.get("ny"), "change": parsed.get("ny_change"),
+            "up": parsed.get("ny_up", True), "source": "estimation IA", "indicative": True,
+        }
+
+    news = parsed.get("news") if isinstance(parsed.get("news"), list) else []
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "live": False,
+        "live": bool(parsed),  # actualités + synthèse présentes
         "cached": False,
-        "prices": {"ccc": _ccc_price(), "london": None, "ny": None, "indicative": True},
-        "news": [],
-        "ai_summary": None,
-        "note": reason,
-    }
-
-
-def _build(parsed: dict) -> dict:
-    news = parsed.get("news")
-    return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "live": True,
-        "cached": False,
-        "prices": {
-            "ccc": _ccc_price(),
-            "london": {"value": parsed.get("london"), "change": parsed.get("london_change"),
-                       "up": parsed.get("london_up", True)},
-            "ny": {"value": parsed.get("ny"), "change": parsed.get("ny_change"),
-                   "up": parsed.get("ny_up", True)},
-            "indicative": True,  # cours mondiaux indicatifs (pas un flux officiel)
-        },
-        "news": news if isinstance(news, list) else [],
+        "prices": {"ccc": _ccc_price(), "ny": ny_block, "london": london},
+        "news": news,
         "ai_summary": parsed.get("ai_summary"),
-        "note": None,
+        "note": None if parsed else (
+            "Actualités et synthèse IA momentanément indisponibles "
+            "(service IA non configuré ou injoignable). Les prix restent à jour."
+        ),
     }
 
 
 async def get_market_intelligence(force: bool = False) -> tuple[dict, Optional[dict]]:
-    """Renvoie (data, usage). `usage` non-None UNIQUEMENT si un appel Claude a eu lieu
-    (pour le suivi de coût). Sert le cache partagé tant qu'il est frais."""
+    """Renvoie (data, usage). `usage` non-None UNIQUEMENT si un appel Claude facturé
+    a eu lieu. Sert le cache partagé tant qu'il est frais."""
     now = time.time()
     if not force and _CACHE["data"] is not None and (now - _CACHE["ts"]) < _ttl_seconds():
         cached = dict(_CACHE["data"])
         cached["cached"] = True
         return cached, None
 
-    parsed, usage = await _call_claude_market()
-    if parsed is None:
-        # Pas de données fraîches : servir le cache périmé s'il existe, sinon fallback.
+    ny = await _fetch_ny_cocoa()                 # réel, sans clé
+    parsed, usage = await _call_claude_market()  # actus + synthèse (clé requise)
+
+    if ny is None and parsed is None:
+        # Rien de neuf : servir le cache (même périmé) s'il existe.
         if _CACHE["data"] is not None:
             stale = dict(_CACHE["data"])
             stale["cached"] = True
             stale["stale"] = True
             return stale, None
-        return _fallback(
-            "Données de marché momentanément indisponibles "
-            "(service IA non configuré ou injoignable)."
-        ), None
+        return _build(None, None), None  # CCC + message, non mis en cache
 
-    data = _build(parsed)
+    data = _build(ny, parsed)
     _CACHE["ts"] = now
     _CACHE["data"] = data
     return data, usage
