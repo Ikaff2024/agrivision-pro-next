@@ -101,6 +101,7 @@
           <button class="btn btn-outline btn-sm" onclick="doMovement('seal')">Sceller</button>
           <button class="btn btn-outline btn-sm" onclick="doMovement('export_out')">Expédier</button>
           <button class="btn btn-outline btn-sm" onclick="printPassport()"><span class="material-symbols-outlined" style="font-size:15px">qr_code_2</span> Passeport</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadEudrPack()" title="Dossier de diligence raisonnée EUDR (DDS + GeoJSON + récap) pour l'acheteur"><span class="material-symbols-outlined" style="font-size:15px">folder_zip</span> Pack EUDR</button>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
@@ -240,6 +241,27 @@ async function printPassport(){
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch(e) {
     toast('Passeport PDF impossible : ' + e.message);
+  }
+}
+
+async function downloadEudrPack(){
+  if(!_currentLot) return;
+  toast('Préparation du pack EUDR…');
+  try {
+    const r = await authFetch(`/lots/${_currentLot.id}/eudr-pack.zip`);
+    if(!r || !r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.detail || 'génération impossible'); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cd = r.headers.get('content-disposition') || '';
+    const m = cd.match(/filename="([^"]+)"/);
+    a.download = m ? m[1] : ('EUDR_' + (_currentLot.code || _currentLot.id) + '.zip');
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast('Pack EUDR téléchargé.');
+  } catch(e) {
+    toast('Pack EUDR impossible : ' + e.message, 'error');
   }
 }
 

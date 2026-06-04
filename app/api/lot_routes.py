@@ -472,3 +472,26 @@ def lot_passport_pdf(lot_id: int, db: Session = Depends(get_db), current_user: U
     disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
     return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf",
                              headers={"Content-Disposition": disposition})
+
+
+@router.get("/lots/{lot_id:int}/eudr-pack.zip")
+def lot_eudr_pack(lot_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Pack de diligence raisonnee EUDR du lot (livrable acheteur / importateur).
+
+    ZIP : un DDS PDF par parcelle + parcelles.geojson + recapitulatif.csv.
+    Reserve admin/agronome (document officiel de conformite).
+    """
+    if current_user.role not in _WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="Export DDS reserve a l'administrateur / agronome.")
+    from urllib.parse import quote
+    from fastapi.responses import StreamingResponse
+    from app.services.eudr_pack import build_eudr_pack
+
+    lot = _scoped_lot(lot_id, db, current_user)
+    result = build_eudr_pack(db, lot)
+    if result is None:
+        raise HTTPException(status_code=400, detail="Lot sans parcelle : affectez des recoltes avant l'export.")
+    data, filename = result
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(iter([data]), media_type="application/zip",
+                             headers={"Content-Disposition": disposition})
