@@ -118,6 +118,17 @@
         </div>
       </div>
 
+      <!-- Panneau « Prêt pour l'EUDR » : blocages actionnables -->
+      <div class="compliance-bar" id="readiness-panel" style="margin-bottom:16px">
+        <div class="flex items-center justify-between" style="margin-bottom:10px">
+          <div class="section-title" style="margin:0">✅ Prêt pour l'EUDR</div>
+          <div class="text-sm text-muted"><strong id="ready-count">—</strong> conforme(s) · <strong id="ready-pct">—</strong></div>
+        </div>
+        <div id="gap-cards" style="display:flex;flex-wrap:wrap;gap:10px">
+          <div class="text-sm text-muted">Chargement…</div>
+        </div>
+      </div>
+
       <div class="filter-bar">
         <select class="filter-select" id="f-status" onchange="renderTable()">
           <option value="">Tous statuts</option>
@@ -160,6 +171,8 @@ initApp('eudr');
 
 let allItems = [];
 let summary = null;
+let gapFilter = null;       // rule_id du blocage filtré (panneau « Prêt pour l'EUDR »)
+let _lastReadiness = null;  // dernier /eudr/readiness (pour re-rendre les cartes)
 const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
 
 async function cgFetch(endpoint, options = {}) {
@@ -187,7 +200,43 @@ const RULE_LBL = {
 };
 
 async function loadAll() {
-  await Promise.all([loadSummary(), reload()]);
+  await Promise.all([loadSummary(), loadReadiness(), reload()]);
+}
+
+async function loadReadiness() {
+  try {
+    const r = await cgFetch('/eudr/readiness');
+    if (!r.ok) return;
+    _lastReadiness = await r.json();
+    renderReadiness();
+  } catch (e) { /* silent */ }
+}
+
+function renderReadiness() {
+  const data = _lastReadiness || { gaps: [], ready: 0, total: 0, ready_pct: 0 };
+  document.getElementById('ready-count').textContent = (data.ready || 0) + '/' + (data.total || 0);
+  document.getElementById('ready-pct').textContent = (data.ready_pct || 0) + '%';
+  const cards = (data.gaps || []).map(g => {
+    const active = gapFilter === g.rule_id;
+    const has = g.count > 0;
+    const border = active ? 'var(--accent,#52b788)' : 'var(--border,#e6ddd0)';
+    return `<div ${has ? `onclick="filterByGap('${g.rule_id}')"` : ''} title="${escapeHtml(g.action || '')}"
+      style="flex:1;min-width:155px;border:1.5px solid ${border};border-radius:10px;padding:10px 12px;
+      cursor:${has ? 'pointer' : 'default'};background:${active ? 'var(--surface-warm,#f7f4ee)' : 'var(--surface,#fff)'}">
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:${has ? '#922b21' : '#1a6b3a'}">${has ? g.count : '✓'}</div>
+      <div style="font-size:12.5px;font-weight:600">${escapeHtml(g.label)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${has ? escapeHtml(g.action || '') : 'Aucune action requise'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('gap-cards').innerHTML = cards +
+    (gapFilter ? `<div style="display:flex;align-items:center"><button class="btn btn-sm btn-outline" onclick="filterByGap(null)">✕ Tout afficher</button></div>` : '');
+}
+
+function filterByGap(ruleId) {
+  gapFilter = (gapFilter === ruleId) ? null : ruleId;
+  if (gapFilter) document.getElementById('f-status').value = '';  // évite un filtre contradictoire
+  renderReadiness();
+  renderTable();
 }
 
 async function loadSummary() {
@@ -250,6 +299,7 @@ function renderTable() {
   const search = (document.getElementById('f-search').value || '').toLowerCase();
   const rows = allItems
     .filter(p => !fs || p.eudr_status === fs)
+    .filter(p => !gapFilter || (p.rules_failed || []).includes(gapFilter))
     .filter(p => !search || (p.name || '').toLowerCase().includes(search) ||
       (p.owner_name || '').toLowerCase().includes(search) ||
       (p.region || '').toLowerCase().includes(search))

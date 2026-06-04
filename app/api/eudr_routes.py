@@ -176,6 +176,61 @@ def get_cooperative_summary(
     }
 
 
+# Ordre d'affichage + libellés/actions des blocages de conformité (les plus
+# actionnables d'abord). Les rule_id correspondent à app/eudr/scoring.py.
+_GAP_DEFS = [
+    ("polygon_valid", "Parcelles à délimiter", "Tracer le polygone sur la carte"),
+    ("no_deforestation", "Contrôle déforestation à faire", "Lancer le contrôle satellite (GFW)"),
+    ("recent_inspection", "Inspection de plus de 12 mois", "Planifier une visite terrain"),
+    ("no_active_block", "Blocage CacaoGuard actif", "Traiter via le plan de remédiation"),
+    ("area_matches", "Superficie incohérente", "Vérifier la superficie déclarée vs tracé"),
+    ("gps_in_cocoa_zone", "Localisation hors zone cacao", "Corriger les coordonnées GPS"),
+]
+
+
+@router.get("/eudr/readiness")
+def eudr_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Tableau « Prêt pour l'EUDR » : parcelles regroupées par blocage de conformité.
+
+    Pour chaque règle échouée : le nombre de parcelles concernées + un échantillon
+    (jusqu'à 100) avec l'action recommandée, afin de piloter la mise en conformité.
+    Lecture seule, réservé aux rôles non-viewer (scope coopérative).
+    """
+    if current_user.role == "viewer":
+        raise HTTPException(status_code=403, detail="EUDR : role viewer non autorise.")
+
+    plantations = _accessible_plantations(db, current_user)
+    gaps = {
+        rid: {"rule_id": rid, "label": label, "action": action, "count": 0, "plantations": []}
+        for rid, label, action in _GAP_DEFS
+    }
+    total = 0
+    ready = 0
+    for p in plantations:
+        score = compute_eudr_score(p, db)
+        total += 1
+        if score.status == "conforme":
+            ready += 1
+        for rule in score.rules:
+            if not rule.passed and rule.rule_id in gaps:
+                g = gaps[rule.rule_id]
+                g["count"] += 1
+                if len(g["plantations"]) < 100:
+                    g["plantations"].append({
+                        "id": p.id, "name": p.name, "owner_name": p.owner_name,
+                    })
+
+    return {
+        "total": total,
+        "ready": ready,
+        "ready_pct": round(ready / total * 100, 1) if total else 0.0,
+        "gaps": [gaps[rid] for rid, _, _ in _GAP_DEFS],
+    }
+
+
 @router.get("/eudr/plantations")
 def list_plantations_with_eudr(
     sort: str = Query("risk", pattern="^(risk|score|name)$"),
