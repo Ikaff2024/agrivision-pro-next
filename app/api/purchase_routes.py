@@ -159,6 +159,107 @@ def purchases_summary(
     }
 
 
+@router.get("/producer-balances")
+def producer_balances(
+    season: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Solde de paiement par producteur : montant total acheté, payé et DÛ (en
+    attente), trié par solde dû décroissant. Lecture seule, scope coopérative."""
+    coop = _coop_id(current_user)
+    q = db.query(PurchaseRecord)
+    if coop is not None:
+        q = q.filter(PurchaseRecord.cooperative_id == coop)
+    if season:
+        q = q.filter(PurchaseRecord.season == season)
+    rows = q.all()
+
+    agg: dict[int, dict] = {}
+    for r in rows:
+        a = agg.setdefault(r.producer_id, {
+            "producer_id": r.producer_id, "purchases": 0, "net_kg": 0.0,
+            "total_amount_fcfa": 0.0, "paid_amount_fcfa": 0.0,
+            "pending_amount_fcfa": 0.0, "pending_count": 0, "last_purchase_date": None,
+        })
+        amt = float(r.total_amount_fcfa or 0)
+        a["purchases"] += 1
+        a["net_kg"] += float(r.net_weight_kg or 0)
+        a["total_amount_fcfa"] += amt
+        if r.payment_status == "paid":
+            a["paid_amount_fcfa"] += amt
+        elif r.payment_status == "pending":
+            a["pending_amount_fcfa"] += amt
+            a["pending_count"] += 1
+        if r.purchase_date and (a["last_purchase_date"] is None or r.purchase_date > a["last_purchase_date"]):
+            a["last_purchase_date"] = r.purchase_date
+
+    pnames = {
+        p.id: p.nom_complet
+        for p in db.query(Producer).filter(Producer.id.in_(agg.keys())).all()
+    } if agg else {}
+
+    producers = []
+    for pid, a in agg.items():
+        a["producer_name"] = pnames.get(pid)
+        for k in ("net_kg", "total_amount_fcfa", "paid_amount_fcfa", "pending_amount_fcfa"):
+            a[k] = round(a[k], 1 if k == "net_kg" else 0)
+        producers.append(a)
+    producers.sort(key=lambda x: x["pending_amount_fcfa"], reverse=True)
+
+    with_outstanding = [p for p in producers if p["pending_amount_fcfa"] > 0]
+    return {
+        "producers": producers,
+        "totals": {
+            "producers_with_outstanding": len(with_outstanding),
+            "outstanding_amount_fcfa": round(sum(p["pending_amount_fcfa"] for p in with_outstanding), 0),
+            "outstanding_count": sum(p["pending_count"] for p in with_outstanding),
+        },
+    }
+
+
+@router.post("/producer/{producer_id:int}/settle")
+def settle_producer(
+    producer_id: int,
+    data: PaymentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Règle (marque payés) TOUS les achats en attente d'un producteur — suivi
+    comptable, aucun virement exécuté. Réservé admin/agronome."""
+    _require(current_user, _ADMIN_ROLES)
+    coop = _coop_id(current_user)
+    producer = db.query(Producer).filter(Producer.id == producer_id).first()
+    if not producer:
+        raise HTTPException(status_code=404, detail="Producteur introuvable.")
+    if coop is not None and producer.cooperative_id != coop:
+        raise HTTPException(status_code=403, detail="Producteur d'une autre cooperative.")
+
+    q = db.query(PurchaseRecord).filter(
+        PurchaseRecord.producer_id == producer_id,
+        PurchaseRecord.payment_status == "pending",
+    )
+    if coop is not None:
+        q = q.filter(PurchaseRecord.cooperative_id == coop)
+    pendings = q.all()
+
+    when = data.payment_date or datetime.utcnow()
+    total = 0.0
+    for r in pendings:
+        r.payment_status = "paid"
+        r.payment_date = when
+        if data.payment_method:
+            r.payment_method = data.payment_method
+        total += float(r.total_amount_fcfa or 0)
+    db.commit()
+    return {
+        "producer_id": producer_id,
+        "producer_name": producer.nom_complet,
+        "settled_count": len(pendings),
+        "settled_amount_fcfa": round(total, 0),
+    }
+
+
 @router.post("", status_code=201)
 def create_purchase(
     data: PurchaseCreate,

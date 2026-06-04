@@ -84,6 +84,16 @@
             </table>
           </div>
         </div>
+
+        <div class="panel">
+          <div class="section-title">Soldes à payer par producteur</div>
+          <div style="overflow:auto">
+            <table>
+              <thead><tr><th>Producteur</th><th>Achats</th><th>Total</th><th>Payé</th><th>Dû</th><th></th></tr></thead>
+              <tbody id="bal-tbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Chargement…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -101,7 +111,7 @@ async function loadAll(){
   document.getElementById('b-producer').innerHTML = _producers.map(p=>`<option value="${p.id}">${p.nom_complet}${p.localite?' - '+p.localite:''}</option>`).join('');
   const rpl = await authFetch('/plantations?limit=5000'); _plantations = rpl?.ok ? await rpl.json() : [];
   onProducer();
-  await Promise.all([loadSummary(), loadList()]);
+  await Promise.all([loadSummary(), loadList(), loadBalances()]);
 }
 
 function onProducer(){
@@ -127,6 +137,37 @@ async function loadSummary(){
   document.getElementById('k-kg').textContent = fmt(s.total_net_kg);
   document.getElementById('k-amount').textContent = fmt(s.total_amount_fcfa);
   document.getElementById('k-pending').textContent = fmt(s.pending_amount_fcfa);
+}
+
+async function loadBalances(){
+  const r = await authFetch('/purchases/producer-balances');
+  const data = r?.ok ? await r.json() : { producers: [] };
+  const rows = data.producers || [];
+  const tb = document.getElementById('bal-tbody');
+  tb.innerHTML = rows.length ? rows.map(p=>{
+    const due = p.pending_amount_fcfa > 0;
+    const nm = (p.producer_name || ('#'+p.producer_id));
+    const nmEsc = nm.replace(/'/g, "\\'");
+    return `<tr>
+      <td>${nm}</td>
+      <td>${fmt(p.purchases)}</td>
+      <td>${fmt(p.total_amount_fcfa)}</td>
+      <td style="color:var(--accent,#52b788)">${fmt(p.paid_amount_fcfa)}</td>
+      <td style="font-weight:700;color:${due?'#922b21':'inherit'}">${fmt(p.pending_amount_fcfa)}</td>
+      <td>${due?`<button class="btn btn-outline btn-sm" onclick="settleProducer(${p.producer_id}, '${nmEsc}', ${p.pending_amount_fcfa})">Régler le solde</button>`:''}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Aucun achat enregistré.</td></tr>';
+}
+
+async function settleProducer(producerId, name, amount){
+  const msg = `Marquer comme payés tous les achats en attente de ${name||'ce producteur'} (${fmt(amount)} FCFA) ? Suivi comptable — aucun virement n'est exécuté.`;
+  const ok = (typeof avpConfirm === 'function') ? await avpConfirm(msg, {okText:'Régler', cancelText:'Annuler'}) : confirm(msg);
+  if(!ok) return;
+  const r = await authFetch(`/purchases/producer/${producerId}/settle`, {method:'POST', body: JSON.stringify({payment_method:'cash'})});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok){ toast('Règlement impossible : '+(d.detail||''), 'error'); return; }
+  toast(`Réglé : ${fmt(d.settled_amount_fcfa)} FCFA (${d.settled_count} achat(s)).`);
+  await loadAll();
 }
 
 async function loadList(){
