@@ -140,6 +140,26 @@ def test_shared_cache(client, monkeypatch):
 
 # ── Gating premium + auth ─────────────────────────────────────────────────────
 
+def test_coop_price_from_purchases(client):
+    """La veille expose le prix d'achat RÉEL de la coopérative (données Achats)."""
+    h, _ = _admin(client, "veille.coop@test.ci")
+    client.post("/plantations", json={
+        "name": "P", "owner_name": "O", "country": "CI", "region": "Y", "hectares": 2.0,
+    }, headers=h)
+    pid = client.get("/producers?limit=50", headers=h).json()[0]["id"]
+    client.post("/purchases", json={
+        "producer_id": pid, "net_weight_kg": 100, "price_per_kg_fcfa": 1500, "payment_status": "pending",
+    }, headers=h)
+    body = client.get("/market/intelligence", headers=h).json()
+    assert body["coop_price"]["avg_fcfa_kg"] == 1500
+    assert body["coop_price"]["purchases"] == 1
+
+
+def test_coop_price_none_without_purchases(client):
+    h, _ = _admin(client, "veille.nocoop@test.ci")
+    assert client.get("/market/intelligence", headers=h).json()["coop_price"] is None
+
+
 def test_gated_by_plan(client):
     h, coop_id = _admin(client, "veille.gate@test.ci", coop="Coop Veille Gate")
     assert client.patch(f"/cooperatives/{coop_id}/plan", json={"plan": "starter"}, headers=h).status_code == 200

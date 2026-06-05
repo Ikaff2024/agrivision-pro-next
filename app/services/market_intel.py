@@ -63,16 +63,38 @@ def _clean(text):
     return _CITE_RE.sub("", text).strip()
 
 
-def _ccc_price() -> dict:
-    """Prix bord-champ officiel CCC (config) — valeur fiable, pas devinée par le LLM."""
+def _env_float(name: str) -> Optional[float]:
+    raw = os.getenv(name, "")
     try:
-        val = float(os.getenv("CCC_FARMGATE_PRICE_FCFA", "2800"))
+        return float(raw) if raw != "" else None
     except ValueError:
-        val = 2800.0
-    return {
-        "fcfa_kg": val,
-        "note": os.getenv("CCC_FARMGATE_NOTE", "Campagne 2025-2026 — prix bord-champ officiel CCC"),
-    }
+        return None
+
+
+def _ccc_price() -> dict:
+    """Prix bord-champ officiel CCC (config), CONSCIENT DE LA CAMPAGNE.
+
+    Côte d'Ivoire : campagne principale (oct.–mars) vs intermédiaire (avr.–sept.),
+    avec des prix plancher différents. Afficher le plancher principal pendant la
+    campagne intermédiaire serait trompeur → on sélectionne selon le mois et on
+    libelle clairement. Valeurs surchargeables :
+      CCC_FARMGATE_PRICE_FCFA (principale), CCC_FARMGATE_INTERMEDIATE_FCFA (interm.).
+    """
+    principale = _env_float("CCC_FARMGATE_PRICE_FCFA")
+    if principale is None:
+        principale = 2800.0
+    interm = _env_float("CCC_FARMGATE_INTERMEDIATE_FCFA")
+    is_interm = 4 <= datetime.now(timezone.utc).month <= 9  # avril–septembre
+
+    if is_interm and interm is not None:
+        val, note = interm, "Campagne intermédiaire (avr.–sept.) — officiel CCC"
+    elif is_interm:
+        val, note = principale, "Réf. campagne principale — confirmez le prix intermédiaire en cours"
+    else:
+        val, note = principale, "Campagne principale (oct.–mars) — officiel CCC"
+
+    override = os.getenv("CCC_FARMGATE_NOTE", "")
+    return {"fcfa_kg": val, "note": override or note}
 
 
 async def _fetch_ny_cocoa() -> Optional[dict]:

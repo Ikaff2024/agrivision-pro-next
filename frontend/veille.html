@@ -15,7 +15,7 @@
     .vm-banner .days{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1.1}
     .vm-banner .sub{font-size:12.5px;color:rgba(255,255,255,.7);margin-top:2px}
     .vm-banner .req{text-align:right;font-size:12.5px;color:rgba(255,255,255,.82);line-height:1.5}
-    .vm-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+    .vm-prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px}
     .vm-card{background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:18px;box-shadow:var(--sh);border-left:3px solid var(--primary,#1a4231)}
     .vm-card .cap{font-size:11px;color:var(--muted,#6a7d64);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px}
     .vm-card .val{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1}
@@ -80,6 +80,11 @@
           <div class="cap">Bord-champ — CCC Côte d'Ivoire</div>
           <div class="val" id="vm-ccc">—</div>
           <div class="meta" id="vm-ccc-note">Prix officiel CCC</div>
+        </div>
+        <div class="vm-card">
+          <div class="cap">Votre prix d'achat — coopérative</div>
+          <div class="val" id="vm-coop">—</div>
+          <div class="meta" id="vm-coop-note">Moyenne récente (vos achats)</div>
         </div>
         <div class="vm-card">
           <div class="cap">Cacao New York — ICE</div>
@@ -192,6 +197,15 @@ function applyMarket(d) {
       Number(p.ccc.fcfa_kg || 0).toLocaleString('fr-FR') + ' FCFA/kg';
     document.getElementById('vm-ccc-note').textContent = p.ccc.note || 'Prix officiel CCC';
   }
+  // Prix d'achat réel de la coopérative (vos achats)
+  const cp = d.coop_price;
+  if (cp && cp.avg_fcfa_kg) {
+    document.getElementById('vm-coop').textContent = Number(cp.avg_fcfa_kg).toLocaleString('fr-FR') + ' FCFA/kg';
+    document.getElementById('vm-coop-note').textContent = 'Moyenne ' + cp.period_days + ' j · ' + cp.purchases + ' achat(s)';
+  } else {
+    document.getElementById('vm-coop').textContent = '—';
+    document.getElementById('vm-coop-note').textContent = 'Aucun achat enregistré récemment';
+  }
   // New York (réel, temps différé) + Londres (estimation IA)
   setPrice('vm-ny', 'vm-ny-chg', 'vm-ny-src', p.ny);
   setPrice('vm-london', 'vm-london-chg', 'vm-london-src', p.london);
@@ -227,8 +241,13 @@ function setPrice(valId, chgId, srcId, obj) {
     return;
   }
   v.textContent = obj.value;
-  c.textContent = obj.change || '';
-  c.className = 'chg ' + (obj.up === false ? 'down' : 'up');
+  // Pas de variation pour une estimation IA (chiffre non fiable) — seulement pour un cours réel.
+  if (obj.indicative) {
+    c.textContent = '';
+  } else {
+    c.textContent = obj.change || '';
+    c.className = 'chg ' + (obj.up === false ? 'down' : 'up');
+  }
   if (s) s.innerHTML = esc(obj.source || 'Futures cacao') +
     (obj.indicative ? ' <span class="vm-indic">indicatif</span>' : '');
 }

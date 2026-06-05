@@ -20,6 +20,30 @@ logger = logging.getLogger("agrivision")
 router = APIRouter(prefix="/market", tags=["Veille marché"])
 
 
+def _coop_recent_price(db: Session, coop_id, days: int = 60):
+    """Prix d'achat moyen RÉEL de la coopérative sur la période (données Achats).
+
+    Donnée propre à la coop, jamais trompeuse (contrairement à un plancher
+    générique). Renvoie None si aucun achat récent valorisé.
+    """
+    if not coop_id:
+        return None
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    from app.db.models import PurchaseRecord
+    since = datetime.utcnow() - timedelta(days=days)
+    avg_price, n = db.query(
+        func.avg(PurchaseRecord.price_per_kg_fcfa), func.count(PurchaseRecord.id)
+    ).filter(
+        PurchaseRecord.cooperative_id == coop_id,
+        PurchaseRecord.price_per_kg_fcfa.isnot(None),
+        PurchaseRecord.purchase_date >= since,
+    ).one()
+    if not n or not avg_price:
+        return None
+    return {"avg_fcfa_kg": round(float(avg_price)), "purchases": int(n), "period_days": days}
+
+
 @router.get("/intelligence")
 async def market_intelligence(
     refresh: bool = Query(False, description="Forcer une actualisation (admin/agronome)"),
@@ -65,4 +89,7 @@ async def market_intelligence(
             db.rollback()
             logger.warning("Enregistrement AiUsage (veille) échoué (ignoré) : %s", e)
 
+    # Prix d'achat RÉEL de la coopérative (par requête, propre à la coop).
+    data = dict(data)
+    data["coop_price"] = _coop_recent_price(db, current_user.cooperative_id)
     return data
