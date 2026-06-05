@@ -31,6 +31,9 @@ CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 # Cours réel ICE New York (cacao, USD/tonne) — source publique gratuite.
 NY_COCOA_URL = "https://query1.finance.yahoo.com/v8/finance/chart/CC=F?interval=1d&range=1d"
+# NB Londres (GBP/t) : pas de source temps réel LIBRE fiable (Stooq sert un
+# challenge anti-bot côté serveur ; Yahoo n'a pas de symbole ICE Londres propre).
+# → Londres reste une « estimation IA » jusqu'à branchement d'un flux payant.
 
 # Cache process partagé (données marché globales, pas par coopérative).
 _CACHE: dict = {"ts": 0.0, "data": None}
@@ -196,7 +199,7 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
 def _build(ny: Optional[dict], parsed: Optional[dict]) -> dict:
     parsed = parsed or {}
 
-    # Londres : estimation IA (pas de flux officiel branché) → marqué indicatif.
+    # Londres : estimation IA (pas de flux temps réel libre fiable) → indicative.
     london = None
     if parsed.get("london"):
         london = {
