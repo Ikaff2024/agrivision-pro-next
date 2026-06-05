@@ -160,10 +160,11 @@ def test_coop_price_none_without_purchases(client):
     assert client.get("/market/intelligence", headers=h).json()["coop_price"] is None
 
 
-def test_gated_by_plan(client):
-    h, coop_id = _admin(client, "veille.gate@test.ci", coop="Coop Veille Gate")
+def test_available_on_all_plans(client):
+    """Veille Marché est incluse dans TOUS les plans, y compris starter (décision produit)."""
+    h, coop_id = _admin(client, "veille.allplans@test.ci", coop="Coop Veille All")
     assert client.patch(f"/cooperatives/{coop_id}/plan", json={"plan": "starter"}, headers=h).status_code == 200
-    assert client.get("/market/intelligence", headers=h).status_code == 403
+    assert client.get("/market/intelligence", headers=h).status_code == 200
 
 
 def test_requires_auth(client):

@@ -52,7 +52,8 @@ CATEGORY_OF = {
     # Premium / avancé
     "satellite": "premium",
     "farmforce": "premium",
-    "veille": "premium",
+    # Veille Marché : décision produit — incluse dans TOUS les plans (catégorie core).
+    "veille": "core",
 }
 
 # Plan -> categories incluses
