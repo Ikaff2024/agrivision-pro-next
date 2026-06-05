@@ -1118,14 +1118,20 @@ function renderTwin(data, el) {
       <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:${color || 'inherit'}">${esc(val)}</div>
     </div>`;
 
-  const chips = [
+  const chipList = [
     chip('Conformité EUDR', `${t.eudr.score}/${t.eudr.max_score} · ${t.eudr.status}`, eudrColor),
     chip('Délimitation', t.boundary.has_polygon ? 'Tracée' : 'Non tracée', t.boundary.has_polygon ? '#1a6b3a' : '#922b21'),
     chip('Diagnostic', t.diagnostic.available ? (t.diagnostic.risk_level || '—') : 'Aucun', ''),
     chip('Récoltes', t.harvests.total_kg ? (t.harvests.total_kg + ' kg' + (t.harvests.yield_kg_ha ? ` · ${t.harvests.yield_kg_ha} kg/ha` : '')) : 'Aucune', ''),
     chip('Déforestation', t.deforestation.verdict || 'Non contrôlée',
       t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
-  ].join('');
+  ];
+  if (t.weather) {
+    const w = t.weather;
+    chipList.push(chip('Météo',
+      `${w.temperature_c != null ? Math.round(w.temperature_c) + '°C' : '—'} · ${w.humidity_pct != null ? w.humidity_pct + '%' : '—'} · ${w.rainfall_mm_month != null ? w.rainfall_mm_month + ' mm/30j' : '—'}`, ''));
+  }
+  const chips = chipList.join('');
 
   const alertHtml = alerts.length ? alerts.map(a =>
     `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:8px;background:${SEVBG[a.severity] || '#f4f6f4'};margin-bottom:6px">

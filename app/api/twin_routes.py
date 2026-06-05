@@ -11,12 +11,13 @@ from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Plantation, User
 from app.services.twin import build_twin, compute_alerts
+from app.services.weather import get_weather
 
 router = APIRouter(tags=["Jumeau de parcelle"])
 
 
 @router.get("/plantations/{plantation_id}/twin")
-def get_plantation_twin(
+async def get_plantation_twin(
     plantation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -29,5 +30,7 @@ def get_plantation_twin(
         raise HTTPException(status_code=403, detail="Plantation d'une autre coopérative.")
 
     twin = build_twin(db, plantation)
+    # Météo courante (Open-Meteo, best-effort) — complète la vue 360°.
+    twin["weather"] = await get_weather(plantation.latitude, plantation.longitude)
     alerts = compute_alerts(twin)
     return {"twin": twin, "alerts": alerts, "alert_count": len(alerts)}

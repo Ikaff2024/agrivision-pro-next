@@ -2,7 +2,18 @@
 import json
 from datetime import datetime, timedelta
 
+import pytest
+
+import app.api.twin_routes as twin_routes
 from app.auth.auth_service import create_access_token
+
+
+@pytest.fixture(autouse=True)
+def _no_weather_network(monkeypatch):
+    """Évite tout appel réseau Open-Meteo pendant les tests du jumeau."""
+    async def _none(lat, lon):
+        return None
+    monkeypatch.setattr(twin_routes, "get_weather", _none)
 from app.db.models import (
     Cooperative, DeforestationCheck, Diagnostic, Harvest, Inspection,
     Plantation, PlantationBoundary, Producer, User,
@@ -61,7 +72,7 @@ def test_twin_structure_and_alerts_bare(client):
     assert r.status_code == 200, r.text
     body = r.json()
     # Structure
-    for key in ("plantation", "diagnostic", "eudr", "deforestation", "harvests", "cacaoguard", "boundary"):
+    for key in ("plantation", "diagnostic", "eudr", "deforestation", "harvests", "cacaoguard", "boundary", "weather"):
         assert key in body["twin"], key
     # Parcelle nue → alertes attendues
     codes = _codes(body)
