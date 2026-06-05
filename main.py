@@ -292,8 +292,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     # Autorise tous les previews/deploiements Netlify (staging, deploy previews)
-    # ainsi que le domaine prod agri-vision-pro.com et ses sous-domaines.
-    allow_origin_regex=r"https://([a-z0-9-]+\.)*(netlify\.app|agri-vision-pro\.com)",
+    # ainsi que les domaines prod et leurs sous-domaines (www, etc.) :
+    #   - app-agrivision-pro.com  (domaine prod actuel)
+    #   - agri-vision-pro.com     (variante historique conservée)
+    allow_origin_regex=r"https://([a-z0-9-]+\.)*(netlify\.app|agri-vision-pro\.com|app-agrivision-pro\.com)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
