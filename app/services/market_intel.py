@@ -34,13 +34,23 @@ NY_COCOA_URL = "https://query1.finance.yahoo.com/v8/finance/chart/CC=F?interval=
 
 # Cache process partagé (données marché globales, pas par coopérative).
 _CACHE: dict = {"ts": 0.0, "data": None}
+# Dernière charge AVEC actualités : repli si Claude tombe en panne, pour ne
+# JAMAIS effacer de bonnes actualités sur un échec transitoire (ou un re-déploiement).
+_LAST_GOOD: dict = {"data": None}
+
+_TTL_DEGRADED = 300  # 5 min : re-essai rapide quand les actualités manquent
 
 
 def _ttl_seconds() -> int:
     try:
-        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "1800"))  # 30 min
+        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "1800"))  # 30 min (charge complète)
     except ValueError:
         return 1800
+
+
+def _ttl_for(data: Optional[dict]) -> int:
+    """TTL long si on a des actualités, court sinon (auto-réparation)."""
+    return _ttl_seconds() if (data and data.get("news")) else _TTL_DEGRADED
 
 
 _CITE_RE = re.compile(r"</?cite[^>]*>")
@@ -202,24 +212,36 @@ async def get_market_intelligence(force: bool = False) -> tuple[dict, Optional[d
     """Renvoie (data, usage). `usage` non-None UNIQUEMENT si un appel Claude facturé
     a eu lieu. Sert le cache partagé tant qu'il est frais."""
     now = time.time()
-    if not force and _CACHE["data"] is not None and (now - _CACHE["ts"]) < _ttl_seconds():
-        cached = dict(_CACHE["data"])
+    cur = _CACHE["data"]
+    if not force and cur is not None and (now - _CACHE["ts"]) < _ttl_for(cur):
+        cached = dict(cur)
         cached["cached"] = True
         return cached, None
 
     ny = await _fetch_ny_cocoa()                 # réel, sans clé
     parsed, usage = await _call_claude_market()  # actus + synthèse (clé requise)
 
-    if ny is None and parsed is None:
-        # Rien de neuf : servir le cache (même périmé) s'il existe.
-        if _CACHE["data"] is not None:
-            stale = dict(_CACHE["data"])
-            stale["cached"] = True
-            stale["stale"] = True
-            return stale, None
-        return _build(None, None), None  # CCC + message, non mis en cache
+    # Cas nominal : actualités fraîches → on met à jour le cache ET la dernière bonne charge.
+    if parsed:
+        data = _build(ny, parsed)
+        _CACHE["ts"] = now
+        _CACHE["data"] = data
+        _LAST_GOOD["data"] = data
+        return data, usage
 
+    # Claude indisponible : NE JAMAIS écraser de bonnes actualités.
+    if _LAST_GOOD["data"] is not None:
+        good = dict(_LAST_GOOD["data"])
+        good["prices"] = _build(ny, None)["prices"]  # prix rafraîchis (CCC + NY réel)
+        good["cached"] = True
+        good["stale"] = True
+        good["note"] = "Actualités datées (service IA momentanément injoignable) ; prix à jour."
+        _CACHE["ts"] = now
+        _CACHE["data"] = good
+        return good, None
+
+    # Aucune bonne actualité connue : prix + message, TTL court (re-essai rapide).
     data = _build(ny, parsed)
     _CACHE["ts"] = now
     _CACHE["data"] = data
-    return data, usage
+    return data, None

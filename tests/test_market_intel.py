@@ -28,9 +28,11 @@ def _no_network(monkeypatch):
     monkeypatch.setattr(mi, "_fetch_ny_cocoa", _none)
     mi._CACHE["data"] = None
     mi._CACHE["ts"] = 0.0
+    mi._LAST_GOOD["data"] = None
     yield
     mi._CACHE["data"] = None
     mi._CACHE["ts"] = 0.0
+    mi._LAST_GOOD["data"] = None
 
 
 def _patch_claude_ok(monkeypatch):
@@ -102,6 +104,23 @@ def test_live_records_cost_and_events(client, monkeypatch):
         assert rows[0].input_tokens == 1200 and rows[0].cost_usd > 0
     finally:
         db.close()
+
+
+def test_failure_keeps_last_good_news(client, monkeypatch):
+    """Un échec Claude (ou un redéploiement) ne doit PAS effacer de bonnes actus."""
+    _patch_claude_ok(monkeypatch)
+    h, _ = _admin(client, "veille.resil@test.ci")
+    ok = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert len(ok["news"]) == 2                      # bonne charge mise en cache
+
+    # Claude tombe en panne ; même un refresh forcé conserve les actualités.
+    async def _fail():
+        return None, None
+    monkeypatch.setattr(mi, "_call_claude_market", _fail)
+    degraded = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert len(degraded["news"]) == 2               # actus conservées (dernière bonne charge)
+    assert degraded.get("stale") is True
+    assert "datées" in (degraded.get("note") or "")
 
 
 def test_shared_cache(client, monkeypatch):
