@@ -222,6 +222,8 @@
         Retour aux plantations
       </div>
 
+      <div id="twin-container"></div>
+
       <div class="detail-grid" id="detail-grid">
         <div style="text-align:center;padding:60px;color:var(--muted)" id="loading">Chargement…</div>
       </div>
@@ -1093,7 +1095,59 @@ function goAgro() { location.href = `agroforestry.html?id=${pid}`; }
 function goSsrteVisit() { location.href = `ssrte.html?tab=visit&plantation_id=${pid}`; }
 function esc(s)   { const el=document.createElement('div'); el.textContent=s||''; return el.innerHTML; }
 
+// === FEATURE-PARCEL-360 : Jumeau de parcelle (synthèse + alertes) ===
+async function loadTwin() {
+  const el = document.getElementById('twin-container');
+  if (!el) return;
+  try {
+    const r = await authFetch('/plantations/' + pid + '/twin');
+    if (!r || !r.ok) return;
+    renderTwin(await r.json(), el);
+  } catch (e) { /* silencieux : la fiche reste utilisable sans le jumeau */ }
+}
+
+function renderTwin(data, el) {
+  const t = data.twin, alerts = data.alerts || [];
+  const SEV = { high: '#922b21', medium: '#9a6200', low: '#6a7d64' };
+  const SEVBG = { high: '#fdedec', medium: '#fef7e6', low: '#f4f6f4' };
+  const eudrColor = { conforme: '#1a6b3a', a_verifier: '#9a6200', non_conforme: '#922b21' }[t.eudr.status] || 'inherit';
+
+  const chip = (label, val, color) =>
+    `<div style="flex:1;min-width:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+      <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">${esc(label)}</div>
+      <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:${color || 'inherit'}">${esc(val)}</div>
+    </div>`;
+
+  const chips = [
+    chip('Conformité EUDR', `${t.eudr.score}/${t.eudr.max_score} · ${t.eudr.status}`, eudrColor),
+    chip('Délimitation', t.boundary.has_polygon ? 'Tracée' : 'Non tracée', t.boundary.has_polygon ? '#1a6b3a' : '#922b21'),
+    chip('Diagnostic', t.diagnostic.available ? (t.diagnostic.risk_level || '—') : 'Aucun', ''),
+    chip('Récoltes', t.harvests.total_kg ? (t.harvests.total_kg + ' kg' + (t.harvests.yield_kg_ha ? ` · ${t.harvests.yield_kg_ha} kg/ha` : '')) : 'Aucune', ''),
+    chip('Déforestation', t.deforestation.verdict || 'Non contrôlée',
+      t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
+  ].join('');
+
+  const alertHtml = alerts.length ? alerts.map(a =>
+    `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:8px;background:${SEVBG[a.severity] || '#f4f6f4'};margin-bottom:6px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${SEV[a.severity] || '#999'};margin-top:5px;flex-shrink:0"></span>
+      <div><div style="font-weight:600;font-size:13px">${esc(a.label)}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(a.recommendation)}</div></div>
+    </div>`).join('')
+    : '<div style="color:#1a6b3a;font-size:13px;padding:4px 2px">✓ Aucune alerte — parcelle en bon état.</div>';
+
+  el.innerHTML =
+    `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">🧭 Jumeau de la parcelle — synthèse</div>
+        <span style="font-size:12px;color:var(--muted)">${alerts.length} alerte(s)</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">${chips}</div>
+      <div>${alertHtml}</div>
+    </div>`;
+}
+
 load();
+loadTwin();
 
 
 // === Sprint Reports R1b : telechargement PDF du rapport plantation ===

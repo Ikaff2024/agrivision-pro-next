@@ -20,6 +20,7 @@ from app.api.satellite_routes import router as satellite_router
 from app.api.lot_routes import router as lot_router
 from app.api.purchase_routes import router as purchase_router
 from app.api.market_routes import router as market_router
+from app.api.twin_routes import router as twin_router
 from app.api.certification_routes import router as certification_router
 from app.api.plan_routes import router as plan_router
 from app.api.import_routes import router as import_router
@@ -342,5 +343,6 @@ app.include_router(satellite_router)
 app.include_router(lot_router)
 app.include_router(purchase_router)
 app.include_router(market_router)
+app.include_router(twin_router)
 app.include_router(certification_router)
 app.include_router(plan_router)
