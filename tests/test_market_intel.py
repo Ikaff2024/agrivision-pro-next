@@ -160,6 +160,27 @@ def test_coop_price_none_without_purchases(client):
     assert client.get("/market/intelligence", headers=h).json()["coop_price"] is None
 
 
+def test_db_cache_survives_redeploy(client, monkeypatch):
+    """Les actualités persistées en DB survivent à un redéploiement (cache mémoire vidé)."""
+    _patch_claude_ok(monkeypatch)
+    h, _ = _admin(client, "veille.dbcache@test.ci")
+    ok = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert len(ok["news"]) == 2  # bonne charge → persistée en DB
+
+    # Simule un redéploiement : cache mémoire vidé + service IA en panne.
+    mi._CACHE["data"] = None
+    mi._CACHE["ts"] = 0.0
+    mi._LAST_GOOD["data"] = None
+
+    async def _fail():
+        return None, None
+    monkeypatch.setattr(mi, "_call_claude_market", _fail)
+
+    after = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert len(after["news"]) == 2          # actus resservies depuis la DB
+    assert after.get("stale") is True
+
+
 def test_available_on_all_plans(client):
     """Veille Marché est incluse dans TOUS les plans, y compris starter (décision produit)."""
     h, coop_id = _admin(client, "veille.allplans@test.ci", coop="Coop Veille All")

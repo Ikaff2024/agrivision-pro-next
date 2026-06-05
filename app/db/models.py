@@ -203,6 +203,21 @@ class AiUsage(Base):
     cooperative = relationship("Cooperative")
 
 
+class MarketCache(Base):
+    """Dernière bonne charge de veille marché (actualités + synthèse), persistée.
+
+    Permet aux actualités de SURVIVRE à un redémarrage/redéploiement : si l'appel
+    Claude échoue après un redéploiement (cache mémoire vidé), on ressert cette
+    dernière bonne charge au lieu d'afficher une page sans actualités. Données
+    globales (non liées à une coopérative) → une seule ligne maintenue.
+    """
+    __tablename__ = "market_cache"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    payload    = Column(Text, nullable=False)   # JSON de la charge veille
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class ImportBatch(Base):
     """
     Trace un import de registre cooperative (un fichier = un lot).

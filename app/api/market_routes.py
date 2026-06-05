@@ -6,6 +6,7 @@ actualités filtrables et synthèse IA. L'appel Claude se fait CÔTÉ SERVEUR
 (clé protégée), avec cache partagé et suivi de coût (AiUsage).
 """
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -42,6 +43,35 @@ def _coop_recent_price(db: Session, coop_id, days: int = 60):
     if not n or not avg_price:
         return None
     return {"avg_fcfa_kg": round(float(avg_price)), "purchases": int(n), "period_days": days}
+
+
+def _save_market_cache(db: Session, data: dict) -> None:
+    """Persiste la dernière bonne charge de veille (survit aux redéploiements)."""
+    import json
+    from datetime import datetime, timezone
+    from app.db.models import MarketCache
+    try:
+        row = db.query(MarketCache).order_by(MarketCache.id.desc()).first()
+        payload = json.dumps(data, ensure_ascii=False)
+        if row:
+            row.payload = payload
+            row.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(MarketCache(payload=payload))
+        db.commit()
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        logger.warning("MarketCache: sauvegarde échouée (ignorée) : %s", e)
+
+
+def _load_market_cache(db: Session) -> Optional[dict]:
+    import json
+    from app.db.models import MarketCache
+    try:
+        row = db.query(MarketCache).order_by(MarketCache.id.desc()).first()
+        return json.loads(row.payload) if row else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 @router.get("/intelligence")
@@ -88,6 +118,19 @@ async def market_intelligence(
         except Exception as e:  # noqa: BLE001
             db.rollback()
             logger.warning("Enregistrement AiUsage (veille) échoué (ignoré) : %s", e)
+
+    # Persistance DB : on sauvegarde une bonne charge (avec actualités) ; sinon on
+    # ressert la dernière bonne charge persistée (les actus survivent à un redéploiement).
+    if data.get("news"):
+        _save_market_cache(db, data)
+    else:
+        persisted = _load_market_cache(db)
+        if persisted and persisted.get("news"):
+            persisted["prices"] = data.get("prices", persisted.get("prices"))
+            persisted["cached"] = True
+            persisted["stale"] = True
+            persisted["note"] = data.get("note")
+            data = persisted
 
     # Prix d'achat RÉEL de la coopérative (par requête, propre à la coop).
     data = dict(data)
