@@ -26,7 +26,8 @@ import httpx
 logger = logging.getLogger("agrivision")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+# Modèle Claude courant (claude-sonnet-4-20250514 part en retraite le 2026-06-15).
+CLAUDE_MODEL = "claude-sonnet-4-6"
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 # Cours réel ICE New York (cacao, USD/tonne) — source publique gratuite.
