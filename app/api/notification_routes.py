@@ -39,6 +39,7 @@ from app.db.models_social import (
     Priority,
     RemediationAction,
 )
+from app.services.social_scope import coop_alert_ids
 
 router = APIRouter(prefix="/notifications", tags=["CacaoGuard - notifications"])
 
@@ -94,8 +95,33 @@ def sync_notifications_for_user(db: Session, user: User) -> int:
     """Cree les NotificationItem manquantes pour `user`. Retourne le nombre cree."""
     role = user.role
 
-    # Selection des alertes candidates
-    base_query = db.query(Alert).filter(Alert.status != AlertStatus.RESOLVED)
+    # Cloisonnement multi-tenant : ne considérer QUE les alertes de la coopérative
+    # de l'utilisateur (résolues via l'entité source → producteur → coopérative).
+    allowed_alert_ids = coop_alert_ids(db, user.cooperative_id)
+
+    # Auto-réparation : retirer du feed les notifications déjà reçues qui
+    # n'appartiennent PAS à la coopérative de l'utilisateur (corrige les fuites
+    # inter-tenant antérieures à ce correctif).
+    removed = (
+        db.query(NotificationItem)
+        .filter(
+            NotificationItem.user_id == user.id,
+            ~NotificationItem.alert_id.in_(allowed_alert_ids if allowed_alert_ids else [-1]),
+        )
+        .delete(synchronize_session=False)
+    )
+    if removed:
+        db.commit()
+
+    # Sans coopérative, ou sans alerte rattachable, aucune notification (fail-closed).
+    if not allowed_alert_ids:
+        return 0
+
+    # Selection des alertes candidates (bornées à la coopérative)
+    base_query = db.query(Alert).filter(
+        Alert.status != AlertStatus.RESOLVED,
+        Alert.id.in_(list(allowed_alert_ids)),
+    )
     if role in _SUPERVISOR_ROLES:
         candidates = base_query.filter(Alert.priority.in_(list(_NOTIFIABLE_PRIORITIES))).all()
     elif role == "technician":

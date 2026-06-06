@@ -64,9 +64,15 @@ def _seed_users():
 def _seed_alert(alert_type=AlertType.HIGH_RISK_CHILD, priority=Priority.HIGH, **kwargs) -> int:
     db = TestingSessionLocal()
     try:
+        source_entity = kwargs.get("source_entity", "producers")
+        source_id = kwargs.get("source_id")
+        if source_id is None:
+            # Rattacher l'alerte à un producteur RÉEL de la coop (cloisonnement multi-tenant).
+            prod = db.query(Producer).filter(Producer.nom_complet == "Producteur Notif").first()
+            source_id = prod.id if prod else 1
         alert = Alert(
-            source_entity=kwargs.get("source_entity", "children"),
-            source_id=kwargs.get("source_id", 1),
+            source_entity=source_entity,
+            source_id=source_id,
             alert_type=alert_type,
             priority=priority,
             title=kwargs.get("title", "Alerte test"),
@@ -281,3 +287,72 @@ def test_resolved_alert_not_synced(client):
 
     r = client.get("/notifications", headers=ctx["admin"])
     assert r.json()["total"] == 0
+
+
+# ----------------------------------------------------------------------------
+# Cloisonnement multi-tenant (régression du bug : fuite inter-coopérative)
+# ----------------------------------------------------------------------------
+
+def test_notifications_are_cooperative_scoped(client):
+    """Régression : l'admin d'une coop ne reçoit PAS l'alerte d'une autre coop."""
+    db = TestingSessionLocal()
+    try:
+        coop_a = Cooperative(name="Coop A Iso", country="CI")
+        admin_a = User(email="admin.a.iso@test.ci", password_hash="x", role="admin", cooperative=coop_a)
+        prod_a = Producer(cooperative=coop_a, nom_complet="Prod A Iso", localite="A", is_active=True)
+        coop_b = Cooperative(name="Coop B Iso", country="CI")
+        admin_b = User(email="admin.b.iso@test.ci", password_hash="x", role="admin", cooperative=coop_b)
+        db.add_all([coop_a, admin_a, prod_a, coop_b, admin_b])
+        db.commit()
+        prod_a_id = prod_a.id
+        auth_a = _auth(admin_a)
+        auth_b = _auth(admin_b)
+    finally:
+        db.close()
+
+    # Alerte HIGH rattachée à un producteur de la coop A
+    _seed_alert(priority=Priority.HIGH, source_entity="producers", source_id=prod_a_id)
+
+    # Admin A (même coop) voit l'alerte ; admin B (autre coop) NON.
+    assert client.get("/notifications", headers=auth_a).json()["total"] == 1
+    assert client.get("/notifications", headers=auth_b).json()["total"] == 0
+    assert client.get("/notifications/unread-count", headers=auth_b).json()["unread_count"] == 0
+
+
+def test_sync_removes_previously_leaked_notification(client):
+    """Auto-réparation : une notification héritée d'une fuite est retirée au sync."""
+    db = TestingSessionLocal()
+    try:
+        coop_a = Cooperative(name="Coop A Leak", country="CI")
+        prod_a = Producer(cooperative=coop_a, nom_complet="Prod A Leak", localite="A", is_active=True)
+        coop_b = Cooperative(name="Coop B Leak", country="CI")
+        admin_b = User(email="admin.b.leak@test.ci", password_hash="x", role="admin", cooperative=coop_b)
+        db.add_all([coop_a, prod_a, coop_b, admin_b])
+        db.commit()
+        prod_a_id = prod_a.id
+        admin_b_id = admin_b.id
+        auth_b = _auth(admin_b)
+    finally:
+        db.close()
+
+    aid = _seed_alert(priority=Priority.HIGH, source_entity="producers", source_id=prod_a_id)
+
+    # Simule une fuite antérieure : NotificationItem de coop A chez l'admin de coop B.
+    db = TestingSessionLocal()
+    try:
+        db.add(NotificationItem(
+            user_id=admin_b_id, alert_id=aid,
+            notification_type=AlertType.HIGH_RISK_CHILD, priority=Priority.HIGH,
+            title="Fuite", message="Ne devrait pas etre la", payload={},
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    # Au prochain GET, la notification fuitée est automatiquement nettoyée.
+    assert client.get("/notifications", headers=auth_b).json()["total"] == 0
+    db = TestingSessionLocal()
+    try:
+        assert db.query(NotificationItem).filter(NotificationItem.user_id == admin_b_id).count() == 0
+    finally:
+        db.close()
