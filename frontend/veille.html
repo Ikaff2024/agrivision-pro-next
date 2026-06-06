@@ -8,7 +8,12 @@
   <title>AgriVision Pro - Veille Marché Cacao</title>
   <script src="config.js"></script>
   <script src="avp-offline.js"></script>
-  <script src="auth.js"></script>
+    <!-- Polices de marque : préchargées tôt (évite le flash de typographie au chargement) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" data-avp-fonts href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+<script src="auth.js"></script>
   <style>
     .vm-banner{background:linear-gradient(135deg,#1a4231,#0c2018);color:#fff;border-radius:var(--rl,14px);padding:22px 26px;margin-bottom:22px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
     .vm-banner .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.6)}

@@ -14,16 +14,27 @@ window.API_BASE = API_BASE;
 /* ── Inject shared fonts + design system ───────────────────── */
 (function injectDesignSystem() {
   if (document.getElementById('avp-styles')) return;
+  const head = document.head;
+  const addLink = (attrs) => {
+    const l = document.createElement('link');
+    Object.entries(attrs).forEach(([k, v]) => { l[k] = v; });
+    head.appendChild(l);
+    return l;
+  };
 
-  const fonts = document.createElement('link');
-  fonts.rel = 'stylesheet';
-  fonts.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap';
-  document.head.appendChild(fonts);
-
-  const icons = document.createElement('link');
-  icons.rel = 'stylesheet';
-  icons.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200';
-  document.head.appendChild(icons);
+  // Preconnect aux serveurs Google Fonts → les polices arrivent plus vite (moins de "flash").
+  if (!head.querySelector('link[rel="preconnect"][href*="fonts.gstatic"]')) {
+    addLink({ rel: 'preconnect', href: 'https://fonts.googleapis.com' });
+    addLink({ rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' });
+  }
+  // Polices de texte — sautées si déjà déclarées en statique dans le <head> de la page.
+  if (!head.querySelector('link[href*="fonts.googleapis.com/css2"][href*="Fraunces"]')) {
+    addLink({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap' });
+  }
+  // Icônes (Material Symbols) en display=block → plus de nom d'icône qui clignote en texte.
+  if (!head.querySelector('link[href*="Material+Symbols+Outlined"]')) {
+    addLink({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block' });
+  }
 
   const style = document.createElement('style');
   style.id = 'avp-styles';

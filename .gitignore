@@ -38,6 +38,9 @@ uploads/
 .DS_Store
 Thumbs.db
 
+# Netlify CLI (état local)
+.netlify/
+
 # Node (pour les scripts de génération de docs)
 node_modules/
 

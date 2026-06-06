@@ -8,7 +8,12 @@
   <title>AgriVision Pro - Conformite CacaoGuard</title>
   <script src="config.js?v=staging1"></script>
   <script src="avp-offline.js?v=cg3"></script>
-  <script src="auth.js?v=ssrte1"></script>
+    <!-- Polices de marque : préchargées tôt (évite le flash de typographie au chargement) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" data-avp-fonts href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+<script src="auth.js?v=ssrte1"></script>
   <style>
     .comp-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:16px;margin-bottom:22px}
     .comp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
