@@ -51,12 +51,33 @@ def _seed_producer_and_user():
         db.close()
 
 
-def _seed_user(role="technician", email="agent.tech@test.ci"):
+def _admin_headers(email="agent.cacaoguard@test.ci"):
+    """En-têtes d'auth de l'admin de 'Coop CacaoGuard' (pour le cloisonnement)."""
     db = TestingSessionLocal()
     try:
-        coop = Cooperative(name=f"Coop {role}", country="CI")
+        user = db.query(User).filter(User.email == email).first()
+        return {
+            "Authorization": "Bearer " + create_access_token({
+                "sub": user.email,
+                "role": user.role,
+                "coop_id": user.cooperative_id,
+            })
+        }
+    finally:
+        db.close()
+
+
+def _seed_user(role="technician", email="agent.tech@test.ci", coop_name=None):
+    db = TestingSessionLocal()
+    try:
+        coop = None
+        if coop_name:
+            coop = db.query(Cooperative).filter(Cooperative.name == coop_name).first()
+        if coop is None:
+            coop = Cooperative(name=coop_name or f"Coop {role}", country="CI")
+            db.add(coop)
         user = User(email=email, password_hash="x", role=role, cooperative=coop)
-        db.add_all([coop, user])
+        db.add(user)
         db.commit()
         return {
             "Authorization": "Bearer " + create_access_token({
@@ -89,7 +110,7 @@ def test_create_child_scores_risk_and_creates_alert(client):
     assert data["risk_level"] in ["high", "critical"]
     assert data["risk_score"] >= 60
 
-    alerts = client.get("/children/alerts").json()
+    alerts = client.get("/children/alerts", headers=_admin_headers()).json()
     assert len(alerts) == 1
     assert alerts[0]["source_id"] == data["id"]
 
@@ -116,8 +137,9 @@ def test_children_static_routes_are_not_captured_by_child_id(client):
         "work_frequency": "never",
     })
 
-    stats = client.get("/children/stats/summary")
-    alerts = client.get("/children/alerts")
+    H = _admin_headers()
+    stats = client.get("/children/stats/summary", headers=H)
+    alerts = client.get("/children/alerts", headers=H)
 
     assert stats.status_code == 200, stats.text
     assert alerts.status_code == 200, alerts.text
@@ -168,11 +190,11 @@ def test_create_risk_assessment_updates_child_and_dashboard(client):
         "risk_factors": {"work": 35, "school": 20, "age": 20},
         "notes": "Cas prioritaire",
         "assessor_id": user_id,
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 201, response.text
 
-    updated = client.get(f"/children/{child['id']}").json()
+    updated = client.get(f"/children/{child['id']}", headers=_admin_headers()).json()
     assert updated["risk_level"] == "critical"
     assert updated["risk_score"] == 82
 
@@ -588,7 +610,7 @@ def test_privacy_access_logs_child_reads_and_report_access(client):
         "work_frequency": "never",
     }).json()
 
-    child_response = client.get(f"/children/{child['id']}")
+    child_response = client.get(f"/children/{child['id']}", headers=_admin_headers())
     assert child_response.status_code == 200
 
     report_response = client.get("/compliance/report")
@@ -618,7 +640,7 @@ def test_privacy_logs_capture_redacted_technician_access(client):
         "is_working_on_farm": True,
         "work_frequency": "regular",
     })
-    technician_headers = _seed_user(role="technician", email="tech.privacy@test.ci")
+    technician_headers = _seed_user(role="technician", email="tech.privacy@test.ci", coop_name="Coop CacaoGuard")
 
     children = client.get("/children", headers=technician_headers)
     assert children.status_code == 200
@@ -654,7 +676,7 @@ def test_technician_gets_redacted_child_data_and_no_report_access(client):
         "work_frequency": "regular",
         "dangerous_tasks_performed": ["machete_use"],
     })
-    headers = _seed_user(role="technician", email="tech.cacaoguard@test.ci")
+    headers = _seed_user(role="technician", email="tech.cacaoguard@test.ci", coop_name="Coop CacaoGuard")
 
     children = client.get("/children", headers=headers)
     assert children.status_code == 200, children.text
@@ -690,3 +712,42 @@ def test_technician_cannot_update_child_or_view_remediation(client):
 
     plans = client.get("/remediation/plans", headers=headers)
     assert plans.status_code == 403
+
+
+def test_children_are_cooperative_scoped(client):
+    """Cloisonnement : l'admin d'une coop ne voit pas les enfants d'une autre coop."""
+    db = TestingSessionLocal()
+    try:
+        coop_a = Cooperative(name="Coop Enf A", country="CI")
+        admin_a = User(email="adm.enfa@test.ci", password_hash="x", role="admin", cooperative=coop_a)
+        prod_a = Producer(cooperative=coop_a, nom_complet="Prod Enf A", localite="A", is_active=True)
+        coop_b = Cooperative(name="Coop Enf B", country="CI")
+        admin_b = User(email="adm.enfb@test.ci", password_hash="x", role="admin", cooperative=coop_b)
+        db.add_all([coop_a, admin_a, prod_a, coop_b, admin_b])
+        db.commit()
+        prod_a_id = prod_a.id
+        hdr_a = {"Authorization": "Bearer " + create_access_token({"sub": admin_a.email, "role": "admin", "coop_id": coop_a.id})}
+        hdr_b = {"Authorization": "Bearer " + create_access_token({"sub": admin_b.email, "role": "admin", "coop_id": coop_b.id})}
+    finally:
+        db.close()
+
+    created = client.post("/children", json={
+        "producer_id": prod_a_id, "first_name": "Iso", "last_name": "Enfant",
+        "date_of_birth": "2014-01-01", "gender": "M",
+        "school_status": "never_enrolled", "is_working_on_farm": True, "work_frequency": "daily",
+        "dangerous_tasks_performed": ["machete_use"],
+    }, headers=hdr_a)
+    assert created.status_code == 201, created.text
+    child_id = created.json()["id"]
+
+    # Coop A voit son enfant ; coop B ne voit rien.
+    assert len(client.get("/children", headers=hdr_a).json()) == 1
+    assert client.get("/children", headers=hdr_b).json() == []
+    assert client.get(f"/children/{child_id}", headers=hdr_b).status_code == 404
+    assert client.get("/children/stats/summary", headers=hdr_b).json()["total_children"] == 0
+    # Coop B ne peut pas créer un enfant sous le producteur de coop A.
+    forbidden = client.post("/children", json={
+        "producer_id": prod_a_id, "first_name": "X", "last_name": "Y",
+        "date_of_birth": "2014-01-01", "gender": "F",
+    }, headers=hdr_b)
+    assert forbidden.status_code == 404

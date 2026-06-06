@@ -43,6 +43,7 @@ from app.api.cacaoguard_ops_routes import (
     record_privacy_access,
     require_role,
 )
+from app.services.social_scope import coop_producer_ids
 
 router = APIRouter(tags=["CacaoGuard - workflow remediation"])
 
@@ -139,15 +140,23 @@ def _action_to_dict(action: RemediationAction) -> dict:
     }
 
 
-def _get_plan_or_404(db: Session, plan_id: int) -> RemediationPlan:
+def _get_plan_or_404(db: Session, plan_id: int, current_user: User | None) -> RemediationPlan:
+    # Cloisonnement : le plan doit appartenir à un producteur de la coopérative.
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     plan = db.query(RemediationPlan).filter(RemediationPlan.id == plan_id).first()
-    if not plan:
+    if not plan or plan.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Plan de remediation non trouve.")
     return plan
 
 
-def _get_action_or_404(db: Session, action_id: int) -> RemediationAction:
+def _get_action_or_404(db: Session, action_id: int, current_user: User | None) -> RemediationAction:
+    # Cloisonnement : l'action passe par son plan → producteur → coopérative.
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     action = db.query(RemediationAction).filter(RemediationAction.id == action_id).first()
+    if action is not None:
+        plan = db.query(RemediationPlan).filter(RemediationPlan.id == action.remediation_plan_id).first()
+        if not plan or plan.producer_id not in pids:
+            action = None
     if not action:
         raise HTTPException(status_code=404, detail="Action de remediation non trouvee.")
     return action
@@ -193,7 +202,7 @@ def approve_plan(
     de l'approbateur, et un superviseur designe.
     """
     require_role(current_user, {"admin", "agronomist"})
-    plan = _get_plan_or_404(db, plan_id)
+    plan = _get_plan_or_404(db, plan_id, current_user)
 
     if plan.status not in _APPROVAL_FROM:
         raise HTTPException(
@@ -248,7 +257,7 @@ def complete_plan(
     forcer l'execution avant de declarer le plan complete.
     """
     require_role(current_user, {"admin", "agronomist"})
-    plan = _get_plan_or_404(db, plan_id)
+    plan = _get_plan_or_404(db, plan_id, current_user)
 
     if plan.status not in _COMPLETION_FROM:
         raise HTTPException(
@@ -315,7 +324,7 @@ def escalate_plan(
 ):
     """Escalade vers un superviseur. Aggrave l'alerte associee a URGENT/ESCALATED."""
     require_role(current_user, {"admin", "agronomist"})
-    plan = _get_plan_or_404(db, plan_id)
+    plan = _get_plan_or_404(db, plan_id, current_user)
 
     if plan.status not in _ESCALATION_FROM:
         raise HTTPException(
@@ -396,7 +405,7 @@ def list_plan_actions(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
-    plan = _get_plan_or_404(db, plan_id)
+    plan = _get_plan_or_404(db, plan_id, current_user)
     return [_action_to_dict(a) for a in plan.actions]
 
 
@@ -408,7 +417,7 @@ def add_plan_action(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    plan = _get_plan_or_404(db, plan_id)
+    plan = _get_plan_or_404(db, plan_id, current_user)
 
     if plan.status in _FINAL_PLAN_STATUSES:
         raise HTTPException(
@@ -441,7 +450,7 @@ def get_action(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
-    return _action_to_dict(_get_action_or_404(db, action_id))
+    return _action_to_dict(_get_action_or_404(db, action_id, current_user))
 
 
 @router.put("/remediation/actions/{action_id:int}")
@@ -452,7 +461,7 @@ def update_action(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    action = _get_action_or_404(db, action_id)
+    action = _get_action_or_404(db, action_id, current_user)
 
     if action.status == ActionStatus.COMPLETED:
         raise HTTPException(
@@ -479,7 +488,7 @@ def delete_action(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    action = _get_action_or_404(db, action_id)
+    action = _get_action_or_404(db, action_id, current_user)
 
     if action.status != ActionStatus.PENDING:
         raise HTTPException(
@@ -501,7 +510,7 @@ def complete_action(
 ):
     """Cloture d'une action avec preuves obligatoires (audit EUDR)."""
     require_role(current_user, {"admin", "agronomist", "technician"})
-    action = _get_action_or_404(db, action_id)
+    action = _get_action_or_404(db, action_id, current_user)
 
     if action.status == ActionStatus.COMPLETED:
         raise HTTPException(status_code=409, detail="Action deja completee.")

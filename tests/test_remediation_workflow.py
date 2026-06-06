@@ -440,3 +440,32 @@ def test_technician_can_complete_action(client):
         headers=ctx["tech"],
     )
     assert r.status_code == 200
+
+
+def test_remediation_plan_is_cooperative_scoped(client):
+    """Cloisonnement : une coop ne peut ni voir ni agir sur le plan d'une autre coop."""
+    ctx = _seed_full(client)  # plan dans 'Coop Workflow'
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Coop Etrangere", country="CI")
+        intruder = User(email="intrus.wf@test.ci", password_hash="x", role="admin", cooperative=other)
+        db.add_all([other, intruder])
+        db.commit()
+        hdr = _auth(intruder)
+    finally:
+        db.close()
+
+    pid = ctx["plan_id"]
+    # L'admin d'une autre coop ne voit pas le plan ni ses actions.
+    assert client.get(f"/remediation/plans/{pid}/actions", headers=hdr).status_code == 404
+    assert client.post(
+        f"/remediation/plans/{pid}/escalate",
+        json={"reason": "tentative d intrusion inter-coop"},
+        headers=hdr,
+    ).status_code == 404
+    _make_plan_draft(pid)
+    assert client.post(
+        f"/remediation/plans/{pid}/approve",
+        json={"approval_comments": "tentative d intrusion inter-coop"},
+        headers=hdr,
+    ).status_code == 404

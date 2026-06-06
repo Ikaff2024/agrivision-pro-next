@@ -145,7 +145,7 @@ def test_list_assessments_filters_by_producer(client):
         "overall_risk_score": 75,
         "overall_risk_level": "high",
         "risk_factors": {"work": 30},
-    })
+    }, headers=ctx["admin"])
 
     r = client.get(f"/producers/{ctx['p1']}/assessments", headers=ctx["admin"])
     assert r.status_code == 200
@@ -252,3 +252,29 @@ def test_calculate_risk_role_gating(client):
         db.close()
     r = client.post(f"/producers/{ctx['p1']}/calculate-risk", headers=viewer_auth)
     assert r.status_code == 403
+
+
+def test_producer_drilldown_is_cooperative_scoped(client):
+    """Cloisonnement : l'admin d'une autre coop ne voit ni le producteur ni ses données."""
+    ctx = _seed(client)  # p1 dans 'Coop DD'
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Coop DD Etrangere", country="CI")
+        intruder = User(email="intrus.dd@test.ci", password_hash="x", role="admin", cooperative=other)
+        db.add_all([other, intruder])
+        db.commit()
+        hdr = _auth(intruder)
+    finally:
+        db.close()
+
+    p1 = ctx["p1"]
+    for path in (
+        f"/producers/{p1}",
+        f"/producers/{p1}/children",
+        f"/producers/{p1}/assessments",
+        f"/producers/{p1}/remediation-plans",
+        f"/producers/{p1}/complaints",
+    ):
+        assert client.get(path, headers=hdr).status_code == 404, path
+    # La liste des producteurs de l'intrus est vide.
+    assert client.get("/producers", headers=hdr).json() == []

@@ -15,7 +15,7 @@ from typing import Optional, Set
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Producer
+from app.db.models import Producer, User
 from app.db.models_social import (
     Alert,
     Child,
@@ -81,4 +81,30 @@ def coop_alert_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
             Alert.source_id.in_(list(source_ids)),
         ).all()
         result.update(i for (i,) in rows)
+    return result
+
+
+def coop_complaint_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
+    """IDs des signalements (Complaint) appartenant à la coopérative.
+
+    Un signalement est rattaché à une coop s'il vise un producteur/enfant de
+    la coop, OU s'il a été créé par un utilisateur de la coop. Les signalements
+    anonymes non rattachés (aucun producteur/enfant, aucun auteur) ne sont
+    visibles d'aucune coopérative (fail-closed).
+    """
+    if coop_id is None:
+        return set()
+    pids = coop_producer_ids(db, coop_id)
+    pid_list = list(pids)
+    result: Set[int] = set()
+
+    if pid_list:
+        result |= {i for (i,) in db.query(Complaint.id).filter(Complaint.producer_id.in_(pid_list)).all()}
+        child_ids = [i for (i,) in db.query(Child.id).filter(Child.producer_id.in_(pid_list)).all()]
+        if child_ids:
+            result |= {i for (i,) in db.query(Complaint.id).filter(Complaint.child_id.in_(child_ids)).all()}
+
+    user_ids = [i for (i,) in db.query(User.id).filter(User.cooperative_id == coop_id).all()]
+    if user_ids:
+        result |= {i for (i,) in db.query(Complaint.id).filter(Complaint.created_by.in_(user_ids)).all()}
     return result

@@ -37,6 +37,7 @@ from app.api.cacaoguard_ops_routes import (
     record_privacy_access,
     require_role,
 )
+from app.services.social_scope import coop_complaint_ids
 
 router = APIRouter(prefix="/complaints", tags=["CacaoGuard - signalements"])
 
@@ -225,6 +226,11 @@ def create_complaint(
     le contenu en retour cote client public.
     """
     _validate_links(db, payload.producer_id, payload.child_id)
+    # Cloisonnement : un utilisateur authentifié ne peut lier qu'un producteur de sa coop.
+    if current_user is not None and payload.producer_id is not None and current_user.cooperative_id is not None:
+        prod = db.query(Producer).filter(Producer.id == payload.producer_id).first()
+        if prod and prod.cooperative_id != current_user.cooperative_id:
+            raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
     reference = _next_reference(db)
     complaint = Complaint(
@@ -285,7 +291,9 @@ def list_complaints(
 ):
     require_role(current_user, {"admin", "agronomist"})
 
-    query = db.query(Complaint)
+    # Cloisonnement : seulement les signalements rattachés à la coopérative.
+    allowed = coop_complaint_ids(db, current_user.cooperative_id if current_user else None)
+    query = db.query(Complaint).filter(Complaint.id.in_(allowed if allowed else [-1]))
     if status:
         query = query.filter(Complaint.status == status)
     if severity:
@@ -327,8 +335,9 @@ def get_complaint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
+    allowed = coop_complaint_ids(db, current_user.cooperative_id if current_user else None)
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
-    if not complaint:
+    if not complaint or complaint.id not in allowed:
         raise HTTPException(status_code=404, detail="Signalement non trouve.")
 
     redact = (
@@ -358,8 +367,9 @@ def update_complaint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
+    allowed = coop_complaint_ids(db, current_user.cooperative_id if current_user else None)
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
-    if not complaint:
+    if not complaint or complaint.id not in allowed:
         raise HTTPException(status_code=404, detail="Signalement non trouve.")
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -406,8 +416,9 @@ def escalate_complaint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
+    allowed = coop_complaint_ids(db, current_user.cooperative_id if current_user else None)
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
-    if not complaint:
+    if not complaint or complaint.id not in allowed:
         raise HTTPException(status_code=404, detail="Signalement non trouve.")
 
     complaint.status = ComplaintStatus.ESCALATED

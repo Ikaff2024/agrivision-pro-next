@@ -42,6 +42,7 @@ from app.db.models_social import (
 )
 from app.db.models import Harvest, Plantation
 from app.services.reports import cacaoguard_report_filename, generate_cacaoguard_pdf
+from app.services.social_scope import coop_alert_ids, coop_producer_ids
 
 router = APIRouter(tags=["CacaoGuard - operations terrain"])
 optional_bearer = HTTPBearer(auto_error=False)
@@ -69,6 +70,22 @@ def require_role(user: User | None, allowed: set[str]) -> None:
 
 def can_view_sensitive(user: User | None) -> bool:
     return user is None or user.role in {"admin", "agronomist"}
+
+
+def _coop_id_of(user: User | None) -> Optional[int]:
+    return user.cooperative_id if user else None
+
+
+def _in_coop_producers(db: Session, current_user: User | None, producer_id: Optional[int]) -> bool:
+    """Cloisonnement : producer_id appartient-il à la coop de l'utilisateur ?
+
+    Cohérent avec build_due_diligence_report : coop None ⇒ pas de scoping
+    (accès anonyme/interne), coop définie ⇒ filtrage strict.
+    """
+    coop_id = _coop_id_of(current_user)
+    if coop_id is None:
+        return True
+    return producer_id in coop_producer_ids(db, coop_id)
 
 
 def record_privacy_access(
@@ -386,9 +403,13 @@ def training_to_dict(session: TrainingSession) -> dict:
     }
 
 
-def detect_cacaoguard_inconsistencies(db: Session) -> list[dict]:
+def detect_cacaoguard_inconsistencies(db: Session, cooperative_id: int | None = None) -> list[dict]:
     findings: list[dict] = []
-    children = db.query(Child).filter(Child.is_active == True).all()
+    child_q = db.query(Child).filter(Child.is_active == True)
+    psub = _coop_producer_subq(db, cooperative_id)
+    if psub is not None:
+        child_q = child_q.filter(Child.producer_id.in_(psub))
+    children = child_q.all()
     for child in children:
         latest_visit = db.query(MonitoringVisit).filter(
             MonitoringVisit.producer_id == child.producer_id,
@@ -632,6 +653,9 @@ def list_visits(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     query = db.query(MonitoringVisit)
+    psub = _coop_producer_subq(db, _coop_id_of(current_user))
+    if psub is not None:
+        query = query.filter(MonitoringVisit.producer_id.in_(psub))
     if status:
         query = query.filter(MonitoringVisit.status == status)
     return [
@@ -834,6 +858,10 @@ def list_operational_alerts(
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
     query = db.query(Alert)
+    coop_id = _coop_id_of(current_user)
+    if coop_id is not None:
+        allowed = coop_alert_ids(db, coop_id)
+        query = query.filter(Alert.id.in_(allowed if allowed else [-1]))
     if unresolved_only:
         query = query.filter(Alert.status != AlertStatus.RESOLVED)
     if source_entity:
@@ -851,6 +879,10 @@ def list_privacy_access_logs(
 ):
     require_role(current_user, {"admin", "agronomist"})
     query = db.query(PrivacyAccessLog)
+    coop_id = _coop_id_of(current_user)
+    if coop_id is not None:
+        coop_user_ids = [i for (i,) in db.query(User.id).filter(User.cooperative_id == coop_id).all()]
+        query = query.filter(PrivacyAccessLog.user_id.in_(coop_user_ids if coop_user_ids else [-1]))
     if source_entity:
         query = query.filter(PrivacyAccessLog.source_entity == source_entity)
     logs = query.order_by(PrivacyAccessLog.created_at.desc()).limit(limit).all()
@@ -864,7 +896,7 @@ def list_ai_inconsistencies(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    findings = detect_cacaoguard_inconsistencies(db)
+    findings = detect_cacaoguard_inconsistencies(db, _coop_id_of(current_user))
     if create_alerts:
         ensure_inconsistency_alerts(db, findings)
         db.commit()
@@ -894,7 +926,7 @@ def create_visit(
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
     producer = db.query(Producer).filter(Producer.id == data.producer_id).first()
-    if not producer:
+    if not producer or not _in_coop_producers(db, current_user, producer.id):
         raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
     assessor_id = data.lead_assessor_id or _first_user_id(db)
@@ -943,7 +975,7 @@ def complete_visit(
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
     visit = db.query(MonitoringVisit).filter(MonitoringVisit.id == visit_id).first()
-    if not visit:
+    if not visit or not _in_coop_producers(db, current_user, visit.producer_id):
         raise HTTPException(status_code=404, detail="Visite non trouvee.")
 
     visit.actual_date = data.actual_date
@@ -995,6 +1027,9 @@ def list_plans(
 ):
     require_role(current_user, {"admin", "agronomist"})
     query = db.query(RemediationPlan)
+    psub = _coop_producer_subq(db, _coop_id_of(current_user))
+    if psub is not None:
+        query = query.filter(RemediationPlan.producer_id.in_(psub))
     if status:
         query = query.filter(RemediationPlan.status == status)
     return [plan_to_dict(p) for p in query.order_by(RemediationPlan.created_at.desc()).limit(limit).all()]
@@ -1008,7 +1043,7 @@ def create_plan(
 ):
     require_role(current_user, {"admin", "agronomist"})
     child = db.query(Child).filter(Child.id == data.child_id, Child.is_active == True).first()
-    if not child:
+    if not child or not _in_coop_producers(db, current_user, child.producer_id):
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
 
     case_worker_id = data.case_worker_id or _first_user_id(db)
@@ -1062,7 +1097,7 @@ def add_plan_progress(
 ):
     require_role(current_user, {"admin", "agronomist"})
     plan = db.query(RemediationPlan).filter(RemediationPlan.id == plan_id).first()
-    if not plan:
+    if not plan or not _in_coop_producers(db, current_user, plan.producer_id):
         raise HTTPException(status_code=404, detail="Plan de remediation non trouve.")
 
     progress = list(plan.monthly_progress or [])
@@ -1093,6 +1128,9 @@ def list_training_sessions(
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
     query = db.query(TrainingSession)
+    coop_id = _coop_id_of(current_user)
+    if coop_id is not None:
+        query = query.filter(TrainingSession.cooperative_id == coop_id)
     if status:
         query = query.filter(TrainingSession.status == status)
     return [
@@ -1114,7 +1152,7 @@ def create_training_session(
         raise HTTPException(status_code=404, detail="Formateur non trouve.")
 
     session = TrainingSession(
-        cooperative_id=trainer.cooperative_id,
+        cooperative_id=_coop_id_of(current_user) or trainer.cooperative_id,
         title=data.title,
         description=data.description,
         training_type=data.training_type,
@@ -1146,7 +1184,8 @@ def update_training_attendance(
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
     session = db.query(TrainingSession).filter(TrainingSession.id == session_id).first()
-    if not session:
+    coop_id = _coop_id_of(current_user)
+    if not session or (coop_id is not None and session.cooperative_id != coop_id):
         raise HTTPException(status_code=404, detail="Session de formation non trouvee.")
 
     participants = []
@@ -1180,14 +1219,19 @@ def get_traceability_compliance(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    active_blocks = db.query(TraceabilityBlock).filter(
-        TraceabilityBlock.status == BlockStatus.ACTIVE,
-    ).order_by(TraceabilityBlock.created_at.desc()).all()
+    psub = _coop_producer_subq(db, _coop_id_of(current_user))
+    block_q = db.query(TraceabilityBlock).filter(TraceabilityBlock.status == BlockStatus.ACTIVE)
+    if psub is not None:
+        block_q = block_q.filter(TraceabilityBlock.producer_id.in_(psub))
+    active_blocks = block_q.order_by(TraceabilityBlock.created_at.desc()).all()
 
-    risky_children = db.query(Child).filter(
+    child_q = db.query(Child).filter(
         Child.is_active == True,
         Child.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL]),
-    ).all()
+    )
+    if psub is not None:
+        child_q = child_q.filter(Child.producer_id.in_(psub))
+    risky_children = child_q.all()
     blocked_producer_ids = {block.producer_id for block in active_blocks}
     producers_to_review = []
     for child in risky_children:
@@ -1233,7 +1277,7 @@ def create_traceability_block(
 ):
     require_role(current_user, {"admin", "agronomist"})
     producer = db.query(Producer).filter(Producer.id == data.producer_id).first()
-    if not producer:
+    if not producer or not _in_coop_producers(db, current_user, producer.id):
         raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
     existing = db.query(TraceabilityBlock).filter(
@@ -1270,7 +1314,7 @@ def resolve_traceability_block(
 ):
     require_role(current_user, {"admin", "agronomist"})
     block = db.query(TraceabilityBlock).filter(TraceabilityBlock.id == block_id).first()
-    if not block:
+    if not block or not _in_coop_producers(db, current_user, block.producer_id):
         raise HTTPException(status_code=404, detail="Blocage non trouve.")
 
     block.status = BlockStatus.RESOLVED

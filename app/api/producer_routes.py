@@ -83,11 +83,19 @@ def list_producers(
 
 
 @router.get("/producers/{producer_id:int}", response_model=ProducerResponse)
-def get_producer(producer_id: int, db: Session = Depends(get_db)):
+def get_producer(
+    producer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
     producer = db.query(Producer).filter(
         Producer.id == producer_id,
         Producer.is_active == True,
     ).first()
+    # Cloisonnement : producteur d'une autre coopérative invisible.
+    if (producer and current_user is not None and current_user.cooperative_id is not None
+            and producer.cooperative_id != current_user.cooperative_id):
+        producer = None
     if not producer:
         raise HTTPException(status_code=404, detail="Producteur introuvable.")
     return producer
@@ -97,8 +105,12 @@ def get_producer(producer_id: int, db: Session = Depends(get_db)):
 # Drill-down CacaoGuard
 # ----------------------------------------------------------------------------
 
-def _get_producer_or_404(db: Session, producer_id: int) -> Producer:
+def _get_producer_or_404(db: Session, producer_id: int, current_user: User | None = None) -> Producer:
     producer = db.query(Producer).filter(Producer.id == producer_id).first()
+    # Cloisonnement : un producteur d'une autre coopérative est invisible (404).
+    if (producer and current_user is not None and current_user.cooperative_id is not None
+            and producer.cooperative_id != current_user.cooperative_id):
+        producer = None
     if not producer:
         raise HTTPException(status_code=404, detail="Producteur introuvable.")
     return producer
@@ -135,7 +147,7 @@ def list_producer_children(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    producer = _get_producer_or_404(db, producer_id)
+    producer = _get_producer_or_404(db, producer_id, current_user)
     query = db.query(Child).filter(Child.producer_id == producer_id)
     if not include_inactive:
         query = query.filter(Child.is_active == True)
@@ -162,7 +174,7 @@ def list_producer_assessments(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    _get_producer_or_404(db, producer_id)
+    _get_producer_or_404(db, producer_id, current_user)
     require_role(current_user, {"admin", "agronomist", "technician"})
 
     items = (
@@ -203,7 +215,7 @@ def list_producer_visits(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    _get_producer_or_404(db, producer_id)
+    _get_producer_or_404(db, producer_id, current_user)
     visits = (
         db.query(MonitoringVisit)
         .filter(MonitoringVisit.producer_id == producer_id)
@@ -231,7 +243,7 @@ def list_producer_remediation_plans(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    _get_producer_or_404(db, producer_id)
+    _get_producer_or_404(db, producer_id, current_user)
     require_role(current_user, {"admin", "agronomist"})
 
     plans = (
@@ -258,7 +270,7 @@ def list_producer_complaints(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    _get_producer_or_404(db, producer_id)
+    _get_producer_or_404(db, producer_id, current_user)
     require_role(current_user, {"admin", "agronomist"})
 
     items = (
@@ -301,7 +313,7 @@ def get_producer_traceability_status(
     Retourne {is_blocked, active_blocks, resolved_blocks_count, last_resolution}.
     Utile pour la pipeline export (passe/bloque avant expedition).
     """
-    _get_producer_or_404(db, producer_id)
+    _get_producer_or_404(db, producer_id, current_user)
 
     active = (
         db.query(TraceabilityBlock)
@@ -380,7 +392,7 @@ def calculate_producer_risk(
     indicateurs cles pour la dashboard producteur.
     """
     require_role(current_user, {"admin", "agronomist", "technician"})
-    producer = _get_producer_or_404(db, producer_id)
+    producer = _get_producer_or_404(db, producer_id, current_user)
 
     children = db.query(Child).filter(
         Child.producer_id == producer_id,

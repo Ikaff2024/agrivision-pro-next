@@ -43,8 +43,20 @@ from app.api.cacaoguard_ops_routes import (
     record_privacy_access,
     require_role,
 )
+from app.services.social_scope import coop_alert_ids, coop_producer_ids
 
 router = APIRouter(prefix="/cacaoguard/reports", tags=["CacaoGuard - audit trail"])
+
+
+def _coop_id_of(user: User | None) -> Optional[int]:
+    return user.cooperative_id if user else None
+
+
+def _pid_list(db: Session, coop_id: Optional[int]):
+    """None ⇒ pas de scoping (global, ex. anonyme) ; sinon producer_ids de la coop (ou [-1])."""
+    if coop_id is None:
+        return None
+    return list(coop_producer_ids(db, coop_id)) or [-1]
 
 
 CATEGORY_BY_ENTITY = {
@@ -98,8 +110,12 @@ def _collect_privacy_logs(
     to_dt: Optional[datetime],
     user_id: Optional[int],
     entity_type: Optional[str],
+    coop_id: Optional[int],
 ) -> List[dict]:
     query = db.query(PrivacyAccessLog)
+    if coop_id is not None:
+        coop_user_ids = [i for (i,) in db.query(User.id).filter(User.cooperative_id == coop_id).all()]
+        query = query.filter(PrivacyAccessLog.user_id.in_(coop_user_ids if coop_user_ids else [-1]))
     if from_dt:
         query = query.filter(PrivacyAccessLog.created_at >= from_dt)
     if to_dt:
@@ -135,10 +151,15 @@ def _collect_remediation_plan_events(
     from_dt: Optional[datetime],
     to_dt: Optional[datetime],
     entity_type: Optional[str],
+    coop_id: Optional[int],
 ) -> List[dict]:
     if entity_type and entity_type != "remediation_plans":
         return []
-    plans = db.query(RemediationPlan).all()
+    pids = _pid_list(db, coop_id)
+    plan_q = db.query(RemediationPlan)
+    if pids is not None:
+        plan_q = plan_q.filter(RemediationPlan.producer_id.in_(pids))
+    plans = plan_q.all()
     out: List[dict] = []
     for plan in plans:
         # Creation
@@ -199,10 +220,15 @@ def _collect_alert_events(
     from_dt: Optional[datetime],
     to_dt: Optional[datetime],
     entity_type: Optional[str],
+    coop_id: Optional[int],
 ) -> List[dict]:
     if entity_type and entity_type != "alerts":
         return []
-    alerts = db.query(Alert).all()
+    alert_q = db.query(Alert)
+    if coop_id is not None:
+        allowed = coop_alert_ids(db, coop_id)
+        alert_q = alert_q.filter(Alert.id.in_(allowed if allowed else [-1]))
+    alerts = alert_q.all()
     out: List[dict] = []
     for alert in alerts:
         if alert.created_at:
@@ -253,10 +279,15 @@ def _collect_block_events(
     from_dt: Optional[datetime],
     to_dt: Optional[datetime],
     entity_type: Optional[str],
+    coop_id: Optional[int],
 ) -> List[dict]:
     if entity_type and entity_type != "traceability_blocks":
         return []
-    blocks = db.query(TraceabilityBlock).all()
+    pids = _pid_list(db, coop_id)
+    block_q = db.query(TraceabilityBlock)
+    if pids is not None:
+        block_q = block_q.filter(TraceabilityBlock.producer_id.in_(pids))
+    blocks = block_q.all()
     out: List[dict] = []
     for block in blocks:
         if block.created_at:
@@ -296,10 +327,15 @@ def _collect_child_events(
     from_dt: Optional[datetime],
     to_dt: Optional[datetime],
     entity_type: Optional[str],
+    coop_id: Optional[int],
 ) -> List[dict]:
     if entity_type and entity_type != "children":
         return []
-    children = db.query(Child).all()
+    pids = _pid_list(db, coop_id)
+    child_q = db.query(Child)
+    if pids is not None:
+        child_q = child_q.filter(Child.producer_id.in_(pids))
+    children = child_q.all()
     out: List[dict] = []
     for child in children:
         if child.created_at:
@@ -373,6 +409,7 @@ def get_audit_trail(
     Trace l'acces dans PrivacyAccessLog.
     """
     require_role(current_user, {"admin", "agronomist"})
+    coop_id = _coop_id_of(current_user)
 
     if from_date and to_date and from_date > to_date:
         raise HTTPException(status_code=400, detail="from_date doit etre <= to_date.")
@@ -382,19 +419,19 @@ def get_audit_trail(
 
     events: List[dict] = []
     events.extend(_collect_privacy_logs(
-        db, from_dt=from_dt, to_dt=to_dt, user_id=user_id, entity_type=entity_type,
+        db, from_dt=from_dt, to_dt=to_dt, user_id=user_id, entity_type=entity_type, coop_id=coop_id,
     ))
     events.extend(_collect_remediation_plan_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type, coop_id=coop_id,
     ))
     events.extend(_collect_alert_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type, coop_id=coop_id,
     ))
     events.extend(_collect_block_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type, coop_id=coop_id,
     ))
     events.extend(_collect_child_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=entity_type, coop_id=coop_id,
     ))
 
     if category:
@@ -449,25 +486,26 @@ def get_audit_trail_summary(
 ):
     """KPIs agreges pour les rapports superviseur."""
     require_role(current_user, {"admin", "agronomist"})
+    coop_id = _coop_id_of(current_user)
 
     from_dt = _to_dt(from_date)
     to_dt = _to_dt(to_date, end_of_day=True)
 
     all_events: List[dict] = []
     all_events.extend(_collect_privacy_logs(
-        db, from_dt=from_dt, to_dt=to_dt, user_id=None, entity_type=None,
+        db, from_dt=from_dt, to_dt=to_dt, user_id=None, entity_type=None, coop_id=coop_id,
     ))
     all_events.extend(_collect_remediation_plan_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=None,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=None, coop_id=coop_id,
     ))
     all_events.extend(_collect_alert_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=None,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=None, coop_id=coop_id,
     ))
     all_events.extend(_collect_block_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=None,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=None, coop_id=coop_id,
     ))
     all_events.extend(_collect_child_events(
-        db, from_dt=from_dt, to_dt=to_dt, entity_type=None,
+        db, from_dt=from_dt, to_dt=to_dt, entity_type=None, coop_id=coop_id,
     ))
 
     by_category: dict = {}

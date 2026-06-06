@@ -28,6 +28,7 @@ from app.db.models_social import (
 SCORING_METHODOLOGY_VERSION = "2.0"
 from app.api.cacaoguard_ops_routes import ensure_remediation_plan_for_child
 from app.api.cacaoguard_ops_routes import record_privacy_access
+from app.services.social_scope import coop_alert_ids, coop_producer_ids
 
 router = APIRouter(prefix="/children", tags=["CacaoGuard - protection enfant"])
 optional_bearer = HTTPBearer(auto_error=False)
@@ -395,7 +396,12 @@ def list_children(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    query = db.query(Child).filter(Child.is_active == True)
+    # Cloisonnement : uniquement les enfants des producteurs de la coopérative.
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
+    query = db.query(Child).filter(
+        Child.is_active == True,
+        Child.producer_id.in_(pids if pids else [-1]),
+    )
 
     if risk_level:
         query = query.filter(Child.risk_level == risk_level)
@@ -438,17 +444,29 @@ def list_alerts(
     unresolved_only: bool = True,
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    query = db.query(Alert).filter(Alert.source_entity == "children")
+    # Cloisonnement : uniquement les alertes rattachées à la coopérative.
+    allowed = coop_alert_ids(db, current_user.cooperative_id if current_user else None)
+    query = db.query(Alert).filter(
+        Alert.source_entity == "children",
+        Alert.id.in_(allowed if allowed else [-1]),
+    )
     if unresolved_only:
         query = query.filter(Alert.status != AlertStatus.RESOLVED)
     return [_alert_to_response(alert) for alert in query.order_by(Alert.created_at.desc()).limit(limit).all()]
 
 
 @router.post("/alerts/{alert_id:int}/resolve", status_code=200)
-def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
+def resolve_alert(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    # Cloisonnement : on ne peut résoudre qu'une alerte de sa coopérative.
+    allowed = coop_alert_ids(db, current_user.cooperative_id if current_user else None)
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
-    if not alert:
+    if not alert or alert.id not in allowed:
         raise HTTPException(status_code=404, detail="Alerte non trouvee.")
 
     alert.status = AlertStatus.RESOLVED
@@ -458,12 +476,19 @@ def resolve_alert(alert_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/stats/summary")
-def get_summary_stats(db: Session = Depends(get_db)):
-    total = db.query(Child).filter(Child.is_active == True).count()
+def get_summary_stats(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    # Cloisonnement : statistiques bornées à la coopérative de l'utilisateur.
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
+    pid_f = Child.producer_id.in_(pids if pids else [-1])
+    total = db.query(Child).filter(Child.is_active == True, pid_f).count()
     by_risk = {}
     for level in RiskLevel:
         count = db.query(Child).filter(
             Child.is_active == True,
+            pid_f,
             Child.risk_level == level,
         ).count()
         if count:
@@ -471,15 +496,19 @@ def get_summary_stats(db: Session = Depends(get_db)):
 
     enrolled = db.query(Child).filter(
         Child.is_active == True,
+        pid_f,
         Child.school_status == SchoolStatus.ENROLLED,
     ).count()
     working = db.query(Child).filter(
         Child.is_active == True,
+        pid_f,
         Child.is_working_on_farm == True,
     ).count()
+    allowed = coop_alert_ids(db, current_user.cooperative_id if current_user else None)
     active_alerts = db.query(Alert).filter(
         Alert.source_entity == "children",
         Alert.status != AlertStatus.RESOLVED,
+        Alert.id.in_(allowed if allowed else [-1]),
     ).count()
 
     return {
@@ -498,7 +527,9 @@ def get_child(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     child = db.query(Child).filter(Child.id == child_id, Child.is_active == True).first()
-    if not child:
+    # Cloisonnement : l'enfant doit appartenir à un producteur de la coopérative.
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
+    if not child or child.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
     include_sensitive = can_view_sensitive(current_user)
     response = _child_response(child, include_sensitive)
@@ -522,8 +553,10 @@ def create_child(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
+    # Cloisonnement : interdit de créer un enfant sous le producteur d'une autre coop.
+    coop_id = current_user.cooperative_id if current_user else None
     producer = db.query(Producer).filter(Producer.id == child_data.producer_id).first()
-    if not producer:
+    if not producer or (coop_id is not None and producer.cooperative_id != coop_id):
         raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
     score, factors = calculate_risk_score(
@@ -569,7 +602,8 @@ def update_child(
 ):
     require_role(current_user, {"admin", "agronomist"})
     child = db.query(Child).filter(Child.id == child_id, Child.is_active == True).first()
-    if not child:
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
+    if not child or child.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
 
     update_data = child_data.model_dump(exclude_unset=True)
@@ -626,7 +660,8 @@ def delete_child(
 ):
     require_role(current_user, {"admin"})
     child = db.query(Child).filter(Child.id == child_id).first()
-    if not child:
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
+    if not child or child.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
 
     child.is_active = False
@@ -641,8 +676,9 @@ def create_assessment(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist", "technician"})
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     child = db.query(Child).filter(Child.id == data.child_id, Child.is_active == True).first()
-    if not child:
+    if not child or child.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
 
     assessor_id = data.assessor_id
@@ -697,8 +733,9 @@ def recompute_child_risk(
     sans declencher d'alerte ou de plan de remediation.
     """
     require_role(current_user, {"admin", "agronomist", "technician"})
+    pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     child = db.query(Child).filter(Child.id == child_id, Child.is_active == True).first()
-    if not child:
+    if not child or child.producer_id not in pids:
         raise HTTPException(status_code=404, detail="Enfant non trouve.")
 
     snapshot = ChildCreate(

@@ -210,7 +210,7 @@ def test_agronomist_can_list_complaints(client):
         "complaint_type": "child_labor",
         "severity": "medium",
         "description": "Cas a investiguer.",
-    })
+    }, headers=ctx["admin"])
     r = client.get("/complaints", headers=ctx["agronomist"])
     assert r.status_code == 200
     assert len(r.json()) == 1
@@ -225,7 +225,7 @@ def test_anonymous_reporter_redacted_for_non_admin(client):
         "reporter_name": "Madame X",
         "reporter_contact": "0102030405",
         "source": "anonymous",
-    })
+    }, headers=ctx["admin"])
     # Agronomist voit redacte
     r_agro = client.get("/complaints", headers=ctx["agronomist"])
     assert r_agro.json()[0]["reporter_name"] is None
@@ -247,7 +247,7 @@ def test_update_sets_investigation_dates_automatically(client):
         "complaint_type": "child_labor",
         "severity": "medium",
         "description": "Cas a traiter.",
-    }).json()
+    }, headers=ctx["admin"]).json()
 
     # Passage a UNDER_REVIEW : initialise start_date
     r = client.put(f"/complaints/{created['id']}", json={
@@ -273,7 +273,7 @@ def test_update_with_unknown_investigator_returns_404(client):
         "complaint_type": "other",
         "severity": "low",
         "description": "Pour test investigateur inexistant.",
-    }).json()
+    }, headers=ctx["admin"]).json()
 
     r = client.put(f"/complaints/{created['id']}", json={
         "assigned_investigator": 99999,
@@ -291,7 +291,7 @@ def test_escalate_complaint_aggravates_alert(client):
         "complaint_type": "abuse",
         "severity": "high",  # cree deja une alerte
         "description": "Cas a escalader vers autorites.",
-    }).json()
+    }, headers=ctx["admin"]).json()
 
     r = client.post(f"/complaints/{created['id']}/escalate", json={
         "reason": "Refus de cooperation du producteur, suspicion confirmee.",
@@ -320,7 +320,7 @@ def test_escalate_creates_alert_when_none_existed(client):
         "complaint_type": "other",
         "severity": "low",
         "description": "Cas qui devient grave en cours d'investigation.",
-    }).json()
+    }, headers=ctx["admin"]).json()
 
     r = client.post(f"/complaints/{created['id']}/escalate", json={
         "reason": "Nouveaux elements decouverts, escalade obligatoire.",
@@ -347,7 +347,7 @@ def test_each_complaint_action_creates_privacy_log(client):
         "complaint_type": "child_labor",
         "severity": "medium",
         "description": "Cas en cours d'investigation.",
-    }).json()
+    }, headers=ctx["admin"]).json()
     client.get(f"/complaints/{created['id']}", headers=ctx["admin"])
     client.put(f"/complaints/{created['id']}", json={"status": "under_review"}, headers=ctx["admin"])
     client.post(f"/complaints/{created['id']}/escalate", json={"reason": "Cas verifie."}, headers=ctx["admin"])
@@ -366,3 +366,31 @@ def test_each_complaint_action_creates_privacy_log(client):
         assert "escalate_complaint" in actions
     finally:
         db.close()
+
+
+def test_complaints_are_cooperative_scoped(client):
+    """Cloisonnement : une coop ne voit/ne traite pas les signalements d'une autre coop."""
+    ctx = _seed_minimal()  # 'Coop Complaints' + admin
+    created = client.post("/complaints", json={
+        "complaint_type": "child_labor", "severity": "high",
+        "description": "Signalement interne a la coop A.",
+    }, headers=ctx["admin"]).json()
+    cid = created["id"]
+
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Coop Etrangere CMP", country="CI")
+        intruder = User(email="intrus.cmp@test.ci", password_hash="x", role="admin", cooperative=other)
+        db.add_all([other, intruder])
+        db.commit()
+        hdr = _auth(intruder)
+    finally:
+        db.close()
+
+    # L'admin d'une autre coop ne voit ni ne traite le signalement.
+    assert client.get("/complaints", headers=hdr).json() == []
+    assert client.get(f"/complaints/{cid}", headers=hdr).status_code == 404
+    assert client.put(f"/complaints/{cid}", json={"status": "under_review"}, headers=hdr).status_code == 404
+    assert client.post(f"/complaints/{cid}/escalate", json={"reason": "intrusion inter-coop test"}, headers=hdr).status_code == 404
+    # La coop d'origine le voit bien.
+    assert len(client.get("/complaints", headers=ctx["admin"]).json()) == 1

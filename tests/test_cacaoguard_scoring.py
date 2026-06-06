@@ -12,6 +12,7 @@ from decimal import Decimal
 import pytest
 
 from app.db.models import Cooperative, FarmForceAssessment, Producer, User
+from app.auth.auth_service import create_access_token
 from app.db.models_social import (
     AssessmentStatus,
     AssessmentType,
@@ -39,6 +40,18 @@ def _seed_producer(localite: str | None = None) -> tuple[int, int]:
         db.add_all([coop, user, producer])
         db.commit()
         return producer.id, user.id
+    finally:
+        db.close()
+
+
+def _admin_headers(email="score@test.ci"):
+    """En-têtes d'auth de l'admin de 'Coop Scoring' (cloisonnement)."""
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        return {"Authorization": "Bearer " + create_access_token({
+            "sub": user.email, "role": user.role, "coop_id": user.cooperative_id,
+        })}
     finally:
         db.close()
 
@@ -208,10 +221,10 @@ def test_history_risk_increments_with_prior_high_assessments(client):
         "overall_risk_score": 65,
         "overall_risk_level": "high",
         "risk_factors": {"work": 30, "school": 20},
-    })
+    }, headers=_admin_headers())
 
     # Une mise a jour recalcule le score, history doit etre = 3
-    upd = client.put(f"/children/{child_id}", json={"is_working_on_farm": True})
+    upd = client.put(f"/children/{child_id}", json={"is_working_on_farm": True}, headers=_admin_headers())
     assert upd.status_code == 200, upd.text
     assert upd.json()["risk_factors"]["history"] == 3
 
@@ -222,9 +235,9 @@ def test_history_risk_increments_with_prior_high_assessments(client):
         "overall_risk_score": 78,
         "overall_risk_level": "critical",
         "risk_factors": {"work": 35},
-    })
+    }, headers=_admin_headers())
 
-    upd2 = client.put(f"/children/{child_id}", json={"is_working_on_farm": True})
+    upd2 = client.put(f"/children/{child_id}", json={"is_working_on_farm": True}, headers=_admin_headers())
     assert upd2.json()["risk_factors"]["history"] == 5
 
 
@@ -260,7 +273,7 @@ def test_calculate_risk_endpoint_returns_breakdown_without_persisting(client):
     finally:
         db.close()
 
-    sim = client.post(f"/children/{child_id}/calculate-risk")
+    sim = client.post(f"/children/{child_id}/calculate-risk", headers=_admin_headers())
     assert sim.status_code == 200, sim.text
     body = sim.json()
 
@@ -273,7 +286,7 @@ def test_calculate_risk_endpoint_returns_breakdown_without_persisting(client):
     assert body["drift"] > 0
 
     # Verifier que rien n'a ete persiste
-    fresh = client.get(f"/children/{child_id}")
+    fresh = client.get(f"/children/{child_id}", headers=_admin_headers())
     assert fresh.json()["risk_score"] == persisted_score
 
 
@@ -291,7 +304,7 @@ def test_assessment_records_methodology_version(client):
         "overall_risk_score": 50,
         "overall_risk_level": "high",
         "risk_factors": {"work": 30},
-    })
+    }, headers=_admin_headers())
 
     db = TestingSessionLocal()
     try:

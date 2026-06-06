@@ -234,3 +234,24 @@ def test_summary_role_gating(client):
     ctx = _seed(client)
     r = client.get("/cacaoguard/reports/audit-trail/summary", headers=ctx["tech"])
     assert r.status_code == 403
+
+
+def test_audit_trail_is_cooperative_scoped(client):
+    """Cloisonnement : l'admin d'une autre coop ne voit aucun événement de Coop Audit."""
+    _seed(client)  # événements générés dans 'Coop Audit'
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Coop Audit Etr", country="CI")
+        intruder = User(email="intrus.audit@test.ci", password_hash="x", role="admin", cooperative=other)
+        db.add_all([other, intruder])
+        db.commit()
+        hdr = _auth(intruder)
+    finally:
+        db.close()
+
+    # summary d'abord (ne crée pas de log d'accès), puis audit-trail : tous deux vides.
+    summary = client.get("/cacaoguard/reports/audit-trail/summary", headers=hdr).json()
+    assert summary["total_events"] == 0
+    body = client.get("/cacaoguard/reports/audit-trail", headers=hdr).json()
+    assert body["total"] == 0
+    assert body["events"] == []
