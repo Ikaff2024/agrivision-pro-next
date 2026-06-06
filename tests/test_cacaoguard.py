@@ -103,7 +103,7 @@ def test_create_child_scores_risk_and_creates_alert(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete_use", "pesticide_application"],
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 201, response.text
     data = response.json()
@@ -114,12 +114,12 @@ def test_create_child_scores_risk_and_creates_alert(client):
     assert len(alerts) == 1
     assert alerts[0]["source_id"] == data["id"]
 
-    plans = client.get("/remediation/plans").json()
+    plans = client.get("/remediation/plans", headers=_admin_headers()).json()
     assert len(plans) == 1
     assert plans[0]["child_id"] == data["id"]
     assert plans[0]["status"] == "in_progress"
 
-    compliance = client.get("/compliance/traceability").json()
+    compliance = client.get("/compliance/traceability", headers=_admin_headers()).json()
     assert compliance["summary"]["active_blocks"] == 1
     assert compliance["active_blocks"][0]["related_case_id"] == data["id"]
 
@@ -135,7 +135,7 @@ def test_children_static_routes_are_not_captured_by_child_id(client):
         "school_status": "enrolled",
         "is_working_on_farm": False,
         "work_frequency": "never",
-    })
+    }, headers=_admin_headers())
 
     H = _admin_headers()
     stats = client.get("/children/stats/summary", headers=H)
@@ -149,7 +149,7 @@ def test_children_static_routes_are_not_captured_by_child_id(client):
 def test_list_producers_for_cacaoguard_forms(client):
     producer_id, _user_id = _seed_producer_and_user()
 
-    response = client.get("/producers?limit=20")
+    response = client.get("/producers?limit=20", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -162,7 +162,7 @@ def test_list_producers_for_cacaoguard_forms(client):
 def test_get_producer_detail_for_enriched_profile(client):
     producer_id, _user_id = _seed_producer_and_user()
 
-    response = client.get(f"/producers/{producer_id}")
+    response = client.get(f"/producers/{producer_id}", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     assert response.json()["id"] == producer_id
@@ -180,7 +180,7 @@ def test_create_risk_assessment_updates_child_and_dashboard(client):
         "school_status": "enrolled",
         "is_working_on_farm": False,
         "work_frequency": "never",
-    }).json()
+    }, headers=_admin_headers()).json()
 
     response = client.post("/children/assessments", json={
         "child_id": child["id"],
@@ -198,7 +198,7 @@ def test_create_risk_assessment_updates_child_and_dashboard(client):
     assert updated["risk_level"] == "critical"
     assert updated["risk_score"] == 82
 
-    summary = client.get("/cacaoguard/summary")
+    summary = client.get("/cacaoguard/summary", headers=_admin_headers())
     assert summary.status_code == 200, summary.text
     data = summary.json()
     assert data["brand"] == "CacaoGuard"
@@ -232,7 +232,7 @@ def test_monitoring_visit_can_be_planned_and_completed(client):
         "photos": [{"reference": "IMG_TEST_001.jpg", "consent": True}],
         "producer_signature_data": {"signed_by": "Kouassi Test"},
         "assessor_signature_data": {"signed_by": "Agent Test"},
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 201, response.text
     visit = response.json()
@@ -260,7 +260,7 @@ def test_monitoring_visit_can_be_planned_and_completed(client):
         "photos": [{"reference": "IMG_TEST_002.jpg", "consent": True}],
         "producer_signature_data": {"signed_by": "Kouassi Test"},
         "assessor_signature_data": {"signed_by": "Agent Test"},
-    })
+    }, headers=_admin_headers())
 
     assert complete.status_code == 200, complete.text
     assert complete.json()["status"] == "completed"
@@ -280,15 +280,15 @@ def test_remediation_progress_can_be_added(client):
         "is_working_on_farm": True,
         "work_frequency": "regular",
         "dangerous_tasks_performed": ["heavy_load", "machete_use"],
-    }).json()
-    plan = client.get("/remediation/plans").json()[0]
+    }, headers=_admin_headers()).json()
+    plan = client.get("/remediation/plans", headers=_admin_headers()).json()[0]
     assert plan["child_id"] == child["id"]
 
     response = client.post(f"/remediation/plans/{plan['id']}/progress", json={
         "note": "Kit scolaire remis et rendez-vous ecole planifie.",
         "status": "in_progress",
         "resources_provided": {"school_kit": True},
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     updated = response.json()
@@ -332,10 +332,10 @@ def test_traceability_block_lists_impacted_harvests(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete_use", "heavy_load", "pesticide_application"],
-    }).json()
+    }, headers=_admin_headers()).json()
     assert child["risk_level"] == "critical"
 
-    compliance = client.get("/compliance/traceability")
+    compliance = client.get("/compliance/traceability", headers=_admin_headers())
     assert compliance.status_code == 200, compliance.text
     data = compliance.json()
     assert data["summary"]["active_blocks"] == 1
@@ -345,7 +345,7 @@ def test_traceability_block_lists_impacted_harvests(client):
     block_id = data["active_blocks"][0]["id"]
     resolved = client.post(f"/compliance/blocks/{block_id}/resolve", json={
         "resolution_notes": "Cas resolu et preuves validees.",
-    })
+    }, headers=_admin_headers())
     assert resolved.status_code == 200, resolved.text
     assert resolved.json()["status"] == "resolved"
 
@@ -362,7 +362,7 @@ def test_due_diligence_report_summarizes_evidence(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete_use", "heavy_load"],
-    }).json()
+    }, headers=_admin_headers()).json()
     db = TestingSessionLocal()
     try:
         db.add(FarmForceAssessment(
@@ -379,7 +379,7 @@ def test_due_diligence_report_summarizes_evidence(client):
     finally:
         db.close()
 
-    response = client.get("/compliance/report")
+    response = client.get("/compliance/report", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     report = response.json()
@@ -396,7 +396,7 @@ def test_due_diligence_report_summarizes_evidence(client):
     assert report["recent_farmforce_assessments"][0]["profit_cfa"] == -30000
     assert "farmforce_assessments" in report["audit_evidence"]
 
-    summary = client.get("/cacaoguard/summary").json()
+    summary = client.get("/cacaoguard/summary", headers=_admin_headers()).json()
     assert summary["farmforce_assessments"] == 1
     assert summary["farmforce_negative_profit_assessments"] == 1
 
@@ -414,7 +414,7 @@ def test_lightweight_ai_detects_inconsistencies_and_creates_alert(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": [],
-    }).json()
+    }, headers=_admin_headers()).json()
     visit = client.post("/monitoring/visits", json={
         "producer_id": producer_id,
         "scheduled_date": str(date.today()),
@@ -423,16 +423,16 @@ def test_lightweight_ai_detects_inconsistencies_and_creates_alert(client):
         "checklist_data": {"children_observed": True},
         "consent_given": False,
         "photos": [{"reference": "PHOTO_WITHOUT_CONSENT.jpg"}],
-    }).json()
+    }, headers=_admin_headers()).json()
     client.post(f"/monitoring/visits/{visit['id']}/complete", json={
         "actual_date": str(date.today()),
         "checklist_data": {"children_observed": True},
         "dangerous_tasks_observed": ["machete_use"],
         "photos": [{"reference": "PHOTO_WITHOUT_CONSENT.jpg"}],
         "consent_given": False,
-    })
+    }, headers=_admin_headers())
 
-    response = client.get("/ai/inconsistencies?create_alerts=true")
+    response = client.get("/ai/inconsistencies?create_alerts=true", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -442,10 +442,10 @@ def test_lightweight_ai_detects_inconsistencies_and_creates_alert(client):
     assert "photos_without_consent" in codes
     assert any(finding["entity_id"] == child["id"] for finding in data["findings"])
 
-    alerts = client.get("/alerts").json()
+    alerts = client.get("/alerts", headers=_admin_headers()).json()
     assert any(alert["alert_type"] == "audit_failure" for alert in alerts)
 
-    report = client.get("/compliance/report").json()
+    report = client.get("/compliance/report", headers=_admin_headers()).json()
     assert report["indicators"]["ai_inconsistencies"] >= 3
     assert report["indicators"]["ai_critical_inconsistencies"] >= 1
 
@@ -462,9 +462,9 @@ def test_due_diligence_report_pdf_generates_official_file(client, mock_weasyprin
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete_use", "heavy_load"],
-    })
+    }, headers=_admin_headers())
 
-    response = client.get("/compliance/report.pdf")
+    response = client.get("/compliance/report.pdf", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     assert response.headers["content-type"] == "application/pdf"
@@ -486,7 +486,7 @@ def test_training_session_attendance_and_report(client):
         "expected_participants": 25,
         "topics_covered": ["Age minimum", "Taches dangereuses", "Scolarisation"],
         "materials_used": {"quiz": True, "supports": True},
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 201, response.text
     session = response.json()
@@ -505,7 +505,7 @@ def test_training_session_attendance_and_report(client):
         "post_test_scores": {"average": 86},
         "effectiveness_rating": 4.5,
         "status": "completed",
-    })
+    }, headers=_admin_headers())
 
     assert attendance.status_code == 200, attendance.text
     updated = attendance.json()
@@ -513,7 +513,7 @@ def test_training_session_attendance_and_report(client):
     assert updated["actual_participants"] == 1
     assert updated["participants"][0]["signature"] is True
 
-    report = client.get("/compliance/report").json()
+    report = client.get("/compliance/report", headers=_admin_headers()).json()
     assert report["indicators"]["training_sessions_total"] == 1
     assert report["indicators"]["training_sessions_completed"] == 1
     assert report["indicators"]["training_participants"] == 1
@@ -528,7 +528,7 @@ def test_alert_checks_create_and_escalate_overdue_items(client):
         "scheduled_date": str(date.today() - timedelta(days=10)),
         "visit_type": "follow_up",
         "priority": "high",
-    }).json()
+    }, headers=_admin_headers()).json()
     child = client.post("/children", json={
         "producer_id": producer_id,
         "first_name": "Yao",
@@ -539,7 +539,7 @@ def test_alert_checks_create_and_escalate_overdue_items(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete_use", "heavy_load"],
-    }).json()
+    }, headers=_admin_headers()).json()
 
     db = TestingSessionLocal()
     try:
@@ -564,7 +564,7 @@ def test_alert_checks_create_and_escalate_overdue_items(client):
     finally:
         db.close()
 
-    response = client.post("/alerts/run-checks?escalation_after_days=7")
+    response = client.post("/alerts/run-checks?escalation_after_days=7", headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -577,7 +577,7 @@ def test_alert_checks_create_and_escalate_overdue_items(client):
     assert ("remediation_actions", action_id) in sources
     assert ("traceability_blocks", block_id) in sources
 
-    alerts = client.get("/alerts").json()
+    alerts = client.get("/alerts", headers=_admin_headers()).json()
     assert any(alert["status"] == "escalated" for alert in alerts)
 
     db = TestingSessionLocal()
@@ -608,16 +608,16 @@ def test_privacy_access_logs_child_reads_and_report_access(client):
         "school_status": "enrolled",
         "is_working_on_farm": False,
         "work_frequency": "never",
-    }).json()
+    }, headers=_admin_headers()).json()
 
     child_response = client.get(f"/children/{child['id']}", headers=_admin_headers())
     assert child_response.status_code == 200
 
-    report_response = client.get("/compliance/report")
+    report_response = client.get("/compliance/report", headers=_admin_headers())
     assert report_response.status_code == 200
     assert "privacy_access_logs" in report_response.json()["indicators"]
 
-    logs = client.get("/privacy/access-logs").json()
+    logs = client.get("/privacy/access-logs", headers=_admin_headers()).json()
     actions = {log["action"] for log in logs}
     assert "view_child" in actions
     assert "view_due_diligence_report" in actions
@@ -639,14 +639,14 @@ def test_privacy_logs_capture_redacted_technician_access(client):
         "school_name": "Ecole Test",
         "is_working_on_farm": True,
         "work_frequency": "regular",
-    })
+    }, headers=_admin_headers())
     technician_headers = _seed_user(role="technician", email="tech.privacy@test.ci", coop_name="Coop CacaoGuard")
 
     children = client.get("/children", headers=technician_headers)
     assert children.status_code == 200
     assert children.json()[0]["privacy_redacted"] is True
 
-    logs = client.get("/privacy/access-logs").json()
+    logs = client.get("/privacy/access-logs", headers=_admin_headers()).json()
     redacted_log = next(log for log in logs if log["action"] == "list_children")
     assert redacted_log["user_role"] == "technician"
     assert redacted_log["redacted"] is True
@@ -675,7 +675,7 @@ def test_technician_gets_redacted_child_data_and_no_report_access(client):
         "is_working_on_farm": True,
         "work_frequency": "regular",
         "dangerous_tasks_performed": ["machete_use"],
-    })
+    }, headers=_admin_headers())
     headers = _seed_user(role="technician", email="tech.cacaoguard@test.ci", coop_name="Coop CacaoGuard")
 
     children = client.get("/children", headers=headers)
@@ -702,7 +702,7 @@ def test_technician_cannot_update_child_or_view_remediation(client):
         "school_status": "never_enrolled",
         "is_working_on_farm": True,
         "work_frequency": "regular",
-    }).json()
+    }, headers=_admin_headers()).json()
     headers = _seed_user(role="technician", email="tech2.cacaoguard@test.ci")
 
     update = client.put(f"/children/{child['id']}", headers=headers, json={

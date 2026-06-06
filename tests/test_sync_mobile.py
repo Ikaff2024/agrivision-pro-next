@@ -69,7 +69,7 @@ def _seed_full(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete"],
-    })
+    }, headers=ctx["admin"])
     return ctx
 
 

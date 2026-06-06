@@ -50,7 +50,10 @@ def get_optional_current_user(
 
 
 def require_role(user: User | None, allowed: set[str]) -> None:
-    if user is not None and user.role not in allowed:
+    # Authentification OBLIGATOIRE : plus d'accès anonyme aux données CacaoGuard.
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentification requise.")
+    if user.role not in allowed:
         raise HTTPException(status_code=403, detail="Acces CacaoGuard non autorise pour ce role.")
 
 
@@ -396,6 +399,7 @@ def list_children(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
     # Cloisonnement : uniquement les enfants des producteurs de la coopérative.
     pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     query = db.query(Child).filter(
@@ -447,6 +451,7 @@ def list_alerts(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     # Cloisonnement : uniquement les alertes rattachées à la coopérative.
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
     allowed = coop_alert_ids(db, current_user.cooperative_id if current_user else None)
     query = db.query(Alert).filter(
         Alert.source_entity == "children",
@@ -480,6 +485,7 @@ def get_summary_stats(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
     # Cloisonnement : statistiques bornées à la coopérative de l'utilisateur.
     pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)
     pid_f = Child.producer_id.in_(pids if pids else [-1])
@@ -526,6 +532,7 @@ def get_child(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
     child = db.query(Child).filter(Child.id == child_id, Child.is_active == True).first()
     # Cloisonnement : l'enfant doit appartenir à un producteur de la coopérative.
     pids = coop_producer_ids(db, current_user.cooperative_id if current_user else None)

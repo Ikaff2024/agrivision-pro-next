@@ -93,7 +93,7 @@ def test_economic_risk_negative_profit_scores_max(client):
     finally:
         db.close()
 
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.status_code == 201, r.text
     assert r.json()["risk_factors"]["economic"] == 10
 
@@ -114,7 +114,7 @@ def test_economic_risk_low_return_per_day_scores_seven(client):
     finally:
         db.close()
 
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["economic"] == 7
 
 
@@ -134,13 +134,13 @@ def test_economic_risk_decent_return_scores_zero(client):
     finally:
         db.close()
 
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["economic"] == 0
 
 
 def test_economic_risk_no_farmforce_data_scores_zero(client):
     producer_id, _ = _seed_producer()
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["economic"] == 0
 
 
@@ -154,6 +154,7 @@ def test_geographic_risk_uses_child_school_distance_first(client):
     r = client.post(
         "/children",
         json=_create_child_payload(producer_id, school_distance_km=6.0),
+        headers=_admin_headers(),
     )
     assert r.json()["risk_factors"]["geographic"] == 5
 
@@ -173,7 +174,7 @@ def test_geographic_risk_falls_back_to_community_profile(client):
     finally:
         db.close()
 
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["geographic"] == 3
 
 
@@ -192,13 +193,13 @@ def test_geographic_risk_no_school_in_community_scores_max(client):
     finally:
         db.close()
 
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["geographic"] == 5
 
 
 def test_geographic_risk_no_data_scores_zero(client):
     producer_id, _ = _seed_producer()
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     assert r.json()["risk_factors"]["geographic"] == 0
 
 
@@ -210,7 +211,7 @@ def test_history_risk_increments_with_prior_high_assessments(client):
     producer_id, _ = _seed_producer()
 
     # 1ere creation : pas d'historique
-    r = client.post("/children", json=_create_child_payload(producer_id))
+    r = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers())
     child_id = r.json()["id"]
     assert r.json()["risk_factors"]["history"] == 0
 
@@ -255,7 +256,7 @@ def test_calculate_risk_endpoint_returns_breakdown_without_persisting(client):
         is_working_on_farm=True,
         work_frequency="daily",
         dangerous_tasks_performed=["machete_use", "pesticide_application"],
-    ))
+    ), headers=_admin_headers())
     child_id = r.json()["id"]
     persisted_score = r.json()["risk_score"]
 
@@ -296,7 +297,7 @@ def test_calculate_risk_endpoint_returns_breakdown_without_persisting(client):
 
 def test_assessment_records_methodology_version(client):
     producer_id, _ = _seed_producer()
-    child = client.post("/children", json=_create_child_payload(producer_id)).json()
+    child = client.post("/children", json=_create_child_payload(producer_id), headers=_admin_headers()).json()
 
     client.post("/children/assessments", json={
         "child_id": child["id"],
@@ -354,7 +355,7 @@ def test_max_intrinsic_plus_context_reaches_critical(client):
         is_working_on_farm=True,
         work_frequency="daily",
         dangerous_tasks_performed=["a", "b", "c", "d", "e"],  # 5 > cap 2
-    ))
+    ), headers=_admin_headers())
     assert r.status_code == 201, r.text
     body = r.json()
     factors = body["risk_factors"]

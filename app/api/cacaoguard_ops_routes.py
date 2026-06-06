@@ -64,7 +64,10 @@ def get_optional_current_user(
 
 
 def require_role(user: User | None, allowed: set[str]) -> None:
-    if user is not None and user.role not in allowed:
+    # Authentification OBLIGATOIRE : plus d'accès anonyme aux données CacaoGuard.
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentification requise.")
+    if user.role not in allowed:
         raise HTTPException(status_code=403, detail="Acces CacaoGuard non autorise pour ce role.")
 
 
@@ -652,6 +655,7 @@ def list_visits(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
     query = db.query(MonitoringVisit)
     psub = _coop_producer_subq(db, _coop_id_of(current_user))
     if psub is not None:

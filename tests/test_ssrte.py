@@ -1,5 +1,18 @@
 from app.db.models import Cooperative, Plantation, Producer, User
+from app.auth.auth_service import create_access_token
 from tests.conftest import TestingSessionLocal
+
+
+def _admin_headers(email="ssrte.admin@test.ci"):
+    """En-têtes d'auth de l'admin de 'Coop SSRTE' (auth obligatoire CacaoGuard)."""
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        return {"Authorization": "Bearer " + create_access_token({
+            "sub": user.email, "role": user.role, "coop_id": user.cooperative_id,
+        })}
+    finally:
+        db.close()
 
 
 def _seed_producer_and_plantation():
@@ -219,11 +232,11 @@ def test_ssrte_plantation_visit_creates_alert_on_suspicion(client):
     assert data["producer_id"] is not None
     assert data["suspected_child_labor"] is True
 
-    alerts = client.get("/alerts?source_entity=ssrte_plantation_visits")
+    alerts = client.get("/alerts?source_entity=ssrte_plantation_visits", headers=_admin_headers())
     assert alerts.status_code == 200
     assert any(a["source_entity"] == "ssrte_plantation_visits" for a in alerts.json())
 
-    compliance = client.get("/compliance/traceability")
+    compliance = client.get("/compliance/traceability", headers=_admin_headers())
     assert compliance.status_code == 200
     blocks = compliance.json()["active_blocks"]
     assert len(blocks) == 1
@@ -450,7 +463,7 @@ def test_ssrte_summary_counts_forms(client):
 
 def test_ssrte_forms_are_in_due_diligence_report(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
-    client.post("/ssrte/communities", json={"locality": "Yeyasso"})
+    client.post("/ssrte/communities", json={"locality": "Yeyasso"}, headers=_admin_headers())
     client.post("/ssrte/households", json={
         "producer_id": producer_id,
         "school_age_children_count": 2,
@@ -463,7 +476,7 @@ def test_ssrte_forms_are_in_due_diligence_report(client):
         "dangerous_tasks_observed": ["machette"],
     })
 
-    report = client.get("/compliance/report")
+    report = client.get("/compliance/report", headers=_admin_headers())
     assert report.status_code == 200, report.text
     data = report.json()
     assert data["indicators"]["ssrte_community_profiles"] == 1

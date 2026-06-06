@@ -59,7 +59,7 @@ def _seed(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete", "pesticide"],
-    })
+    }, headers=ctx["admin"])
     client.post("/children", json={
         "producer_id": ctx["p1"],
         "first_name": "Ali",
@@ -69,7 +69,7 @@ def _seed(client):
         "school_status": "enrolled",
         "is_working_on_farm": False,
         "work_frequency": "never",
-    })
+    }, headers=ctx["admin"])
     # 1 enfant pour p2 — pour verifier l'isolation par producteur
     client.post("/children", json={
         "producer_id": ctx["p2"],
@@ -80,7 +80,7 @@ def _seed(client):
         "school_status": "enrolled",
         "is_working_on_farm": False,
         "work_frequency": "never",
-    })
+    }, headers=ctx["admin"])
 
     # Une plainte sur p1 (seed direct DB pour ne pas dependre du module CG-1.1)
     db = TestingSessionLocal()
@@ -125,8 +125,8 @@ def test_children_redacted_for_technician(client):
 
 
 def test_children_unknown_producer_returns_404(client):
-    _seed(client)
-    r = client.get("/producers/99999/children")
+    ctx = _seed(client)
+    r = client.get("/producers/99999/children", headers=ctx["admin"])
     assert r.status_code == 404
 
 
@@ -193,7 +193,7 @@ def test_list_producer_complaints(client):
 def test_traceability_status_with_active_block(client):
     ctx = _seed(client)
     # L'enfant CRITICAL declenche un block automatique
-    r = client.get(f"/producers/{ctx['p1']}/traceability-status")
+    r = client.get(f"/producers/{ctx['p1']}/traceability-status", headers=ctx["admin"])
     assert r.status_code == 200
     body = r.json()
     assert body["is_blocked"] is True
@@ -202,7 +202,7 @@ def test_traceability_status_with_active_block(client):
 
 def test_traceability_status_clean_producer(client):
     ctx = _seed(client)
-    r = client.get(f"/producers/{ctx['p2']}/traceability-status")
+    r = client.get(f"/producers/{ctx['p2']}/traceability-status", headers=ctx["admin"])
     assert r.status_code == 200
     body = r.json()
     assert body["is_blocked"] is False

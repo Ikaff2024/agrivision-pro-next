@@ -24,6 +24,7 @@ from app.db.models_social import (
     RemediationAction,
     RemediationPlan,
     RiskAssessment,
+    SsrtePlantationVisit,
     TraceabilityBlock,
 )
 
@@ -62,6 +63,7 @@ def coop_alert_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
         "remediation_plans": ids_by_producer(RemediationPlan),
         "traceability_blocks": ids_by_producer(TraceabilityBlock),
         "complaints": ids_by_producer(Complaint),
+        "ssrte_plantation_visits": ids_by_producer(SsrtePlantationVisit),
     }
     # remediation_actions → via le plan → producteur
     plan_ids = valid["remediation_plans"]

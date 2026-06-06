@@ -56,7 +56,7 @@ def _seed(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete", "pesticide"],
-    })
+    }, headers=ctx["admin"])
     assert r.status_code == 201
     ctx["child_id"] = r.json()["id"]
 
@@ -77,12 +77,10 @@ def test_audit_trail_requires_admin_or_agronomist(client):
 
 
 def test_anonymous_cannot_access_audit_trail(client):
-    """Sans auth, get_optional_current_user retourne None et require_role accepte
-    (par design des autres endpoints CacaoGuard ops). On le tolere ici aussi —
-    c'est un trade-off connu pour les demos. Verifier que le contenu remonte."""
+    """Sans authentification, l'audit-trail est refusé (401) — accès anonyme fermé."""
     _seed(client)
     r = client.get("/cacaoguard/reports/audit-trail")
-    assert r.status_code == 200
+    assert r.status_code == 401
 
 
 # ----------------------------------------------------------------------------

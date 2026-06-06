@@ -66,7 +66,7 @@ def _seed_full(client):
         "is_working_on_farm": True,
         "work_frequency": "daily",
         "dangerous_tasks_performed": ["machete", "pesticide"],
-    })
+    }, headers=ctx["admin"])
     assert r.status_code == 201, r.text
 
     db = TestingSessionLocal()
