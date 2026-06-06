@@ -21,7 +21,7 @@ import json
 import math
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import httpx
 
@@ -108,9 +108,154 @@ def login_or_register():
     _token = lr.json()["access_token"]
 
 
+def _producer_map() -> dict:
+    """Map nom_complet → id des producteurs EXISTANTS (via l'API)."""
+    r = client.get(f"{API}/producers?limit=5000", headers=h())
+    rows = r.json() if r.status_code == 200 else []
+    m = {}
+    for pr in rows:
+        nm = pr.get("nom_complet") or pr.get("name") or pr.get("full_name")
+        if nm and pr.get("id"):
+            m.setdefault(nm, pr["id"])
+    return m
+
+
+def _plantations() -> list:
+    """Plantations EXISTANTES (gère le mode brut et le mode paginé)."""
+    r = client.get(f"{API}/plantations?limit=5000", headers=h())
+    rows = r.json() if r.status_code == 200 else []
+    if isinstance(rows, dict):
+        rows = rows.get("items", [])
+    return rows
+
+
+def seed_social_compliance():
+    """CacaoGuard (protection enfant + ops terrain), SSRTE et Certification.
+
+    S'appuie sur les producteurs/plantations EXISTANTS récupérés via l'API :
+    exécutable seul sur une coop déjà initialisée (AVP_SEED_SOCIAL_ONLY=1) SANS
+    dupliquer les données de base. Construit une histoire cohérente :
+    un cas de travail d'enfant → évaluation → visite → remédiation → blocage de
+    traçabilité, plus un cas sain, du SSRTE et un audit de certification.
+    """
+    pmap = _producer_map()
+    plants = _plantations()
+    if not pmap:
+        print("   ⚠ Aucun producteur — lancez d'abord le seed principal.")
+        return
+    today = date.today()
+
+    def yrs_ago(n):
+        return date(today.year - n, today.month, min(today.day, 28)).isoformat()
+
+    names = list(pmap)
+    risky = "Kouassi Yao" if "Kouassi Yao" in pmap else names[0]
+    safe = "Konan Aka" if "Konan Aka" in pmap else (names[1] if len(names) > 1 else names[0])
+    risky_pid, safe_pid = pmap[risky], pmap[safe]
+
+    # ── Protection de l'enfance (CacaoGuard) ──
+    at_risk_child = None
+    c = post("/children", {
+        "producer_id": risky_pid, "first_name": "Aya", "last_name": risky.split()[0],
+        "date_of_birth": yrs_ago(13), "gender": "F",
+        "school_status": "dropped_out", "is_working_on_farm": True,
+        "work_frequency": "regular",
+        "dangerous_tasks_performed": ["port de charges lourdes", "usage de machette"],
+    }, "children")
+    if c and c.get("id"):
+        at_risk_child = c["id"]
+        post(f"/children/{c['id']}/calculate-risk", {}, "child_risk_calc")
+        post("/children/assessments", {
+            "child_id": c["id"], "assessment_type": "initial",
+            "overall_risk_score": 78, "overall_risk_level": "high",
+            "risk_factors": {"travail": "régulier", "scolarisation": "déscolarisé"},
+            "notes": "Cas détecté lors d'une visite terrain — suivi requis.",
+        }, "risk_assessments")
+
+    c2 = post("/children", {
+        "producer_id": safe_pid, "first_name": "Koffi", "last_name": safe.split()[0],
+        "date_of_birth": yrs_ago(9), "gender": "M",
+        "school_status": "enrolled", "school_name": "EPP du village",
+        "is_working_on_farm": False, "work_frequency": "never",
+    }, "children")
+    if c2 and c2.get("id"):
+        post(f"/children/{c2['id']}/calculate-risk", {}, "child_risk_calc")
+
+    # ── Opérations CacaoGuard : monitoring, remédiation, formation, blocage ──
+    post("/monitoring/visits", {
+        "producer_id": risky_pid, "scheduled_date": today.isoformat(),
+        "visit_type": "follow_up", "priority": "high",
+        "observations": "Visite de suivi du cas de travail d'enfant.",
+    }, "monitoring_visits")
+    if at_risk_child:
+        post("/remediation/plans", {
+            "child_id": at_risk_child, "priority": "high",
+            "main_objective": "Retour à l'école et arrêt du travail dangereux",
+            "planned_actions": [{"action": "Réinscription scolaire", "responsable": "Assistant social"}],
+            "expected_completion_date": (today + timedelta(days=90)).isoformat(),
+        }, "remediation_plans")
+    post("/training/sessions", {
+        "title": "Sensibilisation à la protection de l'enfance",
+        "training_type": "child_protection", "scheduled_date": today.isoformat(),
+        "location": "Soubré", "village": "Soubré",
+        "trainer_organization": "ICI", "expected_participants": 25,
+        "topics_covered": ["Travail des enfants", "Importance de la scolarisation"],
+    }, "training_sessions")
+    post("/compliance/blocks", {
+        "producer_id": risky_pid, "block_reason": "child_labor_case",
+        "block_description": "Cas de travail d'enfant en cours d'investigation — traçabilité suspendue.",
+        "expected_resolution_date": (today + timedelta(days=60)).isoformat(),
+    }, "traceability_blocks")
+
+    # ── SSRTE : profil communauté, ménages, visites de plantation ──
+    post("/ssrte/communities", {
+        "locality": "Soubré", "section": "Soubré-Centre", "sub_prefecture": "Soubré",
+        "respondent_name": "Notable du village", "respondent_role": "Chef de communauté",
+    }, "ssrte_communities")
+    for owner in (risky, safe):
+        post("/ssrte/households", {
+            "producer_id": pmap[owner], "locality": "Soubré",
+            "interviewer_name": "Agent SSRTE Démo",
+        }, "ssrte_households")
+    for pl in plants[:2]:
+        post("/ssrte/plantation-visits", {
+            "plantation_id": pl["id"], "producer_id": pl.get("producer_id"),
+            "interviewer_name": "Agent SSRTE Démo", "locality": pl.get("region"),
+        }, "ssrte_visits")
+
+    # ── Certification : audit interne complété + non-conformité ──
+    audit = post("/certification-audits", {
+        "audit_type": "internal", "auditor_name": "Auditeur Démo",
+        "auditor_body": "Ecocert", "scope": "Rainforest Alliance 2020",
+        "notes": "Audit interne annuel de la coopérative.",
+    }, "certification_audits")
+    if audit and audit.get("id"):
+        post(f"/certification-audits/{audit['id']}/complete",
+             {"result": "pass", "score_pct": 87}, "audits_completed")
+        post("/non-conformities", {
+            "audit_id": audit["id"], "severity": "minor",
+            "description": "Fiches de présence aux formations incomplètes pour 2 sections.",
+            "corrective_action": "Compléter les registres sous 30 jours.",
+            "responsible": "Responsable conformité",
+        }, "non_conformities")
+
+    print(f"  • Protection enfant : cas à risque ({risky}) + cas sain ({safe})")
+    print(f"  • SSRTE + Certification + blocage de traçabilité ({risky})")
+
+
 def main():
+    social_only = os.getenv("AVP_SEED_SOCIAL_ONLY", "").lower() in ("1", "true", "yes")
     print(f"=== Seed démo AgriVision Pro → {API} ===")
     login_or_register()
+
+    if social_only:
+        print("Mode : social / conformité uniquement (coop existante, pas de duplication).")
+        seed_social_compliance()
+        print("\n=== Résumé du seed ===")
+        for k in sorted(_count):
+            print(f"  {k:18}: {_count[k]}")
+        print(f"\n✓ Données sociales/conformité ajoutées. Connexion : {EMAIL} / {PASSWORD}")
+        return
 
     harvest_ids = []
     for name, region, lat, lon, ha, profile in FARMERS:
@@ -202,6 +347,9 @@ def main():
         # un 2e lot
         if len(harvest_ids) > 4:
             post("/lots", {"season": "2025-2026", "harvest_ids": harvest_ids[4:]}, "lots")
+
+    # Données sociales / conformité (CacaoGuard, SSRTE, Certification)
+    seed_social_compliance()
 
     print("\n=== Résumé du seed ===")
     for k in sorted(_count):
