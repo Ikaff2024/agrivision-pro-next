@@ -591,6 +591,7 @@ function renderSidebar(activePage) {
   }
 
   const user = getCurrentUser();
+  const _cachedMods = getCachedModules();  // gating immédiat (anti-flash) depuis le cache
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
   const links = [
     { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard' },
@@ -668,15 +669,27 @@ function renderSidebar(activePage) {
     </div>
     <nav class="sb-nav">
       <div class="sb-sec">Navigation</div>
-      ${links.map(l => `
-        <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}" onclick="closeSidebar()">
+      ${links.map(l => {
+        const _h = _cachedMods && !_cachedMods.has(l.id) ? ' style="display:none"' : '';
+        return `
+        <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}"${_h} onclick="closeSidebar()">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
-        </a>`).join('')}
+        </a>`;
+      }).join('')}
     </nav>
     ${userBlock}`;
 }
 // Masque les modules de menu hors plan de la cooperative (feature-gating).
 // Non-bloquant : si l'appel echoue ou plan inconnu, on n'enleve rien.
+// Cache local des modules autorisés → le menu est gaté DÈS le rendu (plus de flash
+// des modules Entreprise à chaque navigation). Rafraîchi en arrière-plan par /me/features.
+function getCachedModules() {
+  try {
+    const r = localStorage.getItem('avp_features');
+    return r ? new Set(JSON.parse(r)) : null;
+  } catch (e) { return null; }
+}
+
 async function applyPlanFeatures(activePage) {
   try {
     const res = await authFetch('/me/features');
@@ -684,9 +697,10 @@ async function applyPlanFeatures(activePage) {
     const data = await res.json();
     const allowed = new Set(data.modules || []);
     if (!allowed.size) return;
+    try { localStorage.setItem('avp_features', JSON.stringify([...allowed])); } catch (e) { /* quota */ }
     document.querySelectorAll('#sidebar a.nav-link[data-mod]').forEach(a => {
       const mod = a.getAttribute('data-mod');
-      if (!allowed.has(mod)) a.style.display = 'none';
+      a.style.display = allowed.has(mod) ? '' : 'none';  // révèle/masque (corrige un cache obsolète)
     });
     // Rediriger UNIQUEMENT si la page courante est un vrai module de menu bloque
     // par le plan. Les pages hors-menu (import, assignment, producer-profile,
