@@ -12,10 +12,21 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import DeforestationCheck, Diagnostic, Harvest, Plantation, Producer
+from app.db.models import (
+    DeforestationCheck,
+    Diagnostic,
+    Harvest,
+    Plantation,
+    PlantationBoundary,
+    Producer,
+)
 from app.eudr.scoring import compute_eudr_score
+
+# Pondération de sévérité pour classer les parcelles (vue coop « à risque »).
+SEVERITY_WEIGHT = {"high": 4, "medium": 2, "low": 1}
 
 # Seuils explicables
 RECENT_DIAG_DAYS = 365      # diagnostic considéré récent < 12 mois
@@ -183,3 +194,161 @@ def compute_alerts(twin: dict) -> list[dict]:
     order = {"high": 0, "medium": 1, "low": 2}
     alerts.sort(key=lambda x: order.get(x["severity"], 3))
     return alerts
+
+
+def build_coop_risk(
+    db: Session,
+    coop_id: Optional[int],
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    severity: Optional[str] = None,
+) -> dict:
+    """Vue coopérative : alertes du jumeau agrégées sur TOUTES les parcelles, classées par risque.
+
+    Calcul BATCHÉ (un petit nombre de requêtes quel que soit le nombre de
+    parcelles) pour rester scalable jusqu'à des milliers de parcelles : on ne
+    construit pas un jumeau complet par parcelle (trop de requêtes), on charge
+    les signaux en lot puis on réutilise EXACTEMENT `compute_alerts` sur une vue
+    allégée. L'EUDR ici se limite aux signaux légers (polygone + déforestation) ;
+    le score EUDR complet reste sur la fiche parcelle.
+
+    FAIL-CLOSED : sans coopérative, renvoie une vue vide.
+    """
+    empty = {
+        "total_parcels": 0, "flagged_count": 0,
+        "by_worst": {"high": 0, "medium": 0, "low": 0},
+        "alert_totals": {"high": 0, "medium": 0, "low": 0},
+        "limit": limit, "offset": offset, "returned": 0, "parcels": [],
+    }
+    if coop_id is None:
+        return empty
+
+    plantations = db.query(Plantation).filter(Plantation.cooperative_id == coop_id).all()
+    if not plantations:
+        return empty
+    pids = [p.id for p in plantations]
+    prod_ids = list({p.producer_id for p in plantations if p.producer_id})
+
+    producers = (
+        {pr.id: pr for pr in db.query(Producer).filter(Producer.id.in_(prod_ids)).all()}
+        if prod_ids else {}
+    )
+
+    # Dernier diagnostic par parcelle (une requête, on garde le plus récent).
+    diag_map: dict = {}
+    for r in (
+        db.query(
+            Diagnostic.plantation_id, Diagnostic.global_risk_level,
+            Diagnostic.created_at, Diagnostic.plantation_age_years,
+        )
+        .filter(Diagnostic.plantation_id.in_(pids))
+        .order_by(Diagnostic.plantation_id, Diagnostic.created_at.desc())
+        .all()
+    ):
+        diag_map.setdefault(r.plantation_id, r)
+
+    # Parcelles délimitées (polygone).
+    poly = {
+        pid for (pid,) in
+        db.query(PlantationBoundary.plantation_id)
+        .filter(PlantationBoundary.plantation_id.in_(pids)).all()
+    }
+
+    # Dernier contrôle déforestation par parcelle.
+    defo_map: dict = {}
+    for r in (
+        db.query(DeforestationCheck.plantation_id, DeforestationCheck.verdict)
+        .filter(DeforestationCheck.plantation_id.in_(pids))
+        .order_by(
+            DeforestationCheck.plantation_id,
+            DeforestationCheck.check_date.desc().nullslast(),
+            DeforestationCheck.id.desc(),
+        ).all()
+    ):
+        defo_map.setdefault(r.plantation_id, r)
+
+    # Blocages CacaoGuard actifs (niveau producteur).
+    blocked: set = set()
+    try:
+        from app.db.models_social import BlockStatus, TraceabilityBlock
+        if prod_ids:
+            blocked = {
+                pid for (pid,) in
+                db.query(TraceabilityBlock.producer_id).filter(
+                    TraceabilityBlock.producer_id.in_(prod_ids),
+                    TraceabilityBlock.status == BlockStatus.ACTIVE,
+                ).all()
+            }
+    except ImportError:
+        blocked = set()
+
+    # Récoltes : total + nombre par parcelle (une requête groupée).
+    harv: dict = {}
+    for pid_, total, cnt in (
+        db.query(
+            Harvest.plantation_id,
+            func.coalesce(func.sum(Harvest.quantity_kg), 0),
+            func.count(Harvest.id),
+        ).filter(Harvest.plantation_id.in_(pids)).group_by(Harvest.plantation_id).all()
+    ):
+        harv[pid_] = (float(total or 0), int(cnt or 0))
+
+    flagged: list = []
+    by_worst = {"high": 0, "medium": 0, "low": 0}
+    alert_totals = {"high": 0, "medium": 0, "low": 0}
+    for p in plantations:
+        d = diag_map.get(p.id)
+        defo = defo_map.get(p.id)
+        total_kg, hcount = harv.get(p.id, (0.0, 0))
+        ha = p.hectares
+        yield_kg_ha = round(total_kg / ha, 1) if (ha and total_kg) else None
+        lite = {
+            "plantation": {"age_years": d.plantation_age_years if d else None},
+            "eudr": {"has_polygon": p.id in poly, "status": None},
+            "deforestation": {"verdict": defo.verdict if defo else None},
+            "diagnostic": {
+                "available": d is not None,
+                "days_since": _days_since(d.created_at) if d else None,
+                "risk_level": d.global_risk_level if d else None,
+            },
+            "cacaoguard": {"blocked": p.producer_id in blocked},
+            "harvests": {"count": hcount, "yield_kg_ha": yield_kg_ha},
+        }
+        alerts = compute_alerts(lite)
+        if not alerts:
+            continue
+        counts = {"high": 0, "medium": 0, "low": 0}
+        score = 0
+        for a in alerts:
+            counts[a["severity"]] = counts.get(a["severity"], 0) + 1
+            score += SEVERITY_WEIGHT.get(a["severity"], 0)
+        worst = "high" if counts["high"] else ("medium" if counts["medium"] else "low")
+        by_worst[worst] += 1
+        for k in alert_totals:
+            alert_totals[k] += counts[k]
+        pr = producers.get(p.producer_id) if p.producer_id else None
+        flagged.append({
+            "plantation_id": p.id, "name": p.name, "owner_name": p.owner_name,
+            "producer_name": pr.nom_complet if pr else None,
+            "region": p.region, "hectares": p.hectares,
+            "risk_score": score, "worst_severity": worst,
+            "counts": counts, "alerts": alerts,
+        })
+
+    flagged_count = len(flagged)
+    if severity in ("high", "medium", "low"):
+        flagged = [r for r in flagged if r["counts"][severity] > 0]
+    flagged.sort(
+        key=lambda r: (r["counts"]["high"], r["counts"]["medium"], r["counts"]["low"], r["risk_score"]),
+        reverse=True,
+    )
+    page = flagged[offset: offset + limit]
+    return {
+        "total_parcels": len(plantations),
+        "flagged_count": flagged_count,
+        "by_worst": by_worst,
+        "alert_totals": alert_totals,
+        "limit": limit, "offset": offset, "returned": len(page),
+        "parcels": page,
+    }

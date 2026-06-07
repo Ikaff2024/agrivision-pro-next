@@ -600,6 +600,7 @@ function renderSidebar(activePage) {
     { id: 'producers', href: 'producers.html', icon: 'groups', label: 'Producteurs' },
     { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
     { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },
+    { id: 'twin-risk', href: 'twin_risk.html', icon: 'crisis_alert', label: 'Parcelles à risque' },
     { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
     { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie' },
     { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },

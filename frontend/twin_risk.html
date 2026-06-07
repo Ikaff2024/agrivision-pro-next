@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro - Parcelles à risque</title>
+  <script src="config.js"></script>
+  <script src="avp-offline.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" data-avp-fonts href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+  <script src="auth.js"></script>
+  <style>
+    .tr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px}
+    .tr-card-kpi{background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:18px;box-shadow:var(--sh);border-left:3px solid var(--primary,#1a4231)}
+    .tr-card-kpi.hi{border-left-color:#dc2626}.tr-card-kpi.md{border-left-color:#d97706}
+    .tr-card-kpi .cap{font-size:11px;color:var(--muted,#6a7d64);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px}
+    .tr-card-kpi .val{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1}
+    .tr-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+    .tr-chip{padding:6px 13px;border:1px solid var(--border,#e6ddd0);border-radius:99px;font-size:12.5px;font-weight:600;color:var(--muted,#6a7d64);background:var(--surface,#fff);cursor:pointer;transition:.15s}
+    .tr-chip.active{background:var(--primary,#1a4231);color:#fff;border-color:var(--primary,#1a4231)}
+    .tr-list{display:flex;flex-direction:column;gap:12px}
+    .tr-card{background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:var(--r,10px);padding:16px;box-shadow:var(--sh)}
+    .tr-card.w-high{border-left:4px solid #dc2626}.tr-card.w-medium{border-left:4px solid #d97706}.tr-card.w-low{border-left:4px solid #6b7280}
+    .tr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+    .tr-name{font-size:14.5px;font-weight:700;line-height:1.25}
+    .tr-meta{font-size:12px;color:var(--muted,#6a7d64);margin-top:3px}
+    .tr-badges{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+    .tr-b{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:99px;white-space:nowrap}
+    .tr-b.hi{background:#fee2e2;color:#991b1b}.tr-b.md{background:#fef3c7;color:#92400e}.tr-b.lo{background:#f1f5f9;color:#475569}
+    .tr-alerts{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+    .tr-alerts li{font-size:12.5px;color:var(--text,#1a2e22);line-height:1.45;display:flex;gap:8px;align-items:flex-start}
+    .tr-dot{width:8px;height:8px;border-radius:99px;margin-top:5px;flex-shrink:0}
+    .tr-dot.hi{background:#dc2626}.tr-dot.md{background:#d97706}.tr-dot.lo{background:#9ca3af}
+    .tr-alerts .reco{color:var(--muted,#6a7d64)}
+    .tr-more-alerts{font-size:12px;color:var(--muted,#6a7d64);font-style:italic}
+    .tr-link{display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--accent,#1a6b3a);text-decoration:none}
+    .tr-link:hover{text-decoration:underline}
+    .tr-empty{text-align:center;padding:48px 20px;color:var(--muted,#6a7d64)}
+    .tr-empty .ic{font-size:46px;opacity:.35}
+    .tr-skel{height:96px;border-radius:var(--r,10px);background:linear-gradient(90deg,#eee,#f5f5f5,#eee);background-size:200% 100%;animation:trsh 1.3s infinite}
+    @keyframes trsh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .tr-more{display:flex;justify-content:center;margin-top:18px}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Parcelles à risque</div>
+        <div class="page-sub" id="tr-status">Chargement…</div>
+      </div>
+      <button class="btn btn-outline" id="tr-refresh" onclick="loadRisk(true)">
+        <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser
+      </button>
+    </div>
+
+    <div class="avp-content">
+
+      <div class="tr-cards" id="tr-kpis">
+        <div class="tr-card-kpi"><div class="cap">Parcelles</div><div class="val" id="tr-total">—</div></div>
+        <div class="tr-card-kpi"><div class="cap">Signalées</div><div class="val" id="tr-flagged">—</div></div>
+        <div class="tr-card-kpi hi"><div class="cap">Risque élevé</div><div class="val" id="tr-high">—</div></div>
+        <div class="tr-card-kpi md"><div class="cap">Risque moyen</div><div class="val" id="tr-medium">—</div></div>
+      </div>
+
+      <div class="tr-chips" id="tr-chips">
+        <span class="tr-chip active" data-sev="" onclick="setSev('',this)">Toutes</span>
+        <span class="tr-chip" data-sev="high" onclick="setSev('high',this)">Risque élevé</span>
+        <span class="tr-chip" data-sev="medium" onclick="setSev('medium',this)">Risque moyen</span>
+        <span class="tr-chip" data-sev="low" onclick="setSev('low',this)">Risque faible</span>
+      </div>
+
+      <div class="tr-list" id="tr-skeleton">
+        <div class="tr-skel"></div><div class="tr-skel"></div><div class="tr-skel"></div>
+      </div>
+      <div class="tr-list" id="tr-list" style="display:none"></div>
+      <div class="tr-empty" id="tr-empty" style="display:none">
+        <div class="ic material-symbols-outlined">verified</div>
+        <p>Aucune parcelle à risque pour ce filtre. 🎉</p>
+      </div>
+      <div class="tr-more" id="tr-more" style="display:none">
+        <button class="btn btn-outline" onclick="loadRisk(false)">Voir plus</button>
+      </div>
+
+      <p style="font-size:11.5px;color:var(--muted,#6a7d64);text-align:center;margin-top:18px">
+        Alertes du jumeau de parcelle (délimitation, EUDR, déforestation, diagnostic, récoltes, blocages CacaoGuard) — règles déterministes, classées par sévérité.
+      </p>
+
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('twin-risk');
+
+const LIMIT = 50;
+let _sev = '';
+let _offset = 0;
+
+document.addEventListener('DOMContentLoaded', () => loadRisk(true));
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function setSev(sev, el) {
+  _sev = sev;
+  document.querySelectorAll('.tr-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  loadRisk(true);
+}
+
+async function loadRisk(reset) {
+  const btn = document.getElementById('tr-refresh');
+  const icon = btn ? btn.querySelector('.material-symbols-outlined') : null;
+  if (reset) {
+    _offset = 0;
+    document.getElementById('tr-list').innerHTML = '';
+    document.getElementById('tr-list').style.display = 'none';
+    document.getElementById('tr-empty').style.display = 'none';
+    document.getElementById('tr-skeleton').style.display = 'flex';
+    if (icon) icon.style.animation = 'spin 0.8s linear infinite';
+    document.getElementById('tr-status').textContent = 'Chargement…';
+  }
+  try {
+    let url = '/twin/at-risk?limit=' + LIMIT + '&offset=' + _offset;
+    if (_sev) url += '&severity=' + _sev;
+    const r = await authFetch(url);
+    if (!r || !r.ok) {
+      if (r && r.status === 403) throw new Error('Module réservé à votre plan.');
+      throw new Error('Service indisponible');
+    }
+    applyRisk(await r.json());
+  } catch (e) {
+    document.getElementById('tr-skeleton').style.display = 'none';
+    document.getElementById('tr-status').textContent = 'Erreur de chargement';
+    if (typeof toast === 'function') toast(e.message || 'Chargement impossible.', 'error');
+  } finally {
+    if (icon) icon.style.animation = '';
+  }
+}
+
+function applyRisk(d) {
+  document.getElementById('tr-skeleton').style.display = 'none';
+  const bw = d.by_worst || { high: 0, medium: 0, low: 0 };
+  document.getElementById('tr-total').textContent = (d.total_parcels || 0).toLocaleString('fr-FR');
+  document.getElementById('tr-flagged').textContent = (d.flagged_count || 0).toLocaleString('fr-FR');
+  document.getElementById('tr-high').textContent = (bw.high || 0).toLocaleString('fr-FR');
+  document.getElementById('tr-medium').textContent = (bw.medium || 0).toLocaleString('fr-FR');
+  document.getElementById('tr-status').textContent =
+    (d.total_parcels || 0).toLocaleString('fr-FR') + ' parcelle(s) · ' +
+    (d.flagged_count || 0).toLocaleString('fr-FR') + ' signalée(s)';
+
+  const list = document.getElementById('tr-list');
+  const parcels = Array.isArray(d.parcels) ? d.parcels : [];
+  parcels.forEach(p => list.insertAdjacentHTML('beforeend', cardHtml(p)));
+  _offset += (d.returned || parcels.length);
+
+  // « Voir plus » si une page pleine a été renvoyée (d'autres parcelles possibles).
+  document.getElementById('tr-more').style.display = (d.returned === LIMIT) ? 'flex' : 'none';
+
+  const hasAny = list.children.length > 0;
+  list.style.display = hasAny ? 'flex' : 'none';
+  document.getElementById('tr-empty').style.display = hasAny ? 'none' : 'block';
+}
+
+const SEV = { high: 'hi', medium: 'md', low: 'lo' };
+const SEV_LBL = { high: 'élevé', medium: 'moyen', low: 'faible' };
+
+function cardHtml(p) {
+  const c = p.counts || { high: 0, medium: 0, low: 0 };
+  const badges = ['high', 'medium', 'low']
+    .filter(s => c[s] > 0)
+    .map(s => `<span class="tr-b ${SEV[s]}">${c[s]} ${SEV_LBL[s]}</span>`).join('');
+  const alerts = Array.isArray(p.alerts) ? p.alerts : [];
+  const items = alerts.slice(0, 3).map(a => `
+    <li><span class="tr-dot ${SEV[a.severity] || 'lo'}"></span>
+      <span><strong>${esc(a.label)}</strong>${a.recommendation ? ' — <span class="reco">' + esc(a.recommendation) + '</span>' : ''}</span></li>`).join('');
+  const more = alerts.length > 3 ? `<li class="tr-more-alerts">+${alerts.length - 3} autre(s) alerte(s)…</li>` : '';
+  const sub = [p.producer_name || p.owner_name, p.region, (p.hectares != null ? p.hectares + ' ha' : null)]
+    .filter(Boolean).map(esc).join(' · ');
+  return `
+    <div class="tr-card w-${p.worst_severity || 'low'}">
+      <div class="tr-head">
+        <div>
+          <div class="tr-name">${esc(p.name || 'Parcelle')}</div>
+          <div class="tr-meta">${sub || '—'}</div>
+        </div>
+        <div class="tr-badges">${badges}</div>
+      </div>
+      <ul class="tr-alerts">${items}${more}</ul>
+      <a class="tr-link" href="plantation_detail.html?id=${encodeURIComponent(p.plantation_id)}">Ouvrir la fiche →</a>
+    </div>`;
+}
+</script>
+</body>
+</html>

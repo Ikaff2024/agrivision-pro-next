@@ -140,3 +140,73 @@ def test_twin_other_coop_forbidden(client):
     finally:
         db.close()
     assert client.get(f"/plantations/{pid}/twin", headers=auth_b).status_code == 403
+
+
+# ── Vue coopérative « parcelles à risque » (agrégation) ───────────────────────
+
+def _seed_coop_multi(email="twinrisk@test.ci", coop="Coop Twin Risk"):
+    """Coop à 2 parcelles : une nue (à risque) + une conforme (0 alerte)."""
+    db = TestingSessionLocal()
+    try:
+        c = Cooperative(name=coop, country="CI"); db.add(c); db.flush()
+        user = User(email=email, password_hash="x", role="admin", cooperative_id=c.id)
+        prod = Producer(cooperative_id=c.id, nom_complet="Kouassi", is_active=True)
+        db.add_all([user, prod]); db.flush()
+        bare = Plantation(name="Parcelle nue", owner_name="Kouassi", country="CI", region="Soubre",
+                          latitude=5.7, longitude=-6.5, hectares=1.0,
+                          cooperative_id=c.id, producer_id=prod.id)
+        full = Plantation(name="Parcelle conforme", owner_name="Kouassi", country="CI", region="Soubre",
+                          latitude=5.8, longitude=-6.6, hectares=1.0,
+                          cooperative_id=c.id, producer_id=prod.id)
+        db.add_all([bare, full]); db.flush()
+        db.add(PlantationBoundary(plantation_id=full.id, geojson=VALID_POLYGON,
+                                  area_hectares=1.05, points_count=5, method="manual"))
+        db.add(DeforestationCheck(plantation_id=full.id, verdict="clear", source="gfw",
+                                  check_date=datetime.utcnow()))
+        db.add(Diagnostic(plantation_id=full.id, country="CI", humidity_pct=70,
+                          rainfall_mm_month=120, avg_temp_c=26, plantation_age_years=10,
+                          global_score=80, global_risk_level="Faible"))
+        db.add(Harvest(plantation_id=full.id, harvest_date=datetime.utcnow(),
+                       quantity_kg=500, quality="Bonne"))
+        db.commit()
+        return bare.id, full.id, _auth(user)
+    finally:
+        db.close()
+
+
+def test_coop_at_risk_ranks_and_filters(client):
+    bare_id, full_id, auth = _seed_coop_multi()
+    body = client.get("/twin/at-risk", headers=auth).json()
+    assert body["total_parcels"] == 2
+    assert body["flagged_count"] == 1                 # seule la parcelle nue est à risque
+    assert body["by_worst"]["high"] == 1
+    assert body["returned"] == 1
+    ids = [p["plantation_id"] for p in body["parcels"]]
+    assert bare_id in ids and full_id not in ids      # la conforme est exclue
+    top = body["parcels"][0]
+    assert top["plantation_id"] == bare_id
+    assert top["worst_severity"] == "high"
+    assert "no_polygon" in {a["code"] for a in top["alerts"]}
+    # Filtres de sévérité (la parcelle nue a high + medium)
+    assert client.get("/twin/at-risk?severity=high", headers=auth).json()["returned"] == 1
+    assert client.get("/twin/at-risk?severity=medium", headers=auth).json()["returned"] == 1
+    assert client.get("/twin/at-risk?severity=bogus", headers=auth).json()["returned"] == 1  # ignoré
+
+
+def test_coop_at_risk_scoped_to_coop(client):
+    _seed_coop_multi(email="twinrisk.a@test.ci", coop="Coop Twin Risk A")
+    db = TestingSessionLocal()
+    try:
+        c2 = Cooperative(name="Coop Twin Risk B", country="CI"); db.add(c2); db.flush()
+        u2 = User(email="twinrisk.b@test.ci", password_hash="x", role="admin", cooperative_id=c2.id)
+        db.add(u2); db.commit()
+        auth_b = _auth(u2)
+    finally:
+        db.close()
+    body = client.get("/twin/at-risk", headers=auth_b).json()
+    assert body["total_parcels"] == 0                 # ne voit pas les parcelles de la coop A
+    assert body["parcels"] == []
+
+
+def test_coop_at_risk_requires_auth(client):
+    assert client.get("/twin/at-risk").status_code == 401

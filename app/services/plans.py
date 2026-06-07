@@ -29,6 +29,9 @@ CATEGORY_OF = {
     "producers": "core",
     "diagnostic": "core",
     "map": "core",
+    # Jumeau de parcelle — vue coop « parcelles à risque » (descriptif). Core pour
+    # l'instant ; passer en "premium" lors du tier commercial « Intelligence » (Phase 3).
+    "twin-risk": "core",
     "agroforestry": "core",
     "harvests": "core",
     "guide": "core",

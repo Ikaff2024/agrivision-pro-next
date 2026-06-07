@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.25-fond-satellite';
+const CACHE_VERSION = 'avp-v4.26-parcelles-risque';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -50,6 +50,7 @@ const STATIC_ASSETS = [
   '/map.html',
   '/analytics.html',
   '/satellite.html',
+  '/twin_risk.html',
   '/training.html',
   '/agroforestry.html',
   '/plantation_detail.html',
