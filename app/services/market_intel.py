@@ -47,9 +47,9 @@ _TTL_DEGRADED = 300  # 5 min : re-essai rapide quand les actualités manquent
 
 def _ttl_seconds() -> int:
     try:
-        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "1800"))  # 30 min (charge complète)
+        return int(os.getenv("MARKET_CACHE_TTL_SECONDS", "21600"))  # 6 h (charge complète) — coût IA borné
     except ValueError:
-        return 1800
+        return 21600
 
 
 def _ttl_for(data: Optional[dict]) -> int:
@@ -170,7 +170,9 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
                 json={
                     "model": CLAUDE_MODEL,
                     "max_tokens": 1800,
-                    "tools": [{"type": "web_search_20250305", "name": "web_search"}],
+                    # web_search_20260209 = filtrage dynamique : Claude filtre les
+                    # résultats AVANT le contexte → moins de tokens d'entrée (moins cher).
+                    "tools": [{"type": "web_search_20260209", "name": "web_search"}],
                     "system": _SYSTEM_PROMPT,
                     "messages": [{"role": "user", "content": _USER_PROMPT}],
                 },
