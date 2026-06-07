@@ -236,6 +236,33 @@ function applyMarket(d) {
   // Actualités
   _allNews = Array.isArray(d.news) ? d.news : [];
   renderNews();
+  renderDiag(d.diag, _allNews.length > 0);
+}
+
+// Diagnostic IA réservé aux admins (le backend ne renvoie `diag` qu'au rôle admin).
+// Affiché uniquement en cas de souci (aucune actu ou échec) pour ne pas encombrer.
+function renderDiag(diag, hasNews) {
+  let el = document.getElementById('vm-diag');
+  const show = diag && (diag.ok === false || !hasNews);
+  if (!show) { if (el) el.style.display = 'none'; return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vm-diag';
+    el.style.cssText = 'margin:10px 0;padding:10px 14px;border-radius:10px;font-size:13px;border:1px solid';
+    const info = document.getElementById('vm-info');
+    if (info && info.parentNode) info.parentNode.insertBefore(el, info.nextSibling);
+    else document.getElementById('vm-news').before(el);
+  }
+  const ok = diag.ok === true;
+  el.style.display = 'block';
+  el.style.background = ok ? 'rgba(40,140,60,.08)' : 'rgba(200,60,40,.08)';
+  el.style.borderColor = ok ? 'rgba(40,140,60,.35)' : 'rgba(200,60,40,.35)';
+  el.style.color = ok ? '#1d6b32' : '#9a2d1c';
+  const key = diag.key_present ? ('clé ' + (diag.key_prefix || '') + '…') : 'clé ABSENTE du backend';
+  const when = diag.checked_at ? new Date(diag.checked_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const meta = [key, (diag.status ? 'HTTP ' + diag.status : ''), (when ? 'testé ' + when : '')].filter(Boolean).join(' · ');
+  el.innerHTML = '<strong>🔧 Diagnostic IA (admin)</strong> — ' + esc(diag.reason || '') +
+    '<br><span style="opacity:.75">' + esc(meta) + '</span>';
 }
 
 function setPrice(valId, chgId, srcId, obj) {

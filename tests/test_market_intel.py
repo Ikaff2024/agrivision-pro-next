@@ -190,3 +190,33 @@ def test_available_on_all_plans(client):
 
 def test_requires_auth(client):
     assert client.get("/market/intelligence").status_code == 401
+
+
+# ── Diagnostic IA (admin uniquement) ──────────────────────────────────────────
+
+def test_diag_admin_sees_reason_on_fallback(client, monkeypatch):
+    """L'admin voit la cause exacte de l'absence d'actus (clé absente / 401 / …)."""
+    monkeypatch.setattr(mi, "ANTHROPIC_API_KEY", "")
+    h, _ = _admin(client, "veille.diag@test.ci")
+    body = client.get("/market/intelligence?refresh=true", headers=h).json()
+    assert "diag" in body
+    diag = body["diag"]
+    assert diag["ok"] is False
+    assert diag["key_present"] is False
+    assert "absente" in diag["reason"].lower()
+
+
+def test_diag_hidden_for_non_admin(client):
+    """Le diagnostic IA n'est JAMAIS exposé à un rôle non-admin."""
+    from app.db.models import User
+    h, _ = _admin(client, "veille.agro@test.ci", coop="Coop Agro Diag")
+    # Le 1er utilisateur d'une coop est forcé admin → on rétrograde en base pour
+    # tester un non-admin de façon déterministe (le rôle est relu depuis la base).
+    db = TestingSessionLocal()
+    try:
+        db.query(User).filter(User.email == "veille.agro@test.ci").update({"role": "agronomist"})
+        db.commit()
+    finally:
+        db.close()
+    body = client.get("/market/intelligence", headers=h).json()
+    assert "diag" not in body

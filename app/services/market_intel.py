@@ -42,6 +42,18 @@ _CACHE: dict = {"ts": 0.0, "data": None}
 # JAMAIS effacer de bonnes actualités sur un échec transitoire (ou un re-déploiement).
 _LAST_GOOD: dict = {"data": None}
 
+# Diagnostic de la DERNIÈRE tentative d'appel Claude — permet aux admins de voir
+# POURQUOI la veille IA échoue (clé absente, 401, recherche web non activée, crédit…)
+# sans fouiller les logs Railway.
+_LAST_DIAG: dict = {
+    "checked_at": None,
+    "key_present": bool(ANTHROPIC_API_KEY),
+    "key_prefix": (ANTHROPIC_API_KEY[:7] if ANTHROPIC_API_KEY else ""),
+    "status": None,
+    "ok": None,
+    "reason": "Aucun appel IA effectué depuis le démarrage du serveur.",
+}
+
 _TTL_DEGRADED = 300  # 5 min : re-essai rapide quand les actualités manquent
 
 
@@ -154,9 +166,40 @@ _USER_PROMPT = (
 )
 
 
+def last_diagnostic() -> dict:
+    """État de la dernière tentative d'appel Claude (pour l'affichage admin)."""
+    return dict(_LAST_DIAG)
+
+
+def _diag_reason(status: int, body: str) -> str:
+    """Traduit un statut HTTP Claude en cause lisible pour un admin."""
+    b = (body or "").lower()
+    if status == 401:
+        return "Clé API Anthropic invalide ou révoquée (HTTP 401) — vérifiez la valeur d'ANTHROPIC_API_KEY."
+    if status == 403:
+        return "Accès refusé par l'API Anthropic (HTTP 403) — la clé n'a pas accès à ce modèle/outil."
+    if status == 400 and ("web_search" in b or "tool" in b):
+        return "Recherche web non activée sur le compte Anthropic (HTTP 400)."
+    if status == 402 or "credit" in b or "billing" in b or "insufficient" in b or "quota" in b:
+        return f"Crédit Anthropic insuffisant ou facturation à configurer (HTTP {status})."
+    if status == 429:
+        return "Limite de débit Anthropic atteinte (HTTP 429) — réessayez plus tard."
+    return f"Erreur de l'API Claude (HTTP {status})."
+
+
 async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
-    """Appelle Claude (web search) → (parsed_json, usage) ou (None, None)."""
+    """Appelle Claude (web search) → (parsed_json, usage) ou (None, None).
+
+    Met à jour `_LAST_DIAG` à chaque tentative (diagnostic admin).
+    """
+    _LAST_DIAG["checked_at"] = datetime.now(timezone.utc).isoformat()
+    _LAST_DIAG["key_present"] = bool(ANTHROPIC_API_KEY)
+    _LAST_DIAG["key_prefix"] = ANTHROPIC_API_KEY[:7] if ANTHROPIC_API_KEY else ""
     if not ANTHROPIC_API_KEY:
+        _LAST_DIAG.update(
+            status=None, ok=False,
+            reason="ANTHROPIC_API_KEY absente / non chargée au runtime du backend.",
+        )
         return None, None
     try:
         async with httpx.AsyncClient(timeout=90.0) as client:
@@ -177,13 +220,18 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
                     "messages": [{"role": "user", "content": _USER_PROMPT}],
                 },
             )
-            resp.raise_for_status()
-            data = resp.json()
+        _LAST_DIAG["status"] = resp.status_code
+        if resp.status_code != 200:
+            _LAST_DIAG.update(ok=False, reason=_diag_reason(resp.status_code, resp.text))
+            logger.warning("Veille marché : Claude HTTP %s : %s", resp.status_code, resp.text[:300])
+            return None, None
+        data = resp.json()
         text = "".join(
             b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"
         )
         match = re.search(r"\{[\s\S]*\}", text)
         if not match:
+            _LAST_DIAG.update(ok=False, reason="Réponse Claude reçue mais sans JSON exploitable.")
             logger.warning("Veille marché : pas de JSON dans la réponse Claude.")
             return None, None
         parsed = json.loads(match.group(0))
@@ -193,8 +241,10 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
             "input_tokens": int(usage_raw.get("input_tokens", 0) or 0),
             "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
         }
+        _LAST_DIAG.update(ok=True, reason="OK — actualités récupérées.")
         return parsed, usage
     except Exception as e:  # noqa: BLE001
+        _LAST_DIAG.update(ok=False, reason=f"Connexion à l'API Claude impossible : {type(e).__name__}.")
         logger.warning("Veille marché : appel Claude échoué : %s", e)
         return None, None
 

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Cooperative, User
-from app.services.market_intel import get_market_intelligence
+from app.services.market_intel import get_market_intelligence, last_diagnostic
 
 logger = logging.getLogger("agrivision")
 
@@ -135,4 +135,9 @@ async def market_intelligence(
     # Prix d'achat RÉEL de la coopérative (par requête, propre à la coop).
     data = dict(data)
     data["coop_price"] = _coop_recent_price(db, current_user.cooperative_id)
+
+    # Diagnostic IA réservé aux admins : pourquoi la veille n'a-t-elle pas d'actus ?
+    # (clé absente, 401, recherche web non activée, crédit…). Jamais exposé aux autres rôles.
+    if current_user.role == "admin":
+        data["diag"] = last_diagnostic()
     return data
