@@ -22,6 +22,7 @@
 10. [Import d'un registre Excel](10_import_registre.md)
 11. [Dashboard, Direction & Rapports](11_dashboard_direction_rapports.md)
 12. [Administration & Espace propriétaire (plans)](12_administration_proprietaire.md)
+13. [Jumeau de parcelle & Parcelles à risque](13_jumeau_parcelle.md)
 
 ## Les 3 niveaux d'utilisateur (résumé)
 | Rôle | Ce qu'il peut faire |
