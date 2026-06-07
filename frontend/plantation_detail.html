@@ -1131,6 +1131,16 @@ function renderTwin(data, el) {
     chip('Déforestation', t.deforestation.verdict || 'Non contrôlée',
       t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
   ];
+  const li = t.living_income || {}, cert = t.certification || {}, cg = t.cacaoguard || {};
+  chipList.push(chip('Revenu vital',
+    li.available ? ((li.status === 'atteint' ? 'Atteint' : 'Écart') + (li.pct != null ? ` · ${Math.round(li.pct)}%` : '')) : 'Non évalué',
+    li.status === 'ecart' ? '#922b21' : (li.status === 'atteint' ? '#1a6b3a' : '')));
+  chipList.push(chip('Certification',
+    cert.count ? (cert.has_active ? 'Active' : 'Expirée') : 'Aucune',
+    cert.has_active ? '#1a6b3a' : (cert.needs_renewal ? '#922b21' : '')));
+  chipList.push(chip('Protection enfant',
+    cg.blocked ? 'Bloqué' : (cg.remediation_active ? `${cg.remediation_active} remédiation(s)` : 'RAS'),
+    (cg.blocked || cg.remediation_active) ? '#922b21' : '#1a6b3a'));
   if (t.weather) {
     const w = t.weather;
     chipList.push(chip('Météo',

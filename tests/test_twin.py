@@ -210,3 +210,87 @@ def test_coop_at_risk_scoped_to_coop(client):
 
 def test_coop_at_risk_requires_auth(client):
     assert client.get("/twin/at-risk").status_code == 401
+
+
+# ── Enrichissement : revenu vital, certification, remédiation ─────────────────
+
+def test_twin_includes_social_economic_blocks(client):
+    """La fiche jumeau expose les dimensions revenu vital / certification / remédiation."""
+    pid, auth = _seed(full=True, email="twin.social@test.ci", coop="Coop Twin Social")
+    twin = client.get(f"/plantations/{pid}/twin", headers=auth).json()["twin"]
+    assert "living_income" in twin and "certification" in twin
+    assert "remediation_active" in twin["cacaoguard"]
+
+
+def test_twin_living_income_gap_alert(client):
+    pid, auth = _seed(full=True, email="twin.li@test.ci", coop="Coop Twin LI")
+    db = TestingSessionLocal()
+    try:
+        from app.db.models import FarmForceAssessment, Plantation
+        p = db.query(Plantation).filter(Plantation.id == pid).first()
+        db.add(FarmForceAssessment(producer_id=p.producer_id, campaign_label="2025-2026",
+                                   net_income_cfa=500000))  # < seuil revenu vital (2 360 000)
+        db.commit()
+    finally:
+        db.close()
+    body = client.get(f"/plantations/{pid}/twin", headers=auth).json()
+    assert body["twin"]["living_income"]["available"] is True
+    assert body["twin"]["living_income"]["status"] == "ecart"
+    assert "living_income_gap" in {a["code"] for a in body["alerts"]}
+
+
+def test_twin_certification_expired_alert(client):
+    pid, auth = _seed(full=True, email="twin.cert@test.ci", coop="Coop Twin Cert")
+    db = TestingSessionLocal()
+    try:
+        from app.db.models import Certification, PlantationCertification
+        cert = Certification(code="FT-TWINTEST", nom_complet="Fairtrade (test)")
+        db.add(cert); db.flush()
+        db.add(PlantationCertification(plantation_id=pid, certification_id=cert.id,
+                                       date_expiration=datetime.utcnow() - timedelta(days=10)))
+        db.commit()
+    finally:
+        db.close()
+    body = client.get(f"/plantations/{pid}/twin", headers=auth).json()
+    assert body["twin"]["certification"]["needs_renewal"] is True
+    assert "cert_expired" in {a["code"] for a in body["alerts"]}
+
+
+def test_twin_active_remediation_alert(client):
+    pid, auth = _seed(full=True, email="twin.rem@test.ci", coop="Coop Twin Rem")
+    db = TestingSessionLocal()
+    try:
+        from app.db.models import Plantation, User
+        from app.db.models_social import Child, Priority, RemediationPlan, RemediationStatus
+        p = db.query(Plantation).filter(Plantation.id == pid).first()
+        u = db.query(User).filter(User.cooperative_id == p.cooperative_id).first()
+        child = Child(producer_id=p.producer_id, first_name="A", last_name="B",
+                      date_of_birth=(datetime.utcnow() - timedelta(days=3650)).date(), gender="M")
+        db.add(child); db.flush()
+        db.add(RemediationPlan(producer_id=p.producer_id, child_id=child.id,
+                               plan_reference="REM-TWINTEST-001", status=RemediationStatus.IN_PROGRESS,
+                               priority=Priority.HIGH, main_objective="Scolarisation", case_worker_id=u.id))
+        db.commit()
+    finally:
+        db.close()
+    body = client.get(f"/plantations/{pid}/twin", headers=auth).json()
+    assert body["twin"]["cacaoguard"]["remediation_active"] >= 1
+    assert "remediation_active" in {a["code"] for a in body["alerts"]}
+
+
+def test_coop_at_risk_includes_living_income_gap(client):
+    """La vue coop « à risque » remonte aussi un écart de revenu vital."""
+    pid, auth = _seed(full=True, email="twin.coopli@test.ci", coop="Coop Twin CoopLI")
+    db = TestingSessionLocal()
+    try:
+        from app.db.models import FarmForceAssessment, Plantation
+        p = db.query(Plantation).filter(Plantation.id == pid).first()
+        db.add(FarmForceAssessment(producer_id=p.producer_id, campaign_label="2025-2026",
+                                   net_income_cfa=500000))
+        db.commit()
+    finally:
+        db.close()
+    body = client.get("/twin/at-risk", headers=auth).json()
+    assert body["flagged_count"] == 1
+    codes = {a["code"] for a in body["parcels"][0]["alerts"]}
+    assert "living_income_gap" in codes

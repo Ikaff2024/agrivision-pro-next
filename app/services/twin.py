@@ -18,9 +18,11 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     DeforestationCheck,
     Diagnostic,
+    FarmForceAssessment,
     Harvest,
     Plantation,
     PlantationBoundary,
+    PlantationCertification,
     Producer,
 )
 from app.eudr.scoring import compute_eudr_score
@@ -77,6 +79,64 @@ def _days_since(dt) -> Optional[int]:
         return None
 
 
+def _is_future(dt) -> bool:
+    """True si l'échéance est dans le futur (ou absente = sans expiration)."""
+    if dt is None:
+        return True
+    try:
+        d = dt.date() if hasattr(dt, "date") else dt
+        return d >= date.today()
+    except Exception:
+        return True
+
+
+def _living_income_block(net_income) -> dict:
+    """Bloc revenu vital à partir du revenu net (réutilise le verdict FarmForce)."""
+    if net_income is None:
+        return {"available": False}
+    from app.services.farmforce_reports import living_income_assessment
+    li = living_income_assessment(net_income)
+    return {
+        "available": True,
+        "net_income_cfa": round(float(net_income), 0),
+        "status": li.get("living_income_status"),           # atteint | ecart | None
+        "pct": li.get("living_income_pct"),
+        "benchmark_cfa": li.get("living_income_benchmark_cfa"),
+    }
+
+
+def _cert_block(expirations: list) -> dict:
+    """Bloc certification à partir des dates d'expiration des liens de la parcelle."""
+    if not expirations:
+        return {"count": 0, "has_active": False, "needs_renewal": False}
+    active = sum(1 for e in expirations if _is_future(e))
+    return {
+        "count": len(expirations),
+        "has_active": active > 0,
+        "needs_renewal": active == 0,   # toutes expirées → renouvellement requis
+    }
+
+
+_ACTIVE_REMEDIATION = ("pending_approval", "approved", "in_progress", "escalated")
+
+
+def _active_remediation_count(db: Session, producer_id: Optional[int]) -> int:
+    """Nb de plans de remédiation ACTIFS du producteur (protection de l'enfant)."""
+    if not producer_id:
+        return 0
+    try:
+        from app.db.models_social import RemediationPlan, RemediationStatus
+    except ImportError:
+        return 0
+    statuses = [RemediationStatus(s) for s in _ACTIVE_REMEDIATION]
+    return (
+        db.query(RemediationPlan)
+        .filter(RemediationPlan.producer_id == producer_id,
+                RemediationPlan.status.in_(statuses))
+        .count()
+    )
+
+
 def build_twin(db: Session, plantation: Plantation) -> dict:
     """Vue unifiée (jumeau) d'une parcelle à partir des données existantes."""
     pid = plantation.id
@@ -105,6 +165,21 @@ def build_twin(db: Session, plantation: Plantation) -> dict:
         agro = None
 
     age = diag.plantation_age_years if diag else None
+
+    # Dimensions sociale / économique / certification (nourrissent aussi la vue « à risque »).
+    ff = (
+        db.query(FarmForceAssessment.net_income_cfa)
+        .filter(FarmForceAssessment.producer_id == plantation.producer_id)
+        .order_by(FarmForceAssessment.created_at.desc())
+        .first()
+        if plantation.producer_id else None
+    )
+    cert_exps = [
+        exp for (exp,) in
+        db.query(PlantationCertification.date_expiration)
+        .filter(PlantationCertification.plantation_id == pid).all()
+    ]
+    rem_active = _active_remediation_count(db, plantation.producer_id)
 
     return {
         "plantation": {
@@ -140,7 +215,10 @@ def build_twin(db: Session, plantation: Plantation) -> dict:
         "cacaoguard": {
             "blocked": block is not None,
             "reason": (block.block_reason.value if block and getattr(block, "block_reason", None) else None),
+            "remediation_active": rem_active,
         },
+        "living_income": _living_income_block(ff[0] if ff else None),
+        "certification": _cert_block(cert_exps),
         "boundary": {
             "has_polygon": boundary is not None,
             "area_hectares": boundary.area_hectares if boundary else None,
@@ -190,6 +268,23 @@ def compute_alerts(twin: dict) -> list[dict]:
     elif hv["yield_kg_ha"] is not None and hv["yield_kg_ha"] < LOW_YIELD_KG_HA:
         add("medium", "low_yield", f"Rendement faible ({hv['yield_kg_ha']} kg/ha)",
             "Diagnostiquer les causes (sol, ombrage, âge des plants).")
+
+    # Dimensions sociale / économique / certification — signaux ACTIONNABLES seulement
+    # (on ne signale PAS la simple absence de donnée, pour ne pas noyer la vue « à risque »).
+    if (cg or {}).get("remediation_active", 0):
+        add("high", "remediation_active", "Plan de remédiation en cours",
+            "Suivre le plan de protection de l'enfant jusqu'à clôture.")
+    li = twin.get("living_income") or {}
+    if li.get("available") and li.get("status") == "ecart":
+        pct = li.get("pct")
+        label = "Revenu vital non atteint" + (
+            f" ({pct:.0f}% du seuil)" if isinstance(pct, (int, float)) else "")
+        add("high", "living_income_gap", label,
+            "Renforcer les revenus (diversification, productivité, primes durabilité).")
+    cert = twin.get("certification") or {}
+    if cert.get("needs_renewal"):
+        add("medium", "cert_expired", "Certification expirée",
+            "Planifier le renouvellement de la certification.")
 
     order = {"high": 0, "medium": 1, "low": 2}
     alerts.sort(key=lambda x: order.get(x["severity"], 3))
@@ -294,6 +389,42 @@ def build_coop_risk(
     ):
         harv[pid_] = (float(total or 0), int(cnt or 0))
 
+    # Revenu net le plus récent par producteur (revenu vital).
+    ff_net: dict = {}
+    if prod_ids:
+        for r in (
+            db.query(FarmForceAssessment.producer_id, FarmForceAssessment.net_income_cfa,
+                     FarmForceAssessment.created_at)
+            .filter(FarmForceAssessment.producer_id.in_(prod_ids))
+            .order_by(FarmForceAssessment.producer_id, FarmForceAssessment.created_at.desc())
+            .all()
+        ):
+            ff_net.setdefault(r.producer_id, r.net_income_cfa)
+
+    # Certifications par parcelle (dates d'expiration).
+    cert_exps: dict = {}
+    for pid_, exp in (
+        db.query(PlantationCertification.plantation_id, PlantationCertification.date_expiration)
+        .filter(PlantationCertification.plantation_id.in_(pids)).all()
+    ):
+        cert_exps.setdefault(pid_, []).append(exp)
+
+    # Plans de remédiation actifs par producteur (protection de l'enfant).
+    rem_count: dict = {}
+    try:
+        from app.db.models_social import RemediationPlan, RemediationStatus
+        if prod_ids:
+            statuses = [RemediationStatus(s) for s in _ACTIVE_REMEDIATION]
+            for pr_id, cnt in (
+                db.query(RemediationPlan.producer_id, func.count(RemediationPlan.id))
+                .filter(RemediationPlan.producer_id.in_(prod_ids),
+                        RemediationPlan.status.in_(statuses))
+                .group_by(RemediationPlan.producer_id).all()
+            ):
+                rem_count[pr_id] = int(cnt)
+    except ImportError:
+        rem_count = {}
+
     flagged: list = []
     by_worst = {"high": 0, "medium": 0, "low": 0}
     alert_totals = {"high": 0, "medium": 0, "low": 0}
@@ -312,8 +443,16 @@ def build_coop_risk(
                 "days_since": _days_since(d.created_at) if d else None,
                 "risk_level": d.global_risk_level if d else None,
             },
-            "cacaoguard": {"blocked": p.producer_id in blocked},
+            "cacaoguard": {
+                "blocked": p.producer_id in blocked,
+                "remediation_active": rem_count.get(p.producer_id, 0),
+            },
             "harvests": {"count": hcount, "yield_kg_ha": yield_kg_ha},
+            "living_income": (
+                _living_income_block(ff_net.get(p.producer_id)) if p.producer_id
+                else {"available": False}
+            ),
+            "certification": _cert_block(cert_exps.get(p.id, [])),
         }
         alerts = compute_alerts(lite)
         if not alerts:
