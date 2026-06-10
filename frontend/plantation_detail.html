@@ -1116,6 +1116,14 @@ function renderTwin(data, el) {
   const SEV = { high: '#922b21', medium: '#9a6200', low: '#6a7d64' };
   const SEVBG = { high: '#fdedec', medium: '#fef7e6', low: '#f4f6f4' };
   const eudrColor = { conforme: '#1a6b3a', a_verifier: '#9a6200', non_conforme: '#922b21' }[t.eudr.status] || 'inherit';
+  // Libellés FR — les données peuvent arriver en anglais/enum selon la source.
+  const RISK_FR = { low: 'Faible', medium: 'Moyen', high: 'Élevé', critical: 'Critique', none: 'Aucun',
+                    faible: 'Faible', moyen: 'Moyen', 'élevé': 'Élevé', eleve: 'Élevé', critique: 'Critique', aucun: 'Aucun' };
+  const DEFO_FR = { clear: 'Aucune (RAS)', deforestation_detected: 'Détectée', inconclusive: 'Non concluant' };
+  const EUDR_FR = { conforme: 'Conforme', a_verifier: 'À vérifier', non_conforme: 'Non conforme' };
+  const frRisk = v => v ? (RISK_FR[String(v).toLowerCase()] || v) : '—';
+  const frDefo = v => v ? (DEFO_FR[String(v).toLowerCase()] || v) : 'Non contrôlée';
+  const frEudr = v => EUDR_FR[String(v).toLowerCase()] || v || '—';
 
   const chip = (label, val, color) =>
     `<div style="flex:1;min-width:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
@@ -1124,11 +1132,11 @@ function renderTwin(data, el) {
     </div>`;
 
   const chipList = [
-    chip('Conformité EUDR', `${t.eudr.score}/${t.eudr.max_score} · ${t.eudr.status}`, eudrColor),
+    chip('Conformité EUDR', `${t.eudr.score}/${t.eudr.max_score} · ${frEudr(t.eudr.status)}`, eudrColor),
     chip('Délimitation', t.boundary.has_polygon ? 'Tracée' : 'Non tracée', t.boundary.has_polygon ? '#1a6b3a' : '#922b21'),
-    chip('Diagnostic', t.diagnostic.available ? (t.diagnostic.risk_level || '—') : 'Aucun', ''),
+    chip('Diagnostic', t.diagnostic.available ? frRisk(t.diagnostic.risk_level) : 'Aucun', ''),
     chip('Récoltes', t.harvests.total_kg ? (t.harvests.total_kg + ' kg' + (t.harvests.yield_kg_ha ? ` · ${t.harvests.yield_kg_ha} kg/ha` : '')) : 'Aucune', ''),
-    chip('Déforestation', t.deforestation.verdict || 'Non contrôlée',
+    chip('Déforestation', frDefo(t.deforestation.verdict),
       t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
   ];
   const li = t.living_income || {}, cert = t.certification || {}, cg = t.cacaoguard || {};
