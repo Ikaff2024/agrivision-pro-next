@@ -28,8 +28,9 @@ Workflow **`.github/workflows/backup.yml`** : toutes les 6 h, fait un `pg_dump`,
 
 **Mise en place (5 min, une seule fois) :**
 1. Identifie la base de **production** : ouvre le **backend de prod** (le service Railway que
-   `app-agrivision-pro.com` appelle) → son `DATABASE_URL` désigne la base à sauvegarder. Ouvre **ce
-   service base** → Variables → copie **`DATABASE_PUBLIC_URL`**
+   `app-agrivision-pro.com` appelle) → son `DATABASE_URL` désigne la base à sauvegarder.
+   *(À ce jour : backend **handsome-wisdom**, projet `practical-art` / env `production`, relié au
+   service **Postgres**.)* Ouvre **ce service Postgres** → Variables → copie **`DATABASE_PUBLIC_URL`**
    (forme `postgresql://user:pass@…proxy.rlwy.net:PORT/railway`).
    *(L'URL interne `…railway.internal` ne marche pas depuis GitHub — il faut la publique.)*
 2. Choisis une **phrase secrète** longue et unique (gestionnaire de mots de passe). C'est la **clé**
