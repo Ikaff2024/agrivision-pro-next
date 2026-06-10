@@ -10,7 +10,10 @@ import httpx
 logger = logging.getLogger("agrivision")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL      = "claude-sonnet-4-20250514"
+# Modèle surchargeable par env (levier de coût). Défaut : Sonnet 4.6 (courant ;
+# l'ancien claude-sonnet-4-20250514 part en retraite le 2026-06-15).
+# Ex. AI_ADVISOR_MODEL=claude-haiku-4-5 → ~3x moins cher pour ce conseil structuré.
+CLAUDE_MODEL      = os.getenv("AI_ADVISOR_MODEL", "claude-sonnet-4-6")
 CLAUDE_API_URL    = "https://api.anthropic.com/v1/messages"
 
 
@@ -146,8 +149,20 @@ async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list,
         logger.warning("AI advice timeout")
         return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}, None
     except httpx.HTTPStatusError as e:
-        logger.warning("AI advice HTTP error %s", e.response.status_code)
-        return {"error": f"Erreur API IA ({e.response.status_code}). Réessayez dans quelques instants."}, None
+        status = e.response.status_code
+        body = (e.response.text or "").lower()
+        logger.warning("AI advice HTTP %s : %s", status, e.response.text[:300])
+        if status == 401:
+            msg = "Clé API IA invalide ou révoquée. Contactez l'administrateur."
+        elif status == 400 and any(k in body for k in ("credit", "billing", "insufficient", "quota")):
+            msg = "Crédit IA insuffisant : rechargez le compte Anthropic (Plans & Billing), puis réessayez."
+        elif status in (402, 403):
+            msg = "Accès IA refusé (facturation ou permissions). Vérifiez le compte Anthropic."
+        elif status == 429:
+            msg = "Service IA momentanément saturé. Réessayez dans une minute."
+        else:
+            msg = f"Erreur API IA ({status}). Réessayez dans quelques instants."
+        return {"error": msg}, None
     except Exception as e:
         logger.warning("AI advice erreur : %s", e)
         return {"error": "Analyse IA temporairement indisponible."}, None
