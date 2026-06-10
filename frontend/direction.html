@@ -178,7 +178,32 @@ async function loadDirection() {
     + (d.scope === 'global' ? ' · périmètre global' : '');
 }
 
+// Drill-down : chaque métrique ouvre le module détaillé correspondant.
+const DRILL = {
+  'p-producers': 'producers.html', 'p-plantations': 'plantations.html',
+  'p-hectares': 'plantations.html', 'p-alerts': 'cacaoguard.html',
+  'e-rate': 'eudr.html', 'e-conforme': 'eudr.html', 'e-verif': 'eudr.html', 'e-non': 'eudr.html',
+  'c-total': 'children.html', 'c-risk': 'children.html', 'c-school': 'children.html', 'c-block': 'cacaoguard.html',
+  'li-rate': 'farmforce.html', 'li-count': 'farmforce.html', 'li-reached': 'farmforce.html', 'li-avg': 'farmforce.html',
+  'v-total': 'harvests.html', 'v-cert': 'certification.html', 'v-rate': 'certification.html',
+};
+function wireDrilldowns() {
+  if (!document.getElementById('dd-style')) {
+    const s = document.createElement('style'); s.id = 'dd-style';
+    s.textContent = '.card.clickable{cursor:pointer;transition:.12s}.card.clickable:hover{border-color:var(--accent,#1a6b3a);box-shadow:0 3px 10px rgba(0,0,0,.08);transform:translateY(-1px)}';
+    document.head.appendChild(s);
+  }
+  for (const [id, page] of Object.entries(DRILL)) {
+    const v = document.getElementById(id); const card = v && v.closest('.card');
+    if (card && !card.dataset.wired) {
+      card.dataset.wired = '1'; card.classList.add('clickable'); card.title = 'Voir le détail';
+      card.addEventListener('click', () => { location.href = page; });
+    }
+  }
+}
+
 loadDirection();
+wireDrilldowns();
 </script>
 </body>
 </html>
