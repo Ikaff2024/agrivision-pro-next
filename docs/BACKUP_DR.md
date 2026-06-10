@@ -14,7 +14,8 @@
 
 ### Niveau 1 — Sauvegardes natives Railway (à activer dans la console)
 Première ligne de défense, la plus simple à restaurer (même plateforme).
-1. Railway → projet → service **base `agrivision-db`** → onglet **Backups**.
+1. Railway → projet → ouvre le service de la **base PostgreSQL de production** (celle reliée à ton
+   backend de prod, cf. son `DATABASE_URL`) → onglet **Backups**.
 2. Activer les **sauvegardes automatiques** (quotidiennes) si le plan le permet.
 3. Tester une **restauration** depuis l'interface au moins une fois (voir checklist).
 
@@ -26,8 +27,10 @@ Workflow **`.github/workflows/backup.yml`** : toutes les 6 h, fait un `pg_dump`,
 (AES-256) et le stocke comme **artefact GitHub** (hors Railway). Survit à une panne Railway.
 
 **Mise en place (5 min, une seule fois) :**
-1. Récupère la **chaîne de connexion PUBLIQUE** de la base : Railway → `agrivision-db` →
-   Variables → **`DATABASE_PUBLIC_URL`** (forme `postgresql://user:pass@…proxy.rlwy.net:PORT/railway`).
+1. Identifie la base de **production** : ouvre le **backend de prod** (le service Railway que
+   `app-agrivision-pro.com` appelle) → son `DATABASE_URL` désigne la base à sauvegarder. Ouvre **ce
+   service base** → Variables → copie **`DATABASE_PUBLIC_URL`**
+   (forme `postgresql://user:pass@…proxy.rlwy.net:PORT/railway`).
    *(L'URL interne `…railway.internal` ne marche pas depuis GitHub — il faut la publique.)*
 2. Choisis une **phrase secrète** longue et unique (gestionnaire de mots de passe). C'est la **clé**
    de déchiffrement des sauvegardes : **sans elle, les sauvegardes sont irrécupérables**. Garde-la
@@ -101,5 +104,5 @@ Les artefacts GitHub conviennent au démarrage. Pour une vraie séparation hors-
 ## Récapitulatif des secrets (jamais dans le code)
 | Secret (GitHub Actions) | Valeur | Où le trouver |
 |---|---|---|
-| `BACKUP_DATABASE_URL` | URL **publique** de la base | Railway → `agrivision-db` → `DATABASE_PUBLIC_URL` |
+| `BACKUP_DATABASE_URL` | URL **publique** de la base de prod | service de la base de prod → `DATABASE_PUBLIC_URL` |
 | `BACKUP_PASSPHRASE` | phrase secrète de chiffrement | la vôtre, stockée hors-ligne |
