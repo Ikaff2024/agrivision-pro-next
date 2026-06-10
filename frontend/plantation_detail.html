@@ -1151,8 +1151,13 @@ function renderTwin(data, el) {
     (cg.blocked || cg.remediation_active) ? '#922b21' : '#1a6b3a'));
   if (t.weather) {
     const w = t.weather;
-    chipList.push(chip('Météo',
-      `${w.temperature_c != null ? Math.round(w.temperature_c) + '°C' : '—'} · ${w.humidity_pct != null ? w.humidity_pct + '%' : '—'} · ${w.rainfall_mm_month != null ? w.rainfall_mm_month + ' mm/30j' : '—'}`, ''));
+    // Moyennes 30 j (tendance) — distinctes du diagnostic, qui est en temps réel.
+    const tm = (w.temp_mean_30d != null ? w.temp_mean_30d : w.temperature_c);
+    const hm = (w.humidity_mean_30d != null ? w.humidity_mean_30d : w.humidity_pct);
+    const tTxt = (tm != null ? Math.round(tm) + '°C' : '—');
+    const hTxt = (hm != null ? Math.round(hm) + '%' : '—');
+    const rTxt = (w.rainfall_mm_month != null ? Math.round(w.rainfall_mm_month) + ' mm' : '—');
+    chipList.push(chip('Climat — 30 derniers jours', `${tTxt} moy · ${hTxt} moy · ${rTxt} cumul`, ''));
   }
   const chips = chipList.join('');
 
