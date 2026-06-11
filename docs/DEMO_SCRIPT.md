@@ -12,7 +12,7 @@
 ## 0. Préparation (la veille — 15 min)
 
 **À vérifier AVANT la démo (critique) :**
-- [ ] Connexion OK sur **app-agrivision-pro.com** avec un compte **admin** de démo.
+- [ ] Connexion OK sur **app-agrivision-pro.com** avec le compte démo : **demo2@agrivision-pro.com** / `DemoAgriVision2026!` (admin de « Coopérative Démo Yeyasso 2026 »).
 - [ ] **Logo de la coopérative** chargé (Administration → Logo) → les PDF sortent à leur image. ⭐ effet « waouh ».
 - [ ] Un **producteur + une parcelle géolocalisée** prêts, avec : un **diagnostic**, une **délimitation (polygone)**, une **récolte**, idéalement un **contrôle déforestation**.
 - [ ] **Crédit Anthropic** approvisionné si tu veux montrer le **Conseil Agronome IA** et la **Veille marché** en live (sinon, voir la parade ci-dessous).
@@ -22,6 +22,22 @@
 > **Parade si l'IA n'est pas dispo (crédit) :** la quasi-totalité de la démo fonctionne **sans IA**
 > (parcelles, EUDR, satellite réel, lots, fiches, PDF, pilotage). Pour le **Conseil IA** et la **Veille**,
 > montre une **capture** déjà générée et dis : « cette brique s'appuie sur l'IA, activable en un clic ».
+
+### Jeu de données de démo — le (re)créer
+
+Le script `seed_demo.py` peuple une coopérative de démo complète : 8 parcelles en états variés (conforme,
+à délimiter, déforestation, rendement faible, sans diagnostic, sans récolte), diagnostics, récoltes 2 campagnes,
+agroforesterie, contrôles déforestation, achats, **lots + passeports**, CacaoGuard/SSRTE, certification, et le **revenu vital**.
+
+```bash
+# Coop démo neuve (le nom de coop doit être unique côté serveur)
+AVP_DEMO_EMAIL=demo2@agrivision-pro.com \
+AVP_DEMO_COOP="Coopérative Démo Yeyasso 2026" \
+python seed_demo.py
+```
+
+> - Après le seed : se connecter à ce compte et **téléverser le logo** (Administration → Logo) — tous les PDF sortent alors à l'image de la coop. ⭐
+> - Le seed est **idempotent** sur les parcelles (relançable sans doublon). Pour repartir d'une coop **vierge**, prendre un **nouveau** `AVP_DEMO_EMAIL` **et** un **nouveau** `AVP_DEMO_COOP` (un nom de coop déjà pris est refusé à l'inscription).
 
 ---
 
