@@ -111,7 +111,37 @@ def get_cooperative_logo(
     """Logo courant de la coopérative (data-URI ou None). Admin, sa propre coop."""
     _assert_coop_admin(current_user, cooperative_id)
     coop = _get_coop_or_404(db, cooperative_id)
-    return {"cooperative_id": coop.id, "logo": coop.logo_data}
+    return {
+        "cooperative_id": coop.id,
+        "logo": coop.logo_data,
+        "size": coop.logo_size or "md",
+        "plaque": bool(coop.logo_plaque),
+    }
+
+
+class LogoSettings(BaseModel):
+    size: str | None = None      # sm | md | lg
+    plaque: bool | None = None
+
+
+@router.patch("/cooperatives/{cooperative_id:int}/logo-settings")
+def set_cooperative_logo_settings(
+    cooperative_id: int,
+    data: LogoSettings,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ajuste l'affichage du logo sur les PDF (taille + pastille). Admin, sa coop."""
+    _assert_coop_admin(current_user, cooperative_id)
+    coop = _get_coop_or_404(db, cooperative_id)
+    if data.size is not None:
+        if data.size not in ("sm", "md", "lg"):
+            raise HTTPException(status_code=400, detail="Taille invalide (sm | md | lg).")
+        coop.logo_size = data.size
+    if data.plaque is not None:
+        coop.logo_plaque = bool(data.plaque)
+    db.commit()
+    return {"cooperative_id": coop.id, "size": coop.logo_size, "plaque": bool(coop.logo_plaque)}
 
 
 @router.post("/cooperatives/{cooperative_id:int}/logo")

@@ -50,12 +50,18 @@ def coop_brand(db: Session, cooperative_id: Optional[int]) -> dict:
     Renvoie toujours les deux clés (None si absent) → les templates retombent
     sur l'identité AgriVision Pro par défaut.
     """
+    base = {"coop_logo": None, "coop_name": None, "coop_logo_size": "md", "coop_logo_plaque": True}
     if not cooperative_id:
-        return {"coop_logo": None, "coop_name": None}
+        return base
     coop = db.query(Cooperative).filter(Cooperative.id == cooperative_id).first()
     if not coop:
-        return {"coop_logo": None, "coop_name": None}
-    return {"coop_logo": coop.logo_data or None, "coop_name": coop.name or None}
+        return base
+    return {
+        "coop_logo": coop.logo_data or None,
+        "coop_name": coop.name or None,
+        "coop_logo_size": coop.logo_size or "md",
+        "coop_logo_plaque": bool(coop.logo_plaque),
+    }
 
 
 # ─── Helpers de formatage ─────────────────────────────────────────────────────
@@ -256,6 +262,8 @@ def build_plantation_context(db: Session, plantation: Plantation) -> dict:
         "cooperative": cooperative,
         "coop_logo": (cooperative.logo_data if cooperative else None),
         "coop_name": (cooperative.name if cooperative else None),
+        "coop_logo_size": ((cooperative.logo_size if cooperative else None) or "md"),
+        "coop_logo_plaque": (bool(cooperative.logo_plaque) if cooperative else True),
         "diagnostic": last_diagnostic,
         "harvests": last_harvests,
         "all_harvests_count": len(harvests),

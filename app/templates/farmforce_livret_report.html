@@ -83,7 +83,7 @@
 {# ─── COUVERTURE ─── #}
 <div class="cover">
   <div class="cover-logo">
-    <div class="cover-logo-mark">{% if coop_logo %}<img src="{{ coop_logo }}" alt="" style="height:14mm;width:auto;max-width:16mm">{% else %}A{% endif %}</div>
+    {% if coop_logo %}{% set _lh = {'sm':'12mm','md':'17mm','lg':'24mm'}[coop_logo_size] if coop_logo_size in ['sm','md','lg'] else '17mm' %}{% if coop_logo_plaque %}<div class="cover-logo-mark" style="width:auto;height:auto;min-width:0;padding:2.5mm;background:#fff"><img src="{{ coop_logo }}" alt="" style="height:{{ _lh }};width:auto;max-width:62mm;display:block"></div>{% else %}<img src="{{ coop_logo }}" alt="" style="height:{{ _lh }};width:auto;max-width:62mm;display:block">{% endif %}{% else %}<div class="cover-logo-mark">A</div>{% endif %}
     <div>
       <div class="cover-logo-text">{{ coop_name or "AgriVision Pro" }}</div>{% if coop_name %}<div class="cover-logo-sub" style="opacity:.7;margin-top:1pt">Propuls&#233; par AgriVision Pro</div>{% endif %}
       <div class="cover-logo-sub">Livret de suivi — Cocoa Farmer Income Tool</div>

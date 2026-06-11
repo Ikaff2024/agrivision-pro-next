@@ -69,6 +69,8 @@ def build_farmforce_context(assessment: FarmForceAssessment) -> dict:
         "producer_name": producer_name,
         "coop_logo": (coop.logo_data if coop else None),
         "coop_name": (coop.name if coop else None),
+        "coop_logo_size": ((coop.logo_size if coop else None) or "md"),
+        "coop_logo_plaque": (bool(coop.logo_plaque) if coop else True),
         "campaign_label": assessment.campaign_label,
         "localite": assessment.localite,
         "pr_code": assessment.pr_code,

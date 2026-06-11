@@ -22,6 +22,9 @@ class Cooperative(Base):
     # Logo de la coopérative (data-URI base64) affiché sur les PDF. Stocké en base
     # → pas d'hébergement externe ; intégré directement dans les documents générés.
     logo_data  = Column(Text, nullable=True)
+    # Réglages d'affichage du logo sur les PDF (ajustables par l'admin).
+    logo_size  = Column(String, default="md", nullable=False)      # sm | md | lg
+    logo_plaque = Column(Boolean, default=True, nullable=False)    # pastille blanche derrière le logo
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

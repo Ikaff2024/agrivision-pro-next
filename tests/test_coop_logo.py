@@ -63,3 +63,24 @@ def test_logo_feeds_pdf_context(client):
         db.close()
     assert brand["coop_logo"].startswith("data:image/png;base64,")
     assert brand["coop_name"] == "Coop Logo Ctx"
+
+
+def test_logo_settings(client):
+    h, cid = _admin(client, "logo.set@test.ci", "Coop Logo Set")
+    g = client.get(f"/cooperatives/{cid}/logo", headers=h).json()
+    assert g["size"] == "md" and g["plaque"] is True          # défauts
+    r = client.patch(f"/cooperatives/{cid}/logo-settings", headers=h, json={"size": "lg", "plaque": False})
+    assert r.status_code == 200, r.text
+    g2 = client.get(f"/cooperatives/{cid}/logo", headers=h).json()
+    assert g2["size"] == "lg" and g2["plaque"] is False
+    # taille invalide rejetée
+    assert client.patch(f"/cooperatives/{cid}/logo-settings", headers=h,
+                        json={"size": "huge"}).status_code == 400
+    # reflété dans le contexte PDF
+    from app.services.reports import coop_brand
+    db = TestingSessionLocal()
+    try:
+        b = coop_brand(db, cid)
+    finally:
+        db.close()
+    assert b["coop_logo_size"] == "lg" and b["coop_logo_plaque"] is False

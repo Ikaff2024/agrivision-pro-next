@@ -104,6 +104,8 @@ def build_dds_context(plantation: Plantation, db: Session, operator_name: Option
         "cooperative_name": coop_name,
         "coop_name": coop_name,
         "coop_logo": (plantation.cooperative.logo_data if plantation.cooperative else None),
+        "coop_logo_size": ((plantation.cooperative.logo_size if plantation.cooperative else None) or "md"),
+        "coop_logo_plaque": (bool(plantation.cooperative.logo_plaque) if plantation.cooperative else True),
         "producer_code": producer_code,
         "last_inspection_date": last_inspection,
         "has_active_block": has_block,
