@@ -100,7 +100,7 @@
 {# ─── COUVERTURE ─── #}
 <div class="cover">
   <div class="cover-logo">
-    <div class="cover-logo-mark">A</div>
+    <div class="cover-logo-mark">{% if coop_logo %}<img src="{{ coop_logo }}" alt="" style="width:100%;height:100%;object-fit:contain">{% else %}A{% endif %}</div>
     <div>
       <div class="cover-logo-text">AgriVision Pro</div>
       <div class="cover-logo-sub">Conformite EUDR — Reglement (UE) 2023/1115</div>

@@ -44,6 +44,20 @@ _jinja_env = Environment(
 )
 
 
+def coop_brand(db: Session, cooperative_id: Optional[int]) -> dict:
+    """Logo (data-URI) + nom de la coopérative pour l'en-tête des PDF.
+
+    Renvoie toujours les deux clés (None si absent) → les templates retombent
+    sur l'identité AgriVision Pro par défaut.
+    """
+    if not cooperative_id:
+        return {"coop_logo": None, "coop_name": None}
+    coop = db.query(Cooperative).filter(Cooperative.id == cooperative_id).first()
+    if not coop:
+        return {"coop_logo": None, "coop_name": None}
+    return {"coop_logo": coop.logo_data or None, "coop_name": coop.name or None}
+
+
 # ─── Helpers de formatage ─────────────────────────────────────────────────────
 def slugify(text: str) -> str:
     """Convertit un texte en slug ASCII safe pour nom de fichier."""
@@ -240,6 +254,8 @@ def build_plantation_context(db: Session, plantation: Plantation) -> dict:
         # Entités principales
         "plantation": plantation,
         "cooperative": cooperative,
+        "coop_logo": (cooperative.logo_data if cooperative else None),
+        "coop_name": (cooperative.name if cooperative else None),
         "diagnostic": last_diagnostic,
         "harvests": last_harvests,
         "all_harvests_count": len(harvests),

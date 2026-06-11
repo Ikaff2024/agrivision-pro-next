@@ -19,6 +19,9 @@ class Cooperative(Base):
     # Plan d'abonnement (feature-gating). Defaut 'enterprise' = tout active,
     # afin de ne rien changer tant qu'un plan n'est pas explicitement assigne.
     plan       = Column(String, default="enterprise", nullable=False)
+    # Logo de la coopérative (data-URI base64) affiché sur les PDF. Stocké en base
+    # → pas d'hébergement externe ; intégré directement dans les documents générés.
+    logo_data  = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

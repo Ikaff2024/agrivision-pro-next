@@ -62,10 +62,13 @@ def _money(value) -> str:
 def build_farmforce_context(assessment: FarmForceAssessment) -> dict:
     """Construit le contexte Jinja2 pour le template Livret."""
     producer_name = assessment.producer.nom_complet if assessment.producer else "Producteur"
+    coop = assessment.producer.cooperative if assessment.producer else None
     li = living_income_assessment(assessment.net_income_cfa)
     return {
         "generation_date": datetime.date.today().isoformat(),
         "producer_name": producer_name,
+        "coop_logo": (coop.logo_data if coop else None),
+        "coop_name": (coop.name if coop else None),
         "campaign_label": assessment.campaign_label,
         "localite": assessment.localite,
         "pr_code": assessment.pr_code,

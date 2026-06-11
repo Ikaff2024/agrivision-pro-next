@@ -12,7 +12,9 @@ rester non-cassant tant que tout le monde est en 'enterprise').
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import base64
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -79,6 +81,75 @@ def set_cooperative_plan(
     coop.plan = data.plan
     db.commit()
     return {"cooperative_id": coop.id, "plan": coop.plan}
+
+
+# ── Logo de la coopérative (affiché sur les PDF) ──────────────────────────────
+_ALLOWED_LOGO_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
+_MAX_LOGO_BYTES = 512 * 1024  # 512 Ko (stocké en base, intégré aux PDF)
+
+
+def _assert_coop_admin(current_user: User, cooperative_id: int) -> None:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Reserve a l'administrateur.")
+    if current_user.cooperative_id is not None and cooperative_id != current_user.cooperative_id:
+        raise HTTPException(status_code=403, detail="Cooperative non autorisee.")
+
+
+def _get_coop_or_404(db: Session, cooperative_id: int) -> Cooperative:
+    coop = db.query(Cooperative).filter(Cooperative.id == cooperative_id).first()
+    if not coop:
+        raise HTTPException(status_code=404, detail="Cooperative introuvable.")
+    return coop
+
+
+@router.get("/cooperatives/{cooperative_id:int}/logo")
+def get_cooperative_logo(
+    cooperative_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Logo courant de la coopérative (data-URI ou None). Admin, sa propre coop."""
+    _assert_coop_admin(current_user, cooperative_id)
+    coop = _get_coop_or_404(db, cooperative_id)
+    return {"cooperative_id": coop.id, "logo": coop.logo_data}
+
+
+@router.post("/cooperatives/{cooperative_id:int}/logo")
+async def set_cooperative_logo(
+    cooperative_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Téléverse le logo (PNG/JPEG/WebP, ≤512 Ko) ; stocké en data-URI base64."""
+    _assert_coop_admin(current_user, cooperative_id)
+    ctype = (file.content_type or "").lower()
+    if ctype not in _ALLOWED_LOGO_TYPES:
+        raise HTTPException(status_code=400, detail="Format non supporté (PNG, JPEG ou WebP).")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    if len(raw) > _MAX_LOGO_BYTES:
+        raise HTTPException(status_code=400, detail="Logo trop volumineux (max 512 Ko).")
+    coop = _get_coop_or_404(db, cooperative_id)
+    norm_type = "image/jpeg" if ctype == "image/jpg" else ctype
+    coop.logo_data = f"data:{norm_type};base64,{base64.b64encode(raw).decode('ascii')}"
+    db.commit()
+    return {"cooperative_id": coop.id, "size_bytes": len(raw), "ok": True}
+
+
+@router.delete("/cooperatives/{cooperative_id:int}/logo")
+def delete_cooperative_logo(
+    cooperative_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire le logo de la coopérative (retour au « A » AgriVision par défaut)."""
+    _assert_coop_admin(current_user, cooperative_id)
+    coop = _get_coop_or_404(db, cooperative_id)
+    coop.logo_data = None
+    db.commit()
+    return {"cooperative_id": coop.id, "ok": True}
 
 
 def require_module(module_id: str):

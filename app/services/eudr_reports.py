@@ -102,6 +102,8 @@ def build_dds_context(plantation: Plantation, db: Session, operator_name: Option
         "polygon_method": boundary.method if boundary else None,
         "points_count": boundary.points_count if boundary else None,
         "cooperative_name": coop_name,
+        "coop_name": coop_name,
+        "coop_logo": (plantation.cooperative.logo_data if plantation.cooperative else None),
         "producer_code": producer_code,
         "last_inspection_date": last_inspection,
         "has_active_block": has_block,

@@ -147,6 +147,22 @@
         </table>
       </div>
 
+      <!-- Logo de la coopérative (affiché sur les PDF) -->
+      <div class="section-title" style="margin-top:26px">Logo de la coopérative</div>
+      <div class="member-table-wrap" style="padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <div id="logo-preview" style="width:84px;height:84px;border:1px solid var(--border,#e6ddd0);border-radius:12px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;color:var(--muted,#6a7d64);font-size:12px">…</div>
+        <div style="flex:1;min-width:240px">
+          <div style="font-size:13px;color:var(--muted,#6a7d64);margin-bottom:8px">
+            Apparaît en page 1 de vos documents PDF (rapports, DDS, fiches SSRTE…). PNG, JPEG ou WebP, ≤ 512 Ko.
+          </div>
+          <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" style="font-size:13px">
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="logo-upload-btn" onclick="uploadLogo()">Téléverser</button>
+            <button class="btn btn-outline" id="logo-remove-btn" onclick="removeLogo()">Retirer</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -215,6 +231,48 @@
 
 <script>
 initApp('admin');
+
+// ── Logo de la coopérative (PDF) ──────────────────────────────────────────────
+const LOGO_COOP_ID = (typeof getCurrentUser === 'function' ? (getCurrentUser() || {}).coop_id : null);
+
+async function loadLogo() {
+  const box = document.getElementById('logo-preview');
+  if (!box) return;
+  if (!LOGO_COOP_ID) { box.textContent = 'Aucun'; return; }
+  try {
+    const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/logo');
+    if (!r || !r.ok) { box.textContent = 'Aucun'; return; }
+    const d = await r.json();
+    box.innerHTML = d.logo
+      ? '<img src="' + d.logo + '" style="max-width:100%;max-height:100%;object-fit:contain">'
+      : 'Aucun';
+  } catch (e) { box.textContent = 'Aucun'; }
+}
+
+async function uploadLogo() {
+  if (!LOGO_COOP_ID) { toast('Aucune coopérative associée à ce compte.', 'error'); return; }
+  const inp = document.getElementById('logo-file');
+  const f = inp && inp.files && inp.files[0];
+  if (!f) { toast('Choisissez d\'abord un fichier image.', 'error'); return; }
+  if (f.size > 512 * 1024) { toast('Logo trop volumineux (max 512 Ko).', 'error'); return; }
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('logo-upload-btn'); if (btn) btn.disabled = true;
+  try {
+    const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/logo', { method: 'POST', body: fd });
+    if (r && r.ok) { toast('Logo enregistré — il apparaîtra sur les prochains PDF.'); inp.value = ''; loadLogo(); }
+    else { const e = r ? await r.json().catch(() => ({})) : {}; toast(e.detail || 'Échec du téléversement.', 'error'); }
+  } catch (e) { toast('Échec du téléversement.', 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+async function removeLogo() {
+  if (!LOGO_COOP_ID) return;
+  const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/logo', { method: 'DELETE' });
+  if (r && r.ok) { toast('Logo retiré.'); loadLogo(); }
+  else { toast('Échec de la suppression.', 'error'); }
+}
+
+loadLogo();
 
 const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien' };
 const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)' };
