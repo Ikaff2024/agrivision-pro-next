@@ -270,9 +270,9 @@
    ════════════════════════════════════════════════════════════════════════ #}
 <div class="cover">
   <div class="cover-logo">
-    <div class="cover-logo-mark">{% if coop_logo %}<img src="{{ coop_logo }}" alt="" style="width:100%;height:100%;object-fit:contain">{% else %}A{% endif %}</div>
+    <div class="cover-logo-mark">{% if coop_logo %}<img src="{{ coop_logo }}" alt="" style="height:14mm;width:auto;max-width:16mm">{% else %}A{% endif %}</div>
     <div>
-      <div class="cover-logo-text">AgriVision Pro</div>
+      <div class="cover-logo-text">{{ coop_name or "AgriVision Pro" }}</div>{% if coop_name %}<div class="cover-logo-sub" style="opacity:.7;margin-top:1pt">Propuls&#233; par AgriVision Pro</div>{% endif %}
       <div class="cover-logo-sub">Plateforme agronomique pour coopératives cacaoyères</div>
     </div>
   </div>
