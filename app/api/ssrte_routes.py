@@ -485,6 +485,19 @@ def create_household_profile(
     return household_to_dict(row)
 
 
+def _ssrte_coop_id(db, entity):
+    """Coop d'une entité SSRTE : cooperative_id direct si présent, sinon via le producteur."""
+    cid = getattr(entity, "cooperative_id", None)
+    if cid:
+        return cid
+    pid = getattr(entity, "producer_id", None)
+    if not pid:
+        return None
+    from app.db.models import Producer
+    pr = db.query(Producer).filter(Producer.id == pid).first()
+    return pr.cooperative_id if pr else None
+
+
 @router.get("/communities/{community_id}/fichea.pdf")
 def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
     """Telecharge la Fiche A (profil localite) au format PDF."""
@@ -497,6 +510,8 @@ def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail="Fiche A introuvable.")
     context = build_fichea_context(profile)
+    from app.services.reports import coop_brand
+    context.update(coop_brand(db, _ssrte_coop_id(db, profile)))
     pdf_bytes = generate_fichea_pdf(context)
     filename = fichea_filename(profile)
     disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
@@ -519,6 +534,8 @@ def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail="Fiche B introuvable.")
     context = build_ficheb_context(profile)
+    from app.services.reports import coop_brand
+    context.update(coop_brand(db, _ssrte_coop_id(db, profile)))
     pdf_bytes = generate_ficheb_pdf(context)
     filename = ficheb_filename(profile)
     disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
@@ -541,6 +558,8 @@ def download_fichec_pdf(visit_id: int, db: Session = Depends(get_db)):
     if not visit:
         raise HTTPException(status_code=404, detail="Fiche C introuvable.")
     context = build_fichec_context(visit)
+    from app.services.reports import coop_brand
+    context.update(coop_brand(db, _ssrte_coop_id(db, visit)))
     pdf_bytes = generate_fichec_pdf(context)
     filename = fichec_filename(visit)
     disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"

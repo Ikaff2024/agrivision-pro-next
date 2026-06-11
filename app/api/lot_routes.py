@@ -467,6 +467,8 @@ def lot_passport_pdf(lot_id: int, db: Session = Depends(get_db), current_user: U
     lot = _scoped_lot(lot_id, db, current_user)
     passport = build_lot_passport(db, lot)
     context = build_lot_passport_context(passport)
+    from app.services.reports import coop_brand
+    context.update(coop_brand(db, lot.cooperative_id))
     pdf_bytes = generate_lot_passport_pdf(context)
     filename = lot_passport_filename(lot)
     disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"

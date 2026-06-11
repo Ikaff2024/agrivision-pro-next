@@ -41,7 +41,7 @@ from app.db.models_social import (
     VisitType,
 )
 from app.db.models import Harvest, Plantation
-from app.services.reports import cacaoguard_report_filename, generate_cacaoguard_pdf
+from app.services.reports import cacaoguard_report_filename, coop_brand, generate_cacaoguard_pdf
 from app.services.social_scope import coop_alert_ids, coop_producer_ids
 
 router = APIRouter(tags=["CacaoGuard - operations terrain"])
@@ -1635,7 +1635,7 @@ def get_due_diligence_report_pdf(
     db.commit()
     coop_id = current_user.cooperative_id if current_user else None
     report = build_due_diligence_report(db, cooperative_id=coop_id)
-    pdf_bytes = generate_cacaoguard_pdf({"report": report, "generated_at": datetime.utcnow()})
+    pdf_bytes = generate_cacaoguard_pdf({"report": report, "generated_at": datetime.utcnow(), **coop_brand(db, coop_id)})
     filename = cacaoguard_report_filename()
     return Response(
         content=pdf_bytes,

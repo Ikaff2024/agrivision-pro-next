@@ -470,7 +470,9 @@ def test_due_diligence_report_pdf_generates_official_file(client, mock_weasyprin
     assert response.headers["content-type"] == "application/pdf"
     assert response.content.startswith(b"%PDF")
     assert "Rapport_CacaoGuard_Due_Diligence" in response.headers["content-disposition"]
-    assert "AgriVision Pro / CacaoGuard" in mock_weasyprint.last_html
+    # Cobranding : « <coop> / CacaoGuard » + attribution « propulsé par AgriVision Pro ».
+    assert "/ CacaoGuard" in mock_weasyprint.last_html
+    assert "AgriVision Pro" in mock_weasyprint.last_html
     assert "Due diligence" in mock_weasyprint.last_html
 
 

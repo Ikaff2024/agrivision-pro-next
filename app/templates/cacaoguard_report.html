@@ -135,7 +135,8 @@
   {% set i = r.indicators %}
   {% set c = r.coverage %}
   <section class="cover">
-    <div class="brand">AgriVision Pro / CacaoGuard</div>
+    {% if coop_logo %}{% set _lh = {'sm':'12mm','md':'17mm','lg':'24mm'}[coop_logo_size] if coop_logo_size in ['sm','md','lg'] else '17mm' %}{% if coop_logo_plaque %}<div style="display:inline-block;padding:2.5mm;background:#fff;border-radius:4mm;margin-bottom:5mm"><img src="{{ coop_logo }}" style="height:{{ _lh }};width:auto;max-width:62mm;display:block"></div>{% else %}<img src="{{ coop_logo }}" style="height:{{ _lh }};width:auto;max-width:62mm;display:block;margin-bottom:5mm">{% endif %}{% endif %}
+    <div class="brand">{{ coop_name or "AgriVision Pro" }} / CacaoGuard{% if coop_name %} <span style="font-weight:400;font-size:9pt;opacity:.85">· propulsé par AgriVision Pro</span>{% endif %}</div>
     <div class="eyebrow">Rapport officiel de conformite sociale</div>
     <h1>Due diligence<br>travail des enfants</h1>
     <div class="subtitle">
