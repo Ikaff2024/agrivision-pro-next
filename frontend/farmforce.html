@@ -336,7 +336,7 @@ function resetForm() {
 }
 
 function downloadLivret(id) {
-  window.open(`${apiBase()}/farmforce/assessments/${id}/livret.pdf`, '_blank');
+  downloadAuthedFile(`/farmforce/assessments/${id}/livret.pdf`, `Livret_${id}.pdf`);
 }
 
 function editAssessment(id) {

@@ -791,15 +791,15 @@ async function loadHistory() {
 async function loadAll(){ await Promise.all([loadSummary(), loadHistory()]); }
 
 function downloadFicheB(id) {
-  window.open(`${API}/ssrte/households/${id}/ficheb.pdf`, '_blank');
+  downloadAuthedFile(`/ssrte/households/${id}/ficheb.pdf`, `FicheB_${id}.pdf`);
 }
 
 function downloadFicheC(id) {
-  window.open(`${API}/ssrte/plantation-visits/${id}/fichec.pdf`, '_blank');
+  downloadAuthedFile(`/ssrte/plantation-visits/${id}/fichec.pdf`, `FicheC_${id}.pdf`);
 }
 
 function downloadFicheA(id) {
-  window.open(`${API}/ssrte/communities/${id}/fichea.pdf`, '_blank');
+  downloadAuthedFile(`/ssrte/communities/${id}/fichea.pdf`, `FicheA_${id}.pdf`);
 }
 
 // Affiche/masque les champs conditionnels de la Fiche A selon les reponses.

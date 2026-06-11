@@ -237,16 +237,8 @@ async function doMovement(type){
 
 async function printPassport(){
   if(!_currentLot) return;
-  try {
-    const r = await authFetch(`/lots/${_currentLot.id}/passport.pdf`);
-    if(!r || !r.ok) throw new Error('génération impossible');
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch(e) {
-    toast('Passeport PDF impossible : ' + e.message);
-  }
+  await downloadAuthedFile(`/lots/${_currentLot.id}/passport.pdf`,
+                           `Passeport_${_currentLot.code || _currentLot.id}.pdf`);
 }
 
 async function downloadEudrPack(){

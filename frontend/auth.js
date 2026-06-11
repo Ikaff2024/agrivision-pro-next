@@ -475,6 +475,44 @@ async function authFetch(endpoint, options = {}) {
 }
 
 
+/* ── Téléchargement authentifié (PDF/ZIP) ─────────────────────────────
+   Récupère le fichier via authFetch (donc AVEC le jeton) puis déclenche un
+   VRAI téléchargement (<a download>), au lieu d'ouvrir une visionneuse dans
+   un onglet — ce qui, sur certains appareils, obligeait à « enregistrer via
+   Google Drive ». Renvoie true si OK, false sinon (toast d'erreur affiché). */
+async function downloadAuthedFile(path, fallbackName) {
+  let r;
+  try {
+    r = await authFetch(path);
+  } catch (e) {
+    toast('Téléchargement impossible : ' + ((e && e.message) || 'réseau'), 'error');
+    return false;
+  }
+  if (!r || !r.ok) {
+    let detail = '';
+    try { detail = (await r.json()).detail || ''; } catch (_) {}
+    toast('Téléchargement impossible' + (detail ? ' : ' + detail : ` (${r ? r.status : 'réseau'})`), 'error');
+    return false;
+  }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  // Nom de fichier : priorité au filename* (UTF-8 → accents fiables), sinon filename="…"
+  const cd = r.headers.get('content-disposition') || '';
+  let name = fallbackName || 'document';
+  let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  if (m) { try { name = decodeURIComponent(m[1]); } catch (_) {} }
+  else { m = cd.match(/filename="?([^";]+)"?/i); if (m) name = m[1]; }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return true;
+}
+
+
 /* ── Sprint Honnetete-Offline : Bandeau reseau persistant ────────────── */
 
 // Bandeau reseau v2 - bottom : repositionne en bas avec version mobile compacte
