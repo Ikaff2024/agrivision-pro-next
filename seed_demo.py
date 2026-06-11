@@ -275,9 +275,25 @@ def main():
         return
 
     harvest_ids = []
+    # Idempotence : si une parcelle du même nom existe déjà (run antérieur),
+    # on la réutilise au lieu de la dupliquer.
+    existing_pl = {pl.get("name"): pl["id"] for pl in _plantations() if pl.get("id")}
     for name, region, lat, lon, ha, profile in FARMERS:
+        pl_name = f"Parcelle {name.split()[0]} {region}"
+        if pl_name in existing_pl:
+            pid = existing_pl[pl_name]
+            # On récupère une récolte 2025-2026 pour l'étape lots, sans rien recréer.
+            try:
+                hvs = client.get(f"{API}/plantations/{pid}/harvests", headers=h()).json()
+                for hv in (hvs if isinstance(hvs, list) else []):
+                    if hv.get("season") == "2025-2026" and hv.get("id"):
+                        harvest_ids.append(hv["id"]); break
+            except Exception:
+                pass
+            print(f"  • {name} ({region}) — déjà présent, ignoré (pas de doublon)")
+            continue
         p = post("/plantations", {
-            "name": f"Parcelle {name.split()[0]} {region}", "owner_name": name,
+            "name": pl_name, "owner_name": name,
             "country": "Côte d'Ivoire", "region": region, "hectares": ha,
             "latitude": lat, "longitude": lon,
         }, "plantations")
