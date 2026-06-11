@@ -4,10 +4,20 @@ from tests.conftest import TestingSessionLocal
 
 
 def _admin_headers(email="ssrte.admin@test.ci"):
-    """En-têtes d'auth de l'admin de 'Coop SSRTE' (auth obligatoire CacaoGuard)."""
+    """En-têtes d'auth de l'admin de 'Coop SSRTE' (créé si absent — auth obligatoire SSRTE/CacaoGuard)."""
     db = TestingSessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
+        if not user:
+            coop = db.query(Cooperative).filter(Cooperative.name == "Coop SSRTE").first()
+            if not coop:
+                coop = Cooperative(name="Coop SSRTE", country="CI")
+                db.add(coop)
+                db.flush()
+            user = User(email=email, password_hash="x", role="admin",
+                        cooperative=coop, is_active=True)
+            db.add(user)
+            db.commit()
         return {"Authorization": "Bearer " + create_access_token({
             "sub": user.email, "role": user.role, "coop_id": user.cooperative_id,
         })}
@@ -51,7 +61,7 @@ def _seed_producer_and_plantation():
 
 
 def test_ssrte_community_profile_can_be_created(client):
-    response = client.post("/ssrte/communities", json={
+    response = client.post("/ssrte/communities", headers=_admin_headers(), json={
         "locality": "Yeyasso",
         "section": "Section A",
         "interview_date": "2026-05-26",
@@ -105,7 +115,7 @@ def test_ssrte_ficheb_pdf_download(client):
         ],
         "consent_given": True,
     }).json()
-    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
@@ -113,13 +123,48 @@ def test_ssrte_ficheb_pdf_download(client):
 
 
 def test_ssrte_ficheb_pdf_not_found(client):
-    r = client.get("/ssrte/households/99999/ficheb.pdf")
+    r = client.get("/ssrte/households/99999/ficheb.pdf", headers=_admin_headers())
     assert r.status_code == 404
+
+
+def test_ssrte_ficheb_pdf_requires_auth_and_coop_isolation(client):
+    """Cloisonnement : la Fiche B (donnée enfant sensible) exige une auth valide et reste invisible aux autres coops."""
+    producer_id, _ = _seed_producer_and_plantation()  # Coop SSRTE + ssrte.admin@test.ci
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "household_size": 2,
+        "household_members": [
+            {"name": "Yao Chef", "relation": "Chef de menage", "sex": "M", "birth_year": 1980},
+        ],
+        "consent_given": True,
+    }).json()
+    url = f"/ssrte/households/{created['id']}/ficheb.pdf"
+
+    # Sans authentification → refusé
+    assert client.get(url).status_code in (401, 403)
+
+    # Authentifié sur une AUTRE coopérative → invisible (404)
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Autre Coop", country="CI")
+        other_user = User(email="autre.admin@test.ci", password_hash="x",
+                          role="admin", cooperative=other, is_active=True)
+        db.add_all([other, other_user])
+        db.commit()
+        other_headers = {"Authorization": "Bearer " + create_access_token({
+            "sub": other_user.email, "role": other_user.role, "coop_id": other_user.cooperative_id,
+        })}
+    finally:
+        db.close()
+    assert client.get(url, headers=other_headers).status_code == 404
+
+    # L'admin de la coopérative propriétaire → accès OK
+    assert client.get(url, headers=_admin_headers()).status_code == 200
 
 
 def test_ssrte_fichea_services_and_pdf(client):
     """La Fiche A stocke l'acces aux services + comite et s'exporte en PDF."""
-    created = client.post("/ssrte/communities", json={
+    created = client.post("/ssrte/communities", headers=_admin_headers(), json={
         "locality": "Yapleu",
         "section": "Man",
         "school_available": True,
@@ -137,7 +182,7 @@ def test_ssrte_fichea_services_and_pdf(client):
     assert created["services_available"]["road_access"] is True
     assert created["committee_members"][0]["name"] == "Yao Coordinateur"
 
-    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
@@ -145,7 +190,7 @@ def test_ssrte_fichea_services_and_pdf(client):
 
 
 def test_ssrte_fichea_pdf_not_found(client):
-    r = client.get("/ssrte/communities/99999/fichea.pdf")
+    r = client.get("/ssrte/communities/99999/fichea.pdf", headers=_admin_headers())
     assert r.status_code == 404
 
 
@@ -167,7 +212,7 @@ def test_ssrte_fichec_pdf_and_structured_children(client):
     assert len(created["children_observed"]) == 1
     assert created["children_observed"][0]["hazardous_tasks"] == ["Recolte machette/faucille"]
 
-    r = client.get(f"/ssrte/plantation-visits/{visit_id}/fichec.pdf")
+    r = client.get(f"/ssrte/plantation-visits/{visit_id}/fichec.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
@@ -175,7 +220,7 @@ def test_ssrte_fichec_pdf_and_structured_children(client):
 
 
 def test_ssrte_fichec_pdf_not_found(client):
-    r = client.get("/ssrte/plantation-visits/99999/fichec.pdf")
+    r = client.get("/ssrte/plantation-visits/99999/fichec.pdf", headers=_admin_headers())
     assert r.status_code == 404
 
 
@@ -253,7 +298,7 @@ def test_ssrte_fichea_schools_table_persists(client):
          "canteen": True, "canteen_meals_per_week": 5, "canteen_cost_per_ration": 100,
          "latrines": True, "latrines_separated": True, "gps": "7.4N,7.5W"},
     ]
-    created = client.post("/ssrte/communities", json={
+    created = client.post("/ssrte/communities", headers=_admin_headers(), json={
         "locality": "Yeyasso",
         "schools": schools,
     }).json()
@@ -261,14 +306,14 @@ def test_ssrte_fichea_schools_table_persists(client):
     assert created["schools"][0]["name"] == "EPP Yeyasso"
     assert created["schools"][0]["classrooms"] == 6
 
-    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 
 
 def test_ssrte_fichea_full_questionnaire_coverage(client):
     """La Fiche A capture l'identification admin, GPS/heures, details indicateurs et remarques."""
-    created = client.post("/ssrte/communities", json={
+    created = client.post("/ssrte/communities", headers=_admin_headers(), json={
         "locality": "Yeyasso",
         "section": "Man",
         "supplier": "Fournisseur X",
@@ -301,7 +346,7 @@ def test_ssrte_fichea_full_questionnaire_coverage(client):
     assert created["schools"][0]["teachers_titulaires"] == 4
     assert created["section_notes"]["services"] == "Eau a surveiller"
 
-    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf")
+    r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 
@@ -321,7 +366,7 @@ def test_ssrte_ficheb_farm_info_persists(client):
     assert created["farm_info"]["cocoa_parcels"] == 2
     assert created["farm_info"]["coffee_production_kg"] == 200
 
-    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 
@@ -357,7 +402,7 @@ def test_ssrte_ficheb_full_questionnaire_coverage(client):
     assert created["non_daily_workers"][0]["name"] == "Koffi Permanent"
     assert created["section_notes"]["workers"] == "2 metayers"
 
-    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf")
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 
@@ -375,7 +420,7 @@ def test_ssrte_fichec_adults_and_workers_persist(client):
     assert created["adults_observed"][0]["name"] == "Yao Pere"
     assert created["workers_present"][0]["status"] == "permanent"
 
-    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf")
+    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 
@@ -413,7 +458,7 @@ def test_ssrte_fichec_full_questionnaire_coverage(client):
     assert created["non_household_children"][0]["name"] == "Enfant Externe"
     assert created["section_notes"]["identification"] == "Visite OK"
 
-    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf")
+    r = client.get(f"/ssrte/plantation-visits/{created['id']}/fichec.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.content[:5] == b"%PDF-"
 

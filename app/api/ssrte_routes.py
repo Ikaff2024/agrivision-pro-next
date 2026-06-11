@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth.auth_service import decode_token
+from app.auth.auth_service import decode_token, get_current_user
 from app.db.database import get_db
 from app.db.models import Plantation, Producer, User
 from app.db.models_social import (
@@ -499,7 +499,11 @@ def _ssrte_coop_id(db, entity):
 
 
 @router.get("/communities/{community_id}/fichea.pdf")
-def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
+def download_fichea_pdf(
+    community_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Telecharge la Fiche A (profil localite) au format PDF."""
     from app.services.ssrte_reports import (
         build_fichea_context,
@@ -507,7 +511,7 @@ def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
         generate_fichea_pdf,
     )
     profile = db.query(SsrteCommunityProfile).filter(SsrteCommunityProfile.id == community_id).first()
-    if not profile:
+    if not profile or _ssrte_coop_id(db, profile) != current_user.cooperative_id:
         raise HTTPException(status_code=404, detail="Fiche A introuvable.")
     context = build_fichea_context(profile)
     from app.services.reports import coop_brand
@@ -523,7 +527,11 @@ def download_fichea_pdf(community_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/households/{household_id}/ficheb.pdf")
-def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
+def download_ficheb_pdf(
+    household_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Telecharge la Fiche B (profilage de menage) au format PDF."""
     from app.services.ssrte_reports import (
         build_ficheb_context,
@@ -531,7 +539,7 @@ def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
         generate_ficheb_pdf,
     )
     profile = db.query(SsrteHouseholdProfile).filter(SsrteHouseholdProfile.id == household_id).first()
-    if not profile:
+    if not profile or _ssrte_coop_id(db, profile) != current_user.cooperative_id:
         raise HTTPException(status_code=404, detail="Fiche B introuvable.")
     context = build_ficheb_context(profile)
     from app.services.reports import coop_brand
@@ -547,7 +555,11 @@ def download_ficheb_pdf(household_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/plantation-visits/{visit_id}/fichec.pdf")
-def download_fichec_pdf(visit_id: int, db: Session = Depends(get_db)):
+def download_fichec_pdf(
+    visit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Telecharge la Fiche C (visite de plantation) au format PDF."""
     from app.services.ssrte_reports import (
         build_fichec_context,
@@ -555,7 +567,7 @@ def download_fichec_pdf(visit_id: int, db: Session = Depends(get_db)):
         generate_fichec_pdf,
     )
     visit = db.query(SsrtePlantationVisit).filter(SsrtePlantationVisit.id == visit_id).first()
-    if not visit:
+    if not visit or _ssrte_coop_id(db, visit) != current_user.cooperative_id:
         raise HTTPException(status_code=404, detail="Fiche C introuvable.")
     context = build_fichec_context(visit)
     from app.services.reports import coop_brand

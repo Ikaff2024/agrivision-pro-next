@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth.auth_service import decode_token
+from app.auth.auth_service import decode_token, get_current_user
 from app.db.database import get_db
 from app.db.models import FarmForceAssessment, Producer, User
 from app.importers.farmforce_excel import parse_farmforce_excel
@@ -307,10 +307,17 @@ def update_assessment(assessment_id: int, data: FarmForcePayload, db: Session = 
 
 
 @router.get("/assessments/{assessment_id}/livret.pdf")
-def download_farmforce_livret(assessment_id: int, db: Session = Depends(get_db)):
+def download_farmforce_livret(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Telecharge le Livret de suivi (DD farm records) rempli au format PDF."""
     assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
     if not assessment:
+        raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    producer = db.query(Producer).filter(Producer.id == assessment.producer_id).first()
+    if not producer or producer.cooperative_id != current_user.cooperative_id:
         raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
     context = build_farmforce_context(assessment)
     pdf_bytes = generate_farmforce_pdf(context)

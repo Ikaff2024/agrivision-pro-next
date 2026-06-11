@@ -1,6 +1,29 @@
-from app.db.models import Cooperative, Producer
+from app.db.models import Cooperative, Producer, User
+from app.auth.auth_service import create_access_token
 from app.importers.farmforce_excel import parse_farmforce_excel
 from tests.conftest import TestingSessionLocal
+
+
+def _admin_headers(email="farmforce.admin@test.ci"):
+    """En-têtes d'auth de l'admin de 'Coop FarmForce' (créé si absent — auth obligatoire livret)."""
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            coop = db.query(Cooperative).filter(Cooperative.name == "Coop FarmForce").first()
+            if not coop:
+                coop = Cooperative(name="Coop FarmForce", country="CI")
+                db.add(coop)
+                db.flush()
+            user = User(email=email, password_hash="x", role="admin",
+                        cooperative=coop, is_active=True)
+            db.add(user)
+            db.commit()
+        return {"Authorization": "Bearer " + create_access_token({
+            "sub": user.email, "role": user.role, "coop_id": user.cooperative_id,
+        })}
+    finally:
+        db.close()
 
 
 def _seed_producer():
@@ -138,7 +161,7 @@ def test_farmforce_livret_pdf_download(client):
         "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
         "household_expense_items": [{"category": "Alimentation", "amount_cfa": 20000}],
     }).json()
-    r = client.get(f"/farmforce/assessments/{created['id']}/livret.pdf")
+    r = client.get(f"/farmforce/assessments/{created['id']}/livret.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
@@ -146,8 +169,39 @@ def test_farmforce_livret_pdf_download(client):
 
 
 def test_farmforce_livret_pdf_not_found(client):
-    r = client.get("/farmforce/assessments/99999/livret.pdf")
+    r = client.get("/farmforce/assessments/99999/livret.pdf", headers=_admin_headers())
     assert r.status_code == 404
+
+
+def test_farmforce_livret_requires_auth_and_coop_isolation(client):
+    """Cloisonnement : le livret (revenus du ménage) exige une auth valide et reste invisible aux autres coops."""
+    producer_id = _seed_producer()  # Coop FarmForce
+    created = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+    }).json()
+    url = f"/farmforce/assessments/{created['id']}/livret.pdf"
+
+    # Sans authentification → refusé
+    assert client.get(url).status_code in (401, 403)
+
+    # Authentifié sur une AUTRE coopérative → invisible (404)
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Autre Coop FF", country="CI")
+        other_user = User(email="autre.ff@test.ci", password_hash="x",
+                          role="admin", cooperative=other, is_active=True)
+        db.add_all([other, other_user])
+        db.commit()
+        other_headers = {"Authorization": "Bearer " + create_access_token({
+            "sub": other_user.email, "role": other_user.role, "coop_id": other_user.cooperative_id,
+        })}
+    finally:
+        db.close()
+    assert client.get(url, headers=other_headers).status_code == 404
+
+    # L'admin de la coopérative propriétaire → accès OK
+    assert client.get(url, headers=_admin_headers()).status_code == 200
 
 
 def test_farmforce_update_not_found(client):
