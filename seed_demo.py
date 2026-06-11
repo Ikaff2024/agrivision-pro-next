@@ -239,8 +239,25 @@ def seed_social_compliance():
             "responsible": "Responsable conformité",
         }, "non_conformities")
 
+    # ── Revenu vital (FarmForce) : un ménage SOUS le seuil (risky) + un AU-DESSUS (safe) ──
+    # net = revenus − coûts − dépenses ménage. Seuil par défaut = 2 360 000 FCFA.
+    post("/farmforce/assessments", {
+        "producer_id": risky_pid, "campaign_label": "2025-2026", "localite": "Soubré",
+        "revenue_items": [{"label": "Vente cacao", "revenue_cfa": 1800000}],
+        "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": 600000}],
+        "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": 500000}],
+        "notes": "Revenu net sous le seuil vital — accompagnement requis.",
+    }, "farmforce")   # net = 700 000 → « écart »
+    post("/farmforce/assessments", {
+        "producer_id": safe_pid, "campaign_label": "2025-2026", "localite": "Méagui",
+        "revenue_items": [{"label": "Vente cacao", "revenue_cfa": 4500000}],
+        "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": 1000000}],
+        "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": 600000}],
+        "notes": "Revenu net au-dessus du seuil vital.",
+    }, "farmforce")   # net = 2 900 000 → « atteint »
+
     print(f"  • Protection enfant : cas à risque ({risky}) + cas sain ({safe})")
-    print(f"  • SSRTE + Certification + blocage de traçabilité ({risky})")
+    print(f"  • Revenu vital : 1 ménage en écart + 1 atteint · SSRTE + Certification + blocage ({risky})")
 
 
 def main():
