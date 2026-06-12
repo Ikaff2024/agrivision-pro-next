@@ -54,6 +54,7 @@
       <div class="panel">
         <div class="toolbar">
           <input class="search" id="search" placeholder="Rechercher par nom, code ou téléphone…" oninput="onSearch()">
+          <select class="search" id="cert-filter" onchange="onCertChange()" style="flex:0 0 auto;min-width:180px;max-width:230px;display:none" title="Filtrer par certification"></select>
           <span class="muted" id="hint" style="font-size:12.5px"></span>
         </div>
         <div style="overflow:auto">
@@ -75,13 +76,17 @@
 initApp('producers');
 let _all = [];
 let _searchTimer = null;
+let certFilter = '';
 
 function esc(s){ const d=document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
 
 async function load(search) {
   const tb = document.getElementById('tbody');
   tb.innerHTML = '<tr><td colspan="6" class="empty">Chargement…</td></tr>';
-  const qs = search ? ('?search=' + encodeURIComponent(search) + '&limit=5000') : '?limit=5000';
+  const params = new URLSearchParams({ limit: '5000' });
+  if (search) params.set('search', search);
+  if (certFilter) params.set('certification', certFilter);
+  const qs = '?' + params.toString();
   let rows = [];
   try {
     const r = await authFetch('/producers' + qs);
@@ -119,6 +124,28 @@ function onSearch() {
   _searchTimer = setTimeout(() => load(q || null), 300);
 }
 
+function onCertChange() {
+  certFilter = document.getElementById('cert-filter').value || '';
+  load(document.getElementById('search').value.trim() || null);
+}
+
+// Peuple le filtre avec les certifications réellement présentes dans la coopérative.
+function initCertFilter() {
+  const sel = document.getElementById('cert-filter');
+  if (!sel) return;
+  authFetch('/plantations/filters-options')
+    .then(r => r?.ok ? r.json() : null)
+    .then(opts => {
+      const certs = (opts && opts.certifications) || [];
+      if (!certs.length) { sel.style.display = 'none'; return; }
+      sel.innerHTML = '<option value="">Toutes certifications</option>' +
+        certs.map(c => `<option value="${c}">${c}</option>`).join('');
+      sel.style.display = '';
+    })
+    .catch(() => {});
+}
+
+initCertFilter();
 load();
 </script>
 </body>

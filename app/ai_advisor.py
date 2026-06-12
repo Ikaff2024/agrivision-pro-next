@@ -16,6 +16,17 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL      = os.getenv("AI_ADVISOR_MODEL", "claude-sonnet-4-6")
 CLAUDE_API_URL    = "https://api.anthropic.com/v1/messages"
 
+# Fournisseur IA : "anthropic" (defaut) ou un LLM open source compatible OpenAI
+# (DeepSeek, Qwen, etc.) pour reduire le cout. Le format de sortie est identique.
+AI_PROVIDER = os.getenv("AI_PROVIDER", "anthropic").strip().lower()
+# Presets compatibles OpenAI : (base_url, modele par defaut, variable de cle).
+# Surchargeables par AI_OPENAI_BASE_URL / AI_OPENAI_MODEL / AI_OPENAI_API_KEY.
+_OPENAI_PRESETS = {
+    "deepseek": ("https://api.deepseek.com", "deepseek-chat", "DEEPSEEK_API_KEY"),
+    "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "qwen-plus", "DASHSCOPE_API_KEY"),
+    "openai": ("https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY"),
+}
+
 
 def build_agro_prompt(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict) -> str:
     """Construit le prompt agronomique complet à partir des données AgriVision."""
@@ -89,21 +100,52 @@ Sur la base de ces données, fournis une analyse agronomique structurée en JSON
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après. Sois précis, concret et adapté aux réalités ivoiriennes."""
 
 
+def _parse_advice_json(raw_text: str) -> dict:
+    """Extrait le JSON renvoyé par le modèle (tolère un bloc ```json … ```)."""
+    import json
+    t = (raw_text or "").strip()
+    if t.startswith("```"):
+        t = t.split("```")[1]
+        if t.startswith("json"):
+            t = t[4:]
+    return json.loads(t.strip())
+
+
+def _http_error_message(status: int, body_text: str) -> str:
+    body = (body_text or "").lower()
+    logger.warning("AI advice HTTP %s : %s", status, (body_text or "")[:300])
+    if status == 401:
+        return "Clé API IA invalide ou révoquée. Contactez l'administrateur."
+    if status == 400 and any(k in body for k in ("credit", "billing", "insufficient", "quota")):
+        return "Crédit IA insuffisant : rechargez le compte du fournisseur IA, puis réessayez."
+    if status in (402, 403):
+        return "Accès IA refusé (facturation ou permissions). Vérifiez le compte du fournisseur IA."
+    if status == 429:
+        return "Service IA momentanément saturé. Réessayez dans une minute."
+    return f"Erreur API IA ({status}). Réessayez dans quelques instants."
+
+
 async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict):
     """
-    Appelle Claude API et retourne l'analyse agronomique structurée.
+    Génère l'analyse agronomique structurée via le fournisseur IA configuré.
 
     Retourne un tuple ``(result, usage)`` :
       - ``result`` : le dict d'analyse (ou ``{"error": ...}`` en cas d'echec) ;
-      - ``usage``  : ``{"model", "input_tokens", "output_tokens"}`` lorsque l'appel
-        a effectivement consomme des tokens (pour le suivi de cout), sinon ``None``.
+      - ``usage``  : ``{"model", "input_tokens", "output_tokens"}`` (suivi de cout).
+
+    Anthropic par défaut ; bascule possible vers un LLM open source compatible
+    OpenAI (DeepSeek, Qwen…) via ``AI_PROVIDER`` — le format de sortie est identique.
     """
+    prompt = build_agro_prompt(plantation, latest_diag, agro_records, boundary)
+    if AI_PROVIDER in ("anthropic", "claude", ""):
+        return await _advice_anthropic(prompt, plantation)
+    return await _advice_openai_compatible(prompt, plantation)
+
+
+async def _advice_anthropic(prompt: str, plantation: dict):
     if not ANTHROPIC_API_KEY:
         logger.error("ANTHROPIC_API_KEY non configurée")
         return {"error": "Clé API IA non configurée. Contactez l'administrateur."}, None
-
-    prompt = build_agro_prompt(plantation, latest_diag, agro_records, boundary)
-
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
@@ -116,53 +158,70 @@ async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list,
                 json={
                     "model":      CLAUDE_MODEL,
                     "max_tokens": 1500,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
+                    "messages": [{"role": "user", "content": prompt}],
                 },
             )
             response.raise_for_status()
             data = response.json()
-
-            # Usage reel renvoye par l'API (pour le suivi du cout de revient).
             usage_raw = data.get("usage") or {}
             usage = {
                 "model": data.get("model", CLAUDE_MODEL),
                 "input_tokens": int(usage_raw.get("input_tokens", 0) or 0),
                 "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
             }
-
-            raw_text = data["content"][0]["text"].strip()
-
-            # Parser le JSON retourné par Claude
-            import json
-            # Nettoyer les éventuels backticks
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("```")[1]
-                if raw_text.startswith("json"):
-                    raw_text = raw_text[4:]
-            result = json.loads(raw_text.strip())
-            logger.info("AI advice OK pour plantation %s", plantation.get('id'))
+            result = _parse_advice_json(data["content"][0]["text"])
+            logger.info("AI advice OK (anthropic) pour plantation %s", plantation.get('id'))
             return result, usage
-
     except httpx.TimeoutException:
-        logger.warning("AI advice timeout")
+        logger.warning("AI advice timeout (anthropic)")
         return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}, None
     except httpx.HTTPStatusError as e:
-        status = e.response.status_code
-        body = (e.response.text or "").lower()
-        logger.warning("AI advice HTTP %s : %s", status, e.response.text[:300])
-        if status == 401:
-            msg = "Clé API IA invalide ou révoquée. Contactez l'administrateur."
-        elif status == 400 and any(k in body for k in ("credit", "billing", "insufficient", "quota")):
-            msg = "Crédit IA insuffisant : rechargez le compte Anthropic (Plans & Billing), puis réessayez."
-        elif status in (402, 403):
-            msg = "Accès IA refusé (facturation ou permissions). Vérifiez le compte Anthropic."
-        elif status == 429:
-            msg = "Service IA momentanément saturé. Réessayez dans une minute."
-        else:
-            msg = f"Erreur API IA ({status}). Réessayez dans quelques instants."
-        return {"error": msg}, None
+        return {"error": _http_error_message(e.response.status_code, e.response.text)}, None
     except Exception as e:
-        logger.warning("AI advice erreur : %s", e)
+        logger.warning("AI advice erreur (anthropic) : %s", e)
+        return {"error": "Analyse IA temporairement indisponible."}, None
+
+
+async def _advice_openai_compatible(prompt: str, plantation: dict):
+    """Conseil via un endpoint compatible OpenAI (/chat/completions) : DeepSeek, Qwen…"""
+    preset = _OPENAI_PRESETS.get(AI_PROVIDER)
+    base_url = (os.getenv("AI_OPENAI_BASE_URL") or (preset[0] if preset else "")).rstrip("/")
+    model = os.getenv("AI_OPENAI_MODEL") or (preset[1] if preset else "")
+    api_key = os.getenv("AI_OPENAI_API_KEY") or (os.getenv(preset[2]) if preset else "") or ""
+    if not base_url or not api_key or not model:
+        logger.error("Fournisseur IA '%s' incomplet (base_url/clé/modèle manquant).", AI_PROVIDER)
+        return {"error": "Fournisseur IA non configuré (clé/URL/modèle manquant). Contactez l'administrateur."}, None
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                base_url + "/chat/completions",
+                headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "max_tokens": 1500,
+                    "temperature": 0.3,
+                    "stream": False,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            choice = (data.get("choices") or [{}])[0]
+            raw_text = ((choice.get("message") or {}).get("content") or "")
+            u = data.get("usage") or {}
+            usage = {
+                "model": data.get("model", model),
+                "input_tokens": int(u.get("prompt_tokens", 0) or 0),
+                "output_tokens": int(u.get("completion_tokens", 0) or 0),
+            }
+            result = _parse_advice_json(raw_text)
+            logger.info("AI advice OK (%s / %s) pour plantation %s", AI_PROVIDER, model, plantation.get('id'))
+            return result, usage
+    except httpx.TimeoutException:
+        logger.warning("AI advice timeout (%s)", AI_PROVIDER)
+        return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}, None
+    except httpx.HTTPStatusError as e:
+        return {"error": _http_error_message(e.response.status_code, e.response.text)}, None
+    except Exception as e:
+        logger.warning("AI advice erreur (%s) : %s", AI_PROVIDER, e)
         return {"error": "Analyse IA temporairement indisponible."}, None

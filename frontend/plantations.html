@@ -109,6 +109,7 @@ tr:hover .action-btns{opacity:1}
           <button class="ftab" data-filter="HIGH" onclick="setFilter('HIGH',this)">Élevé</button>
         </div>
         <select class="filter-select" id="assignment-filter" onchange="setAssignmentFilter(this.value)" style="display:none"></select>
+        <select class="filter-select" id="cert-filter" onchange="setCertFilter(this.value)" style="display:none" title="Filtrer par certification"></select>
       </div>
 
       <div class="table-wrap">
@@ -183,6 +184,7 @@ let allPlantations = [];
 let mapData = {};
 let currentFilter = 'all';
 let assignmentFilter = 'all';
+let certFilter = '';
 let page = 0;
 const PAGE_SIZE = 15;
 const PLANTATION_LIST_ENDPOINT = '/plantations?limit=5000';
@@ -249,13 +251,36 @@ function setAssignmentFilter(value) {
   load();
 }
 
+function setCertFilter(value) {
+  certFilter = value || '';
+  page = 0;
+  load();
+}
+
+// Peuple le filtre certification avec les certifs réellement présentes dans la coop.
+function initCertFilter() {
+  const sel = document.getElementById('cert-filter');
+  if (!sel) return;
+  authFetch('/plantations/filters-options')
+    .then(r => r?.ok ? r.json() : null)
+    .then(opts => {
+      const certs = (opts && opts.certifications) || [];
+      if (!certs.length) { sel.style.display = 'none'; return; }
+      sel.innerHTML = '<option value="">Toutes certifications</option>' +
+        certs.map(c => `<option value="${c}">${c}</option>`).join('');
+      sel.style.display = '';
+    })
+    .catch(() => {});
+}
+
 function plantationEndpoint() {
   const producerFilter = PRODUCER_FILTER_ID ? '&producer_id=' + encodeURIComponent(PRODUCER_FILTER_ID) : '';
-  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true' + producerFilter;
+  const certParam = certFilter ? '&certification=' + encodeURIComponent(certFilter) : '';
+  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true' + producerFilter + certParam;
   if (assignmentFilter.startsWith('tech:')) {
-    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5)) + producerFilter;
+    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5)) + producerFilter + certParam;
   }
-  return PLANTATION_LIST_ENDPOINT + producerFilter;
+  return PLANTATION_LIST_ENDPOINT + producerFilter + certParam;
 }
 
 // Sprint Offline V1.6 - Phase 2 : Stale-While-Revalidate sur les lectures
@@ -533,6 +558,7 @@ function grabGPS() {
 }
 
 initAssignmentFilter();
+initCertFilter();
 initCreateButton();
 load();
 </script>

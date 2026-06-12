@@ -36,15 +36,34 @@ COST_PER_1M_OUTPUT_TOKENS_USD = _env_float("AI_COST_OUTPUT_PER_1M_USD", 15.0)
 # Taux de conversion pour affichage local (1 USD = X FCFA).
 USD_TO_FCFA_RATE = _env_float("USD_TO_FCFA_RATE", 600.0)
 
+# Prix indicatifs (USD / 1M tokens) par famille de modele : permet un cout de
+# revient realiste quand on bascule sur un LLM open source (DeepSeek/Qwen),
+# bien moins cher que Claude. Repli sur la grille env (Claude) si modele inconnu.
+_MODEL_PRICES = {
+    "claude-haiku": (1.0, 5.0),
+    "claude-opus": (5.0, 25.0),
+    "claude-sonnet": (3.0, 15.0),
+    "claude": (3.0, 15.0),
+    "deepseek": (0.27, 1.10),
+    "qwen": (0.40, 1.20),
+    "gpt-4o-mini": (0.15, 0.60),
+}
 
-def compute_cost_usd(input_tokens: int, output_tokens: int) -> float:
-    """Cout en USD d'un appel, a partir des tokens consommes."""
+
+def _price_for(model: str | None) -> tuple[float, float]:
+    m = (model or "").lower()
+    for key, price in _MODEL_PRICES.items():
+        if key in m:
+            return price
+    return (COST_PER_1M_INPUT_TOKENS_USD, COST_PER_1M_OUTPUT_TOKENS_USD)
+
+
+def compute_cost_usd(input_tokens: int, output_tokens: int, model: str | None = None) -> float:
+    """Cout en USD d'un appel, a partir des tokens consommes et du modele utilise."""
     it = max(0, int(input_tokens or 0))
     ot = max(0, int(output_tokens or 0))
-    cost = (
-        (it / 1_000_000.0) * COST_PER_1M_INPUT_TOKENS_USD
-        + (ot / 1_000_000.0) * COST_PER_1M_OUTPUT_TOKENS_USD
-    )
+    price_in, price_out = _price_for(model)
+    cost = (it / 1_000_000.0) * price_in + (ot / 1_000_000.0) * price_out
     return round(cost, 6)
 
 

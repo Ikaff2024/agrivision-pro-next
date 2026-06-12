@@ -108,6 +108,12 @@
     <div class="form-group"><label class="form-label">Producteur parent *</label>
       <select class="form-input" id="m-producer"><option value="">Selectionner un producteur...</option></select>
     </div>
+    <details style="margin-top:8px;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:8px 12px;background:var(--surface-warm,#faf8f3)">
+      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--muted,#6a7d64)">Évaluation initiale (facultatif)</summary>
+      <div style="font-size:12px;color:var(--muted,#6a7d64);margin:8px 0 12px;line-height:1.45">
+        Scolarisation, travail et tâches dangereuses sont normalement relevés par l'<strong>enquête terrain</strong> (Fiche B SSRTE).
+        À la création, laissez vide si l'enquête n'a pas encore eu lieu — vous compléterez la fiche enfant ensuite.
+      </div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Statut scolaire</label>
         <select class="form-input" id="m-schoolstatus">
@@ -142,6 +148,7 @@
         <label><input type="checkbox" class="danger-task" value="night_work"> Travail de nuit</label>
       </div>
     </div>
+    </details>
     <div id="m-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">Annuler</button>

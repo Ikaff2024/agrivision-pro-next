@@ -392,7 +392,7 @@ def get_plantations_filters_options(
     Renvoie les valeurs disponibles pour alimenter les menus de filtres
     de la liste des plantations : sections et techniciens de la cooperative.
     """
-    from app.db.models import Producer
+    from app.db.models import Certification, Plantation, PlantationCertification, Producer
 
     coop_id = current_user.cooperative_id
 
@@ -414,10 +414,21 @@ def get_plantations_filters_options(
         ).all()
     ]
 
+    # Certifications réellement présentes sur les plantations de la coopérative
+    # (au lieu d'une liste figée) → le filtre ne propose que des choix utiles.
+    cert_codes = sorted({
+        row[0] for row in db.query(Certification.code)
+        .join(PlantationCertification, PlantationCertification.certification_id == Certification.id)
+        .join(Plantation, Plantation.id == PlantationCertification.plantation_id)
+        .filter(Plantation.cooperative_id == coop_id)
+        .distinct().all()
+        if row[0]
+    })
+
     return {
         "sections": sections,
         "technicians": technicians,
-        "certifications": ["FT", "RA", "BIO"],
+        "certifications": cert_codes,
     }
 
 
@@ -1933,7 +1944,7 @@ async def plantation_ai_advice(
                 model=usage.get("model", ""),
                 input_tokens=usage.get("input_tokens", 0),
                 output_tokens=usage.get("output_tokens", 0),
-                cost_usd=compute_cost_usd(usage.get("input_tokens", 0), usage.get("output_tokens", 0)),
+                cost_usd=compute_cost_usd(usage.get("input_tokens", 0), usage.get("output_tokens", 0), usage.get("model")),
             ))
             db.commit()
         except Exception as e:

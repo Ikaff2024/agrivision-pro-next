@@ -58,6 +58,7 @@ def list_producers(
     search: Optional[str] = None,
     localite: Optional[str] = None,
     section: Optional[str] = None,
+    certification: Optional[str] = Query(None, description="Filtre : producteurs ayant une plantation certifiée (code)"),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
@@ -78,6 +79,25 @@ def list_producers(
         query = query.filter(Producer.localite == localite)
     if section:
         query = query.filter(Producer.section == section)
+    if certification and certification.strip():
+        # Un producteur est "certifié X" si une de ses plantations porte le label X.
+        from app.db.models import Certification, Plantation, PlantationCertification
+        cert = db.query(Certification).filter(
+            Certification.code == certification.strip().upper()
+        ).first()
+        if cert:
+            prod_ids = [
+                row[0] for row in db.query(Plantation.producer_id)
+                .join(PlantationCertification, PlantationCertification.plantation_id == Plantation.id)
+                .filter(
+                    PlantationCertification.certification_id == cert.id,
+                    Plantation.producer_id.isnot(None),
+                )
+                .distinct().all()
+            ]
+            query = query.filter(Producer.id.in_(prod_ids or [-1]))
+        else:
+            query = query.filter(Producer.id.in_([-1]))
 
     return query.order_by(Producer.nom_complet.asc()).offset(skip).limit(limit).all()
 
