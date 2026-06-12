@@ -741,6 +741,11 @@ class SsrteCommunityProfile(Base):
     # (nom, gps, type, construite_par, salles, enseignants, eleves, cantine, latrines).
     schools = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
+    # Cycle de vie : brouillon modifiable -> definitif (verrouille pour l'audit).
+    # Les fiches anterieures sont retro-classees "final" via le DEFAULT SQL de migration.
+    status = Column(String(10), default="draft", nullable=False, index=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    finalized_by = Column(String(200), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -793,6 +798,9 @@ class SsrteHouseholdProfile(Base):
     consent_given = Column(Boolean, default=False, nullable=False)
     signature_data = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
+    status = Column(String(10), default="draft", nullable=False, index=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    finalized_by = Column(String(200), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -847,6 +855,9 @@ class SsrtePlantationVisit(Base):
     producer_signature_data = Column(JSON, nullable=True)
     assessor_signature_data = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
+    status = Column(String(10), default="draft", nullable=False, index=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    finalized_by = Column(String(200), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

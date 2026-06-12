@@ -204,6 +204,13 @@ def _first_user_id(db: Session) -> int | None:
 def _alert_for_ssrte_visit(db: Session, visit: SsrtePlantationVisit) -> None:
     if not visit.suspected_child_labor and not visit.dangerous_tasks_observed:
         return
+    # Idempotent : une seule alerte par visite (pas de doublon a l'edition/cloture).
+    existing = db.query(Alert).filter(
+        Alert.source_entity == "ssrte_plantation_visits",
+        Alert.source_id == visit.id,
+    ).first()
+    if existing:
+        return
     title = "Suspicion SSRTE en plantation"
     message = f"Visite SSRTE C sur {_plantation_name(visit.plantation)}: action de suivi requise."
     db.add(Alert(
@@ -298,6 +305,8 @@ def community_to_dict(row: SsrteCommunityProfile) -> dict:
         "services_available": row.services_available or {},
         "schools": row.schools or [],
         "notes": row.notes,
+        "status": row.status or "draft",
+        "finalized_at": row.finalized_at,
         "created_at": row.created_at,
     }
 
@@ -339,6 +348,8 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
         "consent_given": bool(row.consent_given),
         "signature_data": row.signature_data,
         "notes": row.notes,
+        "status": row.status or "draft",
+        "finalized_at": row.finalized_at,
         "created_at": row.created_at,
     }
 
@@ -381,6 +392,8 @@ def visit_to_dict(row: SsrtePlantationVisit) -> dict:
         "producer_signature_data": row.producer_signature_data,
         "assessor_signature_data": row.assessor_signature_data,
         "notes": row.notes,
+        "status": row.status or "draft",
+        "finalized_at": row.finalized_at,
         "created_at": row.created_at,
     }
 
@@ -625,3 +638,179 @@ def create_plantation_visit(
     db.commit()
     db.refresh(row)
     return visit_to_dict(row)
+
+
+# ── Cycle de vie : modifier (brouillon) / clôturer (définitif) / supprimer ────
+# Une fiche reste un BROUILLON modifiable jusqu'à sa clôture. On corrige donc une
+# erreur sur la fiche elle-même au lieu d'en recréer une (qui fausserait le
+# tableau de bord). Une fiche CLÔTURÉE est verrouillée (intégrité d'audit).
+
+_SSRTE_WRITE_ROLES = {"admin", "agronomist", "technician"}
+
+
+def _require_ssrte_write(user: User) -> None:
+    if user.role not in _SSRTE_WRITE_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Action reservee aux roles terrain SSRTE (admin / agronome / technicien).",
+        )
+
+
+def _load_ssrte_writable(db: Session, model, entity_id: int, user: User, *, require_draft: bool):
+    """Charge une fiche SSRTE pour écriture : cloisonnée par coop, brouillon exigé."""
+    entity = db.query(model).filter(model.id == entity_id).first()
+    if not entity or _ssrte_coop_id(db, entity) != user.cooperative_id:
+        raise HTTPException(status_code=404, detail="Fiche introuvable.")
+    if require_draft and (entity.status or "draft") != "draft":
+        raise HTTPException(
+            status_code=409,
+            detail="Fiche deja cloturee (definitive) : modification impossible. Creez une nouvelle fiche.",
+        )
+    return entity
+
+
+def _finalize(entity, user: User) -> None:
+    entity.status = "final"
+    entity.finalized_at = datetime.utcnow()
+    entity.finalized_by = user.email
+
+
+# ----- Fiche A : communauté ---------------------------------------------------
+@router.put("/communities/{community_id}")
+def update_community_profile(
+    community_id: int,
+    data: CommunityProfilePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteCommunityProfile, community_id, current_user, require_draft=True)
+    for key, value in data.model_dump().items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return community_to_dict(row)
+
+
+@router.post("/communities/{community_id}/finalize")
+def finalize_community_profile(
+    community_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteCommunityProfile, community_id, current_user, require_draft=True)
+    _finalize(row, current_user)
+    db.commit()
+    db.refresh(row)
+    return community_to_dict(row)
+
+
+@router.delete("/communities/{community_id}")
+def delete_community_profile(
+    community_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteCommunityProfile, community_id, current_user, require_draft=True)
+    db.delete(row)
+    db.commit()
+    return {"deleted": True, "id": community_id}
+
+
+# ----- Fiche B / F1 : ménage --------------------------------------------------
+@router.put("/households/{household_id}")
+def update_household_profile(
+    household_id: int,
+    data: HouseholdProfilePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=True)
+    score, level = _score_household(data)
+    for key, value in data.model_dump(exclude={"producer_id"}).items():
+        setattr(row, key, value)
+    row.risk_score = score
+    row.risk_level = level
+    db.commit()
+    db.refresh(row)
+    return household_to_dict(row)
+
+
+@router.post("/households/{household_id}/finalize")
+def finalize_household_profile(
+    household_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=True)
+    _finalize(row, current_user)
+    db.commit()
+    db.refresh(row)
+    return household_to_dict(row)
+
+
+@router.delete("/households/{household_id}")
+def delete_household_profile(
+    household_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=True)
+    db.delete(row)
+    db.commit()
+    return {"deleted": True, "id": household_id}
+
+
+# ----- Fiche C : visite de plantation -----------------------------------------
+@router.put("/plantation-visits/{visit_id}")
+def update_plantation_visit(
+    visit_id: int,
+    data: PlantationVisitPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrtePlantationVisit, visit_id, current_user, require_draft=True)
+    for key, value in data.model_dump(exclude={"producer_id", "plantation_id"}).items():
+        setattr(row, key, value)
+    db.flush()
+    _alert_for_ssrte_visit(db, row)            # idempotent
+    _traceability_block_for_ssrte_visit(db, row)  # idempotent (bloque si suspicion ajoutee)
+    db.commit()
+    db.refresh(row)
+    return visit_to_dict(row)
+
+
+@router.post("/plantation-visits/{visit_id}/finalize")
+def finalize_plantation_visit(
+    visit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrtePlantationVisit, visit_id, current_user, require_draft=True)
+    _finalize(row, current_user)
+    db.flush()
+    _alert_for_ssrte_visit(db, row)
+    _traceability_block_for_ssrte_visit(db, row)
+    db.commit()
+    db.refresh(row)
+    return visit_to_dict(row)
+
+
+@router.delete("/plantation-visits/{visit_id}")
+def delete_plantation_visit(
+    visit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrtePlantationVisit, visit_id, current_user, require_draft=True)
+    db.delete(row)
+    db.commit()
+    return {"deleted": True, "id": visit_id}

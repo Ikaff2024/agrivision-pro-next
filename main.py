@@ -171,6 +171,16 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info("Migrations export : OK (export_waiver_*, exporter, external_ref)")
 
+                # SSRTE : cycle de vie brouillon -> definitif. DEFAULT 'final' =>
+                # les fiches deja saisies (modele "create = fige") restent verrouillees ;
+                # les nouvelles fiches partent en 'draft' (defaut applicatif du modele).
+                for tbl in ("ssrte_community_profiles", "ssrte_household_profiles", "ssrte_plantation_visits"):
+                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS status VARCHAR(10) DEFAULT 'final' NOT NULL"))
+                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS finalized_at TIMESTAMPTZ"))
+                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS finalized_by VARCHAR(200)"))
+                conn.commit()
+                logger.info("Migrations SSRTE : OK (status, finalized_at, finalized_by)")
+
                 # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
                 for col_ddl in [
                     "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS household_expense_items JSON",

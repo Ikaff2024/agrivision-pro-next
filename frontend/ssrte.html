@@ -175,7 +175,8 @@
             <div class="form-group"><label class="form-label">Remarques / actions — Services</label><textarea class="form-input" id="note-services" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Remarques / actions — Education</label><textarea class="form-input" id="note-education" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Notes generales</label><textarea class="form-input" id="community-notes" rows="3"></textarea></div>
-            <button class="btn btn-primary" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
+            <div id="edit-banner-community" style="display:none;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#9a6200">Modification d'une Fiche A existante (brouillon). <a href="#" onclick="cancelEdit('community');return false" style="font-weight:800;color:#9a6200">Annuler</a></div>
+            <button class="btn btn-primary" id="btn-save-community" onclick="saveCommunity()" style="width:100%;justify-content:center">Enregistrer Fiche A</button>
           </div>
 
           <div class="form-block" id="block-household">
@@ -263,7 +264,8 @@
             <div class="form-group"><label class="form-label">Remarques / actions — Identification & visite</label><textarea class="form-input" id="hh-note-identification" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Remarques / actions — Travailleurs</label><textarea class="form-input" id="hh-note-workers" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Observations eventuelles (B.37)</label><textarea class="form-input" id="household-notes" rows="3"></textarea></div>
-            <button class="btn btn-primary" onclick="saveHousehold()" style="width:100%;justify-content:center">Enregistrer F1</button>
+            <div id="edit-banner-household" style="display:none;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#9a6200">Modification d'une F1 existante (brouillon). <a href="#" onclick="cancelEdit('household');return false" style="font-weight:800;color:#9a6200">Annuler</a></div>
+            <button class="btn btn-primary" id="btn-save-household" onclick="saveHousehold()" style="width:100%;justify-content:center">Enregistrer F1</button>
           </div>
 
           <div class="form-block" id="block-visit">
@@ -356,7 +358,8 @@
             </div>
             <div class="form-group"><label class="form-label">Remarques / actions — Visite</label><textarea class="form-input" id="vc-note-identification" rows="2"></textarea></div>
             <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="visit-notes" rows="3"></textarea></div>
-            <button class="btn btn-primary" onclick="saveVisit()" style="width:100%;justify-content:center">Enregistrer Fiche C</button>
+            <div id="edit-banner-visit" style="display:none;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#9a6200">Modification d'une Fiche C existante (brouillon). <a href="#" onclick="cancelEdit('visit');return false" style="font-weight:800;color:#9a6200">Annuler</a></div>
+            <button class="btn btn-primary" id="btn-save-visit" onclick="saveVisit()" style="width:100%;justify-content:center">Enregistrer Fiche C</button>
           </div>
         </div>
 
@@ -682,8 +685,8 @@ function nonHhChildRows() {
   })).filter(c => c.name);
 }
 
-async function postSsrte(path, body, label) {
-  const options = { method:'POST', body:JSON.stringify(body) };
+async function postSsrte(path, body, label, method = 'POST') {
+  const options = { method, body:JSON.stringify(body) };
   if (window.AVPOffline && typeof window.AVPOffline.offlineFetch === 'function') {
     const result = await window.AVPOffline.offlineFetch(path, options, label, { module:'ssrte' });
     await updateOfflineQueueStatus();
@@ -775,17 +778,28 @@ async function loadHistory() {
   const communities = communitiesRes.ok ? await communitiesRes.json() : [];
   const households = householdsRes.ok ? await householdsRes.json() : [];
   const visits = visitsRes.ok ? await visitsRes.json() : [];
+  _ssrteData = { communities, households, visits };
   const rows = [
-    ...visits.map(v => ({ kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s)`, action:`<a href="#" onclick="downloadFicheC(${v.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche C PDF</a>` })),
-    ...households.map(h => ({ kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, action:`<a href="#" onclick="downloadFicheB(${h.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche B PDF</a>` })),
-    ...communities.map(c => ({ kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}`, action:`<a href="#" onclick="downloadFicheA(${c.id});return false" style="color:var(--primary,#15803d);font-weight:800">Fiche A PDF</a>` }))
+    ...visits.map(v => ({ type:'visit', id:v.id, status:v.status || 'draft', kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${(v.dangerous_tasks_observed||[]).length} tache(s)`, pdf:`downloadFicheC(${v.id})` })),
+    ...households.map(h => ({ type:'household', id:h.id, status:h.status || 'draft', kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, pdf:`downloadFicheB(${h.id})` })),
+    ...communities.map(c => ({ type:'community', id:c.id, status:c.status || 'draft', kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}`, pdf:`downloadFicheA(${c.id})` }))
   ];
-  document.getElementById('history').innerHTML = rows.length ? rows.map(r => `
-    <div class="item">
-      <div class="item-title">${r.kind} - ${r.title || 'Sans nom'}</div>
+  const lnk = 'color:var(--primary,#15803d);font-weight:800';
+  document.getElementById('history').innerHTML = rows.length ? rows.map(r => {
+    const isDraft = r.status !== 'final';
+    const badge = isDraft
+      ? '<span class="badge" style="background:#fef8ec;color:#9a6200;border:1px solid #f0c97a">Brouillon</span>'
+      : '<span class="badge" style="background:#e8f5ee;color:#1a6b3a;border:1px solid #bfe3cd">Définitive</span>';
+    const draftActions = isDraft ? `
+      · <a href="#" onclick="editFiche('${r.type}',${r.id});return false" style="${lnk}">Modifier</a>
+      · <a href="#" onclick="finalizeFiche('${r.type}',${r.id});return false" style="${lnk}">Clôturer</a>
+      · <a href="#" onclick="deleteFiche('${r.type}',${r.id});return false" style="color:#b3261e;font-weight:800">Supprimer</a>` : '';
+    return `<div class="item">
+      <div class="item-title">${r.kind} - ${r.title || 'Sans nom'} ${badge}</div>
       <div class="item-meta">${r.meta}</div>
-      ${r.action ? `<div class="item-meta" style="margin-top:4px">${r.action}</div>` : ''}
-    </div>`).join('') : '<div class="empty-state" style="padding:32px">Aucune fiche SSRTE enregistree.</div>';
+      <div class="item-meta" style="margin-top:4px"><a href="#" onclick="${r.pdf};return false" style="${lnk}">PDF</a>${draftActions}</div>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:32px">Aucune fiche SSRTE enregistree.</div>';
 }
 
 async function loadAll(){ await Promise.all([loadSummary(), loadHistory()]); }
@@ -856,12 +870,15 @@ async function saveCommunity() {
     notes: val('community-notes') || null
   };
   if (!body.locality) return toast('Localite obligatoire.');
-  const result = await postSsrte('/ssrte/communities', body, `SSRTE Fiche A - ${body.locality}`);
+  const editId = _edit.community;
+  const path = editId ? `/ssrte/communities/${editId}` : '/ssrte/communities';
+  const result = await postSsrte(path, body, `SSRTE Fiche A - ${body.locality}`, editId ? 'PUT' : 'POST');
   if (result.queued) return toast('Fiche A conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return toast('Enregistrement Fiche A impossible.');
+  if (!res.ok) { const e = await res.json().catch(()=>({})); return toast(e.detail || 'Enregistrement Fiche A impossible.', 'error'); }
+  if (editId) cancelEdit('community');
   await loadAll();
-  toast('Fiche A enregistree.');
+  toast(editId ? 'Fiche A modifiee.' : 'Fiche A enregistree.');
 }
 
 function workRows() {
@@ -900,7 +917,7 @@ async function saveHousehold() {
     household_members: memberRows(),
     farm_info: farmInfo(),
     vulnerabilities: csv('vulnerabilities'),
-    child_work_declarations: [...workRows(), ...memberWorkDeclarations()],
+    child_work_declarations: _dedupeDecls([...workRows(), ...memberWorkDeclarations()]),
     school_constraints: csv('school-constraints'),
     consent_given: document.getElementById('household-consent').checked,
     signature_data: val('household-signature') ? { signed_by: val('household-signature'), signed_at: new Date().toISOString() } : null,
@@ -912,13 +929,16 @@ async function saveHousehold() {
   };
   if (!body.producer_id) return toast('Producteur obligatoire.');
   const producerLabel = document.getElementById('producer').selectedOptions[0]?.textContent || 'producteur';
-  const result = await postSsrte('/ssrte/households', body, `SSRTE F1 - ${producerLabel}`);
+  const editId = _edit.household;
+  const path = editId ? `/ssrte/households/${editId}` : '/ssrte/households';
+  const result = await postSsrte(path, body, `SSRTE F1 - ${producerLabel}`, editId ? 'PUT' : 'POST');
   if (result.queued) return toast('F1 conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return toast('Enregistrement F1 impossible.');
+  if (!res.ok) { const e = await res.json().catch(()=>({})); return toast(e.detail || 'Enregistrement F1 impossible.', 'error'); }
   const saved = await res.json();
+  if (editId) cancelEdit('household');
   await loadAll();
-  toast(`F1 enregistree. Risque: ${saved.risk_level} (${saved.risk_score}).`);
+  toast(`F1 ${editId ? 'modifiee' : 'enregistree'}. Risque: ${saved.risk_level} (${saved.risk_score}).`);
 }
 
 function visitChecklist() {
@@ -1008,12 +1028,15 @@ async function saveVisit() {
   };
   if (!body.plantation_id) return toast('Plantation obligatoire.');
   const plantationLabel = document.getElementById('plantation').selectedOptions[0]?.textContent || 'plantation';
-  const result = await postSsrte('/ssrte/plantation-visits', body, `SSRTE Fiche C - ${plantationLabel}`);
+  const editId = _edit.visit;
+  const path = editId ? `/ssrte/plantation-visits/${editId}` : '/ssrte/plantation-visits';
+  const result = await postSsrte(path, body, `SSRTE Fiche C - ${plantationLabel}`, editId ? 'PUT' : 'POST');
   if (result.queued) return toast('Fiche C conservee hors ligne. Elle sera synchronisee automatiquement.');
   const res = result.response;
-  if (!res.ok) return toast('Enregistrement Fiche C impossible.');
+  if (!res.ok) { const e = await res.json().catch(()=>({})); return toast(e.detail || 'Enregistrement Fiche C impossible.', 'error'); }
+  if (editId) cancelEdit('visit');
   await loadAll();
-  toast('Fiche C enregistree.');
+  toast(editId ? 'Fiche C modifiee.' : 'Fiche C enregistree.');
 }
 
 function grabGPSInto(target) {
@@ -1029,6 +1052,166 @@ function grabGPS() { grabGPSInto('visit-gps'); }
 
 ['community-date','household-date','visit-date'].forEach(id => document.getElementById(id).value = today());
 window.addEventListener('avp-queue-changed', updateOfflineQueueStatus);
+/* ── Cycle de vie des fiches : brouillon → modification → clôture ────────────
+   On corrige une erreur SUR la fiche (brouillon) au lieu d'en recréer une, ce
+   qui évite de fausser le tableau de bord. Une fiche clôturée est verrouillée. */
+let _ssrteData = { communities: [], households: [], visits: [] };
+const _edit = { community: null, household: null, visit: null };
+
+function _set(id, v){ const el = document.getElementById(id); if (el && el.type !== 'checkbox') el.value = (v == null ? '' : v); }
+function _chk(id, v){ const el = document.getElementById(id); if (el) el.checked = !!v; }
+function _dedupeDecls(list){ const seen = new Set(); return (list || []).filter(d => { const k = `${d.child}|${d.task}`; if (seen.has(k)) return false; seen.add(k); return true; }); }
+
+const _BTN = {
+  community: ['btn-save-community', 'Enregistrer Fiche A', 'Enregistrer les modifications (Fiche A)'],
+  household: ['btn-save-household', 'Enregistrer F1', 'Enregistrer les modifications (F1)'],
+  visit:     ['btn-save-visit', 'Enregistrer Fiche C', 'Enregistrer les modifications (Fiche C)'],
+};
+function _setEditUI(type, editing){
+  const [bid, create, edit] = _BTN[type];
+  const btn = document.getElementById(bid); if (btn) btn.textContent = editing ? edit : create;
+  const banner = document.getElementById('edit-banner-' + type); if (banner) banner.style.display = editing ? '' : 'none';
+}
+function cancelEdit(type){ _edit[type] = null; _clearForm(type); _setEditUI(type, false); }
+function _clearRows(...ids){ ids.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; }); }
+
+function _clearForm(type){
+  if (type === 'community'){
+    ['community-locality','community-section','community-date','respondent-name','respondent-role','supplier','sub-prefecture','agent-code','agent-name','community-gps-start','community-time-start','community-gps-end','community-time-end','school-distance','committee-members','community-risks','note-identification','note-services','note-education','community-notes','population','locality-type','water-distance','secondary-classes','secondary-distance','org-state','org-ngo','org-other'].forEach(i => _set(i, ''));
+    _chk('school-available', false); _chk('committee', false);
+    document.querySelectorAll('.svc').forEach(e => e.checked = false);
+    document.querySelectorAll('.elec-origin').forEach(e => e.checked = false);
+    _clearRows('schools-rows');
+    if (typeof toggleFicheA === 'function') toggleFicheA();
+  } else if (type === 'household'){
+    ['household-date','household-agent','hh-supplier','hh-sub-prefecture','hh-locality','hh-agent-code','hh-producer-code','hh-gps-start','hh-time-start','hh-time-end','hh-survey-type','hh-available','hh-unavailable-reason','hh-person-status','hh-ext-workers','hh-daily-workers','household-size','children-count','school-age-count','enrolled-count','cocoa-parcels','cocoa-area','cocoa-prod','coffee-parcels','coffee-area','coffee-prod','vulnerabilities','school-constraints','work-declarations','household-signature','hh-note-identification','hh-note-workers','household-notes'].forEach(i => _set(i, ''));
+    _chk('household-consent', false);
+    _clearRows('members-rows','ndworkers-rows');
+    if (typeof toggleFicheB === 'function') toggleFicheB();
+  } else {
+    ['visit-date','visit-agent','visit-gps','vc-section','vc-supplier','vc-sub-prefecture','vc-locality','vc-agent-code','vc-producer-code','vc-time-start','vc-time-end','vc-adults-count','vc-daily-count','vc-children-count','vc-nonhh-count','vc-note-identification','immediate-actions','photo-ref','producer-signature','assessor-signature','visit-notes'].forEach(i => _set(i, ''));
+    _chk('vc-allow-interview', false); _chk('suspected', false); _chk('visit-consent', false);
+    document.querySelectorAll('.visit-check').forEach(e => e.checked = false);
+    _clearRows('visit-children-rows','adults-rows','workers-rows','nonhh-children-rows');
+    gpsAccuracy = null;
+  }
+}
+
+function fillCommunity(c){
+  _clearForm('community');
+  _set('community-locality', c.locality); _set('community-section', c.section);
+  _set('community-date', c.interview_date); _set('respondent-name', c.respondent_name); _set('respondent-role', c.respondent_role);
+  _set('supplier', c.supplier); _set('sub-prefecture', c.sub_prefecture);
+  _set('agent-code', c.collection_agent_code); _set('agent-name', c.collection_agent_name);
+  _set('community-gps-start', c.gps_start); _set('community-time-start', c.time_start);
+  _set('community-gps-end', c.gps_end); _set('community-time-end', c.time_end);
+  _chk('school-available', c.school_available); _set('school-distance', c.nearest_school_distance_km);
+  _chk('committee', c.has_child_protection_committee);
+  _set('committee-members', (c.committee_members || []).map(m => (m && m.name) ? m.name : m).filter(Boolean).join(', '));
+  _set('community-risks', (c.risks_identified || []).join(', '));
+  const sn = c.section_notes || {}; _set('note-identification', sn.identification); _set('note-services', sn.services); _set('note-education', sn.education);
+  _set('community-notes', c.notes);
+  const svc = c.services_available || {};
+  _set('population', svc.population); _set('locality-type', svc.locality_type);
+  document.querySelectorAll('.svc').forEach(e => { e.checked = !!svc[e.value]; });
+  const eo = svc.electricity_origin || []; document.querySelectorAll('.elec-origin').forEach(e => { e.checked = eo.includes(e.value); });
+  _set('water-distance', svc.water_distance); _set('secondary-classes', svc.secondary_classes_count);
+  _set('secondary-distance', svc.secondary_school_distance_km);
+  _set('org-state', svc.org_state); _set('org-ngo', svc.org_ngo); _set('org-other', svc.org_other);
+  (c.schools || []).forEach(s => addSchool(s));
+  if (typeof toggleFicheA === 'function') toggleFicheA();
+}
+
+function fillHousehold(hh){
+  _clearForm('household');
+  const ps = document.getElementById('producer'); if (ps && hh.producer_id != null) ps.value = hh.producer_id;
+  _set('household-date', hh.interview_date); _set('household-agent', hh.interviewer_name);
+  _set('hh-supplier', hh.supplier); _set('hh-sub-prefecture', hh.sub_prefecture); _set('hh-locality', hh.locality);
+  _set('hh-agent-code', hh.collection_agent_code); _set('hh-producer-code', hh.producer_ssrte_code);
+  _set('hh-gps-start', hh.gps_start); _set('hh-time-start', hh.time_start); _set('hh-time-end', hh.time_end);
+  _set('hh-survey-type', hh.survey_type);
+  _set('hh-available', hh.producer_available == null ? '' : (hh.producer_available ? 'oui' : 'non'));
+  _set('hh-unavailable-reason', hh.unavailable_reason); _set('hh-person-status', hh.visited_person_status);
+  _set('hh-ext-workers', hh.external_workers_count); _set('hh-daily-workers', hh.daily_workers_count);
+  (hh.non_daily_workers || []).forEach(w => addNonDailyWorker(w));
+  (hh.household_members || []).forEach(m => addMember(m));
+  const fi = hh.farm_info || {};
+  _set('cocoa-parcels', fi.cocoa_parcels); _set('cocoa-area', fi.cocoa_area_ha); _set('cocoa-prod', fi.cocoa_production_kg);
+  _set('coffee-parcels', fi.coffee_parcels); _set('coffee-area', fi.coffee_area_ha); _set('coffee-prod', fi.coffee_production_kg);
+  _set('vulnerabilities', (hh.vulnerabilities || []).join(', '));
+  _set('school-constraints', (hh.school_constraints || []).join(', '));
+  _set('work-declarations', (hh.child_work_declarations || []).filter(d => d.child && d.task).map(d => `${d.child}: ${d.task}`).join('; '));
+  // Compteurs : on écrase l'auto-calcul (déclenché par addMember) par les valeurs enregistrées.
+  _set('household-size', hh.household_size); _set('children-count', hh.children_count);
+  _set('school-age-count', hh.school_age_children_count); _set('enrolled-count', hh.enrolled_children_count);
+  _chk('household-consent', hh.consent_given);
+  _set('household-signature', (hh.signature_data && hh.signature_data.signed_by) ? hh.signature_data.signed_by : '');
+  const sn = hh.section_notes || {}; _set('hh-note-identification', sn.identification); _set('hh-note-workers', sn.workers);
+  _set('household-notes', hh.notes);
+  if (typeof toggleFicheB === 'function') toggleFicheB();
+}
+
+function fillVisit(v){
+  _clearForm('visit');
+  const ps = document.getElementById('plantation'); if (ps && v.plantation_id != null) ps.value = v.plantation_id;
+  _set('visit-date', v.visit_date); _set('visit-agent', v.interviewer_name); _set('visit-gps', v.gps_location);
+  gpsAccuracy = v.gps_accuracy != null ? v.gps_accuracy : null;
+  _set('vc-section', v.section); _set('vc-supplier', v.supplier); _set('vc-sub-prefecture', v.sub_prefecture);
+  _set('vc-locality', v.locality); _set('vc-agent-code', v.collection_agent_code); _set('vc-producer-code', v.producer_ssrte_code);
+  _set('vc-time-start', v.time_start); _set('vc-time-end', v.time_end);
+  _set('vc-adults-count', v.adults_count); _set('vc-daily-count', v.daily_workers_count);
+  _chk('vc-allow-interview', v.allow_worker_interview);
+  _set('vc-children-count', v.children_present_count); _set('vc-nonhh-count', v.non_household_children_count);
+  (v.non_household_children || []).forEach(c => addNonHhChild(c));
+  _set('vc-note-identification', (v.section_notes || {}).identification);
+  const cd = v.checklist_data || {}; document.querySelectorAll('.visit-check').forEach(e => { e.checked = !!cd[e.value]; });
+  (v.children_observed || []).forEach(c => addVisitChild(c));
+  (v.adults_observed || []).forEach(a => addAdult(a));
+  (v.workers_present || []).forEach(w => addWorker(w));
+  _chk('suspected', v.suspected_child_labor);   // après addVisitChild (qui peut cocher via syncSuspicion)
+  _set('immediate-actions', v.immediate_actions_taken);
+  _set('photo-ref', (v.photos && v.photos[0]) ? v.photos[0].reference : '');
+  _chk('visit-consent', v.consent_given);
+  _set('producer-signature', (v.producer_signature_data && v.producer_signature_data.signed_by) ? v.producer_signature_data.signed_by : '');
+  _set('assessor-signature', (v.assessor_signature_data && v.assessor_signature_data.signed_by) ? v.assessor_signature_data.signed_by : '');
+  _set('visit-notes', v.notes);
+}
+
+function editFiche(type, id){
+  const arr = type === 'community' ? _ssrteData.communities : type === 'household' ? _ssrteData.households : _ssrteData.visits;
+  const obj = (arr || []).find(x => x.id === id);
+  if (!obj) return toast('Fiche introuvable (rechargez la page).', 'error');
+  setTab(type);
+  if (type === 'community') fillCommunity(obj); else if (type === 'household') fillHousehold(obj); else fillVisit(obj);
+  _edit[type] = id;
+  _setEditUI(type, true);
+  const block = document.getElementById('block-' + type); if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const _PATHS = {
+  community: id => `/ssrte/communities/${id}`,
+  household: id => `/ssrte/households/${id}`,
+  visit: id => `/ssrte/plantation-visits/${id}`,
+};
+
+async function finalizeFiche(type, id){
+  const ok = await avpConfirm('Clôturer définitivement cette fiche ? Elle ne pourra plus être modifiée.', {});
+  if (!ok) return;
+  const r = await apiFetch(_PATHS[type](id) + '/finalize', { method: 'POST' });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); return toast(e.detail || 'Clôture impossible.', 'error'); }
+  if (_edit[type] === id) cancelEdit(type);
+  await loadAll(); toast('Fiche clôturée (définitive).');
+}
+
+async function deleteFiche(type, id){
+  const ok = await avpConfirm('Supprimer ce brouillon ? Action irréversible.', { danger: true });
+  if (!ok) return;
+  const r = await apiFetch(_PATHS[type](id), { method: 'DELETE' });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); return toast(e.detail || 'Suppression impossible.', 'error'); }
+  if (_edit[type] === id) cancelEdit(type);
+  await loadAll(); toast('Brouillon supprimé.');
+}
+
 loadRefs().then(loadAll);
 updateOfflineQueueStatus();
 </script>

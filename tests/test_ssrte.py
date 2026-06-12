@@ -463,6 +463,94 @@ def test_ssrte_fichec_full_questionnaire_coverage(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def test_ssrte_household_draft_edit_recomputes_risk_then_locks(client):
+    """Brouillon modifiable : on corrige la fiche (risque recalcule) sans creer de doublon, puis cl.ture = verrou."""
+    producer_id, _ = _seed_producer_and_plantation()
+    h = _admin_headers()
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id, "household_size": 2,
+        "household_members": [
+            {"name": "Yao Chef", "relation": "Chef de menage", "sex": "M", "birth_year": 1980},
+        ],
+        "consent_given": True,
+    }, headers=h).json()
+    assert created["status"] == "draft"
+    hid = created["id"]
+    low_risk = created["risk_score"]
+
+    # Correction : enfants non scolarises + travail dangereux -> le risque remonte.
+    upd = client.put(f"/ssrte/households/{hid}", json={
+        "producer_id": producer_id,
+        "school_age_children_count": 3, "enrolled_children_count": 0,
+        "child_work_declarations": [{"child": "A", "task": "machette", "dangerous": True}],
+        "vulnerabilities": ["pauvrete", "isolement"],
+        "consent_given": True,
+    }, headers=h)
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["risk_score"] > low_risk
+    assert upd.json()["status"] == "draft"
+
+    # Pas de doublon : toujours 1 seul menage au tableau de bord.
+    assert client.get("/ssrte/summary", headers=h).json()["household_profiles"] == 1
+
+    # Cloture definitive -> verrouillage.
+    fin = client.post(f"/ssrte/households/{hid}/finalize", headers=h)
+    assert fin.status_code == 200 and fin.json()["status"] == "final"
+    assert fin.json()["finalized_at"]
+
+    # Modification et suppression interdites apres cloture.
+    assert client.put(f"/ssrte/households/{hid}", json={"producer_id": producer_id, "consent_given": True}, headers=h).status_code == 409
+    assert client.delete(f"/ssrte/households/{hid}", headers=h).status_code == 409
+
+
+def test_ssrte_delete_draft_only(client):
+    """Un brouillon errone se supprime (corrige le dashboard) ; une fiche definitive non."""
+    producer_id, _ = _seed_producer_and_plantation()
+    h = _admin_headers()
+    hid = client.post("/ssrte/households", json={"producer_id": producer_id, "consent_given": True}, headers=h).json()["id"]
+    assert client.get("/ssrte/summary", headers=h).json()["household_profiles"] == 1
+    assert client.delete(f"/ssrte/households/{hid}", headers=h).status_code == 200
+    assert client.get("/ssrte/summary", headers=h).json()["household_profiles"] == 0
+
+
+def test_ssrte_community_edit_and_lock(client):
+    _seed_producer_and_plantation()  # cree 'Coop SSRTE' + son admin
+    h = _admin_headers()
+    cid = client.post("/ssrte/communities", json={"locality": "Yapleu"}, headers=h).json()["id"]
+    upd = client.put(f"/ssrte/communities/{cid}", json={
+        "locality": "Yapleu", "school_available": True, "nearest_school_distance_km": 2.5,
+    }, headers=h)
+    assert upd.status_code == 200 and upd.json()["school_available"] is True and upd.json()["status"] == "draft"
+    assert client.post(f"/ssrte/communities/{cid}/finalize", headers=h).status_code == 200
+    # Payload valide : c'est bien le verrou de cloture (409) qui doit repondre, pas la validation.
+    assert client.put(f"/ssrte/communities/{cid}", json={"locality": "Yapleu"}, headers=h).status_code == 409
+
+
+def test_ssrte_visit_edit_can_raise_block(client):
+    """Corriger un brouillon de visite pour cocher la suspicion declenche le blocage de tracabilite."""
+    producer_id, plantation_id = _seed_producer_and_plantation()
+    h = _admin_headers()
+    vid = client.post("/ssrte/plantation-visits", json={
+        "plantation_id": plantation_id, "producer_id": producer_id, "suspected_child_labor": False,
+    }, headers=h).json()["id"]
+    assert len(client.get("/compliance/traceability", headers=h).json()["active_blocks"]) == 0
+
+    upd = client.put(f"/ssrte/plantation-visits/{vid}", json={
+        "plantation_id": plantation_id, "suspected_child_labor": True,
+        "dangerous_tasks_observed": ["machette"],
+    }, headers=h)
+    assert upd.status_code == 200 and upd.json()["suspected_child_labor"] is True
+    assert len(client.get("/compliance/traceability", headers=h).json()["active_blocks"]) == 1
+
+
+def test_ssrte_edit_requires_auth(client):
+    """L'edition d'une fiche exige une authentification (donnee enfant sensible)."""
+    producer_id, _ = _seed_producer_and_plantation()
+    hid = client.post("/ssrte/households", json={"producer_id": producer_id, "consent_given": True},
+                      headers=_admin_headers()).json()["id"]
+    assert client.put(f"/ssrte/households/{hid}", json={"producer_id": producer_id}).status_code in (401, 403)
+
+
 def _auth(client, email, coop):
     client.post("/auth/register", json={
         "email": email, "password": "pass1234", "role": "admin",
