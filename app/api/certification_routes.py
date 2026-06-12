@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
-from app.db.models import Certification, CertificationAudit, NonConformity, User
+from app.db.models import (
+    Certification, CertificationAudit, NonConformity, Plantation, PlantationCertification, User,
+)
 
 router = APIRouter(tags=["Certification"])
 
@@ -105,6 +107,101 @@ def _cert_codes(db: Session, ids: set) -> dict:
     if not ids:
         return {}
     return {c.id: c.code for c in db.query(Certification).filter(Certification.id.in_(ids)).all()}
+
+
+def _scoped_plantation(db: Session, plantation_id: int, user: User) -> Plantation:
+    """Charge une plantation en respectant le cloisonnement par cooperative."""
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation or (_coop_id(user) is not None and plantation.cooperative_id != _coop_id(user)):
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    return plantation
+
+
+class PlantationCertAssign(BaseModel):
+    """Affecte une certification a une parcelle (par id OU par code, ex. 'FT')."""
+    certification_id: Optional[int] = None
+    code: Optional[str] = Field(None, max_length=40)
+    date_obtention: Optional[date] = None
+    date_expiration: Optional[date] = None
+
+
+def _resolve_cert(db: Session, data: PlantationCertAssign) -> Optional[Certification]:
+    if data.certification_id:
+        return db.query(Certification).filter(Certification.id == data.certification_id).first()
+    if data.code:
+        return db.query(Certification).filter(Certification.code == data.code.strip().upper()).first()
+    return None
+
+
+# ── Certifications d'une parcelle (affectation hors import de registre) ────────
+
+@router.get("/plantations/{plantation_id:int}/certifications")
+def list_plantation_certifications(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Liste les certifications portees par une parcelle."""
+    _scoped_plantation(db, plantation_id, current_user)
+    links = db.query(PlantationCertification).filter(
+        PlantationCertification.plantation_id == plantation_id
+    ).all()
+    codes = _cert_codes(db, {l.certification_id for l in links})
+    return [{
+        "id": l.id,
+        "certification_id": l.certification_id,
+        "code": codes.get(l.certification_id),
+        "date_obtention": l.date_obtention,
+        "date_expiration": l.date_expiration,
+    } for l in links]
+
+
+@router.post("/plantations/{plantation_id:int}/certifications")
+def assign_plantation_certification(
+    plantation_id: int,
+    data: PlantationCertAssign,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Affecte une certification a une parcelle (idempotent). Admin / agronome / gestionnaire."""
+    _require_write(current_user)
+    _scoped_plantation(db, plantation_id, current_user)
+    cert = _resolve_cert(db, data)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certification introuvable (id ou code).")
+    link = db.query(PlantationCertification).filter(
+        PlantationCertification.plantation_id == plantation_id,
+        PlantationCertification.certification_id == cert.id,
+    ).first()
+    if not link:
+        link = PlantationCertification(
+            plantation_id=plantation_id,
+            certification_id=cert.id,
+            date_obtention=data.date_obtention,
+            date_expiration=data.date_expiration,
+        )
+        db.add(link)
+        db.commit()
+        db.refresh(link)
+    return {"id": link.id, "plantation_id": plantation_id, "certification_id": cert.id, "code": cert.code}
+
+
+@router.delete("/plantations/{plantation_id:int}/certifications/{certification_id:int}")
+def remove_plantation_certification(
+    plantation_id: int,
+    certification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire une certification d'une parcelle. Admin / agronome / gestionnaire."""
+    _require_write(current_user)
+    _scoped_plantation(db, plantation_id, current_user)
+    deleted = db.query(PlantationCertification).filter(
+        PlantationCertification.plantation_id == plantation_id,
+        PlantationCertification.certification_id == certification_id,
+    ).delete()
+    db.commit()
+    return {"deleted": bool(deleted), "plantation_id": plantation_id, "certification_id": certification_id}
 
 
 # ── Referentiel ──────────────────────────────────────────────────────────────

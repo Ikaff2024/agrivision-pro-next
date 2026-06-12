@@ -63,6 +63,54 @@ def test_plantation_and_producer_certification_filter(client):
     assert {p1["producer_id"], p2["producer_id"]}.issubset({p["id"] for p in all_prod})
 
 
+def _ensure_cert(code):
+    db = TestingSessionLocal()
+    try:
+        if not db.query(Certification).filter(Certification.code == code).first():
+            db.add(Certification(code=code, nom_complet=code, actif=True))
+            db.commit()
+    finally:
+        db.close()
+
+
+def test_assign_certification_endpoint(client):
+    """Affectation d'une certification à une parcelle via l'endpoint (idempotent) + retrait."""
+    _ensure_cert("FT")
+    h = _login(client, "cert.assign@test.ci", "Coop Assign")
+    p = _plantation(client, h, "Parcelle API", "Owner API")
+
+    r = client.post(f"/plantations/{p['id']}/certifications", json={"code": "FT"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["code"] == "FT"
+    # Idempotent : second appel = même lien, pas de doublon.
+    r2 = client.post(f"/plantations/{p['id']}/certifications", json={"code": "FT"}, headers=h)
+    assert r2.status_code == 200 and r2.json()["id"] == r.json()["id"]
+
+    lst = client.get(f"/plantations/{p['id']}/certifications", headers=h).json()
+    assert [c["code"] for c in lst] == ["FT"]
+
+    # Le filtre voit la parcelle et filters-options propose FT.
+    assert client.get("/plantations/filters-options", headers=h).json()["certifications"] == ["FT"]
+    assert p["id"] in [x["id"] for x in client.get("/plantations?certification=FT", headers=h).json()]
+
+    # Retrait.
+    cid = r.json()["certification_id"]
+    dr = client.delete(f"/plantations/{p['id']}/certifications/{cid}", headers=h)
+    assert dr.status_code == 200 and dr.json()["deleted"] is True
+    assert client.get("/plantations?certification=FT", headers=h).json() == []
+
+
+def test_assign_certification_requires_write_role(client):
+    """Un technicien (hors {admin, agronome, gestionnaire}) ne peut pas affecter de certification."""
+    from tests.conftest import create_member_headers
+    _ensure_cert("FT")
+    h = _login(client, "cert.role@test.ci", "Coop Role")
+    p = _plantation(client, h, "P role", "Owner role")
+    h_tech = create_member_headers(client, h, "cert.tech@test.ci", "technician")
+    r = client.post(f"/plantations/{p['id']}/certifications", json={"code": "FT"}, headers=h_tech)
+    assert r.status_code == 403
+
+
 def test_certification_filter_is_cooperative_scoped(client):
     """Le filtre certif reste cloisonné : une coop ne voit pas les certifs d'une autre."""
     ha = _login(client, "cert.a@test.ci", "Coop Cert A")

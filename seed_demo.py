@@ -260,10 +260,33 @@ def seed_social_compliance():
     print(f"  • Revenu vital : 1 ménage en écart + 1 atteint · SSRTE + Certification + blocage ({risky})")
 
 
+def seed_certifications():
+    """Affecte des certifications aux parcelles (alimente le filtre certification).
+
+    Idempotent : repasse sur les parcelles EXISTANTES (peu importe qu'elles
+    viennent d'être créées ou non) et n'ajoute pas de lien en double.
+    """
+    profile_by_owner = {f[0]: f[5] for f in FARMERS}  # owner_name -> profil
+    cert_map = {"full": ["FT", "RA"], "low_yield": ["RA"], "no_boundary": ["FT"]}
+    n = 0
+    for pl in _plantations():
+        for code in cert_map.get(profile_by_owner.get(pl.get("owner_name")), []):
+            if post(f"/plantations/{pl['id']}/certifications", {"code": code}, "plantation_certifications"):
+                n += 1
+    print(f"  • Certifications affectées aux parcelles : {n} lien(s) FT/RA")
+
+
 def main():
     social_only = os.getenv("AVP_SEED_SOCIAL_ONLY", "").lower() in ("1", "true", "yes")
+    certs_only = os.getenv("AVP_SEED_CERTS_ONLY", "").lower() in ("1", "true", "yes")
     print(f"=== Seed démo AgriVision Pro → {API} ===")
     login_or_register()
+
+    if certs_only:
+        print("Mode : certifications uniquement (coop existante, idempotent).")
+        seed_certifications()
+        print(f"\n✓ Certifications affectées. Connexion : {EMAIL} / {PASSWORD}")
+        return
 
     if social_only:
         print("Mode : social / conformité uniquement (coop existante, pas de duplication).")
@@ -380,6 +403,9 @@ def main():
         # un 2e lot
         if len(harvest_ids) > 4:
             post("/lots", {"season": "2025-2026", "harvest_ids": harvest_ids[4:]}, "lots")
+
+    # Certifications des parcelles (alimente le filtre certification)
+    seed_certifications()
 
     # Données sociales / conformité (CacaoGuard, SSRTE, Certification)
     seed_social_compliance()
