@@ -148,7 +148,8 @@
       </div>
 
       <div>
-        <div class="section-title">Diagnostics récents</div>
+        <div class="section-title">Parcelles à surveiller</div>
+        <div style="font-size:12px;color:var(--muted);margin:-4px 0 10px">Dernier diagnostic par parcelle — <b>scores les plus faibles d'abord</b> (à prioriser). Vue complète : <a href="plantations.html" style="color:var(--primary);font-weight:600">Plantations</a>.</div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -279,17 +280,22 @@ async function loadDashboard() {
     document.getElementById('s-high').textContent  = s.high_risk_plantations;
   } catch {}
 
-  // Recent diagnostics
+  // Parcelles à surveiller : dernier diagnostic par parcelle, scores les plus faibles d'abord.
   try {
-    const r2 = await authFetch('/diagnostics?limit=8');
+    const r2 = await authFetch('/diagnostics?limit=500');
     if (!r2 || !r2.ok) return;
     const diags = await r2.json();
     const tb = document.getElementById('diag-tbody');
-    if (!diags.length) {
+    // /diagnostics est trié par date décroissante → 1re occurrence = diagnostic le plus récent.
+    const seen = new Set();
+    const latest = diags.filter(d => { if (seen.has(d.plantation_id)) return false; seen.add(d.plantation_id); return true; });
+    latest.sort((a, b) => (a.global_score ?? 999) - (b.global_score ?? 999));
+    const worst = latest.slice(0, 8);
+    if (!worst.length) {
       tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Aucun diagnostic. <a href="diagnostic.html" style="color:var(--primary);font-weight:600">Lancer le premier →</a></td></tr>';
       return;
     }
-    tb.innerHTML = diags.map(d => `
+    tb.innerHTML = worst.map(d => `
       <tr>
         <td style="font-weight:500;cursor:pointer" onclick="location.href='plantation_detail.html?id=${d.plantation_id}'">${_plantationNames[d.plantation_id] || (d.plantation_id ? 'Plantation #'+d.plantation_id : '—')}</td>
         <td style="color:var(--muted)">${d.region || d.country || '—'}</td>
