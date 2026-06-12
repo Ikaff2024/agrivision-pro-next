@@ -36,6 +36,9 @@
   text-transform:uppercase;letter-spacing:.05em}
 .stat-icon{position:absolute;right:16px;top:16px;font-size:26px;opacity:.12}
 .stat-sub{font-size:12px;color:var(--faint);margin-top:10px}
+.stat-card.ck{cursor:pointer;transition:.12s}
+.stat-card.ck:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.cockpit-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
 
 .content-grid{display:grid;grid-template-columns:1fr 320px;gap:20px}
 @media(max-width:1100px){.content-grid{grid-template-columns:1fr}}
@@ -95,7 +98,21 @@
 
     <div class="avp-content">
 
-      <!-- Stats -->
+      <!-- Cockpit transversal : KPI cliquables (conformité · durabilité · volumes). Direction uniquement. -->
+      <div id="cockpit-wrap" style="display:none;margin-bottom:24px">
+        <div class="cockpit-title">Vue 360° de la coopérative</div>
+        <div class="stats-row" id="cockpit" style="margin-bottom:0">
+          <div class="stat-card ck" data-go="producers.html"><div class="stat-icon">👥</div><div class="stat-val" id="k-prod">—</div><div class="stat-lbl">Producteurs actifs</div><div class="stat-sub" id="k-prod-sub">—</div></div>
+          <div class="stat-card ck" data-go="eudr.html"><div class="stat-icon" style="color:#1a6b3a">🌍</div><div class="stat-val" id="k-eudr">—</div><div class="stat-lbl">Conformité EUDR</div><div class="stat-sub" id="k-eudr-sub">—</div></div>
+          <div class="stat-card ck" data-go="cacaoguard.html"><div class="stat-icon" style="color:#922b21">🛡️</div><div class="stat-val" id="k-child" style="color:#922b21">—</div><div class="stat-lbl">Enfants à risque</div><div class="stat-sub" id="k-child-sub">—</div></div>
+          <div class="stat-card ck" data-go="farmforce.html"><div class="stat-icon">💰</div><div class="stat-val" id="k-li">—</div><div class="stat-lbl">Revenu vital atteint</div><div class="stat-sub" id="k-li-sub">—</div></div>
+          <div class="stat-card ck" data-go="lots.html"><div class="stat-icon">📦</div><div class="stat-val" id="k-vol" style="font-size:26px">—</div><div class="stat-lbl">Volume campagne</div><div class="stat-sub">kg en lots tracés</div></div>
+          <div class="stat-card ck" data-go="certification.html"><div class="stat-icon" style="color:#1a6b3a">🏅</div><div class="stat-val" id="k-cert">—</div><div class="stat-lbl">Volume certifié</div><div class="stat-sub" id="k-cert-sub">—</div></div>
+          <div class="stat-card ck" data-go="cacaoguard.html"><div class="stat-icon" style="color:#9a6200">🔔</div><div class="stat-val" id="k-alerts" style="color:#9a6200">—</div><div class="stat-lbl">Alertes ouvertes</div><div class="stat-sub">à traiter</div></div>
+        </div>
+      </div>
+
+      <!-- Stats agronomiques (tous rôles) -->
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-icon">🌱</div>
@@ -130,55 +147,17 @@
         </div>
       </div>
 
-      <div class="content-grid">
-        <!-- Left: recent diagnostics -->
-        <div>
-          <div class="section-title">Diagnostics récents</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Plantation</th>
-                  <th>Région</th>
-                  <th>Score</th>
-                  <th>Risque</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody id="diag-tbody">
-                <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Chargement…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Right: quick actions -->
-        <div style="display:flex;flex-direction:column;gap:20px">
-          <div class="card">
-            <div class="section-title" style="margin-bottom:12px">Actions rapides</div>
-            <div class="quick-actions">
-              <button class="qa-btn" onclick="location.href='plantations.html'">
-                <div class="qa-icon">🌱</div>
-                <div><div class="qa-label">Plantations</div><div class="qa-sub">Gérer la liste</div></div>
-              </button>
-              <button class="qa-btn" onclick="location.href='diagnostic.html'">
-                <div class="qa-icon">🔬</div>
-                <div><div class="qa-label">Diagnostic</div><div class="qa-sub">Lancer une analyse</div></div>
-              </button>
-              <button class="qa-btn" onclick="location.href='map.html'">
-                <div class="qa-icon">🗺️</div>
-                <div><div class="qa-label">Carte</div><div class="qa-sub">Vue géographique</div></div>
-              </button>
-              <button class="qa-btn" onclick="location.href='direction.html'">
-                <div class="qa-icon">📈</div>
-                <div><div class="qa-label">Direction</div><div class="qa-sub">Vue conformité</div></div>
-              </button>
-              <button class="qa-btn" onclick="location.href='agroforestry.html'">
-                <div class="qa-icon">🌳</div>
-                <div><div class="qa-label">Agroforesterie</div><div class="qa-sub">Inventaire & carbone</div></div>
-              </button>
-            </div>
-          </div>
+      <div>
+        <div class="section-title">Diagnostics récents</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Plantation</th><th>Région</th><th>Score</th><th>Risque</th><th>Date</th></tr>
+            </thead>
+            <tbody id="diag-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Chargement…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -329,6 +308,48 @@ async function loadDashboard() {
 }
 
 loadDashboard();
+
+/* ── Cockpit transversal (KPI conformité/durabilité/volumes) ──────────
+   Source : /dashboard/direction (admin/agronome). Pour les autres rôles
+   l'appel renvoie 403 → le cockpit reste masqué, la vue agronomique suffit. */
+async function loadCockpit() {
+  let res;
+  try { res = await authFetch('/dashboard/direction'); } catch { return; }
+  if (!res || !res.ok) return;
+  const d = await res.json();
+  const num = v => (v == null ? '—' : Number(v).toLocaleString('fr-FR'));
+  const pct = v => (v == null ? '—' : v + '%');
+  const col = p => p >= 80 ? '#1a6b3a' : p >= 50 ? '#9a6200' : '#922b21';
+
+  document.getElementById('k-prod').textContent = num(d.perimeter.producers_active);
+  document.getElementById('k-prod-sub').textContent = num(d.perimeter.plantations) + ' plantations · ' + num(d.perimeter.total_hectares) + ' ha';
+
+  const e = d.eudr, ke = document.getElementById('k-eudr');
+  ke.textContent = pct(e.compliance_rate_pct); ke.style.color = col(e.compliance_rate_pct);
+  document.getElementById('k-eudr-sub').textContent = num(e.conforme) + ' conformes · ' + num(e.non_conforme) + ' non conf.';
+
+  const c = d.child_protection;
+  document.getElementById('k-child').textContent = num(c.high_risk_children);
+  document.getElementById('k-child-sub').textContent = num(c.active_traceability_blocks) + ' blocage(s) actif(s)';
+
+  const li = d.living_income, kl = document.getElementById('k-li');
+  kl.textContent = pct(li.reached_rate_pct); kl.style.color = col(li.reached_rate_pct);
+  document.getElementById('k-li-sub').textContent = num(li.reached) + '/' + num(li.assessments) + ' ménages';
+
+  document.getElementById('k-vol').textContent = num(d.volume.total_kg);
+  const kc = document.getElementById('k-cert');
+  kc.textContent = pct(d.volume.certified_rate_pct); kc.style.color = col(d.volume.certified_rate_pct);
+  document.getElementById('k-cert-sub').textContent = num(d.volume.certified_kg) + ' kg certifiés';
+
+  document.getElementById('k-alerts').textContent = num(d.alerts.open);
+
+  document.getElementById('cockpit-wrap').style.display = '';
+  document.querySelectorAll('#cockpit .ck').forEach(card => {
+    card.title = 'Voir le détail';
+    card.addEventListener('click', () => { location.href = card.getAttribute('data-go'); });
+  });
+}
+loadCockpit();
 
 /* ── Analyse agronomique (graphiques, ex-page Analytique) ─────────── */
 async function loadCharts() {
