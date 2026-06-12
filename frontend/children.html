@@ -47,13 +47,19 @@
   <div class="avp-main">
     <div class="avp-header">
       <div>
-        <div class="page-title">Enfants</div>
-        <div class="page-sub">Module CacaoGuard - Famille, scolarisation et risque social</div>
+        <div class="page-title">Protection enfant</div>
+        <div class="page-sub">Recensement des enfants. L'<b>évaluation du risque</b> (qui génère le plan de remédiation) se fait via « Évaluer un enfant ».</div>
       </div>
-      <button class="btn btn-primary" id="add-btn" onclick="openModal()">
-        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-        Nouvel enfant
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="location.href='risk_assessment.html'">
+          <span class="material-symbols-outlined" style="font-size:18px">fact_check</span>
+          Évaluer un enfant
+        </button>
+        <button class="btn btn-primary" id="add-btn" onclick="openModal()">
+          <span class="material-symbols-outlined" style="font-size:18px">add</span>
+          Nouvel enfant
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">

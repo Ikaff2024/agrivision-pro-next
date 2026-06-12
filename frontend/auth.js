@@ -650,7 +650,6 @@ function renderSidebar(activePage) {
     { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce' },
     { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard' },
     { id: 'children', href: 'children.html', icon: 'diversity_3', label: 'Protection enfant' },
-    { id: 'risk-assessment', href: 'risk_assessment.html', icon: 'fact_check', label: 'Evaluation risque' },
     { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring' },
     { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE' },
     { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation' },
