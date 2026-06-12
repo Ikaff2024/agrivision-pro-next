@@ -339,7 +339,7 @@ async function loadCockpit() {
   document.getElementById('k-vol').textContent = num(d.volume.total_kg);
   const kc = document.getElementById('k-cert');
   kc.textContent = pct(d.volume.certified_rate_pct); kc.style.color = col(d.volume.certified_rate_pct);
-  document.getElementById('k-cert-sub').textContent = num(d.volume.certified_kg) + ' kg certifiés';
+  document.getElementById('k-cert-sub').textContent = num(d.volume.certified_kg) + ' kg (parcelles certifiées)';
 
   document.getElementById('k-alerts').textContent = num(d.alerts.open);
 

@@ -21,6 +21,7 @@ from app.db.models import (
     FarmForceAssessment,
     Harvest,
     Plantation,
+    PlantationCertification,
     Producer,
     User,
 )
@@ -131,9 +132,16 @@ def direction_dashboard(
         vol_total = db.query(func.coalesce(func.sum(Harvest.quantity_kg), 0)).filter(
             Harvest.plantation_id.in_(plant_ids)
         ).scalar() or 0
+        # Parcelles portant au moins une certification (FT, RA, …).
+        certified_plant_ids = [
+            row[0] for row in db.query(PlantationCertification.plantation_id)
+            .filter(PlantationCertification.plantation_id.in_(plant_ids))
+            .distinct().all()
+        ]
+        # Volume certifié = récoltes sous certification commerciale OU issues d'une parcelle certifiée.
         vol_certified = db.query(func.coalesce(func.sum(Harvest.quantity_kg), 0)).filter(
             Harvest.plantation_id.in_(plant_ids),
-            Harvest.certification_id.isnot(None),
+            (Harvest.certification_id.isnot(None)) | (Harvest.plantation_id.in_(certified_plant_ids or [-1])),
         ).scalar() or 0
     else:
         vol_total = 0
