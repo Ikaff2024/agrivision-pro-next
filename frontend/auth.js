@@ -77,6 +77,8 @@ window.API_BASE = API_BASE;
     .nav-link.active{background:var(--sb-active);color:var(--sb-text-active)}
     .nav-link .ms{font-size:19px;flex-shrink:0}
     .nav-link.active .ms{color:var(--sb-accent)}
+    .nav-link.locked{opacity:.45}
+    .nav-link.locked::after{content:'🔒';margin-left:auto;font-size:11px;opacity:.85}
     .sb-user{padding:14px 14px 18px;border-top:1px solid var(--sb-border);flex-shrink:0}
     .sb-user-inner{display:flex;align-items:center;gap:10px}
     .sb-auth-actions{display:grid;gap:8px}
@@ -709,9 +711,9 @@ function renderSidebar(activePage) {
     <nav class="sb-nav">
       <div class="sb-sec">Navigation</div>
       ${links.map(l => {
-        const _h = _cachedMods && !_cachedMods.has(l.id) ? ' style="display:none"' : '';
+        const _locked = _cachedMods && !_cachedMods.has(l.id) ? ' locked' : '';
         return `
-        <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}"${_h} onclick="closeSidebar()">
+        <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}${_locked}" onclick="return navClick(event, this)">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`;
       }).join('')}
@@ -729,6 +731,18 @@ function getCachedModules() {
   } catch (e) { return null; }
 }
 
+// Clic sur un module : si grisé (hors plan), on bloque la navigation et on explique.
+function navClick(e, el) {
+  if (el && el.classList.contains('locked')) {
+    e.preventDefault();
+    if (typeof toast === 'function') {
+      toast("Module non inclus dans votre plan. Contactez l'administrateur pour l'activer.", 'error');
+    }
+    return false;
+  }
+  closeSidebar();
+}
+
 async function applyPlanFeatures(activePage) {
   try {
     const res = await authFetch('/me/features');
@@ -739,7 +753,8 @@ async function applyPlanFeatures(activePage) {
     try { localStorage.setItem('avp_features', JSON.stringify([...allowed])); } catch (e) { /* quota */ }
     document.querySelectorAll('#sidebar a.nav-link[data-mod]').forEach(a => {
       const mod = a.getAttribute('data-mod');
-      a.style.display = allowed.has(mod) ? '' : 'none';  // révèle/masque (corrige un cache obsolète)
+      a.classList.toggle('locked', !allowed.has(mod));  // grise les modules hors plan (au lieu de masquer)
+      a.style.display = '';  // corrige un eventuel ancien cache qui masquait
     });
     // Rediriger UNIQUEMENT si la page courante est un vrai module de menu bloque
     // par le plan. Les pages hors-menu (import, assignment, producer-profile,

@@ -120,7 +120,7 @@
     <div class="cover-verdict">
       {% if status == "conforme" %}✓ CONFORME{% elif status == "a_verifier" %}⚠ A VERIFIER{% else %}⛔ NON CONFORME{% endif %}
     </div>
-    <div class="cover-ref">Reference : {{ dds_reference }} &nbsp;|&nbsp; Methodologie : {{ methodology_version }}</div>
+    <div class="cover-ref">Reference : {{ dds_reference }}</div>
   </div>
 
   <div class="cover-footer">
@@ -155,7 +155,7 @@
 
 {# ─── 3. REGLES ─── #}
 <div class="section">
-  <h2>3. Detail des {{ rules|length }} regles ({{ methodology_version }})</h2>
+  <h2>3. Detail des {{ rules|length }} regles</h2>
   <table class="thead-keep">
     <thead><tr><th style="width:22%">Regle</th><th style="width:14%">Statut</th><th>Detail</th></tr></thead>
     <tbody>
@@ -198,7 +198,7 @@
 {# ─── ATTESTATION ─── #}
 <div class="attestation">
   <h3 style="margin-top:0">Attestation de diligence raisonnable (EUDR art. 8)</h3>
-  <p>Je soussigne, en qualite d'operateur ou de commercant tel que defini par le Reglement (UE) 2023/1115, declare que les informations geographiques et de tracabilite contenues dans ce Due Diligence Statement ont ete collectees et verifiees conformement aux procedures d'AgriVision Pro (methodologie {{ methodology_version }}).</p>
+  <p>Je soussigne, en qualite d'operateur ou de commercant tel que defini par le Reglement (UE) 2023/1115, declare que les informations geographiques et de tracabilite contenues dans ce Due Diligence Statement ont ete collectees et verifiees conformement aux procedures d'AgriVision Pro.</p>
   <p>Cette attestation engage la responsabilite de l'operateur et reste sujette aux verifications des autorites competentes designees par l'article 16 du Reglement.</p>
   <div class="signature-row">
     <div class="signature-block">Operateur / Cooperative<br><br>{{ operator_name }}</div>

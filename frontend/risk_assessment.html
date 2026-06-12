@@ -364,7 +364,7 @@ async function recomputeFromServer() {
     out.innerHTML = `
       <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
         <strong style="font-size:20px">${body.risk_score}</strong>
-        <span class="text-sm text-muted">${body.risk_level} (methodologie ${body.methodology_version})</span>
+        <span class="text-sm text-muted">${body.risk_level}</span>
       </div>
       <div class="text-sm text-muted">Ecart vs UI : ${body.drift > 0 ? '+' : ''}${body.drift}</div>
       <div class="text-sm" style="margin-top:6px">
