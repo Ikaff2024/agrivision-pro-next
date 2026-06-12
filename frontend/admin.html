@@ -20,6 +20,7 @@
 .role-select.admin{border-color:var(--low);color:var(--low);background:var(--low-bg)}
 .role-select.agronomist{border-color:#1e4a6e;color:#1e4a6e;background:#eef4fb}
 .role-select.technician{border-color:var(--muted);color:var(--muted);background:var(--bg)}
+.role-select.gestionnaire{border-color:#9a6200;color:#9a6200;background:#fef8ec}
 
 .member-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
   justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;text-transform:uppercase}
@@ -202,6 +203,7 @@
         font-family:inherit;font-size:13.5px;outline:none;background:var(--surface);box-sizing:border-box">
         <option value="technician">Technicien</option>
         <option value="agronomist">Agronome</option>
+        <option value="gestionnaire">Gestionnaire (opérations administratives)</option>
         <option value="admin">Administrateur</option>
       </select>
     </div>
@@ -300,8 +302,8 @@ async function removeLogo() {
 
 loadLogo();
 
-const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien' };
-const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)' };
+const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien', gestionnaire: 'Gestionnaire' };
+const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)', gestionnaire: '#9a6200' };
 let assignmentSummary = { technicians: [] };
 
 async function load() {
@@ -362,6 +364,7 @@ function renderTable(members) {
               <option value="admin"   ${m.role==='admin'   ?'selected':''}>Admin</option>
               <option value="agronomist" ${m.role==='agronomist'?'selected':''}>Agronome</option>
               <option value="technician" ${m.role==='technician'?'selected':''}>Technicien</option>
+              <option value="gestionnaire" ${m.role==='gestionnaire'?'selected':''}>Gestionnaire</option>
             </select>`
         }
       </td>

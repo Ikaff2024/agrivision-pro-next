@@ -19,7 +19,7 @@ from app.db.models import Certification, CertificationAudit, NonConformity, User
 
 router = APIRouter(tags=["Certification"])
 
-_WRITE = {"admin", "agronomist"}
+_WRITE = {"admin", "agronomist", "gestionnaire"}
 _AUDIT_STATUS = {"planned", "in_progress", "completed"}
 _AUDIT_RESULT = {"pass", "conditional", "fail"}
 _SEVERITY = {"minor", "major", "critical"}

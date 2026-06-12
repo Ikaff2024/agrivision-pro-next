@@ -23,8 +23,8 @@ from app.db.models_social import BlockStatus, TraceabilityBlock
 
 router = APIRouter(prefix="/purchases", tags=["Achats producteurs"])
 
-_FIELD_ROLES = {"admin", "agronomist", "technician"}  # achat = activite terrain
-_ADMIN_ROLES = {"admin", "agronomist"}
+_FIELD_ROLES = {"admin", "agronomist", "technician", "gestionnaire"}  # achat = activite terrain ou guichet
+_ADMIN_ROLES = {"admin", "agronomist", "gestionnaire"}
 _VALID_QUALITIES = {"Bonne", "Moyenne", "Defauts"}
 
 

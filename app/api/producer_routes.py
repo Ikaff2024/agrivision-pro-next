@@ -88,7 +88,7 @@ def get_producer(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer", "gestionnaire"})
     producer = db.query(Producer).filter(
         Producer.id == producer_id,
         Producer.is_active == True,
@@ -148,7 +148,7 @@ def list_producer_children(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer", "gestionnaire"})
     producer = _get_producer_or_404(db, producer_id, current_user)
     query = db.query(Child).filter(Child.producer_id == producer_id)
     if not include_inactive:
@@ -177,7 +177,7 @@ def list_producer_assessments(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     _get_producer_or_404(db, producer_id, current_user)
-    require_role(current_user, {"admin", "agronomist", "technician"})
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
 
     items = (
         db.query(RiskAssessment)
@@ -217,7 +217,7 @@ def list_producer_visits(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer", "gestionnaire"})
     _get_producer_or_404(db, producer_id, current_user)
     visits = (
         db.query(MonitoringVisit)
@@ -316,7 +316,7 @@ def get_producer_traceability_status(
     Retourne {is_blocked, active_blocks, resolved_blocks_count, last_resolution}.
     Utile pour la pipeline export (passe/bloque avant expedition).
     """
-    require_role(current_user, {"admin", "agronomist", "technician", "viewer"})
+    require_role(current_user, {"admin", "agronomist", "technician", "viewer", "gestionnaire"})
     _get_producer_or_404(db, producer_id, current_user)
 
     active = (
@@ -395,7 +395,7 @@ def calculate_producer_risk(
     ouvertes. Retourne un niveau de risque global (max des enfants) et des
     indicateurs cles pour la dashboard producteur.
     """
-    require_role(current_user, {"admin", "agronomist", "technician"})
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
     producer = _get_producer_or_404(db, producer_id, current_user)
 
     children = db.query(Child).filter(

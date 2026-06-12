@@ -157,8 +157,8 @@ def create_plantation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+    if current_user.role not in ("admin", "gestionnaire"):
+        raise HTTPException(status_code=403, detail="Droits administrateur ou gestionnaire requis.")
 
     if not current_user.cooperative_id:
         raise HTTPException(
@@ -199,8 +199,8 @@ def update_plantation(
     proprietaire (owner_name) change, le rattachement Producteur est recalcule
     (trouver-ou-creer) pour rester coherent avec EUDR / Protection enfant.
     """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Droits administrateur requis.")
+    if current_user.role not in ("admin", "gestionnaire"):
+        raise HTTPException(status_code=403, detail="Droits administrateur ou gestionnaire requis.")
 
     plantation = db.query(Plantation).filter(
         Plantation.id == plantation_id,
@@ -854,7 +854,7 @@ def get_plantation_satellite_analysis(
 class UpdateRoleRequest(BaseModel):
     role: str  # "admin" | "agronomist" | "technician"
 
-VALID_ROLES = {"admin", "agronomist", "technician"}
+VALID_ROLES = {"admin", "agronomist", "technician", "gestionnaire"}
 
 
 @router.get("/admin/members")
@@ -1821,7 +1821,7 @@ def create_member(
         raise HTTPException(status_code=400, detail="Adresse email invalide.")
 
     role = (payload.role or "technician").strip().lower()
-    if role not in ("admin", "agronomist", "technician"):
+    if role not in ("admin", "agronomist", "technician", "gestionnaire"):
         raise HTTPException(status_code=400, detail="Role invalide.")
 
     # Email deja utilise ?
@@ -2170,9 +2170,9 @@ def create_harvest(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Cree une nouvelle recolte. Reserve aux roles admin et agronomist."""
-    if current_user.role not in ("admin", "agronomist"):
-        raise HTTPException(status_code=403, detail="Role agronome ou admin requis.")
+    """Cree une nouvelle recolte. Reserve aux roles admin, agronomist et gestionnaire."""
+    if current_user.role not in ("admin", "agronomist", "gestionnaire"):
+        raise HTTPException(status_code=403, detail="Role agronome, gestionnaire ou admin requis.")
 
     _check_plantation_access(plantation_id, db, current_user)
 

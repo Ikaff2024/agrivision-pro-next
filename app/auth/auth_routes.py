@@ -23,7 +23,7 @@ from app.services.email_service import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-VALID_ROLES = {"admin", "agronomist", "technician"}
+VALID_ROLES = {"admin", "agronomist", "technician", "gestionnaire"}
 
 
 class RegisterUserRequest(BaseModel):
