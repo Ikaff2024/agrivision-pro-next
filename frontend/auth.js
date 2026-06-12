@@ -127,6 +127,7 @@ window.API_BASE = API_BASE;
     .form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(82,183,136,.14)}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     .modal-overlay{position:fixed;inset:0;background:rgba(12,32,24,.55);display:flex;align-items:center;justify-content:center;z-index:900;padding:20px;display:none}
+    .modal-overlay.active{display:flex}
     .modal{background:var(--surface);border-radius:var(--rl);padding:28px;width:100%;max-width:520px;box-shadow:var(--sh-md);animation:modalIn .2s ease}
     @keyframes modalIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
     .modal-title{font-family:'Fraunces',serif;font-size:20px;font-weight:700;margin-bottom:20px}

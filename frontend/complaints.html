@@ -367,8 +367,11 @@ function renderTable() {
           </td>
         </tr>`;
     }).join('');
+  const emptyMsg = allComplaints.length === 0
+    ? 'Aucun signalement enregistré. Cliquez « Nouveau signalement » pour ouvrir un cas (hotline EUDR / Fairtrade / Rainforest).'
+    : 'Aucun signalement ne correspond aux filtres.';
   document.getElementById('rows').innerHTML = rows ||
-    `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">Aucun signalement ne correspond aux filtres.</td></tr>`;
+    `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">${emptyMsg}</td></tr>`;
 }
 
 /* ========== Modale Nouveau ========== */
