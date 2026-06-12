@@ -103,7 +103,11 @@ que réclament les standards (Fairtrade, Rainforest) et un **argument prime** au
 
 ## 7. Traçabilité commerciale — achats → lot → passeport (3 min)
 
-**Action :** **Achats** (un bon d'achat) → **Traçabilité lots** (un lot) → **passeport du lot (PDF)**.
+**Action :** **Achats** (un bon d'achat) → **Traçabilité lots** (un lot) → **passeport du lot (PDF)** → bouton
+**Composition (Excel)** : le fichier *exactement au format demandé par l'exportateur* (Farmer_ID / Farm_ID /
+poids net / certification), généré en un clic au lieu d'être ressaisi à la main.
+*(Bonus conformité : tenter **Expédier** un lot contenant une parcelle non conforme → refus motivé ;
+seule une **dérogation admin tracée** peut débloquer — preuve que la plateforme verrouille l'export.)*
 **Discours :** « De l'achat au producteur jusqu'au lot exporté, tout est tracé. Le **passeport de lot** prouve la
 composition, la conformité EUDR et l'absence de blocage — **à votre en-tête**. »
 **Valeur :** **traçabilité physique bout-en-bout** = exigée à l'export.

@@ -65,6 +65,11 @@ class Plantation(Base):
     # Lot d'import (UUID) si cette plantation a ete creee par un import de registre.
     # Permet d'annuler un import errone en ciblant uniquement ses entites.
     import_batch_id = Column(String, nullable=True, index=True)
+    # Dérogation export (admin) : autorise l'expédition malgré une non-conformité EUDR.
+    # Tracée : motif + email de l'admin + date. NULL = pas de dérogation active.
+    export_waiver_reason = Column(Text, nullable=True)
+    export_waiver_by     = Column(String, nullable=True)
+    export_waiver_at     = Column(DateTime(timezone=True), nullable=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
 
     cooperative  = relationship("Cooperative", back_populates="plantations")
@@ -685,6 +690,8 @@ class Lot(Base):
     status           = Column(String, default="open", nullable=False, index=True)
     total_weight_kg  = Column(Float, default=0, nullable=False)
     bag_count        = Column(Integer, default=0, nullable=False)
+    exporter         = Column(String, nullable=True)   # acheteur/exportateur (ex. OCEAN-SA)
+    external_ref     = Column(String, nullable=True)   # n° de lot export / connaissement
     notes            = Column(Text, nullable=True)
     parent_lot_id    = Column(Integer, ForeignKey("lots.id"), nullable=True, index=True)  # fusion
     created_at       = Column(DateTime(timezone=True), server_default=func.now())

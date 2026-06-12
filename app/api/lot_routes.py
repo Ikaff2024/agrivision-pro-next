@@ -21,13 +21,16 @@ from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
-from app.db.models import Certification, Harvest, Lot, LotMovement, Plantation, Producer, User, Warehouse
+from app.db.models import (
+    Certification, Cooperative, Harvest, Lot, LotMovement, Plantation, Producer,
+    PurchaseRecord, User, Warehouse,
+)
 from app.db.models_social import BlockStatus, TraceabilityBlock
 from app.eudr.scoring import compute_eudr_score
 
 router = APIRouter(tags=["Tracabilite des lots"])
 
-_WRITE_ROLES = {"admin", "agronomist"}
+_WRITE_ROLES = {"admin", "agronomist", "gestionnaire"}
 _VALID_STATUS = {"open", "sealed", "shipped", "blocked", "merged"}
 
 
@@ -43,8 +46,17 @@ class LotCreate(BaseModel):
     season: Optional[str] = Field(None, max_length=50)
     certification_id: Optional[int] = None
     warehouse_id: Optional[int] = None
+    exporter: Optional[str] = Field(None, max_length=200)
+    external_ref: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = None
     harvest_ids: List[int] = Field(default_factory=list)
+
+
+class LotUpdate(BaseModel):
+    """Infos export du lot (modifiables tant que necessaire pour les documents acheteur)."""
+    exporter: Optional[str] = Field(None, max_length=200)
+    external_ref: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = None
 
 
 class HarvestAffect(BaseModel):
@@ -142,6 +154,44 @@ def _guard_child_labor(db: Session, harvests: list[Harvest]) -> None:
         )
 
 
+def _guard_export_compliance(db: Session, lot: Lot) -> list[dict]:
+    """Refuse l'expedition (export_out) si une parcelle composante est EUDR
+    non conforme SANS derogation export accordee par un administrateur.
+
+    Retourne la liste des derogations actives mobilisees, pour les tracer
+    dans le journal des mouvements du lot (auditabilite).
+    """
+    harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
+    plant_ids = {h.plantation_id for h in harvests if h.plantation_id}
+    if not plant_ids:
+        return []
+    plantations = db.query(Plantation).filter(Plantation.id.in_(plant_ids)).all()
+    blocking, waivers = [], []
+    for p in plantations:
+        score = compute_eudr_score(p, db)
+        if score.status != "non_conforme":
+            continue
+        if p.export_waiver_at is not None:
+            waivers.append({
+                "plantation_id": p.id, "name": p.name,
+                "reason": p.export_waiver_reason, "granted_by": p.export_waiver_by,
+            })
+        else:
+            blocking.append({
+                "plantation_id": p.id, "name": p.name,
+                "eudr_score": score.score, "eudr_max_score": score.max_score,
+            })
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Expedition refusee : parcelle(s) EUDR non conforme(s) sans derogation administrateur.",
+                "non_compliant_plantations": blocking,
+            },
+        )
+    return waivers
+
+
 def _recompute_totals(db: Session, lot: Lot) -> None:
     db.flush()  # garantit que les lot_id affectes sont visibles par la requete
     harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
@@ -194,6 +244,7 @@ def lot_to_dict(lot: Lot, include_movements: bool = False) -> dict:
         "warehouse_id": lot.warehouse_id, "status": lot.status,
         "total_weight_kg": float(lot.total_weight_kg or 0), "bag_count": lot.bag_count or 0,
         "harvest_count": len(lot.harvests or []), "parent_lot_id": lot.parent_lot_id,
+        "exporter": lot.exporter, "external_ref": lot.external_ref,
         "notes": lot.notes, "created_at": lot.created_at,
     }
     if include_movements:
@@ -265,6 +316,8 @@ def create_lot(
         season=data.season,
         certification_id=data.certification_id,
         warehouse_id=data.warehouse_id,
+        exporter=data.exporter,
+        external_ref=data.external_ref,
         status="open",
         notes=data.notes,
         created_by_id=current_user.id,
@@ -333,16 +386,129 @@ def add_movement(
         lot.warehouse_id = data.to_warehouse_id
     if mtype == "seal":
         lot.status = "sealed"
+    waivers_used: list[dict] = []
     if mtype == "export_out":
+        # Blocage export : parcelles EUDR non conformes => refus, sauf derogation admin.
+        waivers_used = _guard_export_compliance(db, lot)
         lot.status = "shipped"
 
     qty = data.quantity_kg if data.quantity_kg is not None else lot.total_weight_kg
     _movement(db, lot, mtype, qty, current_user,
               from_warehouse_id=data.from_warehouse_id, to_warehouse_id=data.to_warehouse_id,
-              reference=data.reference)
+              reference=data.reference,
+              metadata={"export_waivers": waivers_used} if waivers_used else None)
     db.commit()
     db.refresh(lot)
     return lot_to_dict(lot, include_movements=True)
+
+
+@router.patch("/lots/{lot_id:int}")
+def update_lot(
+    lot_id: int,
+    data: LotUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Met a jour les infos export du lot (exportateur, n° lot export/connaissement, notes)."""
+    _require_write(current_user)
+    lot = _scoped_lot(lot_id, db, current_user)
+    if data.exporter is not None:
+        lot.exporter = data.exporter.strip() or None
+    if data.external_ref is not None:
+        lot.external_ref = data.external_ref.strip() or None
+    if data.notes is not None:
+        lot.notes = data.notes
+    db.commit()
+    db.refresh(lot)
+    return lot_to_dict(lot)
+
+
+@router.get("/lots/{lot_id:int}/composition.xlsx")
+def lot_composition_xlsx(
+    lot_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Composition du lot au format Excel exportateur (modele YEYASSO -> OCEAN-SA).
+
+    Une ligne par recolte composante : Cooperative Name | Export lot N°/Connaissement |
+    Date of purchase from cooperative | Certification | Farmer_ID | Farm_ID |
+    Net Weight (KG) | Exporter. C'est le fichier que la cooperative envoie a son
+    exportateur — genere ici en un clic au lieu d'etre ressaisi a la main.
+    """
+    from io import BytesIO
+    from urllib.parse import quote
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+
+    if current_user.role not in _WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="Action reservee a l'administrateur / agronome / gestionnaire.")
+    lot = _scoped_lot(lot_id, db, current_user)
+
+    harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).order_by(Harvest.id).all()
+    plant_ids = {h.plantation_id for h in harvests if h.plantation_id}
+    plants = {
+        p.id: p for p in db.query(Plantation).filter(Plantation.id.in_(plant_ids)).all()
+    } if plant_ids else {}
+    prod_ids = {p.producer_id for p in plants.values() if p.producer_id}
+    producers = {
+        pr.id: pr for pr in db.query(Producer).filter(Producer.id.in_(prod_ids)).all()
+    } if prod_ids else {}
+
+    # Farm_ID stable : rang de la parcelle parmi TOUTES les parcelles du producteur
+    # (convention YEYASSO : <code producteur>-P<n>).
+    rank: dict[int, int] = {}
+    if prod_ids:
+        counter: dict[int, int] = {}
+        rows = db.query(Plantation.id, Plantation.producer_id).filter(
+            Plantation.producer_id.in_(prod_ids)
+        ).order_by(Plantation.id).all()
+        for pl_id, pr_id in rows:
+            counter[pr_id] = counter.get(pr_id, 0) + 1
+            rank[pl_id] = counter[pr_id]
+
+    # Date d'achat : bon d'achat lie a la recolte si present, sinon date de recolte.
+    purchase_dates: dict[int, object] = {}
+    hids = [h.id for h in harvests]
+    if hids:
+        for rec in db.query(PurchaseRecord).filter(PurchaseRecord.harvest_id.in_(hids)).all():
+            purchase_dates[rec.harvest_id] = rec.purchase_date
+
+    coop = db.query(Cooperative).filter(Cooperative.id == lot.cooperative_id).first()
+    coop_name = coop.name if coop else "Cooperative"
+    cert = db.query(Certification).filter(
+        Certification.id == lot.certification_id
+    ).first() if lot.certification_id else None
+    cert_label = (cert.nom_complet or cert.code or "").upper() if cert else ""
+    export_ref = lot.external_ref or lot.code
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = lot.code[:31]
+    ws.append([
+        "Cooperative Name", "Export lot N°/Connaissement", "Date of purchase from cooperative",
+        "Certification", "Farmer_ID", "Farm_ID", "Net Weight (KG)", "Exporter",
+    ])
+    for h in harvests:
+        p = plants.get(h.plantation_id)
+        pr = producers.get(p.producer_id) if (p and p.producer_id) else None
+        farmer_id = (pr.code_yeyasso or f"PROD-{pr.id}") if pr else ""
+        farm_id = f"{farmer_id}-P{rank.get(p.id, 1)}" if (p and farmer_id) else (p.name if p else "")
+        d = purchase_dates.get(h.id) or h.harvest_date
+        date_str = d.date().isoformat() if hasattr(d, "date") and d else (d.isoformat() if d else "")
+        ws.append([coop_name, export_ref, date_str, cert_label, farmer_id, farm_id,
+                   float(h.quantity_kg or 0), lot.exporter or ""])
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"Composition_{lot.code}.xlsx"
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{quote(filename)}"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.post("/lots/merge", status_code=201)

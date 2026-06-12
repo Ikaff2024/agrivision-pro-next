@@ -126,7 +126,62 @@ def get_eudr_status(
         "badge_color": s.badge_color,
         "has_polygon": s.has_polygon,
         "methodology_version": s.methodology_version,
+        "export_waiver": plantation.export_waiver_at is not None,
+        "export_waiver_reason": plantation.export_waiver_reason,
     }
+
+
+class ExportWaiverRequest(BaseModel):
+    reason: str = Field(..., min_length=8, max_length=500)
+
+
+@router.post("/plantations/{plantation_id}/export-waiver")
+def grant_export_waiver(
+    plantation_id: int,
+    data: ExportWaiverRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Derogation export (ADMIN uniquement) : autorise l'expedition de la production
+    de cette parcelle malgre une non-conformite EUDR. Tracee (motif, auteur, date)
+    et journalisee dans les mouvements du lot au moment de l'expedition."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Derogation export : reservee a l'administrateur.")
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+    plantation.export_waiver_reason = data.reason.strip()
+    plantation.export_waiver_by = current_user.email
+    plantation.export_waiver_at = datetime.datetime.utcnow()
+    db.commit()
+    return {
+        "plantation_id": plantation.id,
+        "export_waiver": True,
+        "reason": plantation.export_waiver_reason,
+        "granted_by": plantation.export_waiver_by,
+        "granted_at": plantation.export_waiver_at.isoformat(),
+    }
+
+
+@router.delete("/plantations/{plantation_id}/export-waiver")
+def revoke_export_waiver(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire la derogation export d'une plantation. ADMIN uniquement."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Derogation export : reservee a l'administrateur.")
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    _check_access(plantation, current_user)
+    plantation.export_waiver_reason = None
+    plantation.export_waiver_by = None
+    plantation.export_waiver_at = None
+    db.commit()
+    return {"plantation_id": plantation.id, "export_waiver": False}
 
 
 @router.get("/eudr/cooperative-summary")
@@ -265,6 +320,7 @@ def list_plantations_with_eudr(
             "eudr_status": s.status,
             "eudr_color": s.badge_color,
             "has_polygon": s.has_polygon,
+            "export_waiver": p.export_waiver_at is not None,
             "rules_failed": [r.rule_id for r in s.rules if not r.passed],
         })
 
@@ -446,8 +502,8 @@ def download_eudr_dds(
     auditeur externe). Le PDF inclut : identification parcelle, verdict
     conformite, detail des 5 regles, polygone, liens cooperative, attestation.
     """
-    if current_user.role not in ("admin", "agronomist"):
-        raise HTTPException(status_code=403, detail="Generation DDS reservee aux admin/agronome.")
+    if current_user.role not in ("admin", "agronomist", "gestionnaire"):
+        raise HTTPException(status_code=403, detail="Generation DDS reservee aux admin/agronome/gestionnaire.")
     plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")

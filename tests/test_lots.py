@@ -102,6 +102,11 @@ def test_lot_movements_and_status(client):
     assert r1.status_code == 200 and r1.json()["warehouse_id"] == wh["id"]
     # scellage puis expedition
     client.post(f"/lots/{lot['id']}/movements", json={"movement_type": "seal"}, headers=h)
+    # La parcelle de test est EUDR non conforme (pas de polygone) : l'expedition
+    # exige desormais une derogation export accordee par un admin.
+    wv = client.post(f"/plantations/{p['id']}/export-waiver",
+                     json={"reason": "Derogation de test - flux mouvements"}, headers=h)
+    assert wv.status_code == 200, wv.text
     r3 = client.post(f"/lots/{lot['id']}/movements", json={"movement_type": "export_out", "reference": "BL-001"}, headers=h)
     assert r3.json()["status"] == "shipped"
     r4 = client.post(f"/lots/{lot['id']}/movements", json={"movement_type": "wrong"}, headers=h)

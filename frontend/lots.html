@@ -61,7 +61,7 @@
         <div class="panel">
           <div class="section-title">Nouveau lot</div>
           <div class="form-group"><label class="form-label">Campagne / saison</label><input class="form-input" id="l-season" placeholder="2025-2026"></div>
-          <div class="form-group"><label class="form-label">Entrepôt</label><select class="form-input" id="l-warehouse"><option value="">—</option></select></div>
+          <div class="form-group"><label class="form-label">Entrepôt initial <span style="font-weight:400;color:var(--muted)">(optionnel — sinon via « Entrée magasin »)</span></label><select class="form-input" id="l-warehouse"><option value="">—</option></select></div>
           <div class="form-group">
             <label class="form-label">Récoltes à inclure</label>
             <select class="form-input" id="l-plantation" onchange="loadPlantationHarvests()"><option value="">Choisir une plantation…</option></select>
@@ -107,6 +107,13 @@
           <button class="btn btn-outline btn-sm" onclick="doMovement('export_out')">Expédier</button>
           <button class="btn btn-outline btn-sm" onclick="printPassport()"><span class="material-symbols-outlined" style="font-size:15px">qr_code_2</span> Passeport</button>
           <button class="btn btn-outline btn-sm" onclick="downloadEudrPack()" title="Dossier de diligence raisonnée EUDR (DDS + GeoJSON + récap) pour l'acheteur"><span class="material-symbols-outlined" style="font-size:15px">folder_zip</span> Pack EUDR</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadComposition()" title="Composition du lot au format Excel exportateur (Farmer_ID / Farm_ID / poids net)"><span class="material-symbols-outlined" style="font-size:15px">table_view</span> Composition (Excel)</button>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px">
+          <input class="form-input" id="d-extref" placeholder="N° lot export / connaissement" style="max-width:240px" title="Référence portée sur le fichier exportateur (ex. Lot N°41/SC100035-2025-2-121)">
+          <input class="form-input" id="d-exporter" placeholder="Exportateur (ex. OCEAN-SA)" style="max-width:180px">
+          <button class="btn btn-outline btn-sm" onclick="saveExportInfo()">Enregistrer</button>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
@@ -208,6 +215,10 @@ async function createLot(){
 async function openLot(id){
   const r = await authFetch(`/lots/${id}/passport`); if(!r?.ok) return;
   const pp = await r.json(); _currentLot = pp.lot;
+  const lr = await authFetch(`/lots/${id}`);
+  if(lr?.ok){ const ld = await lr.json(); _currentLot = {..._currentLot, ...ld};
+    document.getElementById('d-exporter').value = ld.exporter || '';
+    document.getElementById('d-extref').value = ld.external_ref || ''; }
   document.getElementById('detail').classList.remove('hidden');
   document.getElementById('d-code').textContent = pp.code;
   const b = document.getElementById('d-badge'); b.textContent = pp.lot.status; b.className='badge '+badgeClass(pp.lot.status);
@@ -231,8 +242,35 @@ async function doMovement(type){
   const body = { movement_type: type };
   if(type==='warehouse_in'){ const w=Number(document.getElementById('mv-warehouse').value); if(!w) return toast('Choisissez un entrepôt.'); body.to_warehouse_id=w; }
   const r = await authFetch(`/lots/${_currentLot.id}/movements`,{method:'POST',body:JSON.stringify(body)});
-  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Mouvement impossible : '+(e.detail||'')); }
+  if(!r.ok){
+    const e = await r.json().catch(()=>({}));
+    const d = e.detail;
+    // 409 export : detail structuré {message, non_compliant_plantations:[{name}…]}
+    let msg = (d && d.message) ? d.message : (typeof d === 'string' ? d : '');
+    if(d && d.non_compliant_plantations?.length){
+      msg += ' Parcelles : ' + d.non_compliant_plantations.map(p=>p.name||p.plantation_id).join(', ')
+           + '. Un admin peut accorder une dérogation depuis le module EUDR.';
+    }
+    return toast('Mouvement impossible : ' + (msg||''), 'error');
+  }
   await loadLots(); openLot(_currentLot.id);
+}
+
+async function saveExportInfo(){
+  if(!_currentLot) return;
+  const r = await authFetch(`/lots/${_currentLot.id}`, {method:'PATCH', body: JSON.stringify({
+    exporter: document.getElementById('d-exporter').value,
+    external_ref: document.getElementById('d-extref').value,
+  })});
+  if(!r?.ok) return toast('Enregistrement impossible.', 'error');
+  toast('Infos export enregistrées.');
+  await loadLots();
+}
+
+async function downloadComposition(){
+  if(!_currentLot) return;
+  await downloadAuthedFile(`/lots/${_currentLot.id}/composition.xlsx`,
+                           `Composition_${_currentLot.code || _currentLot.id}.xlsx`);
 }
 
 async function printPassport(){

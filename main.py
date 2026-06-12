@@ -159,6 +159,18 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info("Migration Agroforestry : OK (avg_age_years)")
 
+                # Export : derogation admin (plantations) + infos exportateur (lots)
+                for col_ddl in [
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS export_waiver_reason TEXT",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS export_waiver_by VARCHAR",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS export_waiver_at TIMESTAMPTZ",
+                    "ALTER TABLE lots ADD COLUMN IF NOT EXISTS exporter VARCHAR",
+                    "ALTER TABLE lots ADD COLUMN IF NOT EXISTS external_ref VARCHAR",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migrations export : OK (export_waiver_*, exporter, external_ref)")
+
                 # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
                 for col_ddl in [
                     "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS household_expense_items JSON",
