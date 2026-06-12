@@ -41,15 +41,24 @@ python seed_demo.py
 
 ---
 
-## 1. Accroche — le problème (2 min, **slide ou parole, sans écran**)
+## 1. Accroche — partir de LEURS douleurs (5 min, **sans écran**)
 
-> « Aujourd'hui, vendre du cacao en Europe impose 3 choses, sous peine de **perdre l'accès au marché** :
-> prouver **zéro déforestation (EUDR)**, prouver l'**absence de travail des enfants**, et démontrer un
-> **revenu décent** aux producteurs. La plupart des coops gèrent ça sur papier et Excel — **infaisable à l'échelle**.
-> AgriVision Pro, c'est **une seule plateforme** qui relie le producteur, sa parcelle, ses récoltes et le lot
-> vendu, **avec la preuve de conformité générée automatiquement**. Laissez-moi vous montrer. »
+**Ne montrez rien d'abord. Posez des questions** — le but est qu'ils disent eux-mêmes « oui, c'est compliqué » :
+- Combien de temps pour **retrouver les infos d'une parcelle** (GPS, superficie, historique) ?
+- Comment préparez-vous les **audits Rainforest / Fairtrade** aujourd'hui ?
+- Comment **prouvez-vous qu'un lot vient de plantations conformes** quand un acheteur le demande ?
+- Combien de temps pour **produire un rapport demandé par un acheteur** ?
+- Êtes-vous **prêts pour l'EUDR** (zéro déforestation prouvée + géolocalisation des parcelles) ?
 
-**Valeur :** on plante l'enjeu = **accès marché + prime durabilité**, pas « un logiciel agricole ».
+Puis, en une phrase de bascule :
+> « AgriVision Pro relie le producteur, sa parcelle, ses récoltes et le lot vendu, **avec la preuve de
+> conformité générée automatiquement**. Je ne vais pas vous montrer un logiciel — je vais vous montrer
+> ce que votre coopérative **devient** : plus organisée, crédible face aux acheteurs, prête pour l'EUDR. »
+
+**Premier (et seul) écran d'intro : le Dashboard cockpit** — la **vue 360°** (producteurs, conformité EUDR,
+protection enfant, revenu vital, volumes, certification, alertes), chaque chiffre **cliquable**. 10 secondes, puis on plonge dans l'histoire.
+
+**Valeur :** on vend la **résolution de leurs problèmes** (accès marché + prime durabilité), pas « un logiciel de plus ».
 
 ---
 
@@ -135,6 +144,11 @@ Et « Parcelles à risque » vous donne votre **plan d'action de la semaine**. �
 **Appel à l'action :** « On vous ouvre un espace **avec vos vraies données** (import de votre registre en quelques
 minutes) pour un essai encadré ? »
 
+**Question de clôture (révèle la valeur perçue) :** ne demandez **pas** « alors, qu'en pensez-vous ? » mais
+> « Si vous aviez cet outil dès aujourd'hui, **quel est le premier problème que vous régleriez** ? »
+
+La réponse vous dit exactement ce qui les fait acheter — et oriente l'essai pilote.
+
 ---
 
 ## Annexe — réponses aux objections fréquentes
@@ -147,5 +161,27 @@ minutes) pour un essai encadré ? »
 | « On a déjà un registre Excel » | Import en quelques minutes — on **réutilise** votre existant, on ne repart pas de zéro. |
 | « Et si AgriVision tombe ? » | Sauvegardes automatiques chiffrées **hors plateforme** + procédure de restauration documentée. |
 
-> Durée cible : **20-25 min** de démo + 10-15 min de questions. Adapter l'ordre selon ce qui fait réagir le client
+> Durée cible : **25-30 min** de démo + 10-15 min de questions. Adapter l'ordre selon ce qui fait réagir le client
 > (souvent : commencer par l'EUDR/DDS si l'acheteur met la pression sur la conformité).
+
+---
+
+## Annexe — à éviter absolument
+
+- ❌ Faire le tour de **tous les menus** (démo « catalogue de fonctions »).
+- ❌ Démonstration **technique** / passer du temps dans les **paramètres**.
+- ❌ **Données fictives évidentes** → utiliser **leurs vraies données** (import du registre) ou la coop démo soignée.
+- ❌ Présenter AgriVision comme « **un logiciel de plus** » au lieu d'un **résultat** (conformité, accès marché, prime).
+- ❌ Montrer en live une brique **non financée** (Conseil IA / Veille sans crédit) → utiliser la parade (capture).
+
+---
+
+## Annexe — stratégie « coopérative pilote »
+
+Vous avez **2 coops intéressées** : faites de la **première une pilote**.
+- Accompagnement rapproché + **période pilote 2–3 mois**, leurs retours intégrés au produit.
+- À la sortie, récoltez : **témoignage**, **captures d'écran réelles**, **indicateurs avant/après**, **lettre de recommandation**.
+- La 2ᵉ coop devient alors **beaucoup plus facile à convaincre** (preuve sociale + cas réel local).
+
+> **Idéal démo** : importer **leur** registre avant la rencontre (quelques minutes) → la démo tourne sur **leurs**
+> parcelles et producteurs. À défaut, la coop démo « Coopérative Démo Yeyasso 2026 » (cf. §0) est prête et soignée.
