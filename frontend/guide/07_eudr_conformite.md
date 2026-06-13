@@ -7,7 +7,7 @@ Vérifier qu'une parcelle respecte le **règlement européen sur la déforestati
 le **DDS** (Déclaration de Diligence Raisonnée) en PDF. C'est exigé par les acheteurs européens.
 
 ### Comment se calcule la conformité
-Le score repose sur **6 règles** (méthodologie `eudr-1.1b`), exprimé en **pourcentage** :
+Le score repose sur **6 règles**, exprimé en **pourcentage** :
 1. Polygone de la parcelle **valide**,
 2. **Superficie** cohérente,
 3. **GPS** dans la zone cacao,
@@ -52,3 +52,24 @@ Vue d'ensemble de la **conformité traçabilité** : blocages actifs, producteur
 |---|---|
 | Parcelle « à vérifier » à 0 % | Pas de polygone ni d'inspection : délimitez la parcelle et inspectez-la. |
 | Le DDS PDF ne reflète pas mes changements | Régénérez-le après avoir mis à jour la parcelle. |
+
+---
+
+## 7.C — Scénario guidé : faire passer une parcelle de 🟠 à ✅
+
+> Objectif : amener la **parcelle 1 de Koffi Yao** d'un statut **🟠 À vérifier (~35 %)** à **✅ Conforme**.
+
+1. **Menu EUDR** : ouvrez la parcelle → la liste des **règles en échec** indique ce qui manque
+   (souvent : pas de polygone, pas d'inspection).
+2. **Délimiter la parcelle** — Menu **Carte / Plantations** → ouvrez la parcelle → **Tracer par GPS**
+   (faites le tour du champ) → un polygone valide est enregistré → règles **1, 2, 3** satisfaites.
+3. **Inspecter** — réalisez une **visite/inspection récente** (Suivi terrain) → règle **4**.
+4. **Lever les blocages** — s'il existe un **blocage CacaoGuard** actif sur le producteur, traitez le cas
+   puis levez-le (chapitre 6) → règle **5**.
+5. **Déforestation** — confirmez l'absence de déforestation post-2020 (constat terrain ou satellite GFW)
+   → règle **6**.
+6. Le **score** repasse **≥ 80 % → ✅ Conforme**. Téléchargez le **DDS PDF** (menu EUDR) ou le
+   **Pack EUDR** depuis le lot (chapitre 5) pour l'acheteur.
+
+> 💡 Depuis le **tableau de bord**, cliquer « X non conf. » sous *Conformité EUDR* ouvre directement la
+> liste filtrée des parcelles à corriger.

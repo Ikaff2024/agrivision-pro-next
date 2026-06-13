@@ -26,6 +26,21 @@ Enregistrer les **achats bord champ** : pesée, bon d'achat, prix, montant — e
 - Reliez toujours une **plantation** : l'achat alimente alors automatiquement les volumes et les lots.
 - Le **récapitulatif** affiche kg achetés, montant total, payé vs en attente.
 
+### Scénario guidé (cas concret)
+
+> Enregistrer l'achat bord champ de **Koffi Yao**, qui générera une **récolte traçable**.
+
+1. **Menu Achats** → **Producteur** `Koffi Yao N'Guessan` → **Plantation** `Parcelle 1`.
+2. **Pesée** : Poids brut `1 050 kg`, Tare (sacs) `50 kg` → **Poids net `1 000 kg`** ; **Nb de sacs** `16` ;
+   **Prix/kg** `1 500` → **Montant `1 500 000 FCFA`**.
+3. **Qualité** `Grade 1`, **n° bon d'achat** `BA-2026-0042`, **acheteur** `Section Méagui`,
+   **statut de paiement** `En attente`.
+4. **Enregistrer l'achat** → une **récolte de 1 000 kg** est créée sur la parcelle ; elle alimente les
+   **volumes** et devient affectable à un **lot** (voir 5.B).
+
+> 🚫 Si Koffi Yao est sous **blocage CacaoGuard**, un avertissement s'affiche et sa récolte ne pourra pas
+> entrer dans un lot tant que le cas n'est pas résolu.
+
 ---
 
 ## 5.B — Traçabilité des lots

@@ -32,6 +32,19 @@
 - Le **seuil de revenu vital** est un réglage serveur (`LIVING_INCOME_BENCHMARK_CFA`, défaut 2 360 000 FCFA).
   Il peut être ajusté par l'administrateur sans toucher aux données déjà saisies.
 
+### Scénario guidé (cas concret)
+
+> Évaluer le ménage de **Koffi Yao N'Guessan**, campagne **2025-2026** (seuil revenu vital : 2 360 000 FCFA).
+
+1. **Menu FarmForce → Nouvelle évaluation** : producteur `Koffi Yao N'Guessan`, campagne `2025-2026`.
+2. **Revenus** : cacao `1 800 kg × 1 500 FCFA = 2 700 000`, vivrier `200 000` → ≈ `2 900 000` FCFA.
+3. **Coûts** : intrants `350 000`, main-d'œuvre `300 000` → `650 000` FCFA *(profit ≈ 2 250 000)*.
+4. **Dépenses du ménage** : alimentation `700 000`, éducation `150 000`, santé `100 000` → `950 000` FCFA.
+5. **Enregistrer** : l'appli calcule un **revenu net ≈ 1 300 000 FCFA** → **verdict : écart**
+   (≈ 1 060 000 FCFA manquants pour atteindre le seuil).
+6. Cet **écart** justifie une action d'**appui au revenu** (à relier au plan de remédiation, chapitre 6) ;
+   il alimente la tuile « Revenu vital atteint » du tableau de bord.
+
 ### En cas de problème
 | Problème | Solution |
 |---|---|
