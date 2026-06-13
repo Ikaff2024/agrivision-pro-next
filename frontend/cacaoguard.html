@@ -217,8 +217,14 @@
             </div>
           </div>
 
-          <div class="cg-panel">
-            <div class="section-title">Alertes recentes</div>
+          <div class="cg-panel" id="alerts-panel">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <span id="alerts-title">Alertes ouvertes</span>
+              <select id="alerts-filter" onchange="loadAlerts()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:12.5px;font-weight:600">
+                <option value="open">Ouvertes</option>
+                <option value="all">Toutes</option>
+              </select>
+            </div>
             <div id="alerts-list">
               <div class="empty-state" style="padding:20px">Chargement...</div>
             </div>
@@ -273,10 +279,30 @@ async function loadCacaoGuard() {
       '<div class="empty-state" style="padding:24px">Impossible de charger le module CacaoGuard.</div>';
   }
 
+  await loadAlerts();
+
+  // Drill-down depuis le cockpit : focalise la liste des alertes ouvertes.
+  if (new URLSearchParams(location.search).get('alertes') === 'ouvertes') {
+    const p = document.getElementById('alerts-panel');
+    if (p) {
+      p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      p.style.outline = '2px solid #f0c97a';
+      p.style.borderRadius = '12px';
+      setTimeout(() => { p.style.outline = ''; }, 2600);
+    }
+  }
+}
+
+async function loadAlerts() {
+  const sel = document.getElementById('alerts-filter');
+  const openOnly = !sel || sel.value !== 'all';
   try {
-    const res = await cgFetch('/alerts?limit=5');
+    const res = await cgFetch(`/alerts?unresolved_only=${openOnly}&limit=200`);
     if (!res || !res.ok) throw new Error('Alertes indisponibles');
-    renderAlerts(await res.json());
+    const data = await res.json();
+    const t = document.getElementById('alerts-title');
+    if (t) t.textContent = openOnly ? `Alertes ouvertes (${data.length})` : `Toutes les alertes (${data.length})`;
+    renderAlerts(data);
   } catch (e) {
     document.getElementById('alerts-list').innerHTML =
       '<div class="empty-state" style="padding:20px">Aucune alerte chargee.</div>';
@@ -334,15 +360,22 @@ function renderAlerts(alerts) {
     .replace(/\bmedium\b/g, 'moyen')
     .replace(/\blow\b/g, 'faible')
     .replace(/\bnone\b/g, 'aucun');
-  el.innerHTML = alerts.map(a => `
+  el.innerHTML = alerts.map(a => {
+    const prio = String(a.priority || '').toLowerCase();
+    const prioColor = (prio === 'critical' || prio === 'high') ? 'var(--high)' : prio === 'medium' ? 'var(--med)' : 'var(--muted)';
+    const when = a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '';
+    const meta = [normalizeAlertText(prio || '—'), when, (a.status && a.status !== 'open') ? normalizeAlertText(a.status) : '']
+      .filter(Boolean).join(' · ');
+    return `
     <div class="cg-alert">
       <div class="cg-alert-icon"><span class="material-symbols-outlined" style="font-size:18px">warning</span></div>
       <div>
         <div class="cg-alert-title">${normalizeAlertText(a.title || 'Alerte CacaoGuard')}</div>
         <div class="cg-alert-msg">${normalizeAlertText(a.message || '')}</div>
+        <div class="cg-alert-msg" style="margin-top:3px;font-size:11px"><span style="font-weight:800;color:${prioColor};text-transform:uppercase">${normalizeAlertText(prio || '—')}</span>${when ? ' · ' + when : ''}${(a.status && a.status !== 'open') ? ' · ' + normalizeAlertText(a.status) : ''}</div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
