@@ -138,7 +138,6 @@ def _generate_dds_fallback_pdf(context: dict) -> bytes:
         f"Plantation : {_pdf_escape(plantation.name)}",
         f"Producteur : {_pdf_escape(plantation.owner_name or '-')}",
         f"Score : {context['score']}/{context['max_score']} - {context['status']}",
-        f"Methodologie : {_pdf_escape(context['methodology_version'])}",
         f"Date : {context['generation_date']}",
         f"Operateur : {_pdf_escape(context['operator_name'])}",
         "",
