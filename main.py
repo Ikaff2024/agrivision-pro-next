@@ -181,6 +181,17 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info("Migrations SSRTE : OK (status, finalized_at, finalized_by)")
 
+                # Fiche B : situation économique du ménage (B.25, B.26, B.18e, B.29)
+                for col_ddl in [
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS housing_type VARCHAR(40)",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS household_assets JSON",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS allow_worker_interview BOOLEAN",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS head_photo_ref VARCHAR(255)",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migrations Fiche B eco : OK (housing_type, household_assets, allow_worker_interview, head_photo_ref)")
+
                 # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
                 for col_ddl in [
                     "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS household_expense_items JSON",

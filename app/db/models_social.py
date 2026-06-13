@@ -793,6 +793,11 @@ class SsrteHouseholdProfile(Base):
     # Informations exploitation (B.16-B.23) : parcelles, superficie et
     # production cacao & cafe. Dict de cles scalaires.
     farm_info = Column(JSON, nullable=True)
+    # Situation économique du ménage (Fiche B section 7)
+    housing_type = Column(String(40), nullable=True)            # B.25 : moderne | traditionnel
+    household_assets = Column(JSON, nullable=True)              # B.26 : possessions du ménage
+    allow_worker_interview = Column(Boolean, nullable=True)     # B.18e : autorise l'entretien des travailleurs
+    head_photo_ref = Column(String(255), nullable=True)        # B.29 : référence photo du chef de ménage
     risk_score = Column(Numeric(5, 2), default=0, nullable=False)
     risk_level = Column(SQLEnum(RiskLevel), default=RiskLevel.NONE, nullable=False, index=True)
     consent_given = Column(Boolean, default=False, nullable=False)

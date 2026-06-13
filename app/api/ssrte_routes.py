@@ -114,6 +114,11 @@ class HouseholdProfilePayload(BaseModel):
     child_work_declarations: list[dict] = Field(default_factory=list)
     school_constraints: list[str] = Field(default_factory=list)
     farm_info: dict = Field(default_factory=dict)
+    # Situation économique du ménage (Fiche B section 7)
+    housing_type: Optional[str] = Field(None, max_length=40)
+    household_assets: list[str] = Field(default_factory=list)
+    allow_worker_interview: Optional[bool] = None
+    head_photo_ref: Optional[str] = Field(None, max_length=255)
     consent_given: bool = False
     signature_data: Optional[dict] = None
     notes: Optional[str] = None
@@ -343,6 +348,10 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
         "child_work_declarations": row.child_work_declarations or [],
         "school_constraints": row.school_constraints or [],
         "farm_info": row.farm_info or {},
+        "housing_type": row.housing_type,
+        "household_assets": row.household_assets or [],
+        "allow_worker_interview": row.allow_worker_interview,
+        "head_photo_ref": row.head_photo_ref,
         "risk_score": float(row.risk_score or 0),
         "risk_level": row.risk_level.value,
         "consent_given": bool(row.consent_given),

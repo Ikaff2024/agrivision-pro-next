@@ -371,6 +371,33 @@ def test_ssrte_ficheb_farm_info_persists(client):
     assert r.content[:5] == b"%PDF-"
 
 
+def test_ssrte_ficheb_household_economics_persist(client):
+    """La situation economique du menage (B.25, B.26, B.18e, B.29) est stockee, relue et exportee."""
+    producer_id, _ = _seed_producer_and_plantation()
+    created = client.post("/ssrte/households", json={
+        "producer_id": producer_id,
+        "housing_type": "traditionnel",
+        "household_assets": ["Moto", "Television"],
+        "allow_worker_interview": True,
+        "head_photo_ref": "chef_2026.jpg",
+        "consent_given": True,
+    }).json()
+    assert created["housing_type"] == "traditionnel"
+    assert created["household_assets"] == ["Moto", "Television"]
+    assert created["allow_worker_interview"] is True
+    assert created["head_photo_ref"] == "chef_2026.jpg"
+
+    # Round-trip via la lecture (liste)
+    listed = client.get(f"/ssrte/households?producer_id={producer_id}").json()
+    match = next(h for h in listed if h["id"] == created["id"])
+    assert match["housing_type"] == "traditionnel"
+    assert match["household_assets"] == ["Moto", "Television"]
+
+    r = client.get(f"/ssrte/households/{created['id']}/ficheb.pdf", headers=_admin_headers())
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
 def test_ssrte_ficheb_full_questionnaire_coverage(client):
     """La Fiche B capture admin, GPS/heures, statut de visite et travailleurs non-journaliers."""
     producer_id, _ = _seed_producer_and_plantation()

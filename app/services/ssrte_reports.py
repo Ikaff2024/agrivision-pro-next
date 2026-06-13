@@ -78,6 +78,10 @@ def build_ficheb_context(profile: SsrteHouseholdProfile) -> dict:
         "child_work_declarations": profile.child_work_declarations or [],
         "school_constraints": profile.school_constraints or [],
         "farm_info": profile.farm_info or {},
+        "housing_type": profile.housing_type or "—",
+        "household_assets": profile.household_assets or [],
+        "allow_worker_interview": profile.allow_worker_interview,
+        "head_photo_ref": profile.head_photo_ref or "—",
         "risk_score": float(profile.risk_score or 0),
         "risk_level": risk_level,
         "consent_given": bool(profile.consent_given),
@@ -109,6 +113,7 @@ def _generate_ficheb_fallback_pdf(context: dict) -> bytes:
         f"Membres listes : {len(context.get('household_members') or [])}",
         f"Travailleurs non-journaliers : {len(context.get('non_daily_workers') or [])}",
         f"Parcelles cacao : {(context.get('farm_info') or {}).get('cocoa_parcels', '-')}",
+        f"Logement : {_pdf_escape(context.get('housing_type') or '-')} | possessions : {len(context.get('household_assets') or [])} | photo CdM : {'oui' if (context.get('head_photo_ref') and context.get('head_photo_ref') != chr(8212)) else 'non'}",
         f"Niveau de risque : {_pdf_escape(context['risk_level'])} ({context['risk_score']})",
         f"Date : {context['generation_date']}",
     ]

@@ -246,6 +246,39 @@
               <div id="ndworkers-rows"></div>
             </div>
 
+            <div style="margin:14px 0 8px;font-weight:800;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Situation economique du menage</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group"><label class="form-label">Type de logement (B.25)</label>
+                <select class="form-input" id="hh-housing">
+                  <option value="">—</option>
+                  <option value="moderne">Moderne</option>
+                  <option value="traditionnel">Traditionnel</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">Autorise l'entretien des travailleurs (B.18e)</label>
+                <select class="form-input" id="hh-allow-workers">
+                  <option value="">—</option>
+                  <option value="oui">Oui</option>
+                  <option value="non">Non</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Possessions du menage (B.26)</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Proprietaire du logement"> Proprietaire du logement</label>
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Moto"> Moto</label>
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Vehicule"> Vehicule</label>
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Refrigerateur"> Refrigerateur</label>
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Cuisiniere a gaz"> Cuisiniere a gaz</label>
+                <label class="check-row"><input type="checkbox" class="hh-asset" value="Television"> Television</label>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Photo du chef de menage (B.29)</label>
+              <input class="form-input" id="hh-photo" placeholder="Reference / nom du fichier photo (capture sur le terrain)">
+              <div style="font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px">La photo est prise sur le terrain ; renseignez ici sa reference (nom de fichier ou identifiant).</div>
+            </div>
+
             <div class="form-group"><label class="form-label">Vulnerabilites</label><input class="form-input" id="vulnerabilities" placeholder="Veuvage, maladie, revenu faible..."></div>
             <div class="form-group"><label class="form-label">Declarations travail enfant</label><input class="form-input" id="work-declarations" placeholder="Nom:tache, Nom:tache dangereuse"></div>
             <div class="form-group"><label class="form-label">Contraintes scolaires</label><input class="form-input" id="school-constraints" placeholder="Distance, frais, absence d'acte..."></div>
@@ -916,6 +949,10 @@ async function saveHousehold() {
     enrolled_children_count: num('enrolled-count'),
     household_members: memberRows(),
     farm_info: farmInfo(),
+    housing_type: val('hh-housing') || null,
+    household_assets: Array.from(document.querySelectorAll('.hh-asset:checked')).map(c => c.value),
+    allow_worker_interview: (function(){ const v = val('hh-allow-workers'); return v === '' ? null : (v === 'oui'); })(),
+    head_photo_ref: val('hh-photo') || null,
     vulnerabilities: csv('vulnerabilities'),
     child_work_declarations: _dedupeDecls([...workRows(), ...memberWorkDeclarations()]),
     school_constraints: csv('school-constraints'),
@@ -1084,8 +1121,9 @@ function _clearForm(type){
     _clearRows('schools-rows');
     if (typeof toggleFicheA === 'function') toggleFicheA();
   } else if (type === 'household'){
-    ['household-date','household-agent','hh-supplier','hh-sub-prefecture','hh-locality','hh-agent-code','hh-producer-code','hh-gps-start','hh-time-start','hh-time-end','hh-survey-type','hh-available','hh-unavailable-reason','hh-person-status','hh-ext-workers','hh-daily-workers','household-size','children-count','school-age-count','enrolled-count','cocoa-parcels','cocoa-area','cocoa-prod','coffee-parcels','coffee-area','coffee-prod','vulnerabilities','school-constraints','work-declarations','household-signature','hh-note-identification','hh-note-workers','household-notes'].forEach(i => _set(i, ''));
+    ['household-date','household-agent','hh-supplier','hh-sub-prefecture','hh-locality','hh-agent-code','hh-producer-code','hh-gps-start','hh-time-start','hh-time-end','hh-survey-type','hh-available','hh-unavailable-reason','hh-person-status','hh-ext-workers','hh-daily-workers','household-size','children-count','school-age-count','enrolled-count','cocoa-parcels','cocoa-area','cocoa-prod','coffee-parcels','coffee-area','coffee-prod','hh-housing','hh-allow-workers','hh-photo','vulnerabilities','school-constraints','work-declarations','household-signature','hh-note-identification','hh-note-workers','household-notes'].forEach(i => _set(i, ''));
     _chk('household-consent', false);
+    document.querySelectorAll('.hh-asset').forEach(e => e.checked = false);
     _clearRows('members-rows','ndworkers-rows');
     if (typeof toggleFicheB === 'function') toggleFicheB();
   } else {
@@ -1138,6 +1176,11 @@ function fillHousehold(hh){
   const fi = hh.farm_info || {};
   _set('cocoa-parcels', fi.cocoa_parcels); _set('cocoa-area', fi.cocoa_area_ha); _set('cocoa-prod', fi.cocoa_production_kg);
   _set('coffee-parcels', fi.coffee_parcels); _set('coffee-area', fi.coffee_area_ha); _set('coffee-prod', fi.coffee_production_kg);
+  _set('hh-housing', hh.housing_type);
+  _set('hh-allow-workers', hh.allow_worker_interview == null ? '' : (hh.allow_worker_interview ? 'oui' : 'non'));
+  _set('hh-photo', hh.head_photo_ref);
+  const _assets = hh.household_assets || [];
+  document.querySelectorAll('.hh-asset').forEach(c => { c.checked = _assets.includes(c.value); });
   _set('vulnerabilities', (hh.vulnerabilities || []).join(', '));
   _set('school-constraints', (hh.school_constraints || []).join(', '));
   _set('work-declarations', (hh.child_work_declarations || []).filter(d => d.child && d.task).map(d => `${d.child}: ${d.task}`).join('; '));
