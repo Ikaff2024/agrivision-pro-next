@@ -9,8 +9,8 @@
 ## État au 2026-06-13 — ce qui reste à traiter
 
 ### 1. À caler avant la démo (opérationnel — propriétaire)
-- **Vérifier le déploiement v4.45** (`avp-v4.45-ficheb-eco`) : frontend Netlify + migration backend Railway (les colonnes Fiche B éco s'ajoutent au démarrage via `ALTER TABLE … IF NOT EXISTS` dans `main.py`). Les nouveaux champs n'apparaissent qu'une fois le backend redéployé.
-- **Lancer / vérifier le seed de démo** sur l'instance déployée : coop `demo2@agrivision-pro.com` / « Coopérative Démo Yeyasso 2026 » (`seed_demo.py`). Statut sur l'instance déployée à confirmer.
+- ✅ **Déploiement vérifié (2026-06-13)** : backend Railway à jour (champs Fiche B éco présents dans `/openapi.json`) ; frontend Netlify `app-agrivision-pro.com` en `avp-v4.47-alertes-drill`. ⚠️ Le backend Railway ne sert PAS le frontend (404 sur `/`) — frontend = Netlify uniquement.
+- **Lancer le seed de démo** sur la prod (action propriétaire) : `AVP_API_URL=https://agrivision-api-production.up.railway.app python seed_demo.py` — crée la coop démo **via l'API** (inscription + login). Si le nom est déjà pris : surcharger `AVP_DEMO_EMAIL=demo2@agrivision-pro.com` / `AVP_DEMO_COOP="Coopérative Démo Yeyasso 2026"` / `AVP_DEMO_PASSWORD=DemoAgriVision2026!`. (Non exécutable par l'assistant : création de compte + authentification.)
 - **(Optionnel) activer DeepSeek/Qwen** via clés API (cf. §2) — sinon le Conseil IA reste sur Claude (très bien pour la démo).
 
 ### 2. Clés API du Conseil IA (multi-fournisseur) — variables Railway
@@ -39,6 +39,7 @@ Surcharges : `AI_OPENAI_MODEL`, `AI_OPENAI_BASE_URL`, `AI_OPENAI_API_KEY`. Redé
 - **Données** : purger « Import Test Coop » (id 2) et statuer sur « Coop CAMER » (via `DELETE /import/owner/batches/{uuid}` si import tracé).
 
 ### Confirmé clos récemment (sessions juin 2026)
+- **Drill-down filtré du cockpit** (dashboard direction) : cliquer une métrique ouvre la page cible pré-filtrée sur le sous-ensemble compté — EUDR conforme/non-conforme (sous-compteurs cliquables → `eudr.html?statut=`, même `compute_eudr_score` côté dashboard et `/eudr/plantations` → comptes identiques), enfants à risque élevé/critique (`children.html?risque=eleve`), revenu vital atteint (`farmforce.html?revenu=atteint`), alertes ouvertes (`cacaoguard.html?alertes=ouvertes` — panneau devenu liste filtrable Ouvertes/Toutes ≤200, priorité+date, auto-scroll+surlignage). Producteurs actifs = roster (`/producers` ne renvoie que les actifs) ; volume/volume certifié = navigation simple (sommes, détaillées par `lots.html` / `certification.html`). SW `v4.46`→`v4.47`, commits `700bd12` + `65e1254`.
 - **Fiche B — situation économique du ménage** (B.25 logement, B.26 possessions, B.18e entretien travailleurs, B.29 réf. photo) : modèle + migration + API + formulaire (saisie/édition/reset) + PDF (WeasyPrint + fallback) + test. SW `v4.45`, commit `a84e7dc`.
 - **Modale « Nouveau signalement »** : règle CSS `.modal-overlay.active` manquante ajoutée dans `auth.js`.
 - **Création directe d'un producteur** (bouton + modale + `POST /producers`) sans passer par une parcelle.
