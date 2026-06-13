@@ -9,6 +9,44 @@
 
 ---
 
+## Bascule vers la coop démo « Coopérative Démo Cacao 2026 » (à faire une fois)
+
+> ⚠️ **Prérequis avant toute démo** : le frontend doit être **publié** (Netlify). Vérifier qu'il n'y a
+> plus « Yeyasso » à l'écran (ex. **Producteurs** → champ « Code interne (coopérative) ») et que le guide
+> chapitre 12 ne contient plus l'espace propriétaire. Sinon : Netlify → **Deploys** → *Clear cache and deploy*.
+
+1. **Compte de démo** : `demo3@agrivision-pro.com` / `DemoAgriVision2026!` — coop **« Coopérative Démo Cacao 2026 »** (seedée).
+2. **Ancienne coop** « …Yeyasso 2026 » (`demo2@`) : depuis l'**espace propriétaire** (`owner.html`, clé propriétaire), la repasser en **suspendu/inactif** si l'option existe ; sinon, **ne pas s'y connecter**. L'essentiel : ne présenter **que** la coop « Cacao 2026 ».
+3. **Logo** : Administration → charger le logo de la coop (les PDF sortent à son image).
+4. **Onglets pré-ouverts** : Dashboard, Carte, une fiche Plantation, EUDR, CacaoGuard, Direction, Parcelles à risque.
+5. **IA (optionnel)** : crédit Anthropic approvisionné si tu montres le Conseil IA / Veille en live (sinon, parade par capture — cf. §0).
+
+### Le jeu de données seedé (8 parcelles à exploiter)
+| Producteur | Particularité | À montrer |
+|---|---|---|
+| **Kouassi Yao** (Soubré) | Cas **à risque** + **blocage traçabilité** + plan de remédiation | CacaoGuard, drill-down « Enfants à risque » |
+| **Konan Aka** (Méagui) | Cas **sain** (contraste) | CacaoGuard |
+| **N'Guessan Adjoua** (Soubré) | **Sans délimitation** → EUDR à vérifier | EUDR, tracer le polygone |
+| **Brou Amani** (Méagui) | **Déforestation** détectée | EUDR + Satellite/GFW |
+| **Tanoh Affoué** (Gagnoa) | **Sans diagnostic** | Diagnostic / Parcelles à risque |
+| **Kouamé Akissi** (Daloa) | **Faible rendement** | Jumeau de parcelle |
+| **Diby Serge** (Soubré) | **Sans récolte** | Récoltes / Parcelles à risque |
+| **Yao Koffi** (San-Pédro) | Profil complet | Parcours nominal |
+
+Revenu vital : **1 ménage en écart + 1 atteint** · Traçabilité : **2 lots + passeports** · Certification : **8 liens FT/RA**.
+
+### Mini-parcours conseillé (s'appuie sur le seed)
+1. **Dashboard → cockpit Vue 360°** : lire les KPIs, **cliquer « Enfants à risque »** → Kouassi Yao (drill-down filtré), puis **« X conformes »** sous EUDR → liste filtrée.
+2. **EUDR** : Brou Amani (déforestation) + N'Guessan Adjoua (à délimiter) → score + **DDS PDF**.
+3. **CacaoGuard** : Kouassi Yao (risque → blocage → remédiation) vs Konan Aka (sain).
+4. **FarmForce** : le ménage **en écart** vs **atteint**.
+5. **Traçabilité** : un lot → **passeport** + **composition (Excel)**.
+6. **Parcelles à risque / Jumeau** : la liste classée comme « plan d'action ».
+
+> Le **script détaillé** (ce qu'on dit, le message de valeur) suit ci-dessous (§1 et suivants).
+
+---
+
 ## 0. Préparation (la veille — 15 min)
 
 **À vérifier AVANT la démo (critique) :**
