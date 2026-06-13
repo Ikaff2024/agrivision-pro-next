@@ -72,6 +72,16 @@ On ne signale que des situations **actionnables** (on n'inonde pas la liste pour
 - Pour qu'une parcelle « se vide » de ses alertes, **complétez le module concerné** (tracer le polygone,
   faire le diagnostic, saisir le livret FarmForce, etc.) — l'alerte disparaît au prochain **Actualiser**.
 
+### Scénario guidé (cas concret)
+
+> Vérifier l'état complet de la **Parcelle 1 de Koffi Yao**, puis prioriser à l'échelle de la coopérative.
+
+1. **Menu Plantations → `Parcelle 1`** → tout en bas, carte **« 🧭 Jumeau de la parcelle — synthèse »** :
+   lisez les **puces** (EUDR, délimitation, diagnostic, récoltes, déforestation, revenu vital, certification,
+   protection enfant) et les **alertes** avec, pour chacune, l'action recommandée.
+2. **Menu Parcelles à risque** → filtrez **Risque élevé** → traitez la liste **de haut en bas**
+   (chaque ligne renvoie à la fiche pour agir).
+
 ### En cas de problème
 | Problème | Solution |
 |---|---|

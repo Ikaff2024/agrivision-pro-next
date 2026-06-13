@@ -22,6 +22,16 @@ Gérer les **membres** de **votre** coopérative et les outils d'admin. Réserv�
 > ⚠️ Gardez **au moins deux administrateurs** par coopérative : si l'unique admin est bloqué,
 > personne ne peut réinitialiser son mot de passe en interne (sauf via l'email « mot de passe oublié »).
 
+### Scénario guidé (ajouter un agent terrain)
+
+1. **Menu Administration → Ajouter un membre** : email `agent.traore@coop.ci`, rôle **Technicien**
+   (agent terrain) → un **mot de passe temporaire** s'affiche : transmettez-le à l'agent.
+2. (Optionnel) bouton **Parcelles** sur sa ligne → **attribuez-lui les parcelles** qu'il suivra.
+3. L'agent se connecte, change son mot de passe, et accède aux modules de son rôle.
+
+> Rôles : **admin** (tout), **agronome**, **technicien** (terrain), **gestionnaire** (guichet
+> administratif, **sans** accès aux données sensibles CacaoGuard/SSRTE), **viewer** (lecture seule).
+
 ---
 
 ## 12.B — Espace propriétaire (IKAFFANAN) & plans d'abonnement

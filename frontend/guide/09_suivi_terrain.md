@@ -66,3 +66,17 @@ et enregistrer la **participation**.
 |---|---|
 | Une alerte « en retard » apparaît | Une visite/plan/action a dépassé son échéance : traitez-la depuis le module concerné. |
 | Visite terminée signalée incohérente | Ajoutez le **GPS** et le **consentement** manquants. |
+
+---
+
+## 9.E — Scénario guidé (visite de monitoring)
+
+> Planifier puis réaliser une **visite de suivi** chez Koffi Yao — alimente aussi la règle « inspection récente » de l'EUDR.
+
+1. **Planifier** — Menu **Monitoring** → producteur `Koffi Yao N'Guessan`, **date prévue** `2026-06-20`,
+   **type** `Visite de suivi`, **priorité** `Normale`.
+2. **Réaliser** — le jour venu, ouvrez la visite → **checklist**, **observations**, capturez le **GPS**,
+   ☑ **consentement**, photos, **signatures** → **Terminer**.
+3. Si une **tâche dangereuse** est observée → un **plan de remédiation** s'ouvre automatiquement (chapitre 6).
+
+> ⚠️ Une visite terminée **sans GPS**, ou des **photos sans consentement**, génère une **incohérence** signalée.

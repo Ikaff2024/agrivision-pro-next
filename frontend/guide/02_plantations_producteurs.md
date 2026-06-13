@@ -55,3 +55,21 @@ section, téléphone — avec un accès direct à leur **fiche détaillée** (pr
 | La liste est vide | Aucun producteur encore : créez une plantation ou importez un registre. |
 | Je ne trouve pas un producteur | Utilisez la recherche (nom **ou** code **ou** téléphone). |
 | Je ne vois pas le menu « Producteurs » | Faites **Ctrl + F5** ; sinon, voir votre plan d'abonnement. |
+
+---
+
+## 2.C — Scénario guidé (cas concret)
+
+> Point de départ du parcours : enregistrer **Koffi Yao N'Guessan** et sa **Parcelle 1**. Tout le reste
+> (diagnostic, récoltes, EUDR, CacaoGuard…) s'appuiera dessus.
+
+1. **Menu Plantations → + Nouvelle plantation** :
+   - **Nom** `Parcelle 1 — Koffi Yao`
+   - **Propriétaire** `Koffi Yao N'Guessan` (créé automatiquement comme producteur s'il n'existe pas)
+   - **Pays** `Côte d'Ivoire` · **Région** `Nawa (Méagui)`
+   - **Latitude / Longitude** : **Utiliser ma position GPS** si vous êtes sur la parcelle (sinon saisie manuelle)
+   - **Superficie** `4.5` ha → **Créer**.
+2. **Menu Producteurs** : recherchez `Koffi Yao` → **Profil →** pour compléter localité `Gnamangui`,
+   section `Méagui`, téléphone. *(Ou créez-le directement via **+ Nouveau producteur**.)*
+
+> ➡️ Étape suivante : diagnostiquer et délimiter la parcelle (chapitre 3).

@@ -6,11 +6,13 @@
 La page d'**accueil** après connexion : vue **opérationnelle** de votre coopérative.
 
 ### Ce qu'on y voit
-- **Compteurs** : nombre de plantations, répartition du **risque agronomique** (faible/moyen/élevé).
-- **Diagnostics récents** (tableau).
-- **Actions rapides** (raccourcis vers Plantations, Diagnostic, Carte, Direction, Agroforesterie).
+- **Cockpit « Vue 360° »** (Admin/Agronome) : 7 indicateurs **cliquables** — Producteurs actifs, Conformité
+  EUDR, Enfants à risque, Revenu vital atteint, Volume campagne, Volume certifié, Alertes ouvertes. Cliquer
+  une métrique **ouvre la page concernée pré-filtrée** sur ce sous-ensemble (ex. « X conformes » → liste EUDR
+  filtrée sur les parcelles conformes).
+- **Compteurs agronomiques** : nombre de plantations, répartition du **risque agronomique** (faible/moyen/élevé).
+- **Parcelles à surveiller** : les parcelles aux **scores agronomiques les plus faibles** (à traiter en priorité).
 - **Analyse agronomique** (graphiques) : répartition des risques, distribution des scores, scores par région.
-  *(L'ancienne page « Analytique » a été fusionnée ici.)*
 
 > Le mot **« risque »** ici = **agronomique** (santé des parcelles, issu des diagnostics).
 
@@ -52,3 +54,16 @@ export PDF), cloisonnés à votre coopérative.
 | « Direction » affiche 403 / inaccessible | Réservé Admin/Agronome ; connectez‑vous avec le bon rôle. |
 | Chiffres à 0 | Aucune donnée saisie encore dans le module concerné (normal au démarrage). |
 | Les chiffres semblent globaux | Tout est **cloisonné par coopérative** ; faites **Ctrl + F5**. |
+
+---
+
+## 11.D — Scénario guidé (piloter en 3 minutes)
+
+> Routine de direction, du global au cas précis.
+
+1. **Dashboard** : lisez le **cockpit Vue 360°**. Repérez une métrique à traiter (ex. **Enfants à risque** = 3).
+2. **Drill-down** : cliquez la métrique → vous arrivez sur la **liste filtrée** correspondante (ex. enfants à
+   risque élevé/critique), pas sur toutes les données.
+3. **Conformité EUDR** : cliquez « X non conf. » → la liste EUDR ne montre que les parcelles à corriger.
+4. **Direction** (Admin/Agronome) : vérifiez les jauges consolidées (EUDR, revenu vital, volumes).
+5. **Rapports** : téléchargez le **rapport de due diligence (PDF)** pour l'acheteur.

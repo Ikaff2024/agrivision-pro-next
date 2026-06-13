@@ -96,3 +96,19 @@ voir l'**évolution sur 12 mois**, et les **alertes de déforestation** — sans
 | « simulation » au lieu de Sentinel‑2 | Les clés Copernicus ne sont pas configurées sur le serveur (réglage administrateur). |
 | Coordonnées vides après sélection | La plantation n'a pas de GPS : renseignez‑le dans **Plantations**. |
 | NDVI « Indéterminée » | Le point tombe sur du sol nu/eau : vérifiez le GPS de la parcelle. |
+
+---
+
+## 3.D — Scénario guidé (cas concret)
+
+> Sur la **Parcelle 1 de Koffi Yao** : poser un diagnostic, tracer le polygone, vérifier le satellite.
+
+1. **Diagnostic** — Menu **Diagnostic** → plantation `Parcelle 1` → renseignez humidité, pluviométrie,
+   température, âge du verger, ombrage → **Analyser** → score /100 + niveau de risque (enregistré).
+2. **Délimiter** — Menu **Carte → Délimiter une parcelle** → `Parcelle 1` :
+   - au bureau : **Générer (surface)** (carré de 4,5 ha à ajuster aux coins), ou
+   - sur le terrain : **Tracer par GPS** (faire le tour) → **Enregistrer**. *(Requis pour l'EUDR.)*
+3. **Satellite** — Menu **Satellite → Analyse par plantation** → `Parcelle 1` (coordonnées auto) →
+   **Analyser** → lisez NDVI / NDMI + statut déforestation.
+
+> ➡️ Étape suivante : agroforesterie et récoltes (chapitre 4).

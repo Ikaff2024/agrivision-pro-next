@@ -48,3 +48,17 @@ alimentent les **volumes**, la **traçabilité des lots** et les statistiques.
 |---|---|
 | « Qualité invalide » | Choisissez exactement : Bonne, Moyenne ou Défauts. |
 | Récolte non visible dans un lot | Vérifiez qu'elle n'est pas déjà affectée à un autre lot. |
+
+---
+
+## 4.C — Scénario guidé (cas concret)
+
+> Enregistrer la production de la **Parcelle 1 de Koffi Yao** (campagne 2025-2026).
+
+1. **Agroforesterie** (optionnel) — Menu **Agroforesterie** → `Parcelle 1` → ajoutez une espèce d'ombrage
+   (ex. `Gliricidia`, densité `80`/ha, âge `6` ans) → **Enregistrer**.
+2. **Récolte** — Menu **Récoltes** → `Parcelle 1` → **Date** `2026-01-15`, **Quantité** `1 000 kg`,
+   **Qualité** `Bonne`, **Prix/kg** `1 500`, **nb de sacs** `16`, **n° de reçu** `BA-2026-0042` → **Enregistrer**.
+
+> Cette récolte alimente les **volumes** et devient affectable à un **lot** (chapitre 5). Un **achat**
+> bord champ (5.A) peut aussi **générer automatiquement** cette récolte.
