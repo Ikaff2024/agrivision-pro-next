@@ -1,8 +1,53 @@
-# Reprise — prochaine session (backlog issu des tests 2026-06-01)
+# Reprise — prochaine session
 
-> 4 points à traiter, préparés pour démarrer vite. Pour chacun : **constat** (avec références code),
-> **approche proposée**, **décisions à confirmer**, **fichiers concernés**.
+> **Dernière mise à jour : 2026-06-13.** Bilan de ce qui reste à traiter. Les points du
+> backlog 2026-06-01 sont tous livrés (voir **Archive** en bas).
 > Branche : `codex/cacaoguard-fusion`. Règle d'or : tests verts avant push, push **origin** uniquement.
+
+---
+
+## État au 2026-06-13 — ce qui reste à traiter
+
+### 1. À caler avant la démo (opérationnel — propriétaire)
+- **Vérifier le déploiement v4.45** (`avp-v4.45-ficheb-eco`) : frontend Netlify + migration backend Railway (les colonnes Fiche B éco s'ajoutent au démarrage via `ALTER TABLE … IF NOT EXISTS` dans `main.py`). Les nouveaux champs n'apparaissent qu'une fois le backend redéployé.
+- **Lancer / vérifier le seed de démo** sur l'instance déployée : coop `demo2@agrivision-pro.com` / « Coopérative Démo Yeyasso 2026 » (`seed_demo.py`). Statut sur l'instance déployée à confirmer.
+- **(Optionnel) activer DeepSeek/Qwen** via clés API (cf. §2) — sinon le Conseil IA reste sur Claude (très bien pour la démo).
+
+### 2. Clés API du Conseil IA (multi-fournisseur) — variables Railway
+Code : `app/ai_advisor.py` (`AI_PROVIDER` + `_OPENAI_PRESETS`). À saisir **par le propriétaire** dans Railway → Settings → Variables (jamais committées) :
+
+| Fournisseur | `AI_PROVIDER` | Clé | Modèle défaut |
+|---|---|---|---|
+| Claude (défaut) | `anthropic` | `ANTHROPIC_API_KEY` | `AI_ADVISOR_MODEL` (`claude-sonnet-4-6`) |
+| DeepSeek | `deepseek` | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| Qwen | `qwen` | `DASHSCOPE_API_KEY` | `qwen-plus` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+
+Surcharges : `AI_OPENAI_MODEL`, `AI_OPENAI_BASE_URL`, `AI_OPENAI_API_KEY`. Redéployer après modif. ⚠️ La **veille réglementaire** (recherche web) reste sur Claude quel que soit `AI_PROVIDER`.
+
+### 3. Reporté d'un commun accord (prod, pas démo)
+- **Photo réelle du chef de ménage (B.29)** : aujourd'hui `head_photo_ref` (`SsrteHouseholdProfile`) ne stocke qu'une *référence texte*. Implémenter l'upload d'image + stockage persistant + affichage dans le PDF. **Décision préalable** : stockage (Railway a un FS éphémère → volume persistant vs objet S3-compatible vs blob PostgreSQL). Confirmé 2026-06-13 : utile en prod, pas pour la démo, aucune urgence. (Chip de suivi + mémoire `project-ficheb-photo-upload`.)
+
+### 4. Décisions produit / business (en attente client)
+- **Achats — exécution financière réelle** (virements / mobile money / banque) : volontairement non implémenté (`PurchaseRecord` / `achats.html` gèrent le suivi comptable pending/paid uniquement). Décision produit + conformité requise. ⚠️ Aucun mouvement d'argent exécuté par l'assistant.
+- **Plans d'abonnement** : figer noms/prix des paliers + répartition fine des modules (`app/services/plans.py`), puis activer la protection **API** `require_module` sur les modules payants (aujourd'hui le gating est au niveau menu/UX seulement, pas verrouillé côté serveur).
+
+### 5. Améliorations techniques possibles (non urgentes)
+- **Lots** : QR code imprimable du passeport, split de lot, lien achats↔lots (`app/api/lot_routes.py`, `frontend/lots.html`).
+- **E2E Playwright** (`e2e/`) : scénarios EUDR complet → DDS PDF, import + annulation, récolte avec n° reçu ; GitHub Action post-déploiement (artefact vidéo) ; compte de démo dédié (`AVP_TEST_EMAIL`) au lieu de coops jetables.
+- **Finitions** : centraliser `API_BASE` (P3) ; ops prod (sauvegardes — cf. `docs/BACKUP_DR.md`, domaine/HTTPS, rotation des secrets, page statut).
+- **Données** : purger « Import Test Coop » (id 2) et statuer sur « Coop CAMER » (via `DELETE /import/owner/batches/{uuid}` si import tracé).
+
+### Confirmé clos récemment (sessions juin 2026)
+- **Fiche B — situation économique du ménage** (B.25 logement, B.26 possessions, B.18e entretien travailleurs, B.29 réf. photo) : modèle + migration + API + formulaire (saisie/édition/reset) + PDF (WeasyPrint + fallback) + test. SW `v4.45`, commit `a84e7dc`.
+- **Modale « Nouveau signalement »** : règle CSS `.modal-overlay.active` manquante ajoutée dans `auth.js`.
+- **Création directe d'un producteur** (bouton + modale + `POST /producers`) sans passer par une parcelle.
+- **Entrepôt à la création du lot** : désormais **optionnel** + libellé explicatif (« sinon via Entrée magasin »).
+- Filtre certification (producteurs + plantations) ; LLM multi-fournisseur ; création enfant identité d'abord (bloc évaluation facultatif) ; cockpit direction sur le dashboard ; « Parcelles à surveiller » (pires scores) au lieu de « diagnostics récents » ; édition brouillon→clôture SSRTE ; blocage export non conforme + dérogation admin ; rôle gestionnaire ; export composition lot (format YEYASSO) ; anti-sèche démo + DEMO_SCRIPT enrichi ; retrait des libellés internes (`methodology_version` / « eudr-1.1b »).
+
+---
+
+## Archive — backlog 2026-06-01 → 06-03 (tout livré)
 
 ## ✅ Avancement — session 2026-06-02
 
