@@ -68,3 +68,51 @@ Remplir les **3 questionnaires officiels** du dispositif SSRTE, exportables en *
 | Le producteur n'apparaît pas | Il doit exister dans votre coopérative (créez-le / importez-le). |
 | Le PDF ne se télécharge pas | Réessayez ; vérifiez que la fiche est bien enregistrée. |
 | Chiffres SSRTE différents d'une page à l'autre | Tout est cloisonné par coopérative ; faites **Ctrl + F5**. |
+
+---
+
+## 6.D — Scénario guidé de prise en main (cas concret)
+
+> Un cas complet pour s'exercer, du terrain à la due diligence. **Cas fil rouge** : producteur
+> **Koffi Yao N'Guessan** (Gnamangui / Méagui) ; **Awa Kouassi, 14 ans, déscolarisée**, observée à la
+> machette ; son frère **Yao, 8 ans**, scolarisé. Rôle nécessaire : **admin / agronome / technicien**.
+
+**1. Recenser l'enfant** — Menu **Protection enfant → + Enfant** : Prénom `Awa`, Nom `Kouassi`,
+naissance `2011-03-12`, Féminin, **producteur parent** `Koffi Yao N'Guessan`. Laissez le bloc
+« Évaluation initiale » fermé : l'enquête le renseignera.
+
+**2. Enquête SSRTE** — Menu **Fiches SSRTE** (chaque fiche : **brouillon → clôture définitive** ; corrigez
+le brouillon, ne dupliquez pas) :
+- **Fiche A — localité** : Gnamangui / Méagui, école primaire 4 km, **classes secondaires 0**,
+  risques identifiés : déscolarisation.
+- **Fiche B — ménage** : 6 personnes / 3 enfants / 2 scolarisés ; 2 parcelles cacao, 4,5 ha, 1 800 kg/an ;
+  **logement traditionnel** ; possessions ☑ moto ☑ télévision ; autorise l'entretien des travailleurs ;
+  photo du chef de ménage ; membres du ménage (cochez **machette** pour Awa) ; **consentement obtenu**.
+- **Fiche C — parcelle** : ☑ **suspicion de travail d'enfant** (crée une alerte automatiquement),
+  tâche observée : machette, actions immédiates.
+
+**3. Évaluer le risque** — Menu **Protection enfant → Évaluer un enfant** : sélectionnez Awa → scolarité
+`déscolarisé`, distance école `3–5 km`, travail `régulier`, tâches ☑ machette ☑ pesticides, besoin de
+main-d'œuvre `élevé` → **Enregistrer**. Un score **élevé / critique génère automatiquement un plan de
+remédiation**.
+
+**4. Alertes** — Menu **CacaoGuard → Vérifier alertes** : les contrôles créent les alertes ; la liste
+(filtre **Ouvertes / Toutes**) affiche priorité + date. Accès direct depuis la tuile « Alertes ouvertes »
+du tableau de bord.
+
+**5. Blocage de traçabilité** — Menu **CacaoGuard → Blocage traçabilité** : bloquez **Koffi Yao**
+(motif : travail d'enfant constaté). Effet : ses récoltes ne peuvent plus être affectées à un lot.
+
+**6. Plan de remédiation** — Menu **Remédiation** : renseignez les actions (réinscription scolaire,
+retrait des tâches dangereuses + suivi, appui au revenu) avec **responsable** et **échéance** ; mettez à
+jour les statuts au fil du suivi.
+
+**7. Signalement** (si le cas remonte par un canal externe) — Menu **Signalements → Nouveau** :
+type `Travail enfant`, sévérité `Haute`, producteur `Koffi Yao`, source `Agent terrain`.
+
+**8. Clôture & preuve** — clôturez les fiches SSRTE (définitif), résolvez l'alerte, **levez le blocage**
+une fois la situation corrigée, puis **CacaoGuard → Rapports** pour générer le **rapport de due
+diligence (PDF)**.
+
+> Pour la suite (regrouper le cacao en lot et le remettre à l'exportateur), voir
+> [chapitre 5 — Traçabilité des lots](05_achats_lots_certification.md).

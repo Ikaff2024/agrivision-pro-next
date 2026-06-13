@@ -55,6 +55,16 @@ expédition), les **fusionner**, et éditer un **passeport de traçabilité** (P
 - Ouvrez un lot → bouton **Passeport** → un **PDF à la charte** s'ouvre : composition (producteurs/parcelles),
   conformité EUDR, blocages éventuels, historique des mouvements.
 
+### Préparer la remise à l'exportateur
+1. Ouvrez le lot → renseignez **N° lot export / connaissement** et **Exportateur** (ex. `OCEAN-SA`) → **Enregistrer**.
+   > Ces deux champs sont **optionnels** : la traçabilité et l'EUDR fonctionnent sans. Ils ne servent qu'au
+   > **fichier de composition** remis à l'exportateur (si le n° est laissé vide, le **code du lot** est repris).
+2. Bouton **Composition (Excel)** : exporte la composition au **format exportateur YEYASSO**
+   (Farmer_ID / Farm_ID / poids net + exportateur).
+3. Bouton **Pack EUDR** : télécharge un **dossier de diligence** (zip : DDS + GeoJSON + récapitulatif) pour l'acheteur.
+4. Bouton **Expédier** : passe le lot en « expédié ».
+   > ⚠️ L'expédition d'une parcelle **non conforme EUDR** est **bloquée** sauf **dérogation admin** (tracée) — voir chapitre 7.
+
 ---
 
 ## 5.C — Certification
