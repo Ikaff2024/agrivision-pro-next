@@ -57,4 +57,4 @@ et à **vous repérer** dans les menus. C'est la base : lisez-la en premier.
 | Page blanche / figée | **Ctrl + F5** pour recharger. |
 | « Identifiants incorrects » | Vérifiez l'email et le mot de passe (attention aux majuscules). |
 | Déconnecté tout seul | Reconnectez-vous ; la session se renouvelle normalement toute seule. |
-| Un module a disparu du menu | Votre **plan d'abonnement** ne l'inclut pas — voir la fiche *Administration & propriétaire*. |
+| Un module a disparu du menu | Votre **plan d'abonnement** ne l'inclut pas — contactez votre administrateur. |

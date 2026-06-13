@@ -10,7 +10,7 @@
 
 ### 1. À caler avant la démo (opérationnel — propriétaire)
 - ✅ **Déploiement vérifié (2026-06-13)** : backend Railway à jour (champs Fiche B éco présents dans `/openapi.json`) ; frontend Netlify `app-agrivision-pro.com` en `avp-v4.47-alertes-drill`. ⚠️ Le backend Railway ne sert PAS le frontend (404 sur `/`) — frontend = Netlify uniquement.
-- **Lancer le seed de démo** sur la prod (action propriétaire) : `AVP_API_URL=https://agrivision-api-production.up.railway.app python seed_demo.py` — crée la coop démo **via l'API** (inscription + login). Si le nom est déjà pris : surcharger `AVP_DEMO_EMAIL=demo2@agrivision-pro.com` / `AVP_DEMO_COOP="Coopérative Démo Yeyasso 2026"` / `AVP_DEMO_PASSWORD=DemoAgriVision2026!`. (Non exécutable par l'assistant : création de compte + authentification.)
+- **Lancer le seed de démo** sur la prod (action propriétaire) : `AVP_API_URL=https://agrivision-api-production.up.railway.app python seed_demo.py` — crée la coop démo **via l'API** (inscription + login). Si le nom est déjà pris : surcharger `AVP_DEMO_EMAIL=demo2@agrivision-pro.com` / `AVP_DEMO_COOP="Coopérative Démo Cacao 2026"` / `AVP_DEMO_PASSWORD=DemoAgriVision2026!`. (Non exécutable par l'assistant : création de compte + authentification.)
 - **(Optionnel) activer DeepSeek/Qwen** via clés API (cf. §2) — sinon le Conseil IA reste sur Claude (très bien pour la démo).
 
 ### 2. Clés API du Conseil IA (multi-fournisseur) — variables Railway
@@ -44,7 +44,7 @@ Surcharges : `AI_OPENAI_MODEL`, `AI_OPENAI_BASE_URL`, `AI_OPENAI_API_KEY`. Redé
 - **Modale « Nouveau signalement »** : règle CSS `.modal-overlay.active` manquante ajoutée dans `auth.js`.
 - **Création directe d'un producteur** (bouton + modale + `POST /producers`) sans passer par une parcelle.
 - **Entrepôt à la création du lot** : désormais **optionnel** + libellé explicatif (« sinon via Entrée magasin »).
-- Filtre certification (producteurs + plantations) ; LLM multi-fournisseur ; création enfant identité d'abord (bloc évaluation facultatif) ; cockpit direction sur le dashboard ; « Parcelles à surveiller » (pires scores) au lieu de « diagnostics récents » ; édition brouillon→clôture SSRTE ; blocage export non conforme + dérogation admin ; rôle gestionnaire ; export composition lot (format YEYASSO) ; anti-sèche démo + DEMO_SCRIPT enrichi ; retrait des libellés internes (`methodology_version` / « eudr-1.1b »).
+- Filtre certification (producteurs + plantations) ; LLM multi-fournisseur ; création enfant identité d'abord (bloc évaluation facultatif) ; cockpit direction sur le dashboard ; « Parcelles à surveiller » (pires scores) au lieu de « diagnostics récents » ; édition brouillon→clôture SSRTE ; blocage export non conforme + dérogation admin ; rôle gestionnaire ; export composition lot (format exportateur) ; anti-sèche démo + DEMO_SCRIPT enrichi ; retrait des libellés internes (`methodology_version` / « eudr-1.1b »).
 
 ---
 

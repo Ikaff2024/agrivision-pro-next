@@ -34,7 +34,7 @@ except Exception:
 API = os.getenv("AVP_API_URL", "https://agrivision-api-production.up.railway.app").rstrip("/")
 EMAIL = os.getenv("AVP_DEMO_EMAIL", "demo@agrivision-pro.com")
 PASSWORD = os.getenv("AVP_DEMO_PASSWORD", "DemoAgriVision2026!")
-COOP = os.getenv("AVP_DEMO_COOP", "Coopérative Démo Yeyasso")
+COOP = os.getenv("AVP_DEMO_COOP", "Coopérative Démo Cacao")
 
 client = httpx.Client(timeout=60.0)
 _token = None

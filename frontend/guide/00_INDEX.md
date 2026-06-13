@@ -21,7 +21,7 @@
 9. [Monitoring, Remédiation, Signalements, Formation](09_suivi_terrain.md)
 10. [Import d'un registre Excel](10_import_registre.md)
 11. [Dashboard, Direction & Rapports](11_dashboard_direction_rapports.md)
-12. [Administration & Espace propriétaire (plans)](12_administration_proprietaire.md)
+12. [Administration](12_administration_proprietaire.md)
 13. [Jumeau de parcelle & Parcelles à risque](13_jumeau_parcelle.md)
 
 ## Les 3 niveaux d'utilisateur (résumé)
@@ -30,8 +30,6 @@
 | **Administrateur** | Tout dans sa coopérative : créer/supprimer, gérer les membres, importer, changer les mots de passe. |
 | **Agronome** | Saisir et consulter (diagnostics, fiches, achats, lots…), générer les rapports. |
 | **Technicien** | Travail de terrain : voit surtout ses parcelles attribuées, saisit visites/achats. |
-
-> **Espace propriétaire** (IKAFFANAN) : page séparée pour piloter **toutes** les coopératives et leurs abonnements.
 
 ## Le principe en une phrase
 AgriVision Pro relie **le producteur → sa parcelle → ses récoltes → le lot vendu**, tout en assurant

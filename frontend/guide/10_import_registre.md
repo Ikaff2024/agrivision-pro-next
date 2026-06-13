@@ -45,7 +45,7 @@ L'import est **souple** :
 > Charger un registre de coopérative d'un coup, au lieu de saisir parcelle par parcelle.
 
 1. **Menu Administration → Importer un registre** → sélectionnez votre fichier `.xlsx`
-   (ex. `Registre_Yeyasso_2025-2026.xlsx`).
+   (ex. `Registre_Cooperative_2025-2026.xlsx`).
 2. Lisez l'**aperçu** : nombre de producteurs, de plantations, **erreurs/avertissements** éventuels.
 3. Si tout est cohérent → **Confirmer l'import** (patientez ~30 s pour les gros fichiers).
 4. Erreur constatée après coup ? **Historique des imports → Annuler cet import**, corrigez le fichier, réimportez.

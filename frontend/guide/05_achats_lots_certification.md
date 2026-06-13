@@ -74,7 +74,7 @@ expédition), les **fusionner**, et éditer un **passeport de traçabilité** (P
 1. Ouvrez le lot → renseignez **N° lot export / connaissement** et **Exportateur** (ex. `OCEAN-SA`) → **Enregistrer**.
    > Ces deux champs sont **optionnels** : la traçabilité et l'EUDR fonctionnent sans. Ils ne servent qu'au
    > **fichier de composition** remis à l'exportateur (si le n° est laissé vide, le **code du lot** est repris).
-2. Bouton **Composition (Excel)** : exporte la composition au **format exportateur YEYASSO**
+2. Bouton **Composition (Excel)** : exporte la composition au **format exportateur standard**
    (Farmer_ID / Farm_ID / poids net + exportateur).
 3. Bouton **Pack EUDR** : télécharge un **dossier de diligence** (zip : DDS + GeoJSON + récapitulatif) pour l'acheteur.
 4. Bouton **Expédier** : passe le lot en « expédié ».

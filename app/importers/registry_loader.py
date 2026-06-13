@@ -370,7 +370,7 @@ def load_registry(parse_result, db, cooperative_id, fichier_source=None, user_id
                         cooperative_id=cooperative_id,
                         thematique=theme_key,
                         lieu="Registre import",
-                        formateur_nom="Registre YEYASSO",
+                        formateur_nom="Registre coopérative",
                         document_url=fichier_source,
                     )
                     db.add(session)
