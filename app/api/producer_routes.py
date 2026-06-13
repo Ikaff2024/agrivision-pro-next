@@ -8,7 +8,7 @@ tracabilite et score de risque agrege.
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.cacaoguard_ops_routes import (
@@ -49,6 +49,15 @@ class ProducerResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ProducerCreate(BaseModel):
+    nom_complet: str = Field(..., min_length=2, max_length=200)
+    code_yeyasso: Optional[str] = Field(None, max_length=100)
+    telephone: Optional[str] = Field(None, max_length=50)
+    localite: Optional[str] = Field(None, max_length=120)
+    section: Optional[str] = Field(None, max_length=120)
+    sexe: Optional[str] = Field(None, pattern="^[HF]$")
 
 
 @router.get("/producers", response_model=List[ProducerResponse])
@@ -100,6 +109,45 @@ def list_producers(
             query = query.filter(Producer.id.in_([-1]))
 
     return query.order_by(Producer.nom_complet.asc()).offset(skip).limit(limit).all()
+
+
+@router.post("/producers", response_model=ProducerResponse, status_code=201)
+def create_producer(
+    data: ProducerCreate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Crée un producteur directement (sans passer par une parcelle).
+
+    Utile pour enregistrer un membre avant de cartographier ses parcelles. Les
+    producteurs restent aussi auto-créés depuis le propriétaire d'une parcelle
+    et par l'import de registre.
+    """
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
+    coop_id = current_user.cooperative_id if current_user else None
+    code = (data.code_yeyasso or "").strip() or None
+    if code:
+        dup = db.query(Producer).filter(
+            Producer.code_yeyasso == code, Producer.is_active == True
+        )
+        if coop_id is not None:
+            dup = dup.filter(Producer.cooperative_id == coop_id)
+        if dup.first():
+            raise HTTPException(status_code=409, detail=f"Un producteur avec le code « {code} » existe déjà.")
+    producer = Producer(
+        nom_complet=data.nom_complet.strip(),
+        code_yeyasso=code,
+        telephone=(data.telephone or "").strip() or None,
+        localite=(data.localite or "").strip() or None,
+        section=(data.section or "").strip() or None,
+        sexe=data.sexe or None,
+        cooperative_id=coop_id,
+        is_active=True,
+    )
+    db.add(producer)
+    db.commit()
+    db.refresh(producer)
+    return producer
 
 
 @router.get("/producers/{producer_id:int}", response_model=ProducerResponse)

@@ -41,7 +41,10 @@
         <div class="page-title">Producteurs</div>
         <div class="page-sub">Annuaire des producteurs de la coopérative</div>
       </div>
-      <button class="btn btn-outline" onclick="load()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="openNewProducer()"><span class="material-symbols-outlined" style="font-size:18px">person_add</span> Nouveau producteur</button>
+        <button class="btn btn-outline" onclick="load()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -68,6 +71,28 @@
           </table>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nouveau producteur -->
+<div class="modal-overlay" id="modal-prod">
+  <div class="modal">
+    <div class="modal-title">Nouveau producteur</div>
+    <div class="form-group"><label class="form-label">Nom et prénoms *</label><input class="form-input" id="p-nom" placeholder="Kouassi Konan"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Code interne (Yeyasso)</label><input class="form-input" id="p-code" placeholder="YEYAFT1234"></div>
+      <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="p-tel" placeholder="07 00 00 00 00"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Localité</label><input class="form-input" id="p-localite" placeholder="Village"></div>
+      <div class="form-group"><label class="form-label">Section</label><input class="form-input" id="p-section" placeholder="Section"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Sexe</label><select class="form-input" id="p-sexe"><option value="">—</option><option value="H">Homme</option><option value="F">Femme</option></select></div>
+    <div id="p-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNewProducer()">Annuler</button>
+      <button class="btn btn-primary" id="p-btn" onclick="createProducer()">Créer</button>
     </div>
   </div>
 </div>
@@ -143,6 +168,39 @@ function initCertFilter() {
       sel.style.display = '';
     })
     .catch(() => {});
+}
+
+/* ── Création directe d'un producteur ─────────────────────────── */
+function openNewProducer() {
+  document.getElementById('p-err').style.display = 'none';
+  ['p-nom', 'p-code', 'p-tel', 'p-localite', 'p-section'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('p-sexe').value = '';
+  document.getElementById('modal-prod').style.display = 'flex';
+}
+function closeNewProducer() { document.getElementById('modal-prod').style.display = 'none'; }
+document.getElementById('modal-prod').addEventListener('click', e => { if (e.target === e.currentTarget) closeNewProducer(); });
+
+async function createProducer() {
+  const err = document.getElementById('p-err'); err.style.display = 'none';
+  const nom = document.getElementById('p-nom').value.trim();
+  if (nom.length < 2) { err.textContent = 'Le nom et prénoms est obligatoire.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('p-btn'); btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const r = await authFetch('/producers', { method: 'POST', body: JSON.stringify({
+      nom_complet: nom,
+      code_yeyasso: document.getElementById('p-code').value.trim() || null,
+      telephone: document.getElementById('p-tel').value.trim() || null,
+      localite: document.getElementById('p-localite').value.trim() || null,
+      section: document.getElementById('p-section').value.trim() || null,
+      sexe: document.getElementById('p-sexe').value || null,
+    }) });
+    const body = await r.json().catch(() => ({}));
+    if (!r || !r.ok) throw new Error(body.detail || 'Création impossible.');
+    closeNewProducer();
+    toast('Producteur créé.');
+    load(document.getElementById('search').value.trim() || null);
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+  finally { btn.disabled = false; btn.textContent = 'Créer'; }
 }
 
 initCertFilter();
