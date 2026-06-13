@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>CacaoGuard — Fiche de prise en main A4</title>
+<style>
+  @page { size: A4 portrait; margin: 8mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:#1f2a24; margin:0; font-size:9.5px; line-height:1.35; }
+  .print-hint { background:#1a4231; color:#fff; padding:8px 14px; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+  .print-hint button { background:#fff; color:#1a4231; border:0; border-radius:6px; padding:6px 14px; font-weight:700; cursor:pointer; }
+  .sheet { padding:6px 10px 10px; }
+  header.case { border-left:4px solid #1a4231; padding:4px 0 4px 10px; margin-bottom:8px; }
+  header.case h1 { font-size:15px; margin:0 0 2px; color:#1a4231; }
+  header.case p { margin:0; font-size:9px; color:#5a6b5f; }
+  .sec-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#6a7d64; margin:8px 0 4px; border-bottom:1px solid #e6ddd0; padding-bottom:2px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:5px 10px; }
+  .step { border:1px solid #e6ddd0; border-radius:6px; padding:4px 7px; background:#faf8f3; break-inside:avoid; }
+  .step .n { display:inline-block; min-width:15px; height:15px; line-height:15px; text-align:center; background:#1a4231; color:#fff; border-radius:50%; font-size:8.5px; font-weight:800; margin-right:4px; }
+  .step .t { font-weight:800; font-size:9.5px; }
+  .step .m { color:#1a6b3a; font-weight:700; }
+  .step .d { color:#3a463f; margin-top:1px; }
+  .warn { color:#922b21; font-weight:700; }
+  .auto { color:#9a6200; font-weight:700; }
+  .trace { display:flex; flex-wrap:wrap; gap:4px; align-items:stretch; }
+  .trace .tstep { flex:1 1 0; min-width:90px; border:1px solid #e6ddd0; border-radius:6px; padding:4px 6px; background:#eef6ef; }
+  .trace .tstep b { color:#1a4231; }
+  .principles { margin-top:8px; background:#1a4231; color:#eaf3ee; border-radius:6px; padding:6px 10px; font-size:9px; }
+  .principles b { color:#fff; }
+  .foot { margin-top:6px; font-size:8px; color:#8a8a7a; text-align:right; }
+  @media print { .print-hint { display:none; } body { font-size:9px; } }
+</style>
+</head>
+<body>
+<div class="print-hint">
+  <span>Fiche A4 — imprimez via <b>Chrome → Imprimer → Enregistrer en PDF</b> (format A4, marges par défaut).</span>
+  <button onclick="window.print()">Imprimer</button>
+</div>
+
+<div class="sheet">
+  <header class="case">
+    <h1>CacaoGuard — Fiche de prise en main</h1>
+    <p><b>Cas fil rouge :</b> Koffi Yao N'Guessan (CI-YEY-00428, Gnamangui/Méagui). Awa Kouassi, 14 ans, déscolarisée, travaille à la machette. Rôle requis : admin / agronome / technicien.</p>
+  </header>
+
+  <div class="sec-title">Protection de l'enfant — parcours</div>
+  <div class="grid">
+    <div class="step"><span class="n">0</span><span class="t">Hub CacaoGuard</span> <span class="m">(CacaoGuard)</span><div class="d">Lire les KPIs (enfants à risque, alertes, blocages…) — point de départ et de contrôle.</div></div>
+    <div class="step"><span class="n">1</span><span class="t">Recenser l'enfant</span> <span class="m">(Protection enfant → +Enfant)</span><div class="d">Identité seule : Prénom <b>Awa</b>, Nom <b>Kouassi</b>, naissance <b>2011-03-12</b>, Féminin, parent <b>Koffi Yao</b>. Bloc évaluation = laisser fermé.</div></div>
+    <div class="step"><span class="n">2a</span><span class="t">SSRTE — Fiche A (communauté)</span> <span class="m">(SSRTE)</span><div class="d">Gnamangui/Méagui, école primaire 4 km, secondaire <b>0</b>, risques : déscolarisation. Enregistrer (brouillon).</div></div>
+    <div class="step"><span class="n">2b</span><span class="t">SSRTE — Fiche B (ménage)</span> <span class="m">(SSRTE)</span><div class="d">6 pers / 3 enfants / 2 scol. ; 2 parcelles, 4.5 ha, 1800 kg. Logement traditionnel ; ☑ Moto/TV ; B.18e Oui ; photo B.29. Membres (Awa→machette). ☑ Consentement.</div></div>
+    <div class="step"><span class="n">2c</span><span class="t">SSRTE — Fiche C (parcelle)</span> <span class="m">(SSRTE)</span><div class="d"><span class="warn">☑ Suspicion travail d'enfant</span> (→ alerte auto), tâche : machette, actions immédiates. ☑ Consentement preuves.</div></div>
+    <div class="step"><span class="n">3</span><span class="t">Évaluer le risque</span> <span class="m">(Protection enfant → Évaluer un enfant)</span><div class="d">Awa : déscolarisé, école 3-5 km, travail régulier, ☑ machette ☑ pesticides, MO élevée → score. <span class="auto">Risque élevé → plan de remédiation auto.</span></div></div>
+    <div class="step"><span class="n">4</span><span class="t">Alertes</span> <span class="m">(CacaoGuard → Vérifier alertes)</span><div class="d">Génère les alertes ; liste filtrable Ouvertes/Toutes (priorité + date). Accès direct via la tuile « Alertes ouvertes » du tableau de bord.</div></div>
+    <div class="step"><span class="n">5</span><span class="t">Blocage traçabilité</span> <span class="m">(CacaoGuard → Blocage traçabilité)</span><div class="d">Bloquer Koffi Yao, motif « travail d'enfant ». <span class="warn">→ empêche d'affecter ses récoltes à un lot.</span></div></div>
+    <div class="step"><span class="n">6</span><span class="t">Plan de remédiation</span> <span class="m">(Remédiation)</span><div class="d">Réinscription scolaire (15/09), retrait des tâches + suivi (15/07), appui revenu (31/08). Mettre à jour les statuts.</div></div>
+    <div class="step"><span class="n">7</span><span class="t">Signalement</span> <span class="m">(Signalements → Nouveau)</span><div class="d">Type <b>Travail enfant</b>, sévérité <b>Haute</b>, producteur Koffi Yao, source Agent terrain.</div></div>
+    <div class="step"><span class="n">8</span><span class="t">Suivi & clôture</span> <span class="m">(SSRTE / CacaoGuard → Rapports)</span><div class="d">Clôturer les fiches (définitif), résoudre l'alerte, lever le blocage une fois corrigé, générer le <b>rapport de due diligence (PDF)</b>.</div></div>
+  </div>
+
+  <div class="sec-title">Traçabilité des lots (menu Traçabilité)</div>
+  <div class="trace">
+    <div class="tstep"><b>T2 Créer le lot</b><div>Campagne 2025-2026 ; plantation → cocher récoltes. Code auto.</div></div>
+    <div class="tstep"><b>T3 Entrée magasin</b><div>Choisir l'entrepôt → Entrée magasin.</div></div>
+    <div class="tstep"><b>T4 Sceller</b><div>Fige la composition.</div></div>
+    <div class="tstep"><b>T5 Exportateur</b><div><i>Optionnel</i> : N° lot export + OCEAN-SA → Enregistrer.</div></div>
+    <div class="tstep"><b>T6 Documents</b><div>Passeport (QR) · Pack EUDR · Composition (Excel).</div></div>
+    <div class="tstep"><b>T7 Expédier</b><div><span class="warn">Bloqué si parcelle non conforme</span> sauf dérogation admin.</div></div>
+  </div>
+
+  <div class="principles">
+    <b>À retenir :</b> ① Identité d'abord, enquête (Fiche B) ensuite. ② Fiches SSRTE : brouillon → définitif (corriger le brouillon, ne pas dupliquer). ③ L'évaluation pilote le plan ; suspicion + blocage pilotent la traçabilité. ④ Données enfants = sensibles : consentement + cloisonnement coopérative + audit. ⑤ Exportateur non requis pour la traçabilité/EUDR — seulement pour le fichier de composition.
+  </div>
+  <div class="foot">AgriVision Pro — CacaoGuard · fiche de prise en main · 2026-06-13</div>
+</div>
+</body>
+</html>

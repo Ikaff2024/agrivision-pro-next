@@ -131,3 +131,45 @@ Mets à jour le **statut** des actions (en cours → fait).
 - **Brouillon → définitif** sur les fiches SSRTE : corrige le brouillon, ne duplique pas.
 - **L'évaluation pilote tout** : un score élevé crée le plan ; la suspicion SSRTE et le blocage pilotent la traçabilité.
 - **Données enfants = sensibles** : consentement + cloisonnement coopérative + journal d'audit.
+
+---
+
+## Annexe — Scénario traçabilité (module Lots)
+
+> Suite logique : une fois le cacao collecté, on le **trace en lots** jusqu'à la remise à l'exportateur.
+> **Lien CacaoGuard** : un producteur sous **blocage de traçabilité actif** ne peut pas voir ses récoltes
+> affectées à un lot (refus automatique) — c'est ce qui empêche le cacao « à risque » d'entrer dans la chaîne.
+
+**Menu : Traçabilité.**
+
+### T1 — (Pré-requis) récoltes saisies
+Les récoltes des plantations doivent exister (menu **Récoltes**, ou module **Achats** qui en génère). Ce sont elles qu'on regroupe en lot.
+
+### T2 — Créer le lot
+Panneau **« Nouveau lot »** :
+- **Campagne / saison** : `2025-2026`
+- **Entrepôt initial** : *optionnel* (sinon via « Entrée magasin » plus tard)
+- **Récoltes à inclure** : choisir une **plantation** → cocher les **récoltes** à regrouper
+- **Notes** : libre → **Créer le lot** (code auto `LOT-AAAA-NNNNN`, statut *ouvert*)
+
+⚠️ Si une récolte appartient à un producteur **bloqué CacaoGuard**, l'affectation est **refusée** — résous d'abord le cas (Étapes 5/8 ci-dessus).
+
+### T3 — Entrée en magasin
+Dans le **détail du lot** : choisir l'**entrepôt** → **Entrée magasin**.
+
+### T4 — Sceller le lot
+**Sceller** fige la composition (statut *scellé*). À faire avant la remise.
+
+### T5 — Renseigner l'exportateur (optionnel, au moment de la remise)
+- **N° lot export / connaissement** : `Lot N°41/SC100035-2025-2-121` (si vide → le code du lot est repris)
+- **Exportateur** : `OCEAN-SA` → **Enregistrer**
+- *Non requis pour la traçabilité interne et l'EUDR — uniquement pour le fichier de composition exportateur.*
+
+### T6 — Documents
+- **Passeport** (PDF + QR) : preuve de traçabilité du lot
+- **Pack EUDR** (zip : DDS + GeoJSON + récap) : dossier de diligence pour l'acheteur
+- **Composition (Excel)** : fichier au **format exportateur YEYASSO** (Farmer_ID / Farm_ID / poids net + exportateur)
+
+### T7 — Expédier
+**Expédier** (statut *expédié*). ⚠️ L'export d'une parcelle **non conforme EUDR** est bloqué sauf **dérogation admin** (tracée).
+
