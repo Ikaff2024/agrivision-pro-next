@@ -12,7 +12,7 @@
 ## 0. Préparation (la veille — 15 min)
 
 **À vérifier AVANT la démo (critique) :**
-- [ ] Connexion OK sur **app-agrivision-pro.com** avec le compte démo : **demo2@agrivision-pro.com** / `DemoAgriVision2026!` (admin de « Coopérative Démo Cacao 2026 »).
+- [ ] Connexion OK sur **app-agrivision-pro.com** avec le compte démo : **demo3@agrivision-pro.com** / `DemoAgriVision2026!` (admin de « Coopérative Démo Cacao 2026 »).
 - [ ] **Logo de la coopérative** chargé (Administration → Logo) → les PDF sortent à leur image. ⭐ effet « waouh ».
 - [ ] Un **producteur + une parcelle géolocalisée** prêts, avec : un **diagnostic**, une **délimitation (polygone)**, une **récolte**, idéalement un **contrôle déforestation**.
 - [ ] **Crédit Anthropic** approvisionné si tu veux montrer le **Conseil Agronome IA** et la **Veille marché** en live (sinon, voir la parade ci-dessous).
@@ -31,7 +31,7 @@ agroforesterie, contrôles déforestation, achats, **lots + passeports**, CacaoG
 
 ```bash
 # Coop démo neuve (le nom de coop doit être unique côté serveur)
-AVP_DEMO_EMAIL=demo2@agrivision-pro.com \
+AVP_DEMO_EMAIL=demo3@agrivision-pro.com \
 AVP_DEMO_COOP="Coopérative Démo Cacao 2026" \
 python seed_demo.py
 ```
