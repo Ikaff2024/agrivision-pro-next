@@ -206,6 +206,9 @@ const RULE_LBL = {
 };
 
 async function loadAll() {
+  // Drill-down depuis le cockpit : ?statut=conforme|non_conforme|a_verifier pré-filtre la liste.
+  const ds = new URLSearchParams(location.search).get('statut');
+  if (ds) { const sel = document.getElementById('f-status'); if (sel) sel.value = ds; }
   await Promise.all([loadSummary(), loadReadiness(), reload()]);
 }
 

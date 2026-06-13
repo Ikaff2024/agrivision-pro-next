@@ -170,6 +170,7 @@ let allChildren = [];
 let allProducers = [];
 const params = new URLSearchParams(location.search);
 const initialProducerId = params.get('producer_id');
+const initialRisk = params.get('risque');   // drill-down cockpit : 'eleve' = risque élevé + critique
 const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
 
 async function cgFetch(endpoint, options = {}) {
@@ -217,13 +218,17 @@ async function loadChildren() {
 function filteredChildren() {
   let filtered = [...allChildren];
   if (initialProducerId) filtered = filtered.filter(c => String(c.producer_id) === String(initialProducerId));
+  if (initialRisk === 'eleve') filtered = filtered.filter(c => ['high','critical'].includes(c.risk_level));
   return filtered;
 }
 
 function renderChildren(children) {
   const grid = document.getElementById('children-grid');
+  const drillBanner = (initialRisk === 'eleve')
+    ? `<div style="grid-column:1/-1;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:13px;color:#9a6200">Filtré depuis le tableau de bord : <strong>enfants à risque élevé/critique</strong>. <a href="children.html" style="font-weight:800;color:#9a6200">✕ Tout afficher</a></div>`
+    : '';
   if (!children.length) {
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Aucun enfant enregistre.</div>';
+    grid.innerHTML = drillBanner + '<div class="empty-state" style="grid-column:1/-1">Aucun enfant enregistre.</div>';
     return;
   }
 

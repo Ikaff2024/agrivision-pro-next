@@ -177,6 +177,7 @@ const money = n => new Intl.NumberFormat('fr-FR').format(Math.round(Number(n || 
 const monthOptions = ['Octobre','Novembre','Decembre','Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre'];
 const params = new URLSearchParams(location.search);
 const initialProducerId = params.get('producer_id');
+const initialIncome = params.get('revenu');   // drill-down cockpit : 'atteint' | 'ecart'
 let editingId = null;   // id du livret en cours d'edition (null = creation)
 
 function apiBase() { return window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010'; }
@@ -307,7 +308,13 @@ async function loadAssessments() {
   const res = await ffFetch(path);
   const data = res?.ok ? await res.json() : [];
   window._assessments = data;
-  document.getElementById('history').innerHTML = data.length ? data.map(a => `
+  let _shown = data;
+  if (initialIncome === 'atteint') _shown = data.filter(a => a.living_income_status === 'atteint');
+  else if (initialIncome === 'ecart') _shown = data.filter(a => a.living_income_status && a.living_income_status !== 'atteint');
+  const _drill = initialIncome
+    ? `<div style="background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#9a6200">Filtré depuis le tableau de bord : <strong>revenu vital ${initialIncome==='atteint'?'atteint':'avec écart'}</strong> (${_shown.length}). <a href="farmforce.html" style="font-weight:800;color:#9a6200">✕ Tout afficher</a></div>`
+    : '';
+  document.getElementById('history').innerHTML = _drill + (_shown.length ? _shown.map(a => `
     <div class="ff-item">
       <div class="ff-item-title">${a.producer_name} - ${a.campaign_label}</div>
       <div class="ff-item-meta">Rentreess ${money(a.total_revenue_cfa)} CFA | Couts ${money(a.total_cost_cfa)} CFA</div>
@@ -318,7 +325,7 @@ async function loadAssessments() {
         <a href="#" onclick="downloadLivret(${a.id});return false" style="color:var(--primary);font-weight:800">Livret PDF</a>
         <a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Fiche producteur</a>
       </div>
-    </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>';
+    </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>');
 }
 
 function clearRows() {
