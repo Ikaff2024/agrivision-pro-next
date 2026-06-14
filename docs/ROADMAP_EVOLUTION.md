@@ -106,3 +106,37 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
 - **Tests verts avant tout push** ; push **uniquement** sur `origin`
   (`codex/cacaoguard-fusion`), jamais sur la prod sans feu vert explicite.
 - **Aucune action destructive ni manipulation d'argent** sans validation explicite.
+
+---
+
+## Passage à l'échelle — grandes coopératives (7000+ parcelles)
+
+> Identifié 2026-06-14 sur le cas réel **YEYASSO (~7000 parcelles)**. **Non bloquant pour la démo**
+> (coop démo = 8 parcelles), mais **prérequis avant l'onboarding en prod d'une grosse coop.**
+
+**Constat (vérifié dans le code) :**
+- **Affichage** : `producers.html` demande `limit=5000` (backend plafonné à 5000) ; liste EUDR plafonnée à 1000
+  (`app/api/eudr_routes.py`). Au-delà, des parcelles deviennent invisibles. Le backend producteurs **sait déjà
+  paginer** (`skip`+`limit`, `app/api/producer_routes.py`) mais le frontend ne s'en sert pas. ⚠️ Rendre 7000
+  lignes tuerait le navigateur de toute façon → il faut paginer/filtrer, pas « monter la limite ».
+- **Perf (le vrai bloquant)** : le score EUDR est **recalculé à la volée, parcelle par parcelle, dans une
+  boucle**. Le dashboard direction parcourt **toutes** les plantations et appelle `compute_eudr_score` sur
+  chacune (~4-5 requêtes/parcelle) → à 7000, **~30 000+ requêtes par chargement** → lent / timeout.
+
+**Priorités (post-démo) :**
+1. **P1 — scoring à l'échelle (bloquant)** : pré-calculer et **stocker** le score EUDR + le risque sur la
+   parcelle (recalcul à la mutation, ou tâche de nuit) ; dashboard / EUDR / readiness **lisent** la valeur
+   (1 requête) au lieu de recalculer en direct. Batcher les requêtes. Tester contre un seed de ~7000 parcelles.
+2. **P2 — pagination + filtres serveur** sur les listes (producteurs, plantations, EUDR) : naviguer par page /
+   filtrer (section, localité, statut EUDR, certif) ; ne jamais rendre 7000 lignes.
+3. **P3 — actions en masse** : import des polygones depuis le registre (les GPS y sont déjà), re-contrôle en
+   masse, dérogation export en lot — gérer 7000 parcelles par lots, jamais 1-à-1.
+
+> La **philosophie de contrôle** est déjà la bonne (agrégat dashboard + drill-down filtré + regroupement
+> « Prêt pour l'EUDR » par type de manque) : on agit sur le **sous-ensemble** non conforme, pas sur les 7000.
+
+**Méthode de travail recommandée** : développer sur une **branche dédiée** (PAS `codex/cacaoguard-fusion`
+qui est déployée), committer normalement (checkpoints + sauvegarde sur `origin` + tests), et **fusionner
+après la démo**. Railway/Netlify ne déploient que `codex/cacaoguard-fusion` → une branche feature = **zéro
+risque pour la démo** tout en gardant l'historique et la CI. (À éviter : un gros tas de modifications **non
+committées** en local pendant des jours — pas de points de restauration, risque de perte.)
