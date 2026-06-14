@@ -69,7 +69,8 @@ PAGE_MARKERS = {
         "saveDefoCheck",        # contrôle déforestation EUDR-01b
     ],
     "plantations.html": [
-        "loadEudrBadges",
+        "renderData",   # rendu de la liste paginée serveur (P2 scale)
+        "EUDR_CLS",     # badges EUDR (désormais en ligne dans renderData, plus de fetch séparé)
     ],
     "risk_assessment.html": [
         "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)

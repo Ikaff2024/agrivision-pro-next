@@ -273,97 +273,70 @@ function initCertFilter() {
     .catch(() => {});
 }
 
+// Pagination + filtres 100% serveur (P2 scale) : on ne charge QUE la page courante,
+// enrichie (score/risque/EUDR) par le backend. Plus de fetch global de 5000 lignes.
 function plantationEndpoint() {
-  const producerFilter = PRODUCER_FILTER_ID ? '&producer_id=' + encodeURIComponent(PRODUCER_FILTER_ID) : '';
-  const certParam = certFilter ? '&certification=' + encodeURIComponent(certFilter) : '';
-  if (assignmentFilter === 'mine') return PLANTATION_LIST_ENDPOINT + '&assigned_to_me=true' + producerFilter + certParam;
-  if (assignmentFilter.startsWith('tech:')) {
-    return PLANTATION_LIST_ENDPOINT + '&technician_id=' + encodeURIComponent(assignmentFilter.slice(5)) + producerFilter + certParam;
-  }
-  return PLANTATION_LIST_ENDPOINT + producerFilter + certParam;
+  const params = new URLSearchParams();
+  params.set('paginated', 'true');
+  params.set('page', String(page + 1));      // backend = 1-based
+  params.set('page_size', String(PAGE_SIZE));
+  const q = document.getElementById('search').value.trim();
+  if (q) params.set('search', q);
+  if (currentFilter !== 'all') params.set('risk', currentFilter);
+  if (certFilter) params.set('certification', certFilter);
+  if (PRODUCER_FILTER_ID) params.set('producer_id', PRODUCER_FILTER_ID);
+  if (assignmentFilter === 'mine') params.set('assigned_to_me', 'true');
+  else if (assignmentFilter.startsWith('tech:')) params.set('technician_id', assignmentFilter.slice(5));
+  return '/plantations?' + params.toString();
 }
 
-// Sprint Offline V1.6 - Phase 2 : Stale-While-Revalidate sur les lectures
+// Stale-While-Revalidate : cache instantané puis refresh réseau (1 seul endpoint paginé).
 async function load() {
   const endpoint = plantationEndpoint();
-  // 1. Affichage instantane depuis le cache IndexedDB (si dispo)
-  const [cachedP, cachedM] = await Promise.all([
-    AVPOffline.cacheGet(endpoint),
-    AVPOffline.cacheGet('/map/plantations'),
-  ]);
-  let hasCachedData = false;
-  if (cachedP) {
-    allPlantations = cachedP;
-    if (cachedM) cachedM.forEach(p => { mapData[p.id] = p; });
-    updatePlantationCount();
-    render();
-    hasCachedData = true;
-  }
-
-  // 2. Refresh reseau en arriere-plan (peut echouer si offline)
+  const cached = await AVPOffline.cacheGet(endpoint);
+  if (cached) renderData(cached);
   try {
-    const [r1, r2] = await Promise.all([
-      authFetch(endpoint),
-      authFetch('/map/plantations')
-    ]);
-    if (r1?.ok) {
-      const data = await r1.json();
-      allPlantations = data;
+    const r = await authFetch(endpoint);
+    if (r?.ok) {
+      const data = await r.json();
       AVPOffline.cacheSet(endpoint, data);
+      renderData(data);
+    } else if (!cached) {
+      renderOffline();
     }
-    if (r2?.ok) {
-      const md = await r2.json();
-      md.forEach(p => { mapData[p.id] = p; });
-      AVPOffline.cacheSet('/map/plantations', md);
-    }
-    updatePlantationCount();
-    render();
   } catch {
-    // Echec reseau (probablement offline)
-    if (!hasCachedData) {
-      // Aucun cache et pas de reseau : afficher empty state explicite
-      const tb = document.getElementById('tbody');
-      if (tb) {
-        tb.innerHTML = '<tr><td colspan="6">' +
-          '<div class="empty-state">' +
-          '<div class="empty-icon">📡</div>' +
-          '<div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune donnée disponible hors ligne</div>' +
-          '<div style="font-size:13px">Reconnectez-vous puis rechargez la page pour synchroniser vos plantations.</div>' +
-          '</div></td></tr>';
-      }
-      const sub = document.getElementById('count-sub');
-      if (sub) sub.textContent = 'Hors ligne — données non disponibles';
-    }
-    // Si on avait du cache, on garde simplement l'affichage cache (rien a faire)
+    if (!cached) renderOffline();
   }
 }
 
-function updatePlantationCount() {
-  const n = allPlantations.length;
-  const el = document.getElementById('count-sub');
-  if (el) {
-    el.textContent = n + ' plantation' + (n > 1 ? 's' : '') + ' enregistrée' + (n > 1 ? 's' : '');
-  }
-}
-
-function getFiltered() {
-  const q = document.getElementById('search').value.toLowerCase();
-  return allPlantations.filter(p => {
-    const md = mapData[p.id];
-    const risk = md?.risk_level || '';
-    if (currentFilter !== 'all' && risk !== currentFilter) return false;
-    if (q && !`${p.name} ${p.region||''} ${p.owner_name}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
-}
-
-function render() {
-  const filtered = getFiltered();
-  const start = page * PAGE_SIZE;
-  const slice = filtered.slice(start, start + PAGE_SIZE);
+function renderOffline() {
   const tb = document.getElementById('tbody');
+  if (tb) {
+    tb.innerHTML = '<tr><td colspan="6"><div class="empty-state">' +
+      '<div class="empty-icon">📡</div>' +
+      '<div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune donnée disponible hors ligne</div>' +
+      '<div style="font-size:13px">Reconnectez-vous puis rechargez la page pour synchroniser vos plantations.</div>' +
+      '</div></td></tr>';
+  }
+  const sub = document.getElementById('count-sub');
+  if (sub) sub.textContent = 'Hors ligne — données non disponibles';
+}
 
-  if (!filtered.length) {
+const EUDR_LBL = { conforme: 'Conforme', a_verifier: 'A verifier', non_conforme: 'Non conforme' };
+const EUDR_CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
+
+// Rend une page renvoyée par le backend ({items, total, total_pages}) — items déjà
+// filtrés/paginés/enrichis côté serveur (score, risque, EUDR en ligne).
+function renderData(data) {
+  const items = data.items || [];
+  const total = data.total || 0;
+  const totalPages = data.total_pages || 1;
+
+  const sub = document.getElementById('count-sub');
+  if (sub) sub.textContent = total + ' plantation' + (total > 1 ? 's' : '') + ' enregistrée' + (total > 1 ? 's' : '');
+
+  const tb = document.getElementById('tbody');
+  if (!items.length) {
     tb.innerHTML = `<tr><td colspan="6">
       <div class="empty-state">
         <div class="empty-icon">🌱</div>
@@ -374,10 +347,13 @@ function render() {
     return;
   }
 
-  tb.innerHTML = slice.map(p => {
-    const md = mapData[p.id];
-    const score = md?.score;
-    const risk  = md?.risk_level;
+  tb.innerHTML = items.map(p => {
+    const score = p.score;
+    const risk  = p.risk_level;
+    const es = p.eudr_status;
+    const eudrCell = es
+      ? `<span class="badge ${EUDR_CLS[es] || 'badge-med'}" title="Score ${p.eudr_score}/${p.eudr_max}">${EUDR_LBL[es] || es}</span>`
+      : '<span style="color:var(--faint);font-size:12px">—</span>';
     return `<tr>
       <td>
         <div class="plantation-name">
@@ -397,7 +373,7 @@ function render() {
         </div>` : '<span style="color:var(--faint)">—</span>'}
       </td>
       <td>${risk ? riskBadge(risk) : '<span style="color:var(--faint);font-size:12px">Non diagnostiqué</span>'}</td>
-      <td class="mob-hide" id="eudr-cell-${p.id}"><span style="color:var(--faint);font-size:12px">…</span></td>
+      <td class="mob-hide">${eudrCell}</td>
       <td style="text-align:right">
         <div class="action-btns">
           <button class="act-btn" onclick="viewDetail(${p.id})" title="Voir détail">
@@ -417,54 +393,27 @@ function render() {
     </tr>`;
   }).join('');
 
-  // Pagination
+  // Pagination serveur
   const pag = document.getElementById('pagination');
-  if (filtered.length > PAGE_SIZE) {
+  if (totalPages > 1) {
     pag.style.display = 'flex';
-    document.getElementById('pag-info').textContent = `${start+1}–${Math.min(start+PAGE_SIZE, filtered.length)} sur ${filtered.length}`;
-    document.getElementById('pag-prev').disabled = page === 0;
-    document.getElementById('pag-next').disabled = start + PAGE_SIZE >= filtered.length;
+    const from = page * PAGE_SIZE + 1;
+    const to = page * PAGE_SIZE + items.length;
+    document.getElementById('pag-info').textContent = `${from}–${to} sur ${total} · page ${page + 1}/${totalPages}`;
+    document.getElementById('pag-prev').disabled = page <= 0;
+    document.getElementById('pag-next').disabled = page >= totalPages - 1;
   } else {
     pag.style.display = 'none';
   }
-
-  // EUDR-01a : charger les statuts en batch et injecter dans les cellules
-  loadEudrBadges(slice);
 }
 
-async function loadEudrBadges(plantations) {
-  try {
-    const r = await authFetch('/eudr/plantations?limit=1000');
-    if (!r || !r.ok) return;
-    const data = await r.json();
-    const byId = {};
-    for (const item of (data.plantations || [])) {
-      byId[item.id] = item;
-    }
-    const LABELS = { conforme: 'Conforme', a_verifier: 'A verifier', non_conforme: 'Non conforme' };
-    const CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
-    for (const p of plantations) {
-      const cell = document.getElementById('eudr-cell-' + p.id);
-      if (!cell) continue;
-      const e = byId[p.id];
-      if (!e) {
-        cell.innerHTML = '<span style="color:var(--faint);font-size:12px">—</span>';
-        continue;
-      }
-      const cls = CLS[e.eudr_status] || 'badge-med';
-      cell.innerHTML = '<span class="badge ' + cls + '" title="Score ' + e.eudr_score + '/' + e.eudr_max + '">' +
-        LABELS[e.eudr_status] + '</span>';
-    }
-  } catch (_) { /* silent */ }
-}
-
-function filterRows() { page = 0; render(); }
+function filterRows() { page = 0; load(); }       // recherche → page 0, requête serveur
 function setFilter(f, el) {
   currentFilter = f;
   document.querySelectorAll('.ftab').forEach(t => t.classList.toggle('active', t.dataset.filter === f));
-  page = 0; render();
+  page = 0; load();                                // filtre risque serveur → page 0
 }
-function changePage(d) { page += d; render(); }
+function changePage(d) { page += d; load(); }      // pagination serveur
 function esc(s) { const el = document.createElement('div'); el.textContent = s||''; return el.innerHTML; }
 function viewDetail(id) { location.href = `plantation_detail.html?id=${id}`; }
 function goDiag(id)     { location.href = `diagnostic.html?id=${id}`; }
