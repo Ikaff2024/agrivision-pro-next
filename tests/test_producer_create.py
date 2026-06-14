@@ -32,6 +32,23 @@ def test_create_producer_direct_and_listed(client):
     assert dup.status_code == 409
 
 
+def test_producers_count_and_pagination(client):
+    """P2 scale : /producers/count + pagination limit/skip cohérents avec la liste."""
+    h = _login(client, email="pager.admin@test.ci", coop="Coop Pager")
+    for i in range(5):
+        r = client.post("/producers", json={"nom_complet": f"Producteur {i:02d}"}, headers=h)
+        assert r.status_code == 201, r.text
+    # /producers/count = total filtré, scope coopérative
+    assert client.get("/producers/count", headers=h).json()["total"] == 5
+    # Pagination : deux pages de 2, disjointes
+    p0 = client.get("/producers?limit=2&skip=0", headers=h).json()
+    p1 = client.get("/producers?limit=2&skip=2", headers=h).json()
+    assert len(p0) == 2 and len(p1) == 2
+    assert {p["id"] for p in p0}.isdisjoint({p["id"] for p in p1})
+    # Le count applique les MÊMES filtres que la liste (sinon le pager serait faux)
+    assert client.get("/producers/count?search=03", headers=h).json()["total"] == 1
+
+
 def test_create_producer_requires_name(client):
     h = _login(client, "prod.name@test.ci", "Coop Name")
     r = client.post("/producers", json={"nom_complet": "A"}, headers=h)  # < 2 caractères

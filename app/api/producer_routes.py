@@ -60,17 +60,13 @@ class ProducerCreate(BaseModel):
     sexe: Optional[str] = Field(None, pattern="^[HF]$")
 
 
-@router.get("/producers", response_model=List[ProducerResponse])
-def list_producers(
-    limit: int = Query(500, ge=1, le=5000),
-    skip: int = Query(0, ge=0),
-    search: Optional[str] = None,
-    localite: Optional[str] = None,
-    section: Optional[str] = None,
-    certification: Optional[str] = Query(None, description="Filtre : producteurs ayant une plantation certifiée (code)"),
-    db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
-):
+def _filtered_producers_query(db, current_user, search=None, localite=None,
+                              section=None, certification=None):
+    """Construit la requête producteurs filtrée (sans tri ni pagination).
+
+    Partagée par la liste paginée ET le comptage, pour que le total du pager
+    corresponde exactement aux lignes affichées (mêmes filtres, même scope coop).
+    """
     query = db.query(Producer).filter(Producer.is_active == True)
 
     # Cloisonnement multi-tenant : un utilisateur ne voit que sa cooperative.
@@ -107,7 +103,38 @@ def list_producers(
             query = query.filter(Producer.id.in_(prod_ids or [-1]))
         else:
             query = query.filter(Producer.id.in_([-1]))
+    return query
 
+
+@router.get("/producers/count")
+def count_producers(
+    search: Optional[str] = None,
+    localite: Optional[str] = None,
+    section: Optional[str] = None,
+    certification: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Total des producteurs correspondant aux filtres — pour la pagination (P2 scale).
+
+    Défini AVANT /producers/{...} éventuels : « count » ne doit pas être pris pour un id.
+    """
+    q = _filtered_producers_query(db, current_user, search, localite, section, certification)
+    return {"total": q.count()}
+
+
+@router.get("/producers", response_model=List[ProducerResponse])
+def list_producers(
+    limit: int = Query(500, ge=1, le=5000),
+    skip: int = Query(0, ge=0),
+    search: Optional[str] = None,
+    localite: Optional[str] = None,
+    section: Optional[str] = None,
+    certification: Optional[str] = Query(None, description="Filtre : producteurs ayant une plantation certifiée (code)"),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    query = _filtered_producers_query(db, current_user, search, localite, section, certification)
     return query.order_by(Producer.nom_complet.asc()).offset(skip).limit(limit).all()
 
 

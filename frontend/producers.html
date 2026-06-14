@@ -70,6 +70,13 @@
             </tbody>
           </table>
         </div>
+        <div id="pager" style="display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 4px 2px;border-top:1px solid var(--border);margin-top:8px">
+          <span class="muted" id="pager-info" style="font-size:12.5px"></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm" id="pager-prev" onclick="goPage(-1)">← Précédent</button>
+            <button class="btn btn-outline btn-sm" id="pager-next" onclick="goPage(1)">Suivant →</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -102,27 +109,69 @@ initApp('producers');
 let _all = [];
 let _searchTimer = null;
 let certFilter = '';
+let _page = 0;            // page courante (0-based)
+let _total = 0;          // total filtré (pour le pager)
+const PAGE_SIZE = 50;    // on n'affiche jamais 7000 lignes d'un coup → pagination serveur
 
 function esc(s){ const d=document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
 
-async function load(search) {
+function _filterParams() {
+  const params = new URLSearchParams();
+  const q = document.getElementById('search').value.trim();
+  if (q) params.set('search', q);
+  if (certFilter) params.set('certification', certFilter);
+  return params;
+}
+
+async function load(resetPage) {
+  if (resetPage) _page = 0;
   const tb = document.getElementById('tbody');
   tb.innerHTML = '<tr><td colspan="6" class="empty">Chargement…</td></tr>';
-  const params = new URLSearchParams({ limit: '5000' });
-  if (search) params.set('search', search);
-  if (certFilter) params.set('certification', certFilter);
-  const qs = '?' + params.toString();
+
+  // Total filtré (pour le pager) — mêmes filtres que la liste
+  try {
+    const rc = await authFetch('/producers/count?' + _filterParams().toString());
+    _total = rc?.ok ? ((await rc.json()).total || 0) : 0;
+  } catch { _total = 0; }
+
+  // Page courante uniquement (limit + skip) → jamais 7000 lignes rendues
+  const params = _filterParams();
+  params.set('limit', String(PAGE_SIZE));
+  params.set('skip', String(_page * PAGE_SIZE));
   let rows = [];
   try {
-    const r = await authFetch('/producers' + qs);
+    const r = await authFetch('/producers?' + params.toString());
     rows = r?.ok ? await r.json() : [];
   } catch { rows = []; }
   _all = rows;
   render(rows);
-  // KPIs (sur le jeu courant)
-  document.getElementById('k-total').textContent = rows.length;
+
+  document.getElementById('k-total').textContent = _total.toLocaleString('fr-FR');
   document.getElementById('k-shown').textContent = rows.length;
   document.getElementById('k-localites').textContent = new Set(rows.map(p => p.localite).filter(Boolean)).size;
+  renderPager(rows.length);
+}
+
+function renderPager(pageCount) {
+  const pager = document.getElementById('pager');
+  if (!pager) return;
+  const pages = Math.max(1, Math.ceil(_total / PAGE_SIZE));
+  if (_total <= PAGE_SIZE) { pager.style.display = 'none'; return; }
+  pager.style.display = 'flex';
+  const from = _total ? _page * PAGE_SIZE + 1 : 0;
+  const to = _page * PAGE_SIZE + pageCount;
+  document.getElementById('pager-info').textContent =
+    `${from.toLocaleString('fr-FR')}–${to.toLocaleString('fr-FR')} sur ${_total.toLocaleString('fr-FR')} · page ${_page + 1}/${pages}`;
+  document.getElementById('pager-prev').disabled = _page <= 0;
+  document.getElementById('pager-next').disabled = _page >= pages - 1;
+}
+
+function goPage(delta) {
+  const pages = Math.max(1, Math.ceil(_total / PAGE_SIZE));
+  const next = Math.min(Math.max(0, _page + delta), pages - 1);
+  if (next === _page) return;
+  _page = next;
+  load(false);
 }
 
 function render(rows) {
@@ -144,14 +193,13 @@ function render(rows) {
 }
 
 function onSearch() {
-  const q = document.getElementById('search').value.trim();
   clearTimeout(_searchTimer);
-  _searchTimer = setTimeout(() => load(q || null), 300);
+  _searchTimer = setTimeout(() => load(true), 300);  // nouvelle recherche → page 0
 }
 
 function onCertChange() {
   certFilter = document.getElementById('cert-filter').value || '';
-  load(document.getElementById('search').value.trim() || null);
+  load(true);  // nouveau filtre → page 0
 }
 
 // Peuple le filtre avec les certifications réellement présentes dans la coopérative.
@@ -198,7 +246,7 @@ async function createProducer() {
     if (!r || !r.ok) throw new Error(body.detail || 'Création impossible.');
     closeNewProducer();
     toast('Producteur créé.');
-    load(document.getElementById('search').value.trim() || null);
+    load(false);
   } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
   finally { btn.disabled = false; btn.textContent = 'Créer'; }
 }
