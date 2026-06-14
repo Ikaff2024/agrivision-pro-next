@@ -267,6 +267,7 @@ def get_plantations(
     section: Optional[str] = Query(None, description="Filtre par section"),
     certification: Optional[str] = Query(None, description="Filtre par code certification"),
     diagnostic: Optional[str] = Query(None, description="diagnosed | not_diagnosed"),
+    risk: Optional[str] = Query(None, description="Filtre par niveau de risque du dernier diagnostic : LOW|MEDIUM|HIGH"),
     page: Optional[int] = Query(None, ge=1, description="Numero de page (mode pagine)"),
     page_size: int = Query(100, ge=1, le=5000, description="Taille de page"),
     paginated: bool = Query(False, description="Si true, renvoie un objet pagine"),
@@ -360,6 +361,22 @@ def get_plantations(
             if diagnosed_ids:
                 q = q.filter(~Plantation.id.in_(diagnosed_ids))
 
+    # --- Filtre par niveau de risque (dernier diagnostic) — P2 scale ---
+    if risk and isinstance(risk, str) and risk.strip():
+        from sqlalchemy import func as _f
+        latest_diag = (
+            db.query(Diagnostic.plantation_id, _f.max(Diagnostic.created_at).label("mc"))
+            .group_by(Diagnostic.plantation_id).subquery()
+        )
+        risk_ids = [
+            row[0] for row in db.query(Diagnostic.plantation_id)
+            .join(latest_diag, (Diagnostic.plantation_id == latest_diag.c.plantation_id)
+                  & (Diagnostic.created_at == latest_diag.c.mc))
+            .filter(_f.upper(Diagnostic.global_risk_level) == risk.strip().upper())
+            .all()
+        ]
+        q = q.filter(Plantation.id.in_(risk_ids or [-1]))
+
     # --- Mode pagine ou liste brute ---
     if paginated or page is not None:
         current_page = page or 1
@@ -370,9 +387,39 @@ def get_plantations(
             .limit(page_size)
             .all()
         )
+        # Enrichissement de la page (P2 scale) : score EUDR (cache) + dernier diagnostic.
+        # Fait UNIQUEMENT sur la page (≤ page_size lignes) → reste rapide à 7000 parcelles.
+        from app.eudr.score_cache import ensure_scores
+        ensure_scores(items, db)
+        page_ids = [p.id for p in items]
+        diag_map = {}
+        if page_ids:
+            for pid, gscore, grisk in (
+                db.query(Diagnostic.plantation_id, Diagnostic.global_score, Diagnostic.global_risk_level)
+                .filter(Diagnostic.plantation_id.in_(page_ids))
+                .order_by(Diagnostic.plantation_id, Diagnostic.created_at.desc())
+                .all()
+            ):
+                if pid not in diag_map:  # 1re occurrence = diagnostic le plus récent (tri desc)
+                    diag_map[pid] = (gscore, grisk)
+        enriched = []
+        for p in items:
+            gscore, grisk = diag_map.get(p.id, (None, None))
+            enriched.append({
+                "id": p.id, "name": p.name, "owner_name": p.owner_name,
+                "region": p.region, "country": p.country, "hectares": p.hectares,
+                "latitude": p.latitude, "longitude": p.longitude,
+                "producer_id": p.producer_id,
+                "score": float(gscore) if gscore is not None else None,
+                "risk_level": grisk,
+                "eudr_status": p.eudr_status,
+                "eudr_score": p.eudr_score,
+                "eudr_max": p.eudr_max_score,
+                "export_waiver": p.export_waiver_at is not None,
+            })
         total_pages = (total + page_size - 1) // page_size if page_size else 1
         return {
-            "items": items,
+            "items": enriched,
             "total": total,
             "page": current_page,
             "page_size": page_size,
