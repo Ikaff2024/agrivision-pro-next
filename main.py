@@ -192,6 +192,20 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info("Migrations Fiche B eco : OK (housing_type, household_assets, allow_worker_interview, head_photo_ref)")
 
+                # Cache du score EUDR par parcelle (P1 — passage à l'échelle 7000+ parcelles)
+                for col_ddl in [
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_score INTEGER",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_max_score INTEGER",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_status VARCHAR(20)",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_color VARCHAR(10)",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_has_polygon BOOLEAN",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_rules_failed JSON",
+                    "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS eudr_computed_at TIMESTAMP",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migrations EUDR cache : OK (eudr_score/max/status/color/has_polygon/rules_failed/computed_at)")
+
                 # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
                 for col_ddl in [
                     "ALTER TABLE farmforce_assessments ADD COLUMN IF NOT EXISTS household_expense_items JSON",

@@ -36,6 +36,7 @@ from app.db.models_social import (
     TraceabilityBlock,
 )
 from app.eudr.scoring import compute_eudr_score
+from app.eudr.score_cache import ensure_scores
 from app.services.farmforce_reports import living_income_assessment
 
 router = APIRouter(prefix="/dashboard", tags=["Tableau de bord direction"])
@@ -71,13 +72,13 @@ def direction_dashboard(
     with_polygon = 0
     total_score = 0
     total_max = 0
+    ensure_scores(plantations, db)  # cache EUDR (P1) : 1 passe, puis lecture des colonnes
     for p in plantations:
-        s = compute_eudr_score(p, db)
-        eudr_counts[s.status] = eudr_counts.get(s.status, 0) + 1
-        if s.has_polygon:
+        eudr_counts[p.eudr_status] = eudr_counts.get(p.eudr_status, 0) + 1
+        if p.eudr_has_polygon:
             with_polygon += 1
-        total_score += s.score
-        total_max += s.max_score
+        total_score += p.eudr_score or 0
+        total_max += p.eudr_max_score or 0
     eudr_compliance_rate = round(eudr_counts["conforme"] / total_plantations * 100, 1) if total_plantations else 0.0
     eudr_avg_score = round(total_score / total_max * 100, 1) if total_max else 0.0
 

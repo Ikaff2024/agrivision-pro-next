@@ -71,6 +71,16 @@ class Plantation(Base):
     export_waiver_by     = Column(String, nullable=True)
     export_waiver_at     = Column(DateTime(timezone=True), nullable=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
+    # Cache du score EUDR (P1 — passage à l'échelle) : évite de recalculer en boucle
+    # dans les agrégats (dashboard / readiness / summary / liste). Rafraîchi à la mutation
+    # (délimitation, contrôle déforestation) + recompute en masse / paresseux.
+    eudr_score        = Column(Integer, nullable=True)
+    eudr_max_score    = Column(Integer, nullable=True)
+    eudr_status       = Column(String(20), nullable=True, index=True)
+    eudr_color        = Column(String(10), nullable=True)
+    eudr_has_polygon  = Column(Boolean, nullable=True)
+    eudr_rules_failed = Column(JSON, nullable=True)
+    eudr_computed_at  = Column(DateTime(timezone=True), nullable=True)
 
     cooperative  = relationship("Cooperative", back_populates="plantations")
     producer     = relationship("Producer", back_populates="plantations")

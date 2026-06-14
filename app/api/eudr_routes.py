@@ -29,6 +29,7 @@ from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import DeforestationCheck, Plantation, User
 from app.eudr.scoring import EUDR_CUTOFF_YEAR, compute_eudr_score
+from app.eudr.score_cache import ensure_scores, refresh_plantation_eudr, refresh_all_eudr
 from app.services.eudr_reports import build_dds_context, dds_filename, generate_dds_pdf
 
 router = APIRouter(prefix="", tags=["EUDR - conformite parcellaire"])
@@ -205,17 +206,17 @@ def get_cooperative_summary(
             "compliance_rate_pct": 0.0,
         }
 
+    ensure_scores(plantations, db)  # lit le cache ; calcule les manquants en 1 passe
     by_status = {"conforme": 0, "a_verifier": 0, "non_conforme": 0}
     with_poly = 0
     total_score = 0
     total_max = 0
     for p in plantations:
-        s = compute_eudr_score(p, db)
-        by_status[s.status] = by_status.get(s.status, 0) + 1
-        if s.has_polygon:
+        by_status[p.eudr_status] = by_status.get(p.eudr_status, 0) + 1
+        if p.eudr_has_polygon:
             with_poly += 1
-        total_score += s.score
-        total_max += s.max_score
+        total_score += p.eudr_score or 0
+        total_max += p.eudr_max_score or 0
 
     total = len(plantations)
     avg = (total_score / total_max * 100) if total_max else 0
@@ -262,16 +263,16 @@ def eudr_readiness(
         rid: {"rule_id": rid, "label": label, "action": action, "count": 0, "plantations": []}
         for rid, label, action in _GAP_DEFS
     }
+    ensure_scores(plantations, db)
     total = 0
     ready = 0
     for p in plantations:
-        score = compute_eudr_score(p, db)
         total += 1
-        if score.status == "conforme":
+        if p.eudr_status == "conforme":
             ready += 1
-        for rule in score.rules:
-            if not rule.passed and rule.rule_id in gaps:
-                g = gaps[rule.rule_id]
+        for rid in (p.eudr_rules_failed or []):
+            if rid in gaps:
+                g = gaps[rid]
                 g["count"] += 1
                 if len(g["plantations"]) < 100:
                     g["plantations"].append({
@@ -303,9 +304,10 @@ def list_plantations_with_eudr(
         raise HTTPException(status_code=403, detail="EUDR : role viewer non autorise.")
     plantations = _accessible_plantations(db, current_user)
 
+    subset = plantations[:limit]
+    ensure_scores(subset, db)
     enriched = []
-    for p in plantations[:limit]:
-        s = compute_eudr_score(p, db)
+    for p in subset:
         enriched.append({
             "id": p.id,
             "name": p.name,
@@ -315,13 +317,13 @@ def list_plantations_with_eudr(
             "hectares": p.hectares,
             "latitude": p.latitude,
             "longitude": p.longitude,
-            "eudr_score": s.score,
-            "eudr_max": s.max_score,
-            "eudr_status": s.status,
-            "eudr_color": s.badge_color,
-            "has_polygon": s.has_polygon,
+            "eudr_score": p.eudr_score or 0,
+            "eudr_max": p.eudr_max_score or 0,
+            "eudr_status": p.eudr_status or "a_verifier",
+            "eudr_color": p.eudr_color or "orange",
+            "has_polygon": bool(p.eudr_has_polygon),
             "export_waiver": p.export_waiver_at is not None,
-            "rules_failed": [r.rule_id for r in s.rules if not r.passed],
+            "rules_failed": p.eudr_rules_failed or [],
         })
 
     if sort == "name":
@@ -333,6 +335,22 @@ def list_plantations_with_eudr(
         enriched.sort(key=lambda x: (status_order.get(x["eudr_status"], 9), x["eudr_score"]))
 
     return {"count": len(enriched), "plantations": enriched}
+
+
+@router.post("/eudr/recompute")
+def recompute_eudr_scores(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Recalcule et met en cache le score EUDR de toutes les parcelles de la coopérative.
+
+    À lancer après un gros import (ou périodiquement) pour que les agrégats restent
+    instantanés. Réservé à la direction (admin / agronome), scope coopérative.
+    """
+    if current_user.role not in {"admin", "agronomist"}:
+        raise HTTPException(status_code=403, detail="Recompute EUDR réservé à la direction.")
+    n = refresh_all_eudr(db, coop_id=current_user.cooperative_id)
+    return {"recomputed": n}
 
 
 # ----------------------------------------------------------------------------
@@ -376,8 +394,9 @@ def record_deforestation_check(
     db.add(check)
     db.commit()
     db.refresh(check)
-    # Renvoie aussi le score recalcule pour rafraichir l'UI immediatement.
-    score = compute_eudr_score(plantation, db)
+    # La déforestation change le score → met à jour le cache + renvoie le score frais.
+    score = refresh_plantation_eudr(plantation, db)
+    db.commit()
     return {"check": _deforestation_check_to_dict(check), "eudr_score": score.to_dict()}
 
 

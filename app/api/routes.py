@@ -2053,6 +2053,10 @@ def save_boundary(
 
     db.commit()
     db.refresh(boundary)
+    # Délimitation modifiée → le score EUDR change (polygone / aire / GPS) : rafraîchir le cache.
+    from app.eudr.score_cache import refresh_plantation_eudr
+    refresh_plantation_eudr(plantation, db)
+    db.commit()
 
     return {
         "id": boundary.id,
