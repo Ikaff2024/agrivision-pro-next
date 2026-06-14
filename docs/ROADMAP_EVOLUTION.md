@@ -123,14 +123,21 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
   boucle**. Le dashboard direction parcourt **toutes** les plantations et appelle `compute_eudr_score` sur
   chacune (~4-5 requêtes/parcelle) → à 7000, **~30 000+ requêtes par chargement** → lent / timeout.
 
-**Priorités (post-démo) :**
-1. **P1 — scoring à l'échelle (bloquant)** : pré-calculer et **stocker** le score EUDR + le risque sur la
-   parcelle (recalcul à la mutation, ou tâche de nuit) ; dashboard / EUDR / readiness **lisent** la valeur
-   (1 requête) au lieu de recalculer en direct. Batcher les requêtes. Tester contre un seed de ~7000 parcelles.
-2. **P2 — pagination + filtres serveur** sur les listes (producteurs, plantations, EUDR) : naviguer par page /
-   filtrer (section, localité, statut EUDR, certif) ; ne jamais rendre 7000 lignes.
-3. **P3 — actions en masse** : import des polygones depuis le registre (les GPS y sont déjà), re-contrôle en
-   masse, dérogation export en lot — gérer 7000 parcelles par lots, jamais 1-à-1.
+**Avancement (2026-06-14) — livré ET déployé sur `codex/cacaoguard-fusion` :**
+1. **P1 — scoring à l'échelle** ✅ **FAIT** : score EUDR mis en cache sur la parcelle (colonnes `eudr_*`),
+   les agrégats (dashboard / EUDR summary / readiness / liste) **lisent le cache** ; refresh à la
+   délimitation + au contrôle déforestation ; `POST /eudr/recompute` (recompute en masse, après un gros
+   import). Code : `app/eudr/score_cache.py`. Mesure : **638 ms → 16 ms (~×40)** sur 800 parcelles (SQLite mémoire).
+2. **P2 — pagination + filtres serveur** ✅ **producteurs + plantations FAIT** : producteurs paginés
+   (`/producers/count` + skip/limit, pager UI) ; plantations via `/plantations?paginated=true` enrichi
+   (score/risque/EUDR **en ligne** depuis le cache P1) + filtre `risk`. **Reste** : transformer les `<select>`
+   producteurs de children / FarmForce / SSRTE (`?limit=1000`) en **sélecteurs cherchables** (ne gêne qu'à ~7000).
+3. **P3 — actions en masse** ⏳ **À FAIRE** : import des polygones depuis le registre (les GPS y sont déjà),
+   re-contrôle en masse, dérogation export en lot — gérer 7000 parcelles par lots, jamais 1-à-1.
+
+> ℹ️ Le **gel démo est levé** (le client passe par un entretien téléphonique, pas de démo immédiate) : on
+> déploie de nouveau normalement sur `codex/cacaoguard-fusion`. P1 + P2 (producteurs + plantations) + le
+> regroupement du menu par 4 piliers sont **en prod** (SW v4.52).
 
 > La **philosophie de contrôle** est déjà la bonne (agrégat dashboard + drill-down filtré + regroupement
 > « Prêt pour l'EUDR » par type de manque) : on agit sur le **sous-ensemble** non conforme, pas sur les 7000.
