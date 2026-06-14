@@ -634,44 +634,36 @@ function renderSidebar(activePage) {
   const user = getCurrentUser();
   const _cachedMods = getCachedModules();  // gating immédiat (anti-flash) depuis le cache
   const init = user ? user.email.substring(0, 2).toUpperCase() : '??';
-  // Menu regroupé par les 4 piliers (+ socle). L'ordre du tableau = l'ordre d'affichage ;
-  // un en-tête de section est rendu à chaque changement de `group`. Les id/href/icon/label
-  // sont inchangés → le feature-gating (data-mod), l'état actif et navClick ne bougent pas.
   const links = [
-    // 📊 Piloter — décider et prouver (Dashboard en tête = page d'accueil)
-    { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard', group: '📊 Piloter' },
-    { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction', group: '📊 Piloter' },
-    { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports', group: '📊 Piloter' },
-    { id: 'veille', href: 'veille.html', icon: 'trending_up', label: 'Veille Marché', group: '📊 Piloter' },
-    // 🌱 Produire — exploitations & performance
-    { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations', group: '🌱 Produire' },
-    { id: 'producers', href: 'producers.html', icon: 'groups', label: 'Producteurs', group: '🌱 Produire' },
-    { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic', group: '🌱 Produire' },
-    { id: 'map', href: 'map.html', icon: 'map', label: 'Carte', group: '🌱 Produire' },
-    { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite', group: '🌱 Produire' },
-    { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie', group: '🌱 Produire' },
-    { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes', group: '🌱 Produire' },
-    { id: 'twin-risk', href: 'twin_risk.html', icon: 'crisis_alert', label: 'Parcelles à risque', group: '🌱 Produire' },
-    // 📦 Tracer — du champ à l'acheteur
-    { id: 'purchases', href: 'achats.html', icon: 'shopping_cart', label: 'Achats', group: '📦 Tracer' },
-    { id: 'lots', href: 'lots.html', icon: 'inventory_2', label: 'Traçabilité lots', group: '📦 Tracer' },
-    { id: 'certification', href: 'certification.html', icon: 'workspace_premium', label: 'Certification', group: '📦 Tracer' },
-    // 🌍 Protéger — conformité & durabilité
-    { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard', group: '🌍 Protéger' },
-    { id: 'children', href: 'children.html', icon: 'diversity_3', label: 'Protection enfant', group: '🌍 Protéger' },
-    { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE', group: '🌍 Protéger' },
-    { id: 'eudr', href: 'eudr.html', icon: 'eco', label: 'EUDR', group: '🌍 Protéger' },
-    { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite', group: '🌍 Protéger' },
-    { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce', group: '🌍 Protéger' },
-    { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring', group: '🌍 Protéger' },
-    { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation', group: '🌍 Protéger' },
-    { id: 'complaints', href: 'complaints.html', icon: 'report', label: 'Signalements', group: '🌍 Protéger' },
-    { id: 'training', href: 'training.html', icon: 'school', label: 'Formation', group: '🌍 Protéger' },
-    // ⚙️ Configuration & aide
-    { id: 'guide', href: 'guide.html', icon: 'menu_book', label: 'Aide / Guide', group: '⚙️ Configuration' },
+    { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard' },
+    { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction' },
+    { id: 'plantations', href: 'plantations.html', icon: 'park', label: 'Plantations' },
+    { id: 'producers', href: 'producers.html', icon: 'groups', label: 'Producteurs' },
+    { id: 'diagnostic', href: 'diagnostic.html', icon: 'biotech', label: 'Diagnostic' },
+    { id: 'map', href: 'map.html', icon: 'map', label: 'Carte' },
+    { id: 'twin-risk', href: 'twin_risk.html', icon: 'crisis_alert', label: 'Parcelles à risque' },
+    { id: 'satellite', href: 'satellite.html', icon: 'satellite_alt', label: 'Satellite' },
+    { id: 'agroforestry', href: 'agroforestry.html', icon: 'forest', label: 'Agroforesterie' },
+    { id: 'harvests', href: 'harvests.html', icon: 'agriculture', label: 'Récoltes' },
+    { id: 'purchases', href: 'achats.html', icon: 'shopping_cart', label: 'Achats' },
+    { id: 'lots', href: 'lots.html', icon: 'inventory_2', label: 'Traçabilité lots' },
+    { id: 'veille', href: 'veille.html', icon: 'trending_up', label: 'Veille Marché' },
+    { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce' },
+    { id: 'cacaoguard', href: 'cacaoguard.html', icon: 'verified_user', label: 'CacaoGuard' },
+    { id: 'children', href: 'children.html', icon: 'diversity_3', label: 'Protection enfant' },
+    { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring' },
+    { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE' },
+    { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation' },
+    { id: 'complaints', href: 'complaints.html', icon: 'report', label: 'Signalements' },
+    { id: 'training', href: 'training.html', icon: 'school', label: 'Formation' },
+    { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite' },
+    { id: 'certification', href: 'certification.html', icon: 'workspace_premium', label: 'Certification' },
+    { id: 'eudr', href: 'eudr.html', icon: 'eco', label: 'EUDR' },
+    { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports' },
+    { id: 'guide', href: 'guide.html', icon: 'menu_book', label: 'Aide / Guide' },
   ];
   if (user && user.role === 'admin') {
-    links.push({ id: 'admin', href: 'admin.html', icon: 'admin_panel_settings', label: 'Administration', group: '⚙️ Configuration' });
+    links.push({ id: 'admin', href: 'admin.html', icon: 'admin_panel_settings', label: 'Administration' });
   }
 
   const userBlock = user ? `
@@ -717,18 +709,14 @@ function renderSidebar(activePage) {
       </div>
     </div>
     <nav class="sb-nav">
-      ${(() => {
-        let _grp = null;
-        return links.map(l => {
-          const _locked = _cachedMods && !_cachedMods.has(l.id) ? ' locked' : '';
-          let _hdr = '';
-          if (l.group && l.group !== _grp) { _hdr = `<div class="sb-sec">${l.group}</div>`; _grp = l.group; }
-          return _hdr + `
+      <div class="sb-sec">Navigation</div>
+      ${links.map(l => {
+        const _locked = _cachedMods && !_cachedMods.has(l.id) ? ' locked' : '';
+        return `
         <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}${_locked}" onclick="return navClick(event, this)">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`;
-        }).join('');
-      })()}
+      }).join('')}
     </nav>
     ${userBlock}`;
 }
