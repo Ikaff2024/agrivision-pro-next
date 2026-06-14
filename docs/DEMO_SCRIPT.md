@@ -9,6 +9,23 @@
 
 ---
 
+## Les 4 piliers (structure du pitch)
+
+> Présente AgriVision Pro comme **4 piliers**, pas comme 13 menus. C'est mémorisable et calé sur les paliers d'abonnement.
+
+| Pilier | Promesse | Modules | Palier |
+|---|---|---|---|
+| 🌱 **Produire** | Mieux produire, parcelle par parcelle | Plantations, Diagnostic/Carte/Satellite, Agroforesterie/Récoltes, Jumeau | core / premium |
+| 📦 **Tracer** | Du champ à l'acheteur, sans rupture | Achats, Lots, Certification | commercial |
+| 🌍 **Protéger** | Accès marché : EUDR, travail des enfants, revenu vital | EUDR, CacaoGuard/SSRTE, FarmForce, Suivi terrain | conformité / premium |
+| 📊 **Piloter** | Décider et prouver | Dashboard, Direction, Rapports | transverse |
+
+*(Socle, hors pitch : Démarrage, Administration, Import — la mise en route.)*
+
+**Ordre de démo conseillé** : mène par **🌍 Protéger + 📦 Tracer** (la douleur EUDR / accès marché qui déclenche l'achat), puis **🌱 Produire** (gain de productivité), puis **📊 Piloter** (contrôle direction). Ne commence **pas** par « Produire » : c'est le moins différenciant.
+
+---
+
 ## Bascule vers la coop démo « Coopérative Démo Cacao 2026 » (à faire une fois)
 
 > ⚠️ **Prérequis avant toute démo** : le frontend doit être **publié** (Netlify). Vérifier qu'il n'y a
