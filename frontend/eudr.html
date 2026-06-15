@@ -63,10 +63,17 @@
         <div class="page-title">Conformité EUDR</div>
         <div class="page-sub">Score parcellaire pour la régulation UE déforestation (Règl. 2023/1115)</div>
       </div>
-      <button class="btn btn-outline" onclick="loadAll()">
-        <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
-        Actualiser
-      </button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="loadAll()">
+          <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+          Actualiser
+        </button>
+        <button id="btn-recompute" class="btn btn-outline" style="display:none" onclick="recomputeEudr()"
+                title="Recalculer le score EUDR de toutes les parcelles (utile après un import massif)">
+          <span class="material-symbols-outlined" style="font-size:18px">calculate</span>
+          Recalculer les scores
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -200,6 +207,8 @@ async function cgFetch(endpoint, options = {}) {
 
 const IS_ADMIN = (typeof getCurrentUser === 'function' && (getCurrentUser() || {}).role === 'admin');
 const CAN_DELIMIT = (typeof getCurrentUser === 'function' && ['admin', 'agronomist'].includes((getCurrentUser() || {}).role));
+// Recompute en masse réservé admin/agronome (même gating que POST /eudr/recompute).
+if (CAN_DELIMIT) { const _rb = document.getElementById('btn-recompute'); if (_rb) _rb.style.display = ''; }
 const STATUS_LBL = { conforme: 'Conforme', a_verifier: 'À vérifier', non_conforme: 'Non conforme' };
 const STATUS_CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
 const RULE_LBL = {
@@ -308,6 +317,35 @@ async function generateMissingBoundaries() {
   if (without > 0) msg += ` ${without} parcelle(s) sans GPS/superficie — à délimiter manuellement.`;
   toast(msg);
   await loadAll();   // recharge readiness + table + résumé (et réactive le bouton via re-render)
+}
+
+// Recalcule le cache de score EUDR de toutes les parcelles (POST /eudr/recompute, P1).
+// Utile après un import massif ; l'import le déclenche déjà en tâche de fond, ce bouton
+// permet de forcer le recalcul à la demande.
+async function recomputeEudr() {
+  const ok = await avpConfirm(
+    'Recalculer le score EUDR de toutes les parcelles de la coopérative ? ' +
+    'Utile après un import massif. Peut prendre un moment sur de gros volumes.',
+    { okText: 'Recalculer' }
+  );
+  if (!ok) return;
+  const btn = document.getElementById('btn-recompute');
+  if (btn) btn.disabled = true;
+  toast('Recalcul des scores EUDR en cours…');
+  try {
+    const r = await cgFetch('/eudr/recompute', { method: 'POST' });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.detail || 'Échec du recalcul.');
+    }
+    const b = await r.json();
+    toast(`${b.recomputed || 0} parcelle(s) recalculée(s).`);
+    await loadAll();
+  } catch (e) {
+    toast((e && e.message) || 'Échec du recalcul.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadSummary() {

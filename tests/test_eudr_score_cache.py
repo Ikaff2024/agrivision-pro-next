@@ -121,3 +121,26 @@ def test_refresh_all_scoped_by_coop(client):
         assert all(p.eudr_computed_at is None for p in pb)  # coop B non touchée
     finally:
         db.close()
+
+
+def test_warm_eudr_cache_after_import(client):
+    """La tâche de fond post-import (`_warm_eudr_cache`) recompute toute la coop."""
+    from app.api.import_routes import _warm_eudr_cache
+    db = TestingSessionLocal()
+    try:
+        coop = _coop(db, "Coop Warm")
+        ids = [_plant(db, coop, name=f"W{i}").id for i in range(3)]
+        coop_id = coop.id
+    finally:
+        db.close()
+
+    # Session injectée = session de test (la vraie SessionLocal vise une autre DB).
+    _warm_eudr_cache(coop_id, _session_factory=TestingSessionLocal)
+
+    db = TestingSessionLocal()
+    try:
+        rows = db.query(Plantation).filter(Plantation.id.in_(ids)).all()
+        assert len(rows) == 3
+        assert all(p.eudr_computed_at is not None for p in rows)
+    finally:
+        db.close()

@@ -14,7 +14,7 @@ import tempfile
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Header, BackgroundTasks
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,27 @@ router = APIRouter(prefix="/import", tags=["import"])
 
 # Taille maximale acceptee : 50 Mo
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+def _warm_eudr_cache(cooperative_id: int, _session_factory=None):
+    """Recalcule le cache EUDR de la coop après un import (tâche de fond).
+
+    Lancée via BackgroundTasks : la session de la requête est déjà fermée quand
+    la tâche s'exécute, on en ouvre donc une dédiée. Sur un gros import, ça évite
+    que le premier affichage du tableau de bord recalcule 7000 scores à la volée.
+    `_session_factory` permet l'injection d'une session de test.
+    """
+    from app.db.database import SessionLocal
+    from app.eudr.score_cache import refresh_all_eudr
+    factory = _session_factory or SessionLocal
+    db = factory()
+    try:
+        n = refresh_all_eudr(db, coop_id=cooperative_id)
+        logger.info("Cache EUDR rechauffe apres import : %s parcelle(s) (coop %s).", n, cooperative_id)
+    except Exception as e:  # ne jamais faire echouer l'import a cause du rechauffage
+        logger.warning("Rechauffage cache EUDR post-import echoue (ignore) : %s", e)
+    finally:
+        db.close()
 
 
 def _check_owner_key(x_owner_key):
@@ -134,6 +155,7 @@ def _batch_to_dict(b: ImportBatch) -> dict:
 
 @router.post("/excel")
 async def import_excel(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     dry_run: bool = Query(False, description="Si true, parse et renvoie un apercu sans inserer"),
     db: Session = Depends(get_db),
@@ -215,6 +237,11 @@ async def import_excel(
         )
 
         status = "error" if report.errors else "success"
+        if status == "success":
+            # Réchauffe le cache EUDR en tâche de fond : le tableau de bord reste
+            # instantané même juste après un gros import (sinon recalcul à la volée
+            # de toutes les parcelles au 1er affichage).
+            background_tasks.add_task(_warm_eudr_cache, current_user.cooperative_id)
         return {
             "status": status,
             "report": report.as_dict(),
