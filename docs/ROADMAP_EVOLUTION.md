@@ -132,12 +132,17 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
    (`/producers/count` + skip/limit, pager UI) ; plantations via `/plantations?paginated=true` enrichi
    (score/risque/EUDR **en ligne** depuis le cache P1) + filtre `risk`. **Reste** : transformer les `<select>`
    producteurs de children / FarmForce / SSRTE (`?limit=1000`) en **sélecteurs cherchables** (ne gêne qu'à ~7000).
-3. **P3 — actions en masse** ⏳ **À FAIRE** : import des polygones depuis le registre (les GPS y sont déjà),
-   re-contrôle en masse, dérogation export en lot — gérer 7000 parcelles par lots, jamais 1-à-1.
+3. **P3 — actions en masse** 🚧 **EN COURS** : ✅ **génération des délimitations manquantes en masse**
+   (`POST /plantations/boundaries/generate-missing` — par lots de 500, carré « generated » depuis GPS +
+   superficie déclarés ; bouton dans le panneau « Prêt pour l'EUDR » qui boucle jusqu'à épuisement) ;
+   re-contrôle en masse déjà dispo en backend (`POST /eudr/recompute`, P1). **Reste** : bouton UI de
+   recompute + déclenchement automatique après un gros import, et dérogation export en lot — toujours par
+   lots, jamais 1-à-1.
 
 > ℹ️ Le **gel démo est levé** (le client passe par un entretien téléphonique, pas de démo immédiate) : on
 > déploie de nouveau normalement sur `codex/cacaoguard-fusion`. P1 + P2 (producteurs + plantations) + le
-> regroupement du menu par 4 piliers sont **en prod** (SW v4.52).
+> regroupement du menu par 4 piliers sont **en prod** (SW v4.53). P3 : génération des délimitations
+> manquantes en masse livrée et déployée le 2026-06-15.
 
 > La **philosophie de contrôle** est déjà la bonne (agrégat dashboard + drill-down filtré + regroupement
 > « Prêt pour l'EUDR » par type de manque) : on agit sur le **sous-ensemble** non conforme, pas sur les 7000.

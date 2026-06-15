@@ -2115,6 +2115,109 @@ def save_boundary(
     }
 
 
+def _square_geojson(lat: float, lng: float, hectares: float) -> str:
+    """Construit un polygone carré GeoJSON centré sur (lat, lng), dimensionné à
+    `hectares`. Réplique la logique de `quickSquare()` du frontend (carré
+    « surface ») pour des délimitations cohérentes côté serveur."""
+    side = math_module.sqrt(max(hectares, 0.0001) * 10000.0)   # côté en mètres
+    half = side / 2.0
+    d_lat = half / 111320.0
+    cos_lat = math_module.cos(lat * math_module.pi / 180.0) or 1e-9
+    d_lng = half / (111320.0 * cos_lat)
+    ring = [
+        [lng - d_lng, lat - d_lat],
+        [lng + d_lng, lat - d_lat],
+        [lng + d_lng, lat + d_lat],
+        [lng - d_lng, lat + d_lat],
+        [lng - d_lng, lat - d_lat],   # fermeture de l'anneau
+    ]
+    return json_module.dumps({"type": "Polygon", "coordinates": [ring]})
+
+
+@router.post("/plantations/boundaries/generate-missing")
+def generate_missing_boundaries(
+    limit: int = 500,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Génère en masse des délimitations carrées (P3 — passage à l'échelle).
+
+    Pour chaque parcelle de la coopérative **sans délimitation** mais disposant
+    d'un GPS + d'une superficie déclarés, crée un polygone carré (méthode
+    « generated ») centré sur le GPS, dimensionné à la superficie, puis
+    rafraîchit le cache EUDR. Traité **par lots** (`limit`) pour ne jamais
+    bloquer sur des milliers de parcelles : le frontend rappelle l'endpoint
+    tant que `remaining > 0`. Ne touche jamais une parcelle déjà délimitée.
+    """
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Droits insuffisants.")
+
+    limit = max(1, min(limit, 2000))   # garde-fou : lots bornés
+
+    # Parcelles de la coop déjà délimitées (à exclure)
+    delimited_subq = (
+        db.query(PlantationBoundary.plantation_id)
+        .join(Plantation, Plantation.id == PlantationBoundary.plantation_id)
+        .filter(Plantation.cooperative_id == current_user.cooperative_id)
+    )
+
+    # Parcelles sans délimitation mais générables (GPS + superficie exploitables)
+    generatable_q = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id,
+        ~Plantation.id.in_(delimited_subq),
+        Plantation.latitude.isnot(None),
+        Plantation.longitude.isnot(None),
+        Plantation.hectares.isnot(None),
+        Plantation.hectares > 0,
+    )
+    total_generatable = generatable_q.count()
+    batch = generatable_q.limit(limit).all()
+
+    for p in batch:
+        geojson_str = _square_geojson(p.latitude, p.longitude, p.hectares)
+        ring = json_module.loads(geojson_str)["coordinates"][0]
+        db.add(PlantationBoundary(
+            plantation_id=p.id,
+            geojson=geojson_str,
+            area_hectares=_calculate_area_hectares(ring),
+            points_count=len(ring),
+            method="generated",
+        ))
+    db.commit()
+
+    # Le polygone change le score EUDR (polygone valide / aire) → rafraîchir le cache.
+    if batch:
+        from app.eudr.score_cache import refresh_plantation_eudr
+        for p in batch:
+            refresh_plantation_eudr(p, db)
+        db.commit()
+
+    generated = len(batch)
+    remaining = max(0, total_generatable - generated)   # générables encore en attente
+
+    # Parcelles encore sans délimitation, toutes causes confondues, après ce lot…
+    still_missing = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id,
+        ~Plantation.id.in_(delimited_subq),
+    ).count()
+    # … dont celles qu'on ne peut PAS générer automatiquement (GPS/superficie manquants).
+    without_gps = max(0, still_missing - remaining)
+
+    if generated:
+        msg = f"{generated} délimitation(s) générée(s) automatiquement."
+    elif total_generatable == 0 and without_gps == 0:
+        msg = "Toutes les parcelles sont déjà délimitées."
+    else:
+        msg = "Aucune parcelle à générer (GPS ou superficie manquants)."
+
+    return {
+        "generated": generated,
+        "remaining": remaining,
+        "without_gps": without_gps,
+        "message": msg,
+    }
+
+
 @router.get("/plantations/{plantation_id}/boundary")
 def get_boundary(
     plantation_id: int,

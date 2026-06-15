@@ -60,6 +60,7 @@ PAGE_MARKERS = {
     ],
     "eudr.html": [
         "DDS",  # bouton/téléchargement Due Diligence Statement
+        "generateMissingBoundaries",  # génération en masse des délimitations (P3 scale)
     ],
     "plantation_detail.html": [
         "renderEudrCard",

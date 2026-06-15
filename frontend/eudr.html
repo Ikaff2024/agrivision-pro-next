@@ -132,6 +132,10 @@
         <div id="gap-cards" style="display:flex;flex-wrap:wrap;gap:10px">
           <div class="text-sm text-muted">Chargement…</div>
         </div>
+        <div id="bulk-delimit-row" style="display:none;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border,#e6ddd0);align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#1a6b3a;color:#fff;border:none" onclick="generateMissingBoundaries()">🗺️ Générer les délimitations manquantes</button>
+          <span id="bulk-delimit-hint" class="text-sm text-muted"></span>
+        </div>
       </div>
 
       <div class="filter-bar">
@@ -195,6 +199,7 @@ async function cgFetch(endpoint, options = {}) {
 }
 
 const IS_ADMIN = (typeof getCurrentUser === 'function' && (getCurrentUser() || {}).role === 'admin');
+const CAN_DELIMIT = (typeof getCurrentUser === 'function' && ['admin', 'agronomist'].includes((getCurrentUser() || {}).role));
 const STATUS_LBL = { conforme: 'Conforme', a_verifier: 'À vérifier', non_conforme: 'Non conforme' };
 const STATUS_CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
 const RULE_LBL = {
@@ -240,6 +245,20 @@ function renderReadiness() {
   }).join('');
   document.getElementById('gap-cards').innerHTML = cards +
     (gapFilter ? `<div style="display:flex;align-items:center"><button class="btn btn-sm btn-outline" onclick="filterByGap(null)">✕ Tout afficher</button></div>` : '');
+
+  // Action « générer en masse » : visible si des parcelles restent à délimiter (admin/agronome).
+  const polyGap = (data.gaps || []).find(g => g.rule_id === 'polygon_valid');
+  const toDelimit = polyGap ? (polyGap.count || 0) : 0;
+  const row = document.getElementById('bulk-delimit-row');
+  if (row) {
+    if (CAN_DELIMIT && toDelimit > 0) {
+      row.style.display = 'flex';
+      document.getElementById('bulk-delimit-hint').textContent =
+        `${toDelimit} parcelle(s) sans polygone — génère un carré depuis le GPS + la superficie déclarés.`;
+    } else {
+      row.style.display = 'none';
+    }
+  }
 }
 
 function filterByGap(ruleId) {
@@ -247,6 +266,48 @@ function filterByGap(ruleId) {
   if (gapFilter) document.getElementById('f-status').value = '';  // évite un filtre contradictoire
   renderReadiness();
   renderTable();
+}
+
+// Génération en masse des délimitations manquantes (P3 — passage à l'échelle).
+// Boucle sur l'endpoint par lots (limit=500) tant qu'il reste des parcelles générables,
+// pour ne jamais bloquer le navigateur ni la requête sur des milliers de parcelles.
+async function generateMissingBoundaries() {
+  const ok = await avpConfirm(
+    'Générer automatiquement une délimitation carrée pour les parcelles sans polygone, ' +
+    'à partir de leur position GPS et de leur superficie déclarée ? Cela crée un carré ' +
+    'approximatif (méthode « générée »), ajustable ensuite parcelle par parcelle. ' +
+    'Les parcelles déjà délimitées ne sont pas modifiées.',
+    { okText: 'Générer' }
+  );
+  if (!ok) return;
+
+  const btn = document.querySelector('#bulk-delimit-row button');
+  if (btn) btn.disabled = true;
+  let generated = 0, without = 0, guard = 0;
+  toast('Génération des délimitations en cours…');
+  try {
+    while (guard++ < 200) {            // garde-fou anti-boucle infinie
+      const r = await cgFetch('/plantations/boundaries/generate-missing?limit=500', { method: 'POST' });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.detail || 'Échec de la génération.');
+      }
+      const b = await r.json();
+      generated += (b.generated || 0);
+      without = (b.without_gps || 0);
+      if (generated > 0) toast(`${generated} délimitation(s) générée(s)…`);
+      if ((b.generated || 0) === 0 || (b.remaining || 0) <= 0) break;
+    }
+  } catch (e) {
+    toast((e && e.message) || 'Échec de la génération.', 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  let msg = generated > 0 ? `${generated} délimitation(s) générée(s).` : 'Aucune nouvelle délimitation à générer.';
+  if (without > 0) msg += ` ${without} parcelle(s) sans GPS/superficie — à délimiter manuellement.`;
+  toast(msg);
+  await loadAll();   // recharge readiness + table + résumé (et réactive le bouton via re-render)
 }
 
 async function loadSummary() {
