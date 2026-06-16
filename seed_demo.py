@@ -14,6 +14,11 @@ Usage :
     AVP_API_URL=https://agrivision-api-production.up.railway.app python seed_demo.py
 Identifiants de démo créés (par défaut) :
     email : demo@agrivision-pro.com   mot de passe : DemoAgriVision2026!
+
+Démo "passage à l'échelle" (parcelles en masse, sans délimitation) — pour le moment
+"Générer les délimitations manquantes" de la vidéo :
+    AVP_DEMO_XL_PARCELS=300 python seed_demo.py        # 300 parcelles XL en fin de seed complet
+    AVP_SEED_XL_ONLY=1 AVP_DEMO_XL_PARCELS=300 python seed_demo.py   # XL seul, coop existante
 """
 from __future__ import annotations
 
@@ -35,6 +40,10 @@ API = os.getenv("AVP_API_URL", "https://agrivision-api-production.up.railway.app
 EMAIL = os.getenv("AVP_DEMO_EMAIL", "demo@agrivision-pro.com")
 PASSWORD = os.getenv("AVP_DEMO_PASSWORD", "DemoAgriVision2026!")
 COOP = os.getenv("AVP_DEMO_COOP", "Coopérative Démo Cacao")
+# Parcelles « XL » supplémentaires (avec GPS + superficie, SANS délimitation) pour la démo
+# « passage à l'échelle » et le moment « Générer les délimitations manquantes ».
+# 0 = désactivé → le seed standard (8 parcelles) est inchangé.
+XL_PARCELS = int(os.getenv("AVP_DEMO_XL_PARCELS", "0") or 0)
 
 client = httpx.Client(timeout=60.0)
 _token = None
@@ -276,9 +285,56 @@ def seed_certifications():
     print(f"  • Certifications affectées aux parcelles : {n} lien(s) FT/RA")
 
 
+# ── Démo « passage à l'échelle » : parcelles en masse, sans délimitation ──────
+# Régions cacao (centroïdes) pour disperser les parcelles XL de façon plausible.
+XL_REGIONS = [
+    ("Soubré", 5.78, -6.59), ("Méagui", 5.62, -6.78), ("San-Pédro", 4.95, -6.55),
+    ("Gagnoa", 6.05, -5.95), ("Daloa", 6.88, -6.45), ("Divo", 5.84, -5.36),
+    ("Issia", 6.49, -6.59),
+]
+XL_PRENOMS = ["Kouassi", "Konan", "Yao", "Koffi", "Adjoua", "Akissi", "Aya", "Affoué",
+              "Brou", "Amani", "N'Guessan", "Tanoh", "Diby", "Aké", "Kouamé", "Kouadio",
+              "Kouakou", "Assé", "Aboa", "Gnagne", "Tapé", "Djaha", "Bla", "Séri"]
+XL_NOMS = ["Yao", "Koffi", "Konan", "Kouassi", "Aka", "Adjoua", "N'Dri", "Gnamien",
+           "Kouadio", "Assi", "Brou", "Diby", "Tanoh", "Amani", "Akissi", "Béh"]
+
+
+def seed_xl_parcels(n: int):
+    """Crée `n` parcelles supplémentaires (GPS + superficie, SANS délimitation).
+
+    But : montrer le « passage à l'échelle » (liste paginée qui tient) et surtout
+    donner un gros compteur « à délimiter » qui tombe à 0 en un clic via le bouton
+    « Générer les délimitations manquantes » (démo vidéo). Léger (ni diagnostic ni
+    récolte) et idempotent : réutilise les noms déjà créés (relançable sans doublon).
+    """
+    existing = {pl.get("name") for pl in _plantations() if pl.get("name")}
+    created = 0
+    for i in range(n):
+        region, clat, clon = XL_REGIONS[i % len(XL_REGIONS)]
+        pl_name = f"Parcelle XL {i + 1:04d} {region}"
+        if pl_name in existing:
+            continue
+        # GPS dispersé autour du centroïde régional (~ ±0.15°, reste dans la zone cacao).
+        lat = round(clat + ((i * 37) % 100 - 50) / 333.0, 6)
+        lon = round(clon + ((i * 53) % 100 - 50) / 333.0, 6)
+        ha = round(0.5 + ((i * 7) % 45) / 10.0, 2)   # ~0.5 → ~5 ha
+        owner = f"{XL_PRENOMS[i % len(XL_PRENOMS)]} {XL_NOMS[(i // 3) % len(XL_NOMS)]}"
+        # PAS d'appel /boundary → la parcelle apparaît « à délimiter » (cible du bouton de masse).
+        post("/plantations", {
+            "name": pl_name, "owner_name": owner,
+            "country": "Côte d'Ivoire", "region": region, "hectares": ha,
+            "latitude": lat, "longitude": lon,
+        }, "plantations_xl")
+        created += 1
+        if created % 50 == 0:
+            print(f"   … {created}/{n} parcelles XL créées")
+    print(f"  • {created} parcelle(s) XL créée(s) — sans délimitation (à générer en masse)")
+
+
 def main():
     social_only = os.getenv("AVP_SEED_SOCIAL_ONLY", "").lower() in ("1", "true", "yes")
     certs_only = os.getenv("AVP_SEED_CERTS_ONLY", "").lower() in ("1", "true", "yes")
+    xl_only = os.getenv("AVP_SEED_XL_ONLY", "").lower() in ("1", "true", "yes")
     print(f"=== Seed démo AgriVision Pro → {API} ===")
     login_or_register()
 
@@ -286,6 +342,16 @@ def main():
         print("Mode : certifications uniquement (coop existante, idempotent).")
         seed_certifications()
         print(f"\n✓ Certifications affectées. Connexion : {EMAIL} / {PASSWORD}")
+        return
+
+    if xl_only:
+        n = XL_PARCELS or 300
+        print(f"Mode : parcelles XL uniquement ({n}) — coop existante, sans duplication.")
+        seed_xl_parcels(n)
+        print("\n=== Résumé du seed ===")
+        for k in sorted(_count):
+            print(f"  {k:18}: {_count[k]}")
+        print(f"\n✓ Parcelles XL ajoutées. Connexion : {EMAIL} / {PASSWORD}")
         return
 
     if social_only:
