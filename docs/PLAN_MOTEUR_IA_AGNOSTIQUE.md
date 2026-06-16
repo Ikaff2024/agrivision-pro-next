@@ -128,6 +128,39 @@ Sans lui, il faut **construire la couche de sourcing** (récupération des sourc
 
 ---
 
+## 9. Décisions arrêtées (2026-06-16, mandat « carte blanche »)
+
+- **VPS : Hostinger KVM 8** (8 vCPU / 32 Go RAM / 240 Go NVMe). Justification : héberger un modèle open
+  **14B–32B** *en plus* du pipeline veille + pgvector + marge passage à l'échelle ; KVM 4 (16 Go) briderait le
+  modèle et serait vite à l'étroit. ⚠️ **Achat par le propriétaire** (l'assistant n'achète pas / ne crée pas de compte).
+- **Modèle self-hébergé (veille batch) : `Qwen2.5-14B-Instruct`** (GGUF Q4_K_M via Ollama) — top-tier pour sa
+  taille, excellent **français**, tourne en batch sur CPU 32 Go (~9 Go RAM). Option qualité+ : `Qwen2.5-32B` (plus lent).
+- **Qualité max (interactif / synthèse) via API hébergée open : `Llama-3.3-70B` ou `Qwen2.5-72B`**
+  (Together / DeepInfra / Scaleway — OpenAI-compatible) : « le meilleur open du marché » sans GPU à gérer.
+- **Embeddings : `multilingual-e5` / `bge-m3`** (CPU) — **Phase 2** (la v1 fait *recency + mots-clés*, sans pgvector).
+- **Claude** : conservé en **fallback** uniquement (n'est plus le défaut une fois l'open branché).
+
+## 10. Mise en service VPS (turnkey — à exécuter par le propriétaire)
+
+> L'assistant **ne provisionne pas** le VPS et **ne saisit aucune clé**. Étapes à faire par toi une fois le **KVM 8** acheté :
+
+1. **Ollama** : `curl -fsSL https://ollama.com/install.sh | sh`
+2. **Modèle** : `ollama pull qwen2.5:14b-instruct` (≈ 9 Go) — *(option qualité : `qwen2.5:32b-instruct`)*.
+3. **Sécuriser l'accès** : Ollama sert `http://127.0.0.1:11434/v1`. **Ne pas l'exposer en clair** — mettre un
+   **reverse-proxy TLS** (Caddy/Nginx) avec une **clé d'accès**, ou restreindre par **firewall** à l'IP de Railway.
+4. **Variables Railway** (Settings → Variables) :
+   - `AI_PROVIDER=openweights` *(ou `local`)* · `AI_OPENAI_BASE_URL=https://<vps>/v1`
+   - `AI_OPENAI_MODEL=qwen2.5:14b-instruct` · `AI_OPENAI_API_KEY=<clé du reverse-proxy>`
+   - `VEILLE_ENABLED=1`
+5. **Veille planifiée** : cron (VPS ou Railway) toutes les 6 h → `POST /veille/ingest` puis `POST /veille/digest`
+   (endpoints admin). Le **prix** du cacao reste indépendant (déjà en place).
+
+> Variante **sans VPS** (démarrage rapide) : `AI_PROVIDER=openweights` + `AI_OPENAI_BASE_URL` d'un fournisseur
+> hébergé (Together/DeepInfra) + leur clé → on a l'open-source en prod **sans rien auto-héberger**, le temps de
+> valider la qualité. Le VPS devient pertinent quand le volume justifie le coût fixe.
+
+---
+
 ## Liens
 - Abstraction LLM existante : `app/ai_advisor.py` (`AI_PROVIDER`, `_OPENAI_PRESETS`).
 - Veille actuelle : `app/services/market_intel.py` (prix indépendant ✅ / actus = Claude web search ❌).

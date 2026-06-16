@@ -25,6 +25,13 @@ _OPENAI_PRESETS = {
     "deepseek": ("https://api.deepseek.com", "deepseek-chat", "DEEPSEEK_API_KEY"),
     "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "qwen-plus", "DASHSCOPE_API_KEY"),
     "openai": ("https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY"),
+    # Modèles OPEN-SOURCE (indépendance vis-à-vis de Claude — cf. docs/PLAN_MOTEUR_IA_AGNOSTIQUE.md).
+    # 'openweights' : API hébergée open-weights (Together/DeepInfra/Scaleway…). base_url VIDE →
+    #   définir AI_OPENAI_BASE_URL avec l'URL du fournisseur. Modèle « meilleur open » par défaut.
+    "openweights": ("", "meta-llama/Llama-3.3-70B-Instruct", "OPENWEIGHTS_API_KEY"),
+    # 'local' : modèle auto-hébergé (Ollama/vLLM). Défaut = localhost (dev) ; en prod, pointer
+    #   AI_OPENAI_BASE_URL vers le VPS (reverse-proxy TLS). Clé = celle du proxy (Ollama l'ignore).
+    "local": ("http://127.0.0.1:11434/v1", "qwen2.5:14b-instruct", "OLLAMA_API_KEY"),
 }
 
 

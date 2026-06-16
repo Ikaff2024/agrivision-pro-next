@@ -1,0 +1,100 @@
+"""Endpoints veille — moteur IA agnostique (open-source). cf. docs/PLAN_MOTEUR_IA_AGNOSTIQUE.md
+
+- POST /veille/ingest  (admin)  : récupère les sources (RSS/Atom) → items. Pas de LLM.
+- GET  /veille/items            : items récents (lecture, tout rôle authentifié).
+- POST /veille/digest  (admin)  : synthèse OPEN-SOURCE des items récents → digest stocké.
+- GET  /veille/digest           : dernier digest (lecture).
+
+Veille **globale** (partagée, pas de scope coopérative, comme le cache marché). La
+génération (LLM) est réservée admin (coût). N'altère pas la veille marché existante.
+"""
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
+from app.db.models import User, VeilleItem, VeilleDigest
+from app.auth.auth_service import get_current_user
+from app.services import veille_engine
+
+router = APIRouter(prefix="/veille", tags=["veille"])
+
+
+def _item_dict(it: VeilleItem) -> dict:
+    return {
+        "id": it.id,
+        "source_key": it.source_key,
+        "source_name": it.source_name,
+        "title": it.title,
+        "url": it.url,
+        "summary": it.summary,
+        "topics": it.topics or [],
+        "published_at": it.published_at.isoformat() if it.published_at else None,
+        "fetched_at": it.fetched_at.isoformat() if it.fetched_at else None,
+    }
+
+
+def _digest_dict(dg: VeilleDigest) -> dict:
+    return {
+        "id": dg.id,
+        "topic": dg.topic,
+        "model": dg.model,
+        "item_count": dg.item_count,
+        "generated_at": dg.generated_at.isoformat() if dg.generated_at else None,
+        "payload": dg.payload,
+    }
+
+
+@router.post("/ingest")
+def veille_ingest(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Récupère les sources de veille (RSS/Atom) et stocke les nouveaux items. ADMIN."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Ingestion veille réservée à l'administrateur.")
+    return veille_engine.ingest(db)
+
+
+@router.get("/items")
+def veille_items(
+    topic: Optional[str] = Query(None),
+    limit: int = Query(40, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    items = veille_engine.retrieve(db, topics=[topic] if topic else None, limit=limit)
+    return {"count": len(items), "items": [_item_dict(it) for it in items]}
+
+
+@router.post("/digest")
+def veille_make_digest(
+    topic: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Génère une synthèse OPEN-SOURCE des items récents et la stocke. ADMIN.
+    Renvoie 502 (clair) si le modèle open n'est pas configuré (pas de repli Claude)."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Synthèse veille réservée à l'administrateur.")
+    items = veille_engine.retrieve(db, topics=[topic] if topic else None)
+    try:
+        result = veille_engine.synthesize(items)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    dg = VeilleDigest(topic=topic, payload=result, model=result.get("model"), item_count=len(items))
+    db.add(dg)
+    db.commit()
+    db.refresh(dg)
+    return _digest_dict(dg)
+
+
+@router.get("/digest")
+def veille_latest_digest(
+    topic: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = db.query(VeilleDigest)
+    if topic:
+        q = q.filter(VeilleDigest.topic == topic)
+    dg = q.order_by(VeilleDigest.generated_at.desc()).first()
+    return {"digest": _digest_dict(dg) if dg else None}

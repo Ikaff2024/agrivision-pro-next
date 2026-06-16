@@ -850,3 +850,46 @@ class NonConformity(Base):
     cooperative   = relationship("Cooperative")
     audit         = relationship("CertificationAudit", back_populates="non_conformities")
     certification = relationship("Certification")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Veille réglementaire / marché — moteur IA agnostique (open-source).
+# GLOBAL (pas par coopérative) : la veille est partagée, comme le cache marché.
+# cf. docs/PLAN_MOTEUR_IA_AGNOSTIQUE.md
+# ─────────────────────────────────────────────────────────────────────────────
+
+class VeilleItem(Base):
+    """Élément de veille brut récupéré d'une source (RSS/API), dédupliqué par hash.
+
+    Corpus du pipeline RAG : on récupère les éléments récents pertinents puis un
+    modèle (open-source via la passerelle agnostique) en fait la synthèse.
+    """
+    __tablename__ = "veille_items"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    source_key   = Column(String(60), nullable=False, index=True)   # clé du registre de sources
+    source_name  = Column(String(200), nullable=True)
+    title        = Column(Text, nullable=False)
+    url          = Column(Text, nullable=True)
+    summary      = Column(Text, nullable=True)                      # extrait / description de la source
+    content_hash = Column(String(64), nullable=False, unique=True, index=True)  # dédup (sha256)
+    topics       = Column(JSON, nullable=True)                      # ["eudr","prix",...]
+    lang         = Column(String(8), nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    fetched_at   = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class VeilleDigest(Base):
+    """Synthèse de veille générée par le modèle (agnostique) à partir des items récents.
+
+    Stockée pour cache (coût borné) + historique. `payload` = {résumé, points clés,
+    impacts, sources}. `model` trace le fournisseur/modèle utilisé (auditabilité coût).
+    """
+    __tablename__ = "veille_digests"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    topic        = Column(String(60), nullable=True, index=True)    # null = global
+    payload      = Column(JSON, nullable=False)                     # synthèse structurée
+    model        = Column(String(120), nullable=True)               # fournisseur / modèle
+    item_count   = Column(Integer, nullable=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
