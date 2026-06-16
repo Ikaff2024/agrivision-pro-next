@@ -63,6 +63,10 @@ PAGE_MARKERS = {
         "generateMissingBoundaries",  # génération en masse des délimitations (P3 scale)
         "recomputeEudr",              # recompute en masse des scores EUDR (P3 scale)
     ],
+    "lots.html": [
+        "openLot",
+        "grantLotWaiver",   # dérogation export en lot (P3 scale)
+    ],
     "plantation_detail.html": [
         "renderEudrCard",
         "downloadDdsPdf",

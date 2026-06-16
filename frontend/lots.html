@@ -100,6 +100,9 @@
           <div class="kpi"><strong id="d-eudr">—</strong><span>Conformité EUDR</span></div>
         </div>
 
+        <!-- Dérogation export du lot (admin) — visible si parcelles bloquantes ou déjà dérogées -->
+        <div id="d-waiver-row" style="display:none;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;margin:0 0 12px;border:1px solid var(--border,#e6ddd0);border-radius:10px;background:var(--surface-warm,#f7f4ee)"></div>
+
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px">
           <select class="form-input" id="mv-warehouse" style="max-width:160px"><option value="">Entrepôt…</option></select>
           <button class="btn btn-outline btn-sm" onclick="doMovement('warehouse_in')">Entrée magasin</button>
@@ -227,11 +230,12 @@ async function openLot(id){
   document.getElementById('d-prod').textContent = fmt(pp.summary.producers);
   document.getElementById('d-eudr').textContent = pp.summary.eudr_compliance_rate_pct+'%';
   document.getElementById('d-composition').innerHTML = pp.composition.map(c=>`
-    <tr><td>${c.producer_name||'—'}${c.producer_blocked?' 🚫':''}</td><td>${c.plantation_name||'—'}</td><td>${fmt(c.quantity_kg)}</td><td>${c.eudr_status||'—'}</td></tr>`).join('')
+    <tr><td>${c.producer_name||'—'}${c.producer_blocked?' 🚫':''}</td><td>${c.plantation_name||'—'}</td><td>${fmt(c.quantity_kg)}</td><td>${c.eudr_status||'—'}${c.export_waiver?' 🔓':''}</td></tr>`).join('')
     || '<tr><td colspan="4" style="color:var(--muted)">Aucune récolte affectée.</td></tr>';
   document.getElementById('d-movements').innerHTML = pp.movements.map(m=>`
     <li><strong>${m.movement_type}</strong> · ${fmt(m.quantity_kg)} kg${m.reference?' · '+m.reference:''}<br><span style="color:var(--muted)">${(m.created_at||'').replace('T',' ').slice(0,16)}</span></li>`).join('')
     || '<li style="color:var(--muted)">Aucun mouvement.</li>';
+  renderWaiverRow(pp.summary || {});
   document.getElementById('detail').scrollIntoView({behavior:'smooth'});
 }
 
@@ -249,10 +253,59 @@ async function doMovement(type){
     let msg = (d && d.message) ? d.message : (typeof d === 'string' ? d : '');
     if(d && d.non_compliant_plantations?.length){
       msg += ' Parcelles : ' + d.non_compliant_plantations.map(p=>p.name||p.plantation_id).join(', ')
-           + '. Un admin peut accorder une dérogation depuis le module EUDR.';
+           + '. Un admin peut accorder une dérogation pour ce lot (bouton ci-dessus).';
     }
     return toast('Mouvement impossible : ' + (msg||''), 'error');
   }
+  await loadLots(); openLot(_currentLot.id);
+}
+
+// ── Dérogation export EN LOT (bornée, tracée, réversible — admin) ─────────────
+function renderWaiverRow(summary){
+  const row = document.getElementById('d-waiver-row');
+  if(!row) return;
+  const isAdmin = (((typeof getCurrentUser==='function' && getCurrentUser()) || {}).role) === 'admin';
+  const blocking = summary.export_blocking_plantations || 0;
+  const waived = summary.export_waived_plantations || 0;
+  if(blocking === 0 && waived === 0){ row.style.display='none'; row.innerHTML=''; return; }
+  row.style.display = 'flex';
+  let html = '';
+  if(blocking > 0){
+    html += `<span style="color:#922b21;font-weight:600">⛔ ${blocking} parcelle(s) non conforme(s) bloquent l'expédition.</span>`;
+    if(isAdmin) html += `<button class="btn btn-sm" style="background:#922b21;color:#fff;border:none" onclick="grantLotWaiver()">Dérogation export du lot</button>`;
+  }
+  if(waived > 0){
+    html += `<span style="color:#9a6200;font-weight:600">🔓 ${waived} parcelle(s) sous dérogation (tracée).</span>`;
+    if(isAdmin) html += `<button class="btn btn-outline btn-sm" onclick="revokeLotWaiver()">Retirer la dérogation du lot</button>`;
+  }
+  if(!isAdmin) html += `<span style="color:var(--muted);font-size:12px">Seul un administrateur peut accorder/retirer une dérogation.</span>`;
+  row.innerHTML = html;
+}
+
+async function grantLotWaiver(){
+  if(!_currentLot) return;
+  const reason = await avpPrompt(
+    'Motif de la dérogation export pour CE lot (≥ 8 caractères). Appliqué à toutes ses parcelles non conformes, tracé (auteur/date) et réversible :',
+    {placeholder:'ex. Plan de mise en conformité signé, échéance 30/09/2026', okText:'Déroger', multiline:true});
+  if(reason === null) return;
+  if((reason||'').trim().length < 8) return toast('Motif trop court (8 caractères minimum).', 'error');
+  const r = await authFetch(`/lots/${_currentLot.id}/export-waiver`, {method:'POST', body: JSON.stringify({reason: reason.trim()})});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) return toast('Dérogation impossible : ' + (d.detail || ''), 'error');
+  toast(d.message || 'Dérogation appliquée au lot.');
+  await loadLots(); openLot(_currentLot.id);
+}
+
+async function revokeLotWaiver(){
+  if(!_currentLot) return;
+  const ok = await avpConfirm(
+    'Retirer la dérogation export de toutes les parcelles de ce lot ? Son cacao non conforme ne pourra plus être expédié.',
+    {danger:true, okText:'Retirer'});
+  if(!ok) return;
+  const r = await authFetch(`/lots/${_currentLot.id}/export-waiver`, {method:'DELETE'});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) return toast('Retrait impossible : ' + (d.detail || ''), 'error');
+  toast(`${d.revoked || 0} dérogation(s) retirée(s).`);
   await loadLots(); openLot(_currentLot.id);
 }
 

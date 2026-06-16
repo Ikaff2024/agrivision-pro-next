@@ -192,6 +192,16 @@ def _guard_export_compliance(db: Session, lot: Lot) -> list[dict]:
     return waivers
 
 
+def _lot_plantations(db: Session, lot: Lot) -> list[Plantation]:
+    """Parcelles composant un lot (via ses récoltes), dédupliquées."""
+    plant_ids = {
+        h.plantation_id
+        for h in db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
+        if h.plantation_id
+    }
+    return db.query(Plantation).filter(Plantation.id.in_(plant_ids)).all() if plant_ids else []
+
+
 def _recompute_totals(db: Session, lot: Lot) -> None:
     db.flush()  # garantit que les lot_id affectes sont visibles par la requete
     harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
@@ -402,6 +412,73 @@ def add_movement(
     return lot_to_dict(lot, include_movements=True)
 
 
+class LotExportWaiverRequest(BaseModel):
+    reason: str = Field(..., min_length=8, max_length=2000)
+
+
+@router.post("/lots/{lot_id:int}/export-waiver")
+def grant_lot_export_waiver(
+    lot_id: int,
+    data: LotExportWaiverRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dérogation export EN LOT (ADMIN). Applique un MÊME motif tracé à toutes les
+    parcelles EUDR non conformes composant ce lot, pour débloquer son expédition.
+
+    Bornée à un lot (jamais « toutes les parcelles »), réversible (DELETE), et
+    journalisée par parcelle (motif / auteur / date). N'écrase pas une dérogation
+    déjà en place sur une parcelle (son motif propre est conservé)."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Dérogation export : réservée à l'administrateur.")
+    lot = _scoped_lot(lot_id, db, current_user)
+    reason = data.reason.strip()
+
+    waived, already = [], 0
+    now = datetime.utcnow()
+    for p in _lot_plantations(db, lot):
+        if compute_eudr_score(p, db).status != "non_conforme":
+            continue
+        if p.export_waiver_at is not None:
+            already += 1
+            continue
+        p.export_waiver_reason = reason
+        p.export_waiver_by = current_user.email
+        p.export_waiver_at = now
+        waived.append({"plantation_id": p.id, "name": p.name})
+    db.commit()
+    return {
+        "lot_id": lot.id,
+        "waived": len(waived),
+        "already_waived": already,
+        "plantations": waived,
+        "message": (f"{len(waived)} parcelle(s) dérogée(s) pour ce lot."
+                    if waived else "Aucune parcelle non conforme à déroger sur ce lot."),
+    }
+
+
+@router.delete("/lots/{lot_id:int}/export-waiver")
+def revoke_lot_export_waiver(
+    lot_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire la dérogation export de toutes les parcelles de ce lot qui en ont une.
+    ADMIN uniquement — réversibilité de la dérogation en lot."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Dérogation export : réservée à l'administrateur.")
+    lot = _scoped_lot(lot_id, db, current_user)
+    revoked = 0
+    for p in _lot_plantations(db, lot):
+        if p.export_waiver_at is not None:
+            p.export_waiver_reason = None
+            p.export_waiver_by = None
+            p.export_waiver_at = None
+            revoked += 1
+    db.commit()
+    return {"lot_id": lot.id, "revoked": revoked}
+
+
 @router.patch("/lots/{lot_id:int}")
 def update_lot(
     lot_id: int,
@@ -569,6 +646,7 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
     composition = []
     eudr_compliant = 0
     eudr_total = 0
+    plant_status = {}   # parcelle distincte -> (statut EUDR, dérogation export active)
     for h in harvests:
         plantation = plantations.get(h.plantation_id)
         producer = producers.get(plantation.producer_id) if plantation and plantation.producer_id else None
@@ -579,6 +657,7 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             eudr_status = score.status
             if score.status == "conforme":
                 eudr_compliant += 1
+            plant_status[plantation.id] = (score.status, plantation.export_waiver_at is not None)
         composition.append({
             "harvest_id": h.id,
             "plantation_id": h.plantation_id,
@@ -587,8 +666,14 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             "producer_name": producer.nom_complet if producer else None,
             "quantity_kg": float(h.quantity_kg or 0),
             "eudr_status": eudr_status,
+            "export_waiver": bool(plantation and plantation.export_waiver_at is not None),
             "producer_blocked": (plantation.producer_id in blocked) if plantation else False,
         })
+
+    # Conformité export au niveau parcelle distincte (pour la dérogation en lot).
+    eudr_non_compliant = sum(1 for st, _ in plant_status.values() if st == "non_conforme")
+    export_waived = sum(1 for st, w in plant_status.values() if st == "non_conforme" and w)
+    export_blocking = eudr_non_compliant - export_waived
 
     certification = db.query(Certification).filter(Certification.id == lot.certification_id).first() if lot.certification_id else None
     warehouse = db.query(Warehouse).filter(Warehouse.id == lot.warehouse_id).first() if lot.warehouse_id else None
@@ -609,6 +694,9 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             "eudr_compliant_plantations": eudr_compliant,
             "eudr_total_plantations": eudr_total,
             "eudr_compliance_rate_pct": round(eudr_compliant / eudr_total * 100, 1) if eudr_total else 0.0,
+            "eudr_non_compliant_plantations": eudr_non_compliant,
+            "export_blocking_plantations": export_blocking,
+            "export_waived_plantations": export_waived,
             "blocked_producers": len(blocked),
         },
         "movements": [movement_to_dict(m) for m in lot.movements],

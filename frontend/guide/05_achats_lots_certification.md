@@ -78,7 +78,14 @@ expédition), les **fusionner**, et éditer un **passeport de traçabilité** (P
    (Farmer_ID / Farm_ID / poids net + exportateur).
 3. Bouton **Pack EUDR** : télécharge un **dossier de diligence** (zip : DDS + GeoJSON + récapitulatif) pour l'acheteur.
 4. Bouton **Expédier** : passe le lot en « expédié ».
-   > ⚠️ L'expédition d'une parcelle **non conforme EUDR** est **bloquée** sauf **dérogation admin** (tracée) — voir chapitre 7.
+   > ⚠️ L'expédition est **bloquée** si une parcelle du lot est **non conforme EUDR** — vous ne vendez que du cacao propre.
+5. **Dérogation export du lot** (admin) : si des parcelles bloquent, un bandeau **⛔ N parcelle(s) non conforme(s)**
+   s'affiche en haut du lot avec le bouton **« Dérogation export du lot »**. Saisissez **un motif** (≥ 8 caractères,
+   ex. « plan de mise en conformité signé, échéance 30/09/2026 ») : la dérogation s'applique **à toutes les parcelles
+   non conformes de CE lot**, **tracée** (auteur, date, motif) et **réversible** (bouton **« Retirer la dérogation du
+   lot »**). Les parcelles dérogées sont marquées 🔓 dans la composition.
+   > La dérogation est **bornée à un lot** — on ne déroge jamais « toutes les parcelles » d'un coup. C'est une décision
+   > **assumée et documentée**, pas un contournement : l'EUDR reste votre garde-fou (voir chapitre 7).
 
 ---
 

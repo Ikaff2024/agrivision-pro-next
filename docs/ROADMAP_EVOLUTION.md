@@ -132,20 +132,22 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
    (`/producers/count` + skip/limit, pager UI) ; plantations via `/plantations?paginated=true` enrichi
    (score/risque/EUDR **en ligne** depuis le cache P1) + filtre `risk`. **Reste** : transformer les `<select>`
    producteurs de children / FarmForce / SSRTE (`?limit=1000`) en **sélecteurs cherchables** (ne gêne qu'à ~7000).
-3. **P3 — actions en masse** 🚧 **EN COURS** :
+3. **P3 — actions en masse** ✅ **FAIT** :
    - ✅ **génération des délimitations manquantes en masse** (`POST /plantations/boundaries/generate-missing`
      — par lots de 500, carré « generated » depuis GPS + superficie déclarés ; bouton dans le panneau
      « Prêt pour l'EUDR » qui boucle jusqu'à épuisement).
    - ✅ **re-contrôle en masse** : `POST /eudr/recompute` (P1) + **bouton UI « Recalculer les scores »**
      (en-tête EUDR, admin/agronome) + **déclenchement automatique en tâche de fond après un import** Excel
      (`_warm_eudr_cache` via BackgroundTasks — ne bloque pas la réponse).
-   - ⏳ **Reste** : dérogation export **en lot** (aujourd'hui parcelle par parcelle) — toujours par lots,
-     jamais 1-à-1.
+   - ✅ **dérogation export en lot, bornée** : `POST`/`DELETE /lots/{id}/export-waiver` (admin) — un **motif
+     unique tracé** appliqué aux parcelles non conformes **d'un lot** pour débloquer son expédition ; **réversible**,
+     journalisé par parcelle, bouton contextuel dans le détail du lot. Volontairement **borné à un lot** (jamais
+     « toutes les parcelles » d'un coup) pour préserver l'intégrité conformité.
 
 > ℹ️ Le **gel démo est levé** (le client passe par un entretien téléphonique, pas de démo immédiate) : on
 > déploie de nouveau normalement sur `codex/cacaoguard-fusion`. P1 + P2 (producteurs + plantations) + le
-> regroupement du menu par 4 piliers sont **en prod** (SW v4.54). P3 : génération des délimitations
-> manquantes en masse + recompute en masse (bouton UI + auto après import) livrés et déployés le 2026-06-15.
+> regroupement du menu par 4 piliers sont **en prod** (SW v4.55). **P3 complet** (délimitation en masse,
+> recompute en masse UI + auto après import, dérogation export en lot bornée) livré et déployé le 2026-06-15/16.
 
 > La **philosophie de contrôle** est déjà la bonne (agrégat dashboard + drill-down filtré + regroupement
 > « Prêt pour l'EUDR » par type de manque) : on agit sur le **sous-ensemble** non conforme, pas sur les 7000.
