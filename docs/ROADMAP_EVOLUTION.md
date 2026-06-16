@@ -152,6 +152,18 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
 > La **philosophie de contrôle** est déjà la bonne (agrégat dashboard + drill-down filtré + regroupement
 > « Prêt pour l'EUDR » par type de manque) : on agit sur le **sous-ensemble** non conforme, pas sur les 7000.
 
+> **Carte à l'échelle — décision (MapLibre), 2026-06-16.** Question : passer à MapLibre vu le nombre de parcelles ?
+> **Décision : parqué.** Le vrai goulot du passage à l'échelle (listes + scoring EUDR) est déjà réglé (P1/P2/P3) ;
+> la **carte** (`map.html`, Leaflet) n'est pas encore le sujet (coop démo = 8 parcelles). Aujourd'hui elle ajoute
+> **1 marqueur DOM par parcelle** (`L.marker(...).addTo(map)`, sans clustering / canvas / chargement par zone) →
+> ramerait à ~7000.
+> **Déclencheur de reprise** : import réel d'une coop ~7000, ou carte qui rame en usage.
+> **Plan quand ça se déclenche (ordre, faible risque)** : (1) `Leaflet.markercluster` (le gros gain, isolé à la
+> couche marqueurs — ne touche pas le dessin de délimitation), (2) rendu `canvas`, (3) chargement `bbox`
+> (`/map/plantations?bbox=`). **MapLibre = projet ultérieur assumé**, pas un premier réflexe : il imposerait de
+> réécrire le **dessin de délimitation** (Leaflet.draw → maplibre/terra-draw, brique EUDR critique), un **fond
+> vectoriel** (fournisseur payant type MapTiler ou auto-hébergement) et la **refonte du hors-ligne PWA**.
+
 **Méthode de travail recommandée** : développer sur une **branche dédiée** (PAS `codex/cacaoguard-fusion`
 qui est déployée), committer normalement (checkpoints + sauvegarde sur `origin` + tests), et **fusionner
 après la démo**. Railway/Netlify ne déploient que `codex/cacaoguard-fusion` → une branche feature = **zéro
