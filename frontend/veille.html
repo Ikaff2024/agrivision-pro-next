@@ -137,6 +137,21 @@
         Actualités via recherche web IA · cours New York en <strong>temps différé</strong>, Londres estimé — vérifiez le prix officiel CCC avant décision commerciale.
       </p>
 
+      <!-- ───────── Veille réglementaire (moteur open-source) ───────── -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:30px 0 6px;border-top:1px solid var(--border,#e6ddd0);padding-top:22px">
+        <div class="section-title" style="margin:0">Veille réglementaire
+          <span style="font-size:11px;font-weight:600;color:var(--muted,#6a7d64)">· moteur open-source</span></div>
+        <div id="vr-actions" style="display:none;gap:8px"></div>
+      </div>
+      <div class="vm-ai" id="vr-digest" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd">
+        <div class="h" style="color:#1e40af"><span class="material-symbols-outlined" style="font-size:18px">summarize</span>
+          Synthèse <span id="vr-digest-meta" style="font-weight:600;font-size:11px;opacity:.75"></span></div>
+        <p id="vr-digest-text" style="color:#1e3a8a;white-space:pre-wrap"></p>
+      </div>
+      <div class="vm-news" id="vr-items"></div>
+      <div id="vr-empty" style="display:none;text-align:center;padding:24px;color:var(--muted,#6a7d64)">
+        Aucune source de veille pour l'instant. <span id="vr-empty-admin"></span></div>
+
     </div>
   </div>
 </div>
@@ -150,6 +165,7 @@ let _filter = 'tous';
 document.addEventListener('DOMContentLoaded', () => {
   computeEudrDays();
   loadMarket(false);
+  loadVeille();
 });
 
 function computeEudrDays() {
@@ -318,6 +334,87 @@ function renderNews() {
         <div class="src"><strong>${esc(n.source || '')}</strong>${n.date ? ' · ' + esc(n.date) : ''}</div>
       </div>
     </div>`).join('');
+}
+
+// ───────── Veille réglementaire (moteur open-source) — digest + items ─────────
+async function loadVeille() {
+  try {
+    const [dr, ir] = await Promise.all([
+      authFetch('/veille/digest'),
+      authFetch('/veille/items?limit=30'),
+    ]);
+    const digest = dr && dr.ok ? (await dr.json()).digest : null;
+    const items = ir && ir.ok ? ((await ir.json()).items || []) : [];
+    renderVeilleDigest(digest);
+    renderVeilleItems(items);
+  } catch (e) { /* section optionnelle : on n'interrompt pas la veille marché */ }
+  renderVeilleActions();
+}
+
+function renderVeilleDigest(d) {
+  const box = document.getElementById('vr-digest');
+  if (!box) return;
+  const txt = d && d.payload ? (d.payload.summary || '') : '';
+  if (!txt) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('vr-digest-text').textContent = txt;
+  const when = d.generated_at ? new Date(d.generated_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  document.getElementById('vr-digest-meta').textContent = [d.model, when].filter(Boolean).join(' · ');
+}
+
+function renderVeilleItems(items) {
+  const list = document.getElementById('vr-items');
+  const empty = document.getElementById('vr-empty');
+  if (!list) return;
+  if (!items.length) { list.style.display = 'none'; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  list.style.display = 'flex';
+  list.innerHTML = items.map(it => {
+    const topic = (it.topics || [])[0] || 'source';
+    const url = it.url || '';
+    const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title);
+    const date = it.published_at ? ' · ' + esc(new Date(it.published_at).toLocaleDateString('fr-FR')) : '';
+    return `<div class="vm-news-card">
+      <span class="badge ${badgeClass(topic)}">${esc(topic)}</span>
+      <div style="flex:1;min-width:0">
+        <div class="t">${title}</div>
+        ${it.summary ? `<div class="s">${esc(it.summary)}</div>` : ''}
+        <div class="src"><strong>${esc(it.source_name || it.source_key || '')}</strong>${date}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderVeilleActions() {
+  const box = document.getElementById('vr-actions');
+  if (!box) return;
+  const isAdmin = (((typeof getCurrentUser === 'function' && getCurrentUser()) || {}).role) === 'admin';
+  if (!isAdmin) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="ingestVeille()"><span class="material-symbols-outlined" style="font-size:15px">cloud_download</span> Rafraîchir les sources</button>
+    <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none" onclick="digestVeille()"><span class="material-symbols-outlined" style="font-size:15px">summarize</span> Générer la synthèse</button>`;
+  const hint = document.getElementById('vr-empty-admin');
+  if (hint) hint.textContent = 'Cliquez « Rafraîchir les sources » pour démarrer.';
+}
+
+async function ingestVeille() {
+  if (typeof toast === 'function') toast('Récupération des sources…');
+  const r = await authFetch('/veille/ingest', { method: 'POST' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) return toast('Échec : ' + (d.detail || ''), 'error');
+  toast(`${d.created || 0} nouvelle(s) source(s), ${d.skipped || 0} déjà connue(s).`);
+  loadVeille();
+}
+
+async function digestVeille() {
+  if (typeof toast === 'function') toast('Génération de la synthèse (modèle open-source)…');
+  const r = await authFetch('/veille/digest', { method: 'POST' });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 502) return toast('Modèle open non configuré (cf. variables Railway).', 'error');
+  if (!r.ok) return toast('Échec : ' + (d.detail || ''), 'error');
+  toast('Synthèse générée.');
+  loadVeille();
 }
 </script>
 </body>

@@ -67,6 +67,11 @@ PAGE_MARKERS = {
         "openLot",
         "grantLotWaiver",   # dérogation export en lot (P3 scale)
     ],
+    "veille.html": [
+        "loadMarket",   # veille marché (existant)
+        "loadVeille",   # veille réglementaire open-source (digest + items)
+        "ingestVeille",
+    ],
     "plantation_detail.html": [
         "renderEudrCard",
         "downloadDdsPdf",
