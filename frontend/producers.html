@@ -58,15 +58,17 @@
         <div class="toolbar">
           <input class="search" id="search" placeholder="Rechercher par nom, code ou téléphone…" oninput="onSearch()">
           <select class="search" id="cert-filter" onchange="onCertChange()" style="flex:0 0 auto;min-width:180px;max-width:230px;display:none" title="Filtrer par certification"></select>
+          <span id="col-wrap" style="position:relative;flex:0 0 auto">
+            <button class="btn btn-outline btn-sm" onclick="toggleColMenu(event)" title="Choisir les colonnes affichées"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_column</span> Colonnes</button>
+            <div id="col-menu" style="display:none;position:absolute;right:0;top:112%;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);padding:8px;min-width:210px"></div>
+          </span>
           <span class="muted" id="hint" style="font-size:12.5px"></span>
         </div>
         <div style="overflow:auto">
           <table>
-            <thead>
-              <tr><th>Code</th><th>Nom et prénoms</th><th>Localité</th><th>Section</th><th>Téléphone</th><th></th></tr>
-            </thead>
+            <thead id="thead"></thead>
             <tbody id="tbody">
-              <tr><td colspan="6" class="empty">Chargement…</td></tr>
+              <tr><td colspan="7" class="empty">Chargement…</td></tr>
             </tbody>
           </table>
         </div>
@@ -85,7 +87,7 @@
 <!-- Modal: Nouveau producteur -->
 <div class="modal-overlay" id="modal-prod">
   <div class="modal">
-    <div class="modal-title">Nouveau producteur</div>
+    <div class="modal-title" id="p-modal-title">Nouveau producteur</div>
     <div class="form-group"><label class="form-label">Nom et prénoms *</label><input class="form-input" id="p-nom" placeholder="Kouassi Konan"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group"><label class="form-label">Code interne (coopérative)</label><input class="form-input" id="p-code" placeholder="COOP-1234"></div>
@@ -99,7 +101,7 @@
     <div id="p-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNewProducer()">Annuler</button>
-      <button class="btn btn-primary" id="p-btn" onclick="createProducer()">Créer</button>
+      <button class="btn btn-primary" id="p-btn" onclick="submitProducer()">Créer</button>
     </div>
   </div>
 </div>
@@ -115,6 +117,51 @@ const PAGE_SIZE = 50;    // on n'affiche jamais 7000 lignes d'un coup → pagina
 
 function esc(s){ const d=document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
 
+// ── Colonnes configurables (affichage à la carte, persisté localement) ──────
+const COLUMNS = [
+  { key:'code_yeyasso', label:'Code', always:true, cls:'code', val:p=>esc(p.code_yeyasso||'—') },
+  { key:'nom_complet', label:'Nom et prénoms', always:true, val:p=>esc(p.nom_complet||'—') },
+  { key:'localite', label:'Localité', def:true, val:p=>esc(p.localite||'—') },
+  { key:'section', label:'Section', def:true, val:p=>esc(p.section||'—') },
+  { key:'telephone', label:'Téléphone', def:true, cls:'muted', val:p=>esc(p.telephone||'—') },
+  { key:'sexe', label:'Sexe', val:p=> p.sexe==='H'?'Homme':(p.sexe==='F'?'Femme':'—') },
+  { key:'code_saco', label:'Code SACO', val:p=>esc(p.code_saco||'—') },
+  { key:'recepisse', label:'Récépissé', val:p=>esc(p.recepisse||'—') },
+  { key:'piece', label:"Pièce d'identité", val:p=> p.piece_identite_numero ? esc(((p.piece_identite_nature||'')+' '+p.piece_identite_numero).trim()) : '—' },
+  { key:'date_naissance', label:'Naissance', val:p=> p.date_naissance ? esc(new Date(p.date_naissance).toLocaleDateString('fr-FR')) : '—' },
+  { key:'formateur_interne_nom', label:'Formateur', val:p=>esc(p.formateur_interne_nom||'—') },
+  { key:'gps', label:'GPS', val:p=> (p.latitude!=null && p.longitude!=null) ? esc(Number(p.latitude).toFixed(4)+', '+Number(p.longitude).toFixed(4)) : '—' },
+];
+const COL_LS = 'avp_prod_cols';
+function selectedOptional(){
+  try { const s = JSON.parse(localStorage.getItem(COL_LS) || 'null'); if (Array.isArray(s)) return new Set(s); } catch (e) {}
+  return new Set(COLUMNS.filter(c=>c.def).map(c=>c.key));   // défaut : localité, section, téléphone
+}
+function visibleCols(){ const sel = selectedOptional(); return COLUMNS.filter(c => c.always || sel.has(c.key)); }
+function setCol(key, on){
+  const sel = selectedOptional();
+  if (on) sel.add(key); else sel.delete(key);
+  localStorage.setItem(COL_LS, JSON.stringify([...sel]));
+  renderHeader(); render(_all); renderColMenu();
+}
+function renderHeader(){
+  const th = document.getElementById('thead'); if (!th) return;
+  th.innerHTML = '<tr>' + visibleCols().map(c=>`<th>${esc(c.label)}</th>`).join('') + '<th></th></tr>';
+}
+function renderColMenu(){
+  const menu = document.getElementById('col-menu'); if (!menu) return;
+  const sel = selectedOptional();
+  menu.innerHTML = COLUMNS.filter(c=>!c.always).map(c=>`
+    <label style="display:flex;gap:8px;align-items:center;padding:5px 4px;font-size:13px;cursor:pointer">
+      <input type="checkbox" ${sel.has(c.key)?'checked':''} onchange="setCol('${c.key}', this.checked)"> ${esc(c.label)}
+    </label>`).join('');
+}
+function toggleColMenu(e){ if (e) e.stopPropagation(); const m=document.getElementById('col-menu'); if (m) m.style.display = (m.style.display==='block') ? 'none' : 'block'; }
+document.addEventListener('click', e => {
+  const m = document.getElementById('col-menu');
+  if (m && m.style.display==='block' && !e.target.closest('#col-wrap')) m.style.display='none';
+});
+
 function _filterParams() {
   const params = new URLSearchParams();
   const q = document.getElementById('search').value.trim();
@@ -126,7 +173,7 @@ function _filterParams() {
 async function load(resetPage) {
   if (resetPage) _page = 0;
   const tb = document.getElementById('tbody');
-  tb.innerHTML = '<tr><td colspan="6" class="empty">Chargement…</td></tr>';
+  tb.innerHTML = `<tr><td colspan="${visibleCols().length + 1}" class="empty">Chargement…</td></tr>`;
 
   // Total filtré (pour le pager) — mêmes filtres que la liste
   try {
@@ -176,19 +223,19 @@ function goPage(delta) {
 
 function render(rows) {
   const tb = document.getElementById('tbody');
-  if (!rows.length) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun producteur. Importez un registre ou créez une plantation.</td></tr>';
+  const cols = visibleCols();
+  const span = cols.length + 1;
+  if (!rows || !rows.length) {
+    tb.innerHTML = `<tr><td colspan="${span}" class="empty">Aucun producteur. Importez un registre ou créez une plantation.</td></tr>`;
     return;
   }
-  tb.innerHTML = rows.map(p => `
-    <tr>
-      <td class="code">${esc(p.code_yeyasso || '—')}</td>
-      <td>${esc(p.nom_complet || '—')}</td>
-      <td>${esc(p.localite || '—')}</td>
-      <td>${esc(p.section || '—')}</td>
-      <td class="muted">${esc(p.telephone || '—')}</td>
-      <td><a class="lnk" href="producer_profile.html?id=${p.id}">Profil →</a></td>
-    </tr>`).join('');
+  tb.innerHTML = rows.map(p => '<tr>' +
+    cols.map(c => `<td${c.cls ? ` class="${c.cls}"` : ''}>${c.val(p)}</td>`).join('') +
+    `<td style="white-space:nowrap">
+       <a class="lnk" href="#" onclick="openEditProducer(${p.id});return false" title="Modifier les informations">Éditer</a>
+       <span class="muted"> · </span>
+       <a class="lnk" href="producer_profile.html?id=${p.id}">Profil →</a>
+     </td></tr>`).join('');
   document.getElementById('k-shown').textContent = rows.length;
 }
 
@@ -218,39 +265,68 @@ function initCertFilter() {
     .catch(() => {});
 }
 
-/* ── Création directe d'un producteur ─────────────────────────── */
+/* ── Création / édition d'un producteur (modale duale) ──────────── */
+let _editId = null;
+
+function _fillProducerModal(p) {
+  document.getElementById('p-nom').value = (p && p.nom_complet) || '';
+  document.getElementById('p-code').value = (p && p.code_yeyasso) || '';
+  document.getElementById('p-tel').value = (p && p.telephone) || '';
+  document.getElementById('p-localite').value = (p && p.localite) || '';
+  document.getElementById('p-section').value = (p && p.section) || '';
+  document.getElementById('p-sexe').value = (p && p.sexe) || '';
+}
+
 function openNewProducer() {
+  _editId = null;
   document.getElementById('p-err').style.display = 'none';
-  ['p-nom', 'p-code', 'p-tel', 'p-localite', 'p-section'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('p-sexe').value = '';
+  _fillProducerModal(null);
+  document.getElementById('p-modal-title').textContent = 'Nouveau producteur';
+  document.getElementById('p-btn').textContent = 'Créer';
   document.getElementById('modal-prod').style.display = 'flex';
 }
+
+function openEditProducer(id) {
+  const p = _all.find(x => x.id === id);
+  if (!p) return;
+  _editId = id;
+  document.getElementById('p-err').style.display = 'none';
+  _fillProducerModal(p);
+  document.getElementById('p-modal-title').textContent = 'Modifier le producteur';
+  document.getElementById('p-btn').textContent = 'Enregistrer';
+  document.getElementById('modal-prod').style.display = 'flex';
+}
+
 function closeNewProducer() { document.getElementById('modal-prod').style.display = 'none'; }
 document.getElementById('modal-prod').addEventListener('click', e => { if (e.target === e.currentTarget) closeNewProducer(); });
 
-async function createProducer() {
+async function submitProducer() {
   const err = document.getElementById('p-err'); err.style.display = 'none';
   const nom = document.getElementById('p-nom').value.trim();
   if (nom.length < 2) { err.textContent = 'Le nom et prénoms est obligatoire.'; err.style.display = 'block'; return; }
-  const btn = document.getElementById('p-btn'); btn.disabled = true; btn.textContent = 'Création…';
+  const payload = {
+    nom_complet: nom,
+    code_yeyasso: document.getElementById('p-code').value.trim() || null,
+    telephone: document.getElementById('p-tel').value.trim() || null,
+    localite: document.getElementById('p-localite').value.trim() || null,
+    section: document.getElementById('p-section').value.trim() || null,
+    sexe: document.getElementById('p-sexe').value || null,
+  };
+  const btn = document.getElementById('p-btn'); btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await authFetch('/producers', { method: 'POST', body: JSON.stringify({
-      nom_complet: nom,
-      code_yeyasso: document.getElementById('p-code').value.trim() || null,
-      telephone: document.getElementById('p-tel').value.trim() || null,
-      localite: document.getElementById('p-localite').value.trim() || null,
-      section: document.getElementById('p-section').value.trim() || null,
-      sexe: document.getElementById('p-sexe').value || null,
-    }) });
+    const r = await authFetch(_editId ? `/producers/${_editId}` : '/producers',
+      { method: _editId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
     const body = await r.json().catch(() => ({}));
-    if (!r || !r.ok) throw new Error(body.detail || 'Création impossible.');
+    if (!r || !r.ok) throw new Error(body.detail || 'Enregistrement impossible.');
     closeNewProducer();
-    toast('Producteur créé.');
+    toast(_editId ? 'Producteur mis à jour.' : 'Producteur créé.');
     load(false);
   } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
-  finally { btn.disabled = false; btn.textContent = 'Créer'; }
+  finally { btn.disabled = false; btn.textContent = _editId ? 'Enregistrer' : 'Créer'; }
 }
 
+renderHeader();
+renderColMenu();
 initCertFilter();
 load();
 </script>

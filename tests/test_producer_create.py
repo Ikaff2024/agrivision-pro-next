@@ -74,3 +74,45 @@ def test_create_producer_cooperative_scoped(client):
     hb = _login(client, "prod.b@test.ci", "Coop P B")
     pid = client.post("/producers", json={"nom_complet": "Visible A"}, headers=ha).json()["id"]
     assert pid not in [p["id"] for p in client.get("/producers", headers=hb).json()]
+
+
+# ── Mise à jour d'un producteur (PUT) ────────────────────────────────────────
+def test_update_producer_fields(client):
+    h = _login(client, "prod.upd@test.ci", "Coop Upd")
+    pid = client.post("/producers", json={"nom_complet": "Avant Edit", "localite": "Ancienne"}, headers=h).json()["id"]
+    r = client.put(f"/producers/{pid}", json={
+        "nom_complet": "Apres Edit", "localite": "Soubré", "telephone": "0712345678",
+        "sexe": "F", "code_saco": "SACO-9", "latitude": 5.78, "longitude": -6.59,
+    }, headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["nom_complet"] == "Apres Edit" and body["localite"] == "Soubré"
+    assert body["sexe"] == "F" and body["code_saco"] == "SACO-9" and body["latitude"] == 5.78
+    got = client.get(f"/producers/{pid}", headers=h).json()
+    assert got["nom_complet"] == "Apres Edit" and got["telephone"] == "0712345678"
+
+
+def test_update_producer_partial_keeps_other_fields(client):
+    h = _login(client, "prod.partial@test.ci", "Coop Partial")
+    pid = client.post("/producers", json={
+        "nom_complet": "Garde Code", "code_yeyasso": "KEEP-1", "localite": "Méagui",
+    }, headers=h).json()["id"]
+    r = client.put(f"/producers/{pid}", json={"telephone": "0799"}, headers=h)  # seul le tel change
+    assert r.status_code == 200
+    body = r.json()
+    assert body["telephone"] == "0799"
+    assert body["code_yeyasso"] == "KEEP-1" and body["localite"] == "Méagui"  # inchangés (exclude_unset)
+
+
+def test_update_producer_code_dedup(client):
+    h = _login(client, "prod.upddup@test.ci", "Coop UpdDup")
+    client.post("/producers", json={"nom_complet": "P1", "code_yeyasso": "C-1"}, headers=h)
+    p2 = client.post("/producers", json={"nom_complet": "P2", "code_yeyasso": "C-2"}, headers=h).json()["id"]
+    assert client.put(f"/producers/{p2}", json={"code_yeyasso": "C-1"}, headers=h).status_code == 409
+
+
+def test_update_producer_cooperative_scoped(client):
+    ha = _login(client, "prod.ua@test.ci", "Coop UA")
+    hb = _login(client, "prod.ub@test.ci", "Coop UB")
+    pid = client.post("/producers", json={"nom_complet": "Chez A"}, headers=ha).json()["id"]
+    assert client.put(f"/producers/{pid}", json={"nom_complet": "Pirate"}, headers=hb).status_code == 404

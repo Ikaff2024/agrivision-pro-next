@@ -5,6 +5,7 @@ Etend les routes producer historiques (list/get) avec les endpoints
 acceder a ses enfants, evaluations, visites, plans, plaintes, statut
 tracabilite et score de risque agrege.
 """
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -45,6 +46,16 @@ class ProducerResponse(BaseModel):
     telephone: Optional[str] = None
     localite: Optional[str] = None
     section: Optional[str] = None
+    # Champs additionnels (affichables en colonnes optionnelles + édition)
+    sexe: Optional[str] = None
+    code_saco: Optional[str] = None
+    recepisse: Optional[str] = None
+    date_naissance: Optional[datetime] = None
+    piece_identite_numero: Optional[str] = None
+    piece_identite_nature: Optional[str] = None
+    formateur_interne_nom: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     cooperative_id: Optional[int] = None
 
     class Config:
@@ -58,6 +69,23 @@ class ProducerCreate(BaseModel):
     localite: Optional[str] = Field(None, max_length=120)
     section: Optional[str] = Field(None, max_length=120)
     sexe: Optional[str] = Field(None, pattern="^[HF]$")
+
+
+class ProducerUpdate(BaseModel):
+    """Mise à jour PARTIELLE d'un producteur — seuls les champs fournis sont modifiés."""
+    nom_complet: Optional[str] = Field(None, min_length=2, max_length=200)
+    code_yeyasso: Optional[str] = Field(None, max_length=100)
+    telephone: Optional[str] = Field(None, max_length=50)
+    localite: Optional[str] = Field(None, max_length=120)
+    section: Optional[str] = Field(None, max_length=120)
+    sexe: Optional[str] = Field(None, pattern="^[HF]$")
+    code_saco: Optional[str] = Field(None, max_length=100)
+    recepisse: Optional[str] = Field(None, max_length=100)
+    piece_identite_numero: Optional[str] = Field(None, max_length=100)
+    piece_identite_nature: Optional[str] = Field(None, max_length=60)
+    formateur_interne_nom: Optional[str] = Field(None, max_length=200)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 def _filtered_producers_query(db, current_user, search=None, localite=None,
@@ -172,6 +200,55 @@ def create_producer(
         is_active=True,
     )
     db.add(producer)
+    db.commit()
+    db.refresh(producer)
+    return producer
+
+
+@router.put("/producers/{producer_id:int}", response_model=ProducerResponse)
+def update_producer(
+    producer_id: int,
+    data: ProducerUpdate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Met à jour les informations d'un producteur (champs fournis uniquement).
+
+    Cloisonné par coopérative ; code interne dédupliqué s'il change.
+    """
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
+    producer = db.query(Producer).filter(
+        Producer.id == producer_id, Producer.is_active == True
+    ).first()
+    if (producer and current_user is not None and current_user.cooperative_id is not None
+            and producer.cooperative_id != current_user.cooperative_id):
+        producer = None
+    if not producer:
+        raise HTTPException(status_code=404, detail="Producteur introuvable.")
+
+    fields = data.model_dump(exclude_unset=True)
+    if "code_yeyasso" in fields:
+        code = (fields["code_yeyasso"] or "").strip() or None
+        if code and code != producer.code_yeyasso:
+            dup = db.query(Producer).filter(
+                Producer.code_yeyasso == code,
+                Producer.is_active == True,
+                Producer.id != producer_id,
+            )
+            if current_user is not None and current_user.cooperative_id is not None:
+                dup = dup.filter(Producer.cooperative_id == current_user.cooperative_id)
+            if dup.first():
+                raise HTTPException(status_code=409, detail=f"Un producteur avec le code « {code} » existe déjà.")
+        fields["code_yeyasso"] = code
+
+    _STR = {"nom_complet", "telephone", "localite", "section", "sexe", "code_saco",
+            "recepisse", "piece_identite_numero", "piece_identite_nature", "formateur_interne_nom"}
+    for key, value in fields.items():
+        if key in _STR and isinstance(value, str):
+            value = value.strip() or None
+        setattr(producer, key, value)
+    if not (producer.nom_complet and producer.nom_complet.strip()):
+        raise HTTPException(status_code=400, detail="Le nom et prénoms est obligatoire.")
     db.commit()
     db.refresh(producer)
     return producer

@@ -83,6 +83,12 @@ PAGE_MARKERS = {
         "renderData",   # rendu de la liste paginée serveur (P2 scale)
         "EUDR_CLS",     # badges EUDR (désormais en ligne dans renderData, plus de fetch séparé)
     ],
+    "producers.html": [
+        "openEditProducer",   # édition d'un producteur (PUT)
+        "submitProducer",     # modale duale create/edit
+        "renderColMenu",      # sélecteur de colonnes
+        "setCol",
+    ],
     "risk_assessment.html": [
         "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)
         "onProducerChange",
