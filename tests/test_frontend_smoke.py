@@ -89,6 +89,11 @@ PAGE_MARKERS = {
         "renderColMenu",      # sélecteur de colonnes
         "setCol",
     ],
+    "agroforestry.html": [
+        "onPlSearch",            # recherche de plantations dans la liste
+        "renderPlantationList",
+        "selectPlantation",
+    ],
     "risk_assessment.html": [
         "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)
         "onProducerChange",

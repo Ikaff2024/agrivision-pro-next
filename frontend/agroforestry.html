@@ -207,6 +207,7 @@
         <div class="left-panel">
           <div class="panel-card">
             <div class="panel-title">🌿 Plantations</div>
+            <input class="form-input" id="pl-search" placeholder="Rechercher une plantation…" oninput="onPlSearch()" style="margin-bottom:10px;font-size:13px;padding:8px 10px">
             <div id="pl-list">
               <div style="text-align:center;padding:20px;color:var(--muted)">Chargement…</div>
             </div>
@@ -381,13 +382,28 @@ function _renderCarbonBanner(s) {
   }
 }
 
+let _plSearch = '';
+function onPlSearch() {
+  _plSearch = (document.getElementById('pl-search').value || '').trim().toLowerCase();
+  renderPlantationList();
+}
+
 function renderPlantationList() {
   const el = document.getElementById('pl-list');
   if (!allPlantations.length) {
     el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Aucune plantation.</div>';
     return;
   }
-  el.innerHTML = allPlantations.map(p => `
+  const q = _plSearch;
+  const list = q
+    ? allPlantations.filter(p => [p.name, p.owner_name, p.region, p.country]
+        .map(v => (v || '').toString().toLowerCase()).join(' ').includes(q))
+    : allPlantations;
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Aucune plantation pour « ${esc(q)} ».</div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => `
     <div class="plantation-item ${p.id === currentPid ? 'active' : ''}" id="pl-item-${p.id}"
       onclick="selectPlantation(${p.id})">
       <div class="pl-dot" style="background:var(--accent)"></div>
