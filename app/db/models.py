@@ -893,3 +893,37 @@ class VeilleDigest(Base):
     model        = Column(String(120), nullable=True)               # fournisseur / modèle
     item_count   = Column(Integer, nullable=True)
     generated_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Géo-horodatage anti-fraude de la collecte terrain (visites, enquêtes).
+# Table CENTRALE (polymorphe entity_type/entity_id) → réutilisable par tous les
+# formulaires sans ALTER sur chaque table. `captured_at` = heure SERVEUR (non
+# falsifiable) ; le GPS de l'appareil est comparé au lieu attendu (producteur /
+# parcelle) pour signaler les saisies hors zone ou sans GPS.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class FieldGeostamp(Base):
+    __tablename__ = "field_geostamps"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    cooperative_id      = Column(Integer, nullable=True, index=True)
+    entity_type         = Column(String(40), nullable=False, index=True)   # monitoring_visit | ssrte_plantation_visit | risk_assessment | diagnostic
+    entity_id           = Column(Integer, nullable=False, index=True)
+
+    # GPS capté par l'appareil au moment de la validation
+    captured_latitude   = Column(Float, nullable=True)
+    captured_longitude  = Column(Float, nullable=True)
+    captured_accuracy_m = Column(Float, nullable=True)
+    client_reported_at  = Column(DateTime(timezone=True), nullable=True)   # heure DÉCLARÉE par l'appareil (audit)
+    captured_at         = Column(DateTime(timezone=True), server_default=func.now())  # heure SERVEUR (référence)
+
+    # Lieu attendu (GPS connu du producteur / de la parcelle) au moment de la capture
+    expected_latitude   = Column(Float, nullable=True)
+    expected_longitude  = Column(Float, nullable=True)
+    distance_m          = Column(Float, nullable=True)                     # haversine capturé ↔ attendu
+
+    # Verdict d'intégrité : verified | far | no_fix | no_reference | overridden
+    geo_status          = Column(String(20), nullable=False, default="no_fix", index=True)
+    override_reason     = Column(Text, nullable=True)                      # motif si GPS indisponible (tracé)
+    recorded_by         = Column(String(200), nullable=True)
