@@ -55,11 +55,12 @@
           <div class="section-title">Nouvel achat</div>
           <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="b-producer" onchange="onProducer()"></select></div>
           <div id="b-blocked" class="warn" style="display:none;margin-bottom:8px">🚫 Producteur sous blocage CacaoGuard — vente non traçable vers un lot.</div>
-          <div class="form-group"><label class="form-label">Plantation (génère une récolte traçable)</label><select class="form-input" id="b-plantation"><option value="">— Aucune —</option></select></div>
+          <div class="form-group"><label class="form-label">Plantation (génère une récolte traçable)</label><select class="form-input" id="b-plantation" onchange="checkDup()"><option value="">— Aucune —</option></select></div>
           <div class="mini-row">
             <div class="form-group"><label class="form-label">N° bon d'achat</label><input class="form-input" id="b-receipt"></div>
-            <div class="form-group"><label class="form-label">Campagne</label><input class="form-input" id="b-season" placeholder="2025-2026"></div>
+            <div class="form-group"><label class="form-label">Campagne</label><input class="form-input" id="b-season" placeholder="2025-2026" onchange="checkDup()"></div>
           </div>
+          <div id="b-dup-alert" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
           <div class="mini-row">
             <div class="form-group"><label class="form-label">Poids brut (kg)</label><input class="form-input" type="number" min="0" step="0.1" id="b-gross" oninput="recalc()"></div>
             <div class="form-group"><label class="form-label">Tare / sacs (kg)</label><input class="form-input" type="number" min="0" step="0.1" id="b-tare" value="0" oninput="recalc()"></div>
@@ -125,6 +126,57 @@ function onProducer(){
   const mine = _plantations.filter(p=>p.producer_id===pid);
   document.getElementById('b-plantation').innerHTML = '<option value="">— Aucune —</option>' +
     mine.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  checkDup();
+}
+
+/* ── Anti-doublon achat ↔ récolte (alerte + lien) ─────────────────────────── */
+let _linkHarvestId = null, _dupHarvests = [], _dupAck = false;
+function _escDup(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+
+async function checkDup(){
+  _linkHarvestId = null; _dupAck = false; _dupHarvests = [];
+  const box = document.getElementById('b-dup-alert');
+  const plid = Number(document.getElementById('b-plantation').value)||0;
+  if(!plid){ box.style.display='none'; box.innerHTML=''; return; }
+  const season = document.getElementById('b-season').value.trim();
+  try{
+    const qs = new URLSearchParams({plantation_id:String(plid)});
+    if(season) qs.set('season', season);
+    const r = await authFetch('/purchases/duplicate-check?'+qs.toString());
+    const d = r?.ok ? await r.json() : null;
+    if(!d || !d.has_duplicate_risk){ box.style.display='none'; box.innerHTML=''; return; }
+    _dupHarvests = d.existing_harvests || [];
+    _renderDup();
+  }catch{ box.style.display='none'; }
+}
+
+function _renderDup(){
+  const box = document.getElementById('b-dup-alert');
+  const h0 = _dupHarvests[0] || {};
+  const det = `${fmt(h0.quantity_kg)} kg${h0.numero_recu_achat?' · reçu '+_escDup(h0.numero_recu_achat):''}${h0.season?' · '+_escDup(h0.season):''}`;
+  box.style.display='block';
+  box.style.background='#fdf0e3'; box.style.border='1px solid #e8c98a'; box.style.color='#7a4a00';
+  box.innerHTML = `⚠️ Une <strong>récolte existe déjà</strong> pour cette parcelle/campagne (${det}). `
+    + `Saisir un achat ici <strong>doublerait le volume</strong>.`
+    + `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">`
+    + `<button class="btn btn-sm btn-primary" type="button" onclick="linkToHarvest(${h0.id}, ${h0.quantity_kg||0})">Lier à cette récolte</button>`
+    + `<button class="btn btn-sm btn-outline" type="button" onclick="ackDup()">Créer quand même</button></div>`;
+}
+
+function linkToHarvest(hid, qty){
+  _linkHarvestId = hid; _dupAck = true;
+  const net = document.getElementById('b-net');
+  if(!parseFloat(net.value) && qty){ net.value = qty; recalc(); }
+  const box = document.getElementById('b-dup-alert');
+  box.style.background='#eaf6ee'; box.style.border='1px solid #8fcea8'; box.style.color='#1a6b3a';
+  box.innerHTML = `🔗 Achat <strong>lié</strong> à la récolte #${hid} — règlement financier, pas de doublon de volume.`;
+}
+
+function ackDup(){
+  _dupAck = true; _linkHarvestId = null;
+  const box = document.getElementById('b-dup-alert');
+  box.style.background='#fbe9e7'; box.style.border='1px solid #e0a89f'; box.style.color='#922b21';
+  box.innerHTML = `⚠️ Doublon assumé : une <strong>2ᵉ récolte</strong> sera créée pour cette parcelle/campagne.`;
 }
 
 function recalc(){
@@ -193,9 +245,14 @@ async function loadList(){
 async function createPurchase(){
   const pid = Number(document.getElementById('b-producer').value);
   if(!pid) return toast('Choisissez un producteur.');
+  if(_dupHarvests.length && !_linkHarvestId && !_dupAck){
+    const ok = await avpConfirm('Une récolte existe déjà pour cette parcelle/campagne. Un achat non lié va DOUBLER le volume. Continuer quand même ?', {danger:true, okText:'Créer quand même'});
+    if(!ok) return;
+  }
   const body = {
     producer_id: pid,
     plantation_id: Number(document.getElementById('b-plantation').value)||null,
+    harvest_id: _linkHarvestId || null,
     receipt_number: document.getElementById('b-receipt').value.trim()||null,
     season: document.getElementById('b-season').value.trim()||null,
     gross_weight_kg: parseFloat(document.getElementById('b-gross').value)||null,
@@ -212,6 +269,8 @@ async function createPurchase(){
   if(!r.ok) return toast('Enregistrement impossible : '+(d.detail||''));
   ['b-receipt','b-gross','b-net','b-bags','b-price','b-total','b-buyer'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('b-tare').value='0';
+  _linkHarvestId=null; _dupHarvests=[]; _dupAck=false;
+  const dupBox=document.getElementById('b-dup-alert'); if(dupBox){ dupBox.style.display='none'; dupBox.innerHTML=''; }
   await loadAll();
   toast('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
 }

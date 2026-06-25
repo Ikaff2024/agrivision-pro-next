@@ -89,6 +89,11 @@ PAGE_MARKERS = {
         "renderColMenu",      # sélecteur de colonnes
         "setCol",
     ],
+    "achats.html": [
+        "createPurchase",
+        "checkDup",          # anti-doublon : alerte si une récolte existe déjà
+        "linkToHarvest",     # lier l'achat à la récolte existante
+    ],
     "agroforestry.html": [
         "onPlSearch",            # recherche de plantations dans la liste
         "renderPlantationList",

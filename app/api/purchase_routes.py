@@ -31,6 +31,7 @@ _VALID_QUALITIES = {"Bonne", "Moyenne", "Defauts"}
 class PurchaseCreate(BaseModel):
     producer_id: int
     plantation_id: Optional[int] = None
+    harvest_id: Optional[int] = None   # lier l'achat a une RECOLTE EXISTANTE (anti-doublon) au lieu d'en creer une
     receipt_number: Optional[str] = Field(None, max_length=120)
     purchase_date: Optional[datetime] = None
     season: Optional[str] = Field(None, max_length=50)
@@ -159,6 +160,45 @@ def purchases_summary(
     }
 
 
+@router.get("/duplicate-check")
+def purchase_duplicate_check(
+    plantation_id: int,
+    season: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Anti-doublon : récoltes EXISTANTES pour une parcelle (+ campagne).
+
+    Le formulaire d'achat l'appelle quand une parcelle est choisie : s'il existe
+    déjà une récolte pour cette parcelle/campagne, saisir un achat qui régénère une
+    récolte ferait un DOUBLON de volume → on propose plutôt de LIER (`harvest_id`).
+    """
+    coop = _coop_id(current_user)
+    pl = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not pl or (coop is not None and pl.cooperative_id != coop):
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    q = db.query(Harvest).filter(Harvest.plantation_id == plantation_id)
+    if season:
+        q = q.filter(Harvest.season == season)
+    harvests = q.order_by(Harvest.harvest_date.desc()).all()
+    return {
+        "plantation_id": plantation_id,
+        "season": season,
+        "has_duplicate_risk": len(harvests) > 0,
+        "existing_harvests": [
+            {
+                "id": h.id,
+                "quantity_kg": float(h.quantity_kg or 0),
+                "season": h.season,
+                "harvest_date": h.harvest_date,
+                "numero_recu_achat": h.numero_recu_achat,
+                "price_per_kg_fcfa": h.price_per_kg_fcfa,
+            }
+            for h in harvests
+        ],
+    }
+
+
 @router.get("/producer-balances")
 def producer_balances(
     season: Optional[str] = None,
@@ -282,6 +322,18 @@ def create_purchase(
         if _coop_id(current_user) is not None and plantation.cooperative_id != _coop_id(current_user):
             raise HTTPException(status_code=403, detail="Plantation d'une autre cooperative.")
 
+    # Anti-doublon : lier l'achat a une recolte EXISTANTE (ne pas en recreer une).
+    linked_harvest = None
+    if data.harvest_id is not None:
+        linked_harvest = db.query(Harvest).filter(Harvest.id == data.harvest_id).first()
+        if not linked_harvest:
+            raise HTTPException(status_code=404, detail="Recolte a lier introuvable.")
+        hpl = db.query(Plantation).filter(Plantation.id == linked_harvest.plantation_id).first()
+        if _coop_id(current_user) is not None and (not hpl or hpl.cooperative_id != _coop_id(current_user)):
+            raise HTTPException(status_code=403, detail="Recolte d'une autre cooperative.")
+        if plantation is None:
+            plantation = hpl
+
     if data.quality and data.quality not in _VALID_QUALITIES:
         raise HTTPException(status_code=400, detail=f"Qualite invalide : {sorted(_VALID_QUALITIES)}.")
     if data.payment_status not in {"pending", "paid", "cancelled"}:
@@ -321,9 +373,11 @@ def create_purchase(
     )
     db.add(rec)
     db.flush()
+    if linked_harvest is not None:
+        rec.harvest_id = linked_harvest.id   # lie a la recolte existante → zero doublon de volume
 
-    # Genere une recolte tracable si une plantation est rattachee.
-    if plantation and data.create_harvest:
+    # Genere une recolte tracable si une plantation est rattachee ET aucun lien existant.
+    if plantation and data.create_harvest and linked_harvest is None:
         harvest = Harvest(
             plantation_id=plantation.id,
             harvest_date=purchase_date,
