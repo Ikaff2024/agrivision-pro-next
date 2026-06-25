@@ -131,6 +131,12 @@ class PlantationVisitPayload(BaseModel):
     interviewer_name: Optional[str] = Field(None, max_length=200)
     gps_location: Optional[str] = Field(None, max_length=255)
     gps_accuracy: Optional[float] = Field(None, ge=0)
+    # Géo-horodatage anti-fraude (GPS capté par l'appareil à la validation).
+    captured_latitude: Optional[float] = None
+    captured_longitude: Optional[float] = None
+    captured_accuracy_m: Optional[float] = None
+    client_reported_at: Optional[datetime] = None
+    geo_override_reason: Optional[str] = Field(None, max_length=300)
     # Identification administrative (C.01-C.07)
     section: Optional[str] = Field(None, max_length=100)
     supplier: Optional[str] = Field(None, max_length=200)
@@ -363,7 +369,7 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
     }
 
 
-def visit_to_dict(row: SsrtePlantationVisit) -> dict:
+def visit_to_dict(row: SsrtePlantationVisit, geo: dict = None) -> dict:
     return {
         "id": row.id,
         "plantation_id": row.plantation_id,
@@ -404,6 +410,7 @@ def visit_to_dict(row: SsrtePlantationVisit) -> dict:
         "status": row.status or "draft",
         "finalized_at": row.finalized_at,
         "created_at": row.created_at,
+        "geo": geo,
     }
 
 
@@ -635,18 +642,31 @@ def create_plantation_visit(
     if not plantation:
         raise HTTPException(status_code=404, detail="Plantation introuvable.")
     producer_id = data.producer_id or plantation.producer_id
+    _geo_fields = {"producer_id", "captured_latitude", "captured_longitude",
+                   "captured_accuracy_m", "client_reported_at", "geo_override_reason"}
     row = SsrtePlantationVisit(
-        **data.model_dump(exclude={"producer_id"}),
+        **data.model_dump(exclude=_geo_fields),
         producer_id=producer_id,
         created_by=current_user.id if current_user else None,
     )
     db.add(row)
     db.flush()
+    # Géo-horodatage anti-fraude : GPS capté + heure serveur, comparé au GPS parcelle.
+    from app.services.geostamp import record_geostamp, geostamp_dict
+    _gs = record_geostamp(
+        db, entity_type="ssrte_plantation_visit", entity_id=row.id,
+        cooperative_id=(current_user.cooperative_id if current_user else None),
+        captured_lat=data.captured_latitude, captured_lng=data.captured_longitude,
+        accuracy=data.captured_accuracy_m, client_reported_at=data.client_reported_at,
+        expected_lat=plantation.latitude, expected_lng=plantation.longitude,
+        recorded_by=(current_user.email if current_user else None),
+        override_reason=data.geo_override_reason,
+    )
     _alert_for_ssrte_visit(db, row)
     _traceability_block_for_ssrte_visit(db, row)
     db.commit()
     db.refresh(row)
-    return visit_to_dict(row)
+    return visit_to_dict(row, geo=geostamp_dict(_gs))
 
 
 # ── Cycle de vie : modifier (brouillon) / clôturer (définitif) / supprimer ────

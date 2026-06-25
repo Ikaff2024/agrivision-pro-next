@@ -206,6 +206,12 @@ class MonitoringVisitComplete(BaseModel):
     actual_date: date = Field(default_factory=date.today)
     visit_location: Optional[str] = Field(None, max_length=255)
     gps_accuracy: Optional[float] = None
+    # Géo-horodatage anti-fraude : GPS capté par l'appareil à la validation.
+    captured_latitude: Optional[float] = None
+    captured_longitude: Optional[float] = None
+    captured_accuracy_m: Optional[float] = None
+    client_reported_at: Optional[datetime] = None
+    geo_override_reason: Optional[str] = Field(None, max_length=300)
     checklist_data: dict = Field(default_factory=dict)
     observations: Optional[str] = None
     dangerous_tasks_observed: Optional[List[str]] = None
@@ -285,7 +291,7 @@ def alert_to_dict(alert: Alert) -> dict:
     }
 
 
-def visit_to_dict(visit: MonitoringVisit, include_sensitive: bool = True) -> dict:
+def visit_to_dict(visit: MonitoringVisit, include_sensitive: bool = True, geo: dict = None) -> dict:
     data = {
         "id": visit.id,
         "producer_id": visit.producer_id,
@@ -307,6 +313,7 @@ def visit_to_dict(visit: MonitoringVisit, include_sensitive: bool = True) -> dic
         "assessor_signature_data": visit.assessor_signature_data or {},
         "status": visit.status.value,
         "created_at": visit.created_at,
+        "geo": geo,
     }
     if not include_sensitive:
         data.update({
@@ -662,9 +669,12 @@ def list_visits(
         query = query.filter(MonitoringVisit.producer_id.in_(psub))
     if status:
         query = query.filter(MonitoringVisit.status == status)
+    from app.services.geostamp import latest_map, geostamp_dict
+    rows = query.order_by(MonitoringVisit.scheduled_date.desc()).limit(limit).all()
+    _geo = latest_map(db, "monitoring_visit", [v.id for v in rows])
     return [
-        visit_to_dict(v, can_view_sensitive(current_user))
-        for v in query.order_by(MonitoringVisit.scheduled_date.desc()).limit(limit).all()
+        visit_to_dict(v, can_view_sensitive(current_user), geo=geostamp_dict(_geo.get(v.id)))
+        for v in rows
     ]
 
 
@@ -1008,6 +1018,20 @@ def complete_visit(
     visit.status = VisitStatus.COMPLETED
     visit.completion_date = datetime.utcnow()
 
+    # Géo-horodatage anti-fraude : GPS capté + heure serveur, comparé au GPS producteur.
+    from app.services.geostamp import record_geostamp
+    _prod = db.query(Producer).filter(Producer.id == visit.producer_id).first()
+    _gs = record_geostamp(
+        db, entity_type="monitoring_visit", entity_id=visit.id,
+        cooperative_id=(current_user.cooperative_id if current_user else None),
+        captured_lat=data.captured_latitude, captured_lng=data.captured_longitude,
+        accuracy=data.captured_accuracy_m, client_reported_at=data.client_reported_at,
+        expected_lat=(_prod.latitude if _prod else None),
+        expected_lng=(_prod.longitude if _prod else None),
+        recorded_by=(current_user.email if current_user else None),
+        override_reason=data.geo_override_reason,
+    )
+
     if data.dangerous_tasks_observed:
         child = db.query(Child).filter(
             Child.producer_id == visit.producer_id,
@@ -1019,7 +1043,8 @@ def complete_visit(
 
     db.commit()
     db.refresh(visit)
-    return visit_to_dict(visit)
+    from app.services.geostamp import geostamp_dict
+    return visit_to_dict(visit, geo=geostamp_dict(_gs))
 
 
 @router.get("/remediation/plans")
