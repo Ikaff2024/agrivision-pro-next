@@ -26,7 +26,7 @@
 ### 🌍 Protéger — conformité & durabilité *(le différenciateur)*
 6. [CacaoGuard, Protection de l'enfant & Fiches SSRTE](06_cacaoguard_ssrte.md)
 7. [EUDR & Conformité](07_eudr_conformite.md)
-8. [FarmForce — Revenu vital](08_farmforce_revenu_vital.md)
+8. [Revenu vital](08_farmforce_revenu_vital.md)
 9. [Monitoring, Remédiation, Signalements, Formation](09_suivi_terrain.md) — l'exécution terrain de la protection
 
 ### 📊 Piloter — décider et prouver

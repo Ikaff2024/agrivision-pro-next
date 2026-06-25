@@ -238,7 +238,7 @@ async function loadProfile() {
                   <span class="material-symbols-outlined" style="font-size:16px">home_health</span> F1 menage
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="location.href='farmforce.html?producer_id=${producerId}'">
-                  <span class="material-symbols-outlined" style="font-size:16px">payments</span> FarmForce
+                  <span class="material-symbols-outlined" style="font-size:16px">payments</span> Revenu vital
                 </button>
               </div>
             </div>
@@ -310,14 +310,14 @@ async function loadProfile() {
 
         <div class="panel">
           <div class="section-head">
-            <div class="section-title">FarmForce</div>
+            <div class="section-title">Revenu vital</div>
             <button class="btn btn-outline btn-sm" onclick="location.href='farmforce.html?producer_id=${producerId}'">Saisir</button>
           </div>
           <div class="stack">
             ${renderList(farmforceRows, f => item(`
               <div class="item-title">${esc(f.campaign_label)} - profit ${money(f.profit_cfa)} CFA</div>
               <div class="item-meta">Revenus ${money(f.total_revenue_cfa)} | Couts ${money(f.total_cost_cfa)} | Retour/jour ${f.return_per_family_day_cfa == null ? '-' : money(f.return_per_family_day_cfa)}</div>
-            `, Number(f.profit_cfa || 0) < 0), 'Aucun compte FarmForce.')}
+            `, Number(f.profit_cfa || 0) < 0), 'Aucun compte Revenu vital.')}
           </div>
         </div>
       </aside>

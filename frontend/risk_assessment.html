@@ -146,7 +146,7 @@
           <div class="divider"></div>
           <div class="text-sm text-muted" style="line-height:1.45">
             Score local : estimation intrinseque (facteurs observables sur l'enfant).
-            Le score authoritatif integre FarmForce (economic), SSRTE communaute
+            Le score authoritatif integre Revenu vital (economic), SSRTE communaute
             (geographic) et l'historique d'evaluations (history).
           </div>
           <button class="btn btn-sm btn-outline" id="server-recalc-btn"
@@ -297,7 +297,7 @@ function calculateAge(dob) {
 // Aligne avec backend scoring v2.0 (6 facteurs, total 100 pts) :
 //   age (0-25) + school (0-25) + work (0-20) + dangerous_tasks (0-10)
 //   + geographic (0-5) ← rempli ci-dessous a partir de la distance ecole
-//   + economic (0-10) ← server-only (FarmForce)
+//   + economic (0-10) ← server-only (Revenu vital)
 //   + history  (0-5)  ← server-only (assessments anterieures)
 // Le simulateur JS donne une estimation intrinseque (max 85). Le score
 // authoritatif (avec contexte) est disponible via /children/{id}/calculate-risk

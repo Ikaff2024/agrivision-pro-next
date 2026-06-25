@@ -662,7 +662,7 @@ function renderSidebar(activePage) {
     { id: 'ssrte', href: 'ssrte.html', icon: 'clinical_notes', label: 'Fiches SSRTE', group: '🌍 Protéger' },
     { id: 'eudr', href: 'eudr.html', icon: 'eco', label: 'EUDR', group: '🌍 Protéger' },
     { id: 'compliance', href: 'compliance.html', icon: 'gpp_maybe', label: 'Conformite', group: '🌍 Protéger' },
-    { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'FarmForce', group: '🌍 Protéger' },
+    { id: 'farmforce', href: 'farmforce.html', icon: 'request_quote', label: 'Revenu vital', group: '🌍 Protéger' },
     { id: 'monitoring', href: 'monitoring.html', icon: 'travel_explore', label: 'Monitoring', group: '🌍 Protéger' },
     { id: 'remediation', href: 'remediation.html', icon: 'assignment_turned_in', label: 'Remediation', group: '🌍 Protéger' },
     { id: 'complaints', href: 'complaints.html', icon: 'report', label: 'Signalements', group: '🌍 Protéger' },

@@ -1,4 +1,4 @@
-# 8. FarmForce — Revenu vital (Livret de suivi)
+# 8. Revenu vital (Livret de suivi)
 
 ### À quoi ça sert
 Évaluer le **revenu** d'un ménage producteur et le comparer au **seuil de revenu vital**
@@ -14,7 +14,7 @@
   **« atteint »** ou **« écart »** (avec le montant manquant).
 
 ### Saisir / consulter une évaluation (pas à pas)
-1. Menu **FarmForce**.
+1. Menu **Revenu vital**.
 2. Pour une **nouvelle** évaluation : choisissez le producteur, la **campagne**, puis renseignez
    les **revenus**, **coûts**, **main-d'œuvre familiale**, **dépenses du ménage**…
 3. Enregistrez. L'application calcule **profit**, **revenu net** et le **verdict revenu vital**.
@@ -36,7 +36,7 @@
 
 > Évaluer le ménage de **Koffi Yao N'Guessan**, campagne **2025-2026** (seuil revenu vital : 2 360 000 FCFA).
 
-1. **Menu FarmForce → Nouvelle évaluation** : producteur `Koffi Yao N'Guessan`, campagne `2025-2026`.
+1. **Menu Revenu vital → Nouvelle évaluation** : producteur `Koffi Yao N'Guessan`, campagne `2025-2026`.
 2. **Revenus** : cacao `1 800 kg × 1 500 FCFA = 2 700 000`, vivrier `200 000` → ≈ `2 900 000` FCFA.
 3. **Coûts** : intrants `350 000`, main-d'œuvre `300 000` → `650 000` FCFA *(profit ≈ 2 250 000)*.
 4. **Dépenses du ménage** : alimentation `700 000`, éducation `150 000`, santé `100 000` → `950 000` FCFA.

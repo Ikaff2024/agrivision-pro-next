@@ -88,7 +88,7 @@
           <div class="kpi"><div class="kpi-val" id="k-ssrte-f1">-</div><div class="kpi-lbl">F1 menage</div></div>
           <div class="kpi"><div class="kpi-val" id="k-ssrte-c">-</div><div class="kpi-lbl">Fiches C</div></div>
           <div class="kpi"><div class="kpi-val" id="k-ssrte-sus">-</div><div class="kpi-lbl">Suspicions SSRTE</div></div>
-          <div class="kpi"><div class="kpi-val" id="k-ff-count">-</div><div class="kpi-lbl">FarmForce</div></div>
+          <div class="kpi"><div class="kpi-val" id="k-ff-count">-</div><div class="kpi-lbl">Revenu vital</div></div>
           <div class="kpi"><div class="kpi-val" id="k-ff-profit">-</div><div class="kpi-lbl">Profit net CFA</div></div>
           <div class="kpi"><div class="kpi-val" id="k-ff-risk">-</div><div class="kpi-lbl">Marges negatives</div></div>
           <div class="kpi"><div class="kpi-val" id="k-plans">-</div><div class="kpi-lbl">Plans actifs</div></div>
@@ -130,7 +130,7 @@
             <div class="evidence-list" id="ssrte-visits"></div>
           </div>
           <div class="panel">
-            <div class="section-title">FarmForce economie menage</div>
+            <div class="section-title">Revenu vital economie menage</div>
             <div class="evidence-list" id="farmforce"></div>
           </div>
           <div class="panel">
@@ -250,7 +250,7 @@ async function loadReport() {
   setRows('visits', r.recent_visits || [], v => row(`<strong>${v.producer_name}</strong> - ${v.scheduled_date}<br>${labels[v.status] || v.status} - ${v.visit_location || 'Lieu non renseigne'}`), 'Aucune visite.');
   setRows('ssrte-households', r.recent_ssrte_households || [], h => row(`<strong>${h.producer_name}</strong> - ${h.interview_date}<br>Risque ${h.risk_level} (${Math.round(h.risk_score || 0)}/100) - ${h.vulnerabilities.length} vulnerabilite(s)`), 'Aucun profilage menage.');
   setRows('ssrte-visits', r.recent_ssrte_plantation_visits || [], v => row(`<strong>${v.plantation_name}</strong> - ${v.visit_date}<br>Suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${v.dangerous_tasks_observed.length} tache(s) dangereuse(s) - preuves ${(v.photos || []).length}`), 'Aucune visite SSRTE.');
-  setRows('farmforce', r.recent_farmforce_assessments || [], f => row(`<strong>${f.producer_name}</strong> - ${f.campaign_label}<br>Revenus ${money(f.total_revenue_cfa)} CFA | Couts ${money(f.total_cost_cfa)} CFA<br>Profit ${money(f.profit_cfa)} CFA | Retour/jour ${f.return_per_family_day_cfa == null ? '-' : money(f.return_per_family_day_cfa)}`), 'Aucun compte FarmForce.');
+  setRows('farmforce', r.recent_farmforce_assessments || [], f => row(`<strong>${f.producer_name}</strong> - ${f.campaign_label}<br>Revenus ${money(f.total_revenue_cfa)} CFA | Couts ${money(f.total_cost_cfa)} CFA<br>Profit ${money(f.profit_cfa)} CFA | Retour/jour ${f.return_per_family_day_cfa == null ? '-' : money(f.return_per_family_day_cfa)}`), 'Aucun compte Revenu vital.');
   setRows('trainings', r.recent_training_sessions || [], t => row(`<strong>${t.title}</strong> - ${t.scheduled_date}<br>${labels[t.training_type] || t.training_type} - ${t.actual_participants}/${t.expected_participants} participants - note ${t.effectiveness_rating}/5`), 'Aucune formation.');
   setRows('blocks', r.traceability_blocks || [], b => row(`<strong>${b.producer_name}</strong> - ${labels[b.block_reason] || b.block_reason}<br>${b.block_description}`), 'Aucun blocage actif.');
 }

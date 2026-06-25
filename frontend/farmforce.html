@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1a4231">
-  <title>AgriVision Pro - FarmForce</title>
+  <title>AgriVision Pro - Revenu vital</title>
   <script src="config.js?v=staging1"></script>
   <script src="avp-offline.js?v=farmforce1"></script>
     <!-- Polices de marque : préchargées tôt (évite le flash de typographie au chargement) -->
@@ -45,7 +45,7 @@
   <div class="avp-main">
     <div class="avp-header">
       <div>
-        <div class="page-title">FarmForce</div>
+        <div class="page-title">Revenu vital</div>
         <div class="page-sub">Compte d'exploitation producteur issu du formulaire client</div>
       </div>
       <button class="btn btn-primary" onclick="saveAssessment()">
@@ -325,7 +325,7 @@ async function loadAssessments() {
         <a href="#" onclick="downloadLivret(${a.id});return false" style="color:var(--primary);font-weight:800">Livret PDF</a>
         <a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Fiche producteur</a>
       </div>
-    </div>`).join('') : '<div class="muted">Aucun formulaire FarmForce enregistre.</div>');
+    </div>`).join('') : '<div class="muted">Aucun formulaire Revenu vital enregistre.</div>');
 }
 
 function clearRows() {

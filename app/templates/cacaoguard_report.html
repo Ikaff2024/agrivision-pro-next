@@ -166,7 +166,7 @@
     <div class="kpi danger"><strong>{{ i.ssrte_suspected_child_labor_visits or 0 }}</strong><span>Suspicions SSRTE</span></div>
   </div>
   <div class="grid-4" style="margin-top:7pt">
-    <div class="kpi"><strong>{{ i.farmforce_assessments or 0 }}</strong><span>Comptes FarmForce</span></div>
+    <div class="kpi"><strong>{{ i.farmforce_assessments or 0 }}</strong><span>Comptes Revenu vital</span></div>
     <div class="kpi"><strong>{{ i.farmforce_total_profit_cfa or 0 }}</strong><span>Profit net CFA</span></div>
     <div class="kpi warn"><strong>{{ i.farmforce_negative_profit_assessments or 0 }}</strong><span>Marges negatives</span></div>
     <div class="kpi"><strong>{{ i.farmforce_average_return_per_family_day_cfa or '-' }}</strong><span>Retour / jour</span></div>
@@ -309,7 +309,7 @@
   <div class="empty">Aucune visite plantation SSRTE.</div>
   {% endif %}
 
-  <h2>FarmForce economie menage</h2>
+  <h2>Revenu vital economie menage</h2>
   {% if r.recent_farmforce_assessments %}
   <table>
     <thead><tr><th>Producteur</th><th>Campagne</th><th>Revenus</th><th>Couts</th><th>Profit</th><th>Retour/jour</th></tr></thead>
@@ -327,7 +327,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">Aucun compte FarmForce.</div>
+  <div class="empty">Aucun compte Revenu vital.</div>
   {% endif %}
 
   <h2>Formation et sensibilisation</h2>

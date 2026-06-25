@@ -15,7 +15,7 @@ elle **classe les parcelles de la plus à risque à la moins à risque**, pour s
 - **Descriptif, pas devin** : le jumeau décrit l'état réel à partir de vos données. Il ne fait **aucune
   prédiction hasardeuse**. Chaque alerte est **explicable** (on sait exactement pourquoi elle apparaît).
 - **Sévérité** d'une alerte : **🔴 élevé** (à traiter en priorité), **🟠 moyen**, **⚪ faible**.
-- **Plus vous remplissez les autres modules** (diagnostic, EUDR, récoltes, FarmForce, certification…),
+- **Plus vous remplissez les autres modules** (diagnostic, EUDR, récoltes, Revenu vital, certification…),
   **plus le jumeau est riche et juste**. Une parcelle « vide » remonte surtout des alertes « à compléter ».
 
 ### Où le trouver
@@ -70,7 +70,7 @@ On ne signale que des situations **actionnables** (on n'inonde pas la liste pour
 - **Routine conseillée** : ouvrez **Parcelles à risque** en début de semaine, filtrez sur **Risque élevé**,
   et traitez la liste de haut en bas. C'est votre **plan d'action**.
 - Pour qu'une parcelle « se vide » de ses alertes, **complétez le module concerné** (tracer le polygone,
-  faire le diagnostic, saisir le livret FarmForce, etc.) — l'alerte disparaît au prochain **Actualiser**.
+  faire le diagnostic, saisir le livret Revenu vital, etc.) — l'alerte disparaît au prochain **Actualiser**.
 
 ### Scénario guidé (cas concret)
 
@@ -88,4 +88,4 @@ On ne signale que des situations **actionnables** (on n'inonde pas la liste pour
 | « Aucune parcelle à risque » | Tant mieux 🎉 — ou aucune donnée n'est encore saisie : remplissez les modules. |
 | Une parcelle a beaucoup d'alertes « à compléter » | Normal pour une parcelle neuve : saisissez diagnostic, délimitation, récoltes. |
 | Le menu **Parcelles à risque** est absent | Votre plan ne l'inclut peut-être pas, ou reconnectez-vous (le menu se met à jour). |
-| Revenu vital « Non évalué » | Aucun **livret FarmForce** pour ce producteur — saisissez-en un (voir fiche 8). |
+| Revenu vital « Non évalué » | Aucun **livret Revenu vital** pour ce producteur — saisissez-en un (voir fiche 8). |
