@@ -22,8 +22,8 @@ from sqlalchemy.orm import Session
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import (
-    Certification, Cooperative, Harvest, Lot, LotMovement, Plantation, Producer,
-    PurchaseRecord, User, Warehouse,
+    Certification, Cooperative, DeforestationCheck, Harvest, Lot, LotMovement,
+    Plantation, Producer, PurchaseRecord, User, Warehouse,
 )
 from app.db.models_social import BlockStatus, TraceabilityBlock
 from app.eudr.scoring import compute_eudr_score
@@ -154,12 +154,35 @@ def _guard_child_labor(db: Session, harvests: list[Harvest]) -> None:
         )
 
 
+def _deforestation_verdict(db: Session, plantation_id: int) -> str:
+    """Dernier verdict de contrôle déforestation : 'clear' | 'detected' | 'unverified'.
+
+    'unverified' = aucun contrôle OU résultat non concluant (déforestation NON
+    vérifiée). Posture (retours terrain) : non vérifiée → ALERTE ; détectée → BLOCAGE.
+    """
+    last = (
+        db.query(DeforestationCheck)
+        .filter(DeforestationCheck.plantation_id == plantation_id)
+        .order_by(DeforestationCheck.check_date.desc().nullslast(), DeforestationCheck.id.desc())
+        .first()
+    )
+    if last is None:
+        return "unverified"
+    v = (last.verdict or "inconclusive").lower()
+    if v == "clear":
+        return "clear"
+    if v == "deforestation_detected":
+        return "detected"
+    return "unverified"
+
+
 def _guard_export_compliance(db: Session, lot: Lot) -> list[dict]:
     """Refuse l'expedition (export_out) si une parcelle composante est EUDR
-    non conforme SANS derogation export accordee par un administrateur.
+    non conforme OU presente une DEFORESTATION DETECTEE, sans derogation admin.
 
-    Retourne la liste des derogations actives mobilisees, pour les tracer
-    dans le journal des mouvements du lot (auditabilite).
+    Une deforestation NON verifiee (controle manquant) n'empeche PAS l'expedition,
+    mais elle est signalee dans le passeport (cf. retours terrain). Retourne la
+    liste des derogations actives mobilisees, pour les tracer dans le journal.
     """
     harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
     plant_ids = {h.plantation_id for h in harvests if h.plantation_id}
@@ -169,23 +192,28 @@ def _guard_export_compliance(db: Session, lot: Lot) -> list[dict]:
     blocking, waivers = [], []
     for p in plantations:
         score = compute_eudr_score(p, db)
-        if score.status != "non_conforme":
+        reason = None
+        if score.status == "non_conforme":
+            reason = "non_conforme"
+        elif _deforestation_verdict(db, p.id) == "detected":
+            reason = "deforestation_detected"
+        if reason is None:
             continue
         if p.export_waiver_at is not None:
             waivers.append({
-                "plantation_id": p.id, "name": p.name,
+                "plantation_id": p.id, "name": p.name, "blocking_reason": reason,
                 "reason": p.export_waiver_reason, "granted_by": p.export_waiver_by,
             })
         else:
             blocking.append({
-                "plantation_id": p.id, "name": p.name,
+                "plantation_id": p.id, "name": p.name, "reason": reason,
                 "eudr_score": score.score, "eudr_max_score": score.max_score,
             })
     if blocking:
         raise HTTPException(
             status_code=409,
             detail={
-                "message": "Expedition refusee : parcelle(s) EUDR non conforme(s) sans derogation administrateur.",
+                "message": "Expedition refusee : parcelle(s) EUDR non conforme(s) ou deforestation detectee, sans derogation administrateur.",
                 "non_compliant_plantations": blocking,
             },
         )
@@ -646,18 +674,20 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
     composition = []
     eudr_compliant = 0
     eudr_total = 0
-    plant_status = {}   # parcelle distincte -> (statut EUDR, dérogation export active)
+    plant_status = {}   # parcelle distincte -> (statut EUDR, dérogation active, verdict déforestation)
     for h in harvests:
         plantation = plantations.get(h.plantation_id)
         producer = producers.get(plantation.producer_id) if plantation and plantation.producer_id else None
         eudr_status = None
+        defo = None
         if plantation:
             eudr_total += 1
             score = compute_eudr_score(plantation, db)
             eudr_status = score.status
             if score.status == "conforme":
                 eudr_compliant += 1
-            plant_status[plantation.id] = (score.status, plantation.export_waiver_at is not None)
+            defo = _deforestation_verdict(db, plantation.id)
+            plant_status[plantation.id] = (score.status, plantation.export_waiver_at is not None, defo)
         composition.append({
             "harvest_id": h.id,
             "plantation_id": h.plantation_id,
@@ -666,14 +696,22 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             "producer_name": producer.nom_complet if producer else None,
             "quantity_kg": float(h.quantity_kg or 0),
             "eudr_status": eudr_status,
+            "deforestation": defo,
             "export_waiver": bool(plantation and plantation.export_waiver_at is not None),
             "producer_blocked": (plantation.producer_id in blocked) if plantation else False,
         })
 
-    # Conformité export au niveau parcelle distincte (pour la dérogation en lot).
-    eudr_non_compliant = sum(1 for st, _ in plant_status.values() if st == "non_conforme")
-    export_waived = sum(1 for st, w in plant_status.values() if st == "non_conforme" and w)
-    export_blocking = eudr_non_compliant - export_waived
+    # Conformité export au niveau parcelle distincte.
+    # Bloque : statut non conforme OU déforestation DÉTECTÉE (sauf dérogation).
+    def _blocks(st, dfo):
+        return st == "non_conforme" or dfo == "detected"
+    eudr_non_compliant = sum(1 for st, _, _ in plant_status.values() if st == "non_conforme")
+    export_blocking = sum(1 for st, w, dfo in plant_status.values() if _blocks(st, dfo) and not w)
+    export_waived = sum(1 for st, w, dfo in plant_status.values() if _blocks(st, dfo) and w)
+    # Déforestation NON vérifiée sur une parcelle qui ne bloque pas → ALERTE (n'empêche pas l'export).
+    export_deforestation_unverified = sum(
+        1 for st, w, dfo in plant_status.values() if not _blocks(st, dfo) and dfo == "unverified"
+    )
 
     certification = db.query(Certification).filter(Certification.id == lot.certification_id).first() if lot.certification_id else None
     warehouse = db.query(Warehouse).filter(Warehouse.id == lot.warehouse_id).first() if lot.warehouse_id else None
@@ -697,6 +735,7 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             "eudr_non_compliant_plantations": eudr_non_compliant,
             "export_blocking_plantations": export_blocking,
             "export_waived_plantations": export_waived,
+            "export_deforestation_unverified": export_deforestation_unverified,
             "blocked_producers": len(blocked),
         },
         "movements": [movement_to_dict(m) for m in lot.movements],

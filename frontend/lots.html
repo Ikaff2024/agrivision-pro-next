@@ -267,7 +267,8 @@ function renderWaiverRow(summary){
   const isAdmin = (((typeof getCurrentUser==='function' && getCurrentUser()) || {}).role) === 'admin';
   const blocking = summary.export_blocking_plantations || 0;
   const waived = summary.export_waived_plantations || 0;
-  if(blocking === 0 && waived === 0){ row.style.display='none'; row.innerHTML=''; return; }
+  const unverified = summary.export_deforestation_unverified || 0;
+  if(blocking === 0 && waived === 0 && unverified === 0){ row.style.display='none'; row.innerHTML=''; return; }
   row.style.display = 'flex';
   let html = '';
   if(blocking > 0){
@@ -278,7 +279,11 @@ function renderWaiverRow(summary){
     html += `<span style="color:#9a6200;font-weight:600">🔓 ${waived} parcelle(s) sous dérogation (tracée).</span>`;
     if(isAdmin) html += `<button class="btn btn-outline btn-sm" onclick="revokeLotWaiver()">Retirer la dérogation du lot</button>`;
   }
-  if(!isAdmin) html += `<span style="color:var(--muted);font-size:12px">Seul un administrateur peut accorder/retirer une dérogation.</span>`;
+  if(unverified > 0){
+    html += `<span style="color:#9a6200;font-weight:600">⚠️ ${unverified} parcelle(s) : déforestation NON vérifiée — contrôle EUDR requis avant export.</span>`;
+    html += `<a class="btn btn-outline btn-sm" href="eudr.html" title="Lancer le contrôle déforestation (satellite)">Contrôler</a>`;
+  }
+  if(!isAdmin && (blocking > 0 || waived > 0)) html += `<span style="color:var(--muted);font-size:12px">Seul un administrateur peut accorder/retirer une dérogation.</span>`;
   row.innerHTML = html;
 }
 
