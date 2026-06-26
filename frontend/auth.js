@@ -538,6 +538,45 @@ async function downloadAuthedFile(path, fallbackName) {
 }
 
 
+/* ── Export CSV (Excel) — helper partagé ──────────────────────────────
+   Exporte un tableau d'objets déjà chargés (donc déjà cloisonnés par coop)
+   en CSV ouvrable par Excel. BOM UTF-8 → les accents s'affichent correctement.
+   `columns` = [{key, label}] (ordre + en-têtes). Si omis, déduit des clés du
+   1er objet. Renvoie false (et toast) si aucune donnée. */
+function avpExportCsv(rows, filename, columns) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    if (typeof toast === 'function') toast('Aucune donnée à exporter.', 'error');
+    return false;
+  }
+  const cols = (columns && columns.length)
+    ? columns
+    : Object.keys(rows[0]).map(k => ({ key: k, label: k }));
+  const esc = (v) => {
+    if (v === null || v === undefined) return '';
+    let s = String(v);
+    if (Array.isArray(v)) s = v.join(' | ');
+    else if (typeof v === 'object') { try { s = JSON.stringify(v); } catch (_) { s = ''; } }
+    // Échappement CSV : guillemets doublés, et encadrement si caractère spécial.
+    if (/[",;\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const header = cols.map(c => esc(c.label)).join(';');   // ';' = séparateur Excel FR
+  const lines = rows.map(r => cols.map(c => esc(typeof c.value === 'function' ? c.value(r) : r[c.key])).join(';'));
+  const csv = '﻿' + [header, ...lines].join('\r\n');   // BOM UTF-8
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (filename || 'export') + (String(filename || '').endsWith('.csv') ? '' : '.csv');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  if (typeof toast === 'function') toast(`${rows.length} ligne(s) exportée(s).`);
+  return true;
+}
+
+
 /* ── Sprint Honnetete-Offline : Bandeau reseau persistant ────────────── */
 
 // Bandeau reseau v2 - bottom : repositionne en bas avec version mobile compacte

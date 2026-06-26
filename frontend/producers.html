@@ -43,6 +43,7 @@
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="openNewProducer()"><span class="material-symbols-outlined" style="font-size:18px">person_add</span> Nouveau producteur</button>
+        <button class="btn btn-outline" id="export-btn" onclick="exportProducersCsv()" title="Exporter en CSV (Excel) — tous les producteurs filtrés"><span class="material-symbols-outlined" style="font-size:18px">download</span> Export CSV</button>
         <button class="btn btn-outline" onclick="load()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
       </div>
     </div>
@@ -197,6 +198,41 @@ async function load(resetPage) {
   document.getElementById('k-shown').textContent = rows.length;
   document.getElementById('k-localites').textContent = new Set(rows.map(p => p.localite).filter(Boolean)).size;
   renderPager(rows.length);
+}
+
+async function exportProducersCsv() {
+  // Exporte TOUS les producteurs correspondant au filtre courant (pas seulement
+  // la page affichée). Données déjà cloisonnées par coopérative côté serveur.
+  const btn = document.getElementById('export-btn');
+  if (btn) { btn.disabled = true; }
+  try {
+    const params = _filterParams();
+    params.set('limit', String(Math.max(_total, PAGE_SIZE) || 10000));
+    params.set('skip', '0');
+    let rows = [];
+    try {
+      const r = await authFetch('/producers?' + params.toString());
+      rows = r?.ok ? await r.json() : [];
+    } catch { rows = []; }
+    avpExportCsv(rows, `Producteurs_${new Date().toISOString().slice(0,10)}`, [
+      { key: 'code_yeyasso', label: 'Code' },
+      { key: 'nom_complet', label: 'Nom et prénoms' },
+      { label: 'Sexe', value: p => p.sexe==='H'?'Homme':(p.sexe==='F'?'Femme':'') },
+      { key: 'localite', label: 'Localité' },
+      { key: 'section', label: 'Section' },
+      { key: 'telephone', label: 'Téléphone' },
+      { key: 'code_saco', label: 'Code SACO' },
+      { key: 'recepisse', label: 'Récépissé' },
+      { key: 'piece_identite_nature', label: "Nature pièce" },
+      { key: 'piece_identite_numero', label: "N° pièce" },
+      { key: 'date_naissance', label: 'Naissance' },
+      { key: 'formateur_interne_nom', label: 'Formateur' },
+      { key: 'latitude', label: 'Latitude' },
+      { key: 'longitude', label: 'Longitude' },
+    ]);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 function renderPager(pageCount) {

@@ -89,6 +89,7 @@ PAGE_MARKERS = {
         "submitProducer",     # modale duale create/edit
         "renderColMenu",      # sélecteur de colonnes
         "setCol",
+        "exportProducersCsv", # export CSV/Excel (tous producteurs filtrés)
     ],
     "achats.html": [
         "createPurchase",
@@ -124,6 +125,11 @@ PAGE_MARKERS = {
         "net_income",            # revenu net disponible
         "downloadLivret",        # export PDF du livret
         "li-verdict",            # verdict revenu vital (Living Income)
+        "exportAssessmentsCsv",  # export CSV (Excel) de l'historique revenu vital
+    ],
+    "children.html": [
+        "deleteChild",           # suppression d'un enfant en doublon (admin)
+        "exportChildrenCsv",     # export CSV (Excel) de la sélection
     ],
     "ssrte.html": [
         "addMember",          # tableau membres du ménage (Fiche B)
@@ -154,6 +160,7 @@ PAGE_MARKERS = {
         "openChangePassword",      # changer son propre mot de passe (self-service)
         "submitChangePassword",
         "avpGeoBadge",             # badge géo-horodatage anti-fraude (helper partagé)
+        "avpExportCsv",            # export CSV/Excel partagé (BOM UTF-8)
     ],
 }
 

@@ -162,7 +162,12 @@
             <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
             Actualiser historique
           </button>
-          <div class="section-title">Historique</div>
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Historique</span>
+            <button class="btn btn-sm btn-outline" onclick="exportAssessmentsCsv()" title="Exporter en CSV (Excel)">
+              <span class="material-symbols-outlined" style="font-size:16px">download</span> CSV
+            </button>
+          </div>
           <div class="ff-list" id="history"></div>
         </aside>
       </div>
@@ -182,8 +187,22 @@ let editingId = null;   // id du livret en cours d'edition (null = creation)
 
 function apiBase() { return window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010'; }
 async function ffFetch(path, options = {}) {
+  // Cloisonnement : toujours envoyer le jeton — sinon le backend ne peut pas
+  // filtrer par coopérative (fuite inter-coop corrigée).
+  if (typeof authFetch === 'function' && !path.startsWith('http')) {
+    return authFetch(path, options);
+  }
   const url = path.startsWith('http') ? path : apiBase() + path;
-  return fetch(url, options);
+  const token = (typeof getToken === 'function') ? getToken() : null;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {}),
+    },
+  });
 }
 
 function input(cls, placeholder, type='text', value='') {
@@ -303,9 +322,10 @@ async function loadProducers() {
 }
 
 async function loadAssessments() {
-  const producerId = Number(document.getElementById('producer').value);
-  const path = producerId ? `/farmforce/assessments?producer_id=${producerId}` : '/farmforce/assessments';
-  const res = await ffFetch(path);
+  // Historique : on liste TOUS les ménages de la coopérative ayant calculé leur
+  // revenu vital (le sélecteur de producteur ne sert qu'à la saisie d'un livret).
+  // Corrige le drill-down du tableau de bord qui n'affichait qu'un seul producteur.
+  const res = await ffFetch('/farmforce/assessments?limit=500');
   const data = res?.ok ? await res.json() : [];
   window._assessments = data;
   let _shown = data;
@@ -326,6 +346,25 @@ async function loadAssessments() {
         <a href="producer_profile.html?id=${a.producer_id}" style="color:var(--primary);font-weight:800">Fiche producteur</a>
       </div>
     </div>`).join('') : '<div class="muted">Aucun formulaire Revenu vital enregistre.</div>');
+}
+
+function exportAssessmentsCsv() {
+  const rows = window._assessments || [];
+  avpExportCsv(rows, `Revenu_vital_${new Date().toISOString().slice(0,10)}`, [
+    { key: 'producer_name', label: 'Producteur' },
+    { key: 'campaign_label', label: 'Campagne' },
+    { key: 'localite', label: 'Localité' },
+    { key: 'total_revenue_cfa', label: 'Rentrées CFA' },
+    { key: 'total_cost_cfa', label: 'Coûts CFA' },
+    { key: 'profit_cfa', label: 'Profit CFA' },
+    { key: 'total_household_expenses_cfa', label: 'Dépenses ménage CFA' },
+    { key: 'net_income_cfa', label: 'Revenu net CFA' },
+    { key: 'living_income_benchmark_cfa', label: 'Seuil revenu vital CFA' },
+    { key: 'living_income_gap_cfa', label: 'Écart revenu vital CFA' },
+    { key: 'living_income_pct', label: 'Revenu vital %' },
+    { key: 'living_income_status', label: 'Statut revenu vital' },
+    { key: 'family_labor_days', label: 'Jours travail familial' },
+  ]);
 }
 
 function clearRows() {
@@ -394,7 +433,7 @@ async function importExcel(file) {
   const form = new FormData();
   form.append('file', file);
   try {
-    const res = await fetch(`${apiBase()}/farmforce/import/excel?producer_id=${producerId}`, {
+    const res = await ffFetch(`/farmforce/import/excel?producer_id=${producerId}`, {
       method: 'POST',
       body: form
     });

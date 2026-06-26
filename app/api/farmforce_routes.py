@@ -181,10 +181,22 @@ def _serialize(assessment: FarmForceAssessment) -> dict:
     }
 
 
-def _create_assessment_from_payload(data: FarmForcePayload, db: Session) -> FarmForceAssessment:
-    producer = db.query(Producer).filter(Producer.id == data.producer_id, Producer.is_active == True).first()
-    if not producer:
+def _assert_producer_in_coop(producer: Producer | None, current_user: User) -> None:
+    """Cloisonnement multi-coopérative : le producteur doit appartenir à la coop
+    de l'utilisateur. 404 (et non 403) pour ne pas révéler l'existence d'un
+    producteur d'une autre coopérative."""
+    if not producer or (
+        current_user.cooperative_id is not None
+        and producer.cooperative_id != current_user.cooperative_id
+    ):
         raise HTTPException(status_code=404, detail="Producteur non trouve.")
+
+
+def _create_assessment_from_payload(
+    data: FarmForcePayload, db: Session, current_user: User
+) -> FarmForceAssessment:
+    producer = db.query(Producer).filter(Producer.id == data.producer_id, Producer.is_active == True).first()
+    _assert_producer_in_coop(producer, current_user)
     totals = _calculate(data)
     assessment = FarmForceAssessment(
         producer_id=data.producer_id,
@@ -212,9 +224,9 @@ def _create_assessment_from_payload(data: FarmForcePayload, db: Session) -> Farm
 @router.get("/summary")
 def farmforce_summary(
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    coop_id = current_user.cooperative_id if current_user else None
+    coop_id = current_user.cooperative_id
     prod_subq = _coop_producer_subq(db, coop_id)
     ff_filter = [FarmForceAssessment.producer_id.in_(prod_subq)] if prod_subq is not None else []
     count = db.query(func.count(FarmForceAssessment.id)).filter(*ff_filter).scalar() or 0
@@ -241,47 +253,73 @@ def list_assessments(
     campaign_label: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(FarmForceAssessment)
     if producer_id:
         query = query.filter(FarmForceAssessment.producer_id == producer_id)
     if campaign_label:
         query = query.filter(FarmForceAssessment.campaign_label == campaign_label)
-    coop_id = current_user.cooperative_id if current_user else None
-    prod_subq = _coop_producer_subq(db, coop_id)
+    # Cloisonnement strict : on ne renvoie QUE les livrets des producteurs de la
+    # coopérative de l'utilisateur (fail-closed, jamais de fuite inter-coop).
+    prod_subq = _coop_producer_subq(db, current_user.cooperative_id)
     if prod_subq is not None:
         query = query.filter(FarmForceAssessment.producer_id.in_(prod_subq))
     rows = query.order_by(FarmForceAssessment.created_at.desc()).limit(limit).all()
     return [_serialize(row) for row in rows]
 
 
-@router.get("/assessments/{assessment_id}", response_model=FarmForceResponse)
-def get_assessment(assessment_id: int, db: Session = Depends(get_db)):
-    assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
+def _assert_assessment_in_coop(
+    assessment: FarmForceAssessment | None, db: Session, current_user: User
+) -> FarmForceAssessment:
+    """Le livret doit appartenir à un producteur de la coopérative de l'utilisateur."""
     if not assessment:
         raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    producer = db.query(Producer).filter(Producer.id == assessment.producer_id).first()
+    if not producer or (
+        current_user.cooperative_id is not None
+        and producer.cooperative_id != current_user.cooperative_id
+    ):
+        raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    return assessment
+
+
+@router.get("/assessments/{assessment_id}", response_model=FarmForceResponse)
+def get_assessment(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
+    _assert_assessment_in_coop(assessment, db, current_user)
     return _serialize(assessment)
 
 
 @router.post("/assessments", response_model=FarmForceResponse)
-def create_assessment(data: FarmForcePayload, db: Session = Depends(get_db)):
-    assessment = _create_assessment_from_payload(data, db)
+def create_assessment(
+    data: FarmForcePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    assessment = _create_assessment_from_payload(data, db, current_user)
     return _serialize(assessment)
 
 
 @router.put("/assessments/{assessment_id}", response_model=FarmForceResponse)
-def update_assessment(assessment_id: int, data: FarmForcePayload, db: Session = Depends(get_db)):
+def update_assessment(
+    assessment_id: int,
+    data: FarmForcePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Met a jour un livret FarmForce existant (reprise / correction de saisie).
 
     Toutes les sections et totaux sont recalcules a partir du payload fourni.
     """
     assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
-    if not assessment:
-        raise HTTPException(status_code=404, detail="Evaluation FarmForce introuvable.")
+    _assert_assessment_in_coop(assessment, db, current_user)
     producer = db.query(Producer).filter(Producer.id == data.producer_id, Producer.is_active == True).first()
-    if not producer:
-        raise HTTPException(status_code=404, detail="Producteur non trouve.")
+    _assert_producer_in_coop(producer, current_user)
 
     totals = _calculate(data)
     assessment.producer_id = data.producer_id
@@ -336,6 +374,7 @@ async def import_farmforce_excel(
     producer_id: Optional[int] = Query(None),
     dry_run: bool = Query(False),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Importe l'outil Excel Fairtrade FarmForce.
@@ -364,9 +403,21 @@ async def import_farmforce_excel(
 
         payload = parsed.as_payload()
         if producer_id:
+            # Cloisonnement : le producteur ciblé doit être dans la coop de l'utilisateur.
+            producer = db.query(Producer).filter(Producer.id == producer_id).first()
+            _assert_producer_in_coop(producer, current_user)
             payload["producer_id"] = producer_id
         elif parsed.producer_code:
-            producer = db.query(Producer).filter(Producer.code_yeyasso == parsed.producer_code).first()
+            # Recherche par code interne, restreinte à la coopérative de l'utilisateur.
+            producer = (
+                db.query(Producer)
+                .filter(Producer.code_yeyasso == parsed.producer_code)
+                .filter(
+                    (Producer.cooperative_id == current_user.cooperative_id)
+                    if current_user.cooperative_id is not None else True
+                )
+                .first()
+            )
             if producer:
                 payload["producer_id"] = producer.id
 
@@ -396,7 +447,7 @@ async def import_farmforce_excel(
                 status_code=400,
                 detail="Producteur introuvable. Fournissez producer_id ou renseignez le code interne dans l'Excel.",
             )
-        assessment = _create_assessment_from_payload(FarmForcePayload(**payload), db)
+        assessment = _create_assessment_from_payload(FarmForcePayload(**payload), db, current_user)
         return {"status": "success", "assessment": _serialize(assessment), "preview": preview}
     finally:
         if tmp_path and os.path.exists(tmp_path):

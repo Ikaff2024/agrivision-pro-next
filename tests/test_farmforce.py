@@ -5,7 +5,11 @@ from tests.conftest import TestingSessionLocal
 
 
 def _admin_headers(email="farmforce.admin@test.ci"):
-    """En-têtes d'auth de l'admin de 'Coop FarmForce' (créé si absent — auth obligatoire livret)."""
+    """En-têtes d'auth de l'admin de 'Coop FarmForce' (créé si absent).
+
+    Le livret (revenus du ménage) est une donnée sensible : tous les endpoints
+    FarmForce exigent désormais une authentification + cloisonnement coopérative.
+    """
     db = TestingSessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
@@ -27,9 +31,14 @@ def _admin_headers(email="farmforce.admin@test.ci"):
 
 
 def _seed_producer():
+    """Crée un producteur dans 'Coop FarmForce' (même coop que _admin_headers)."""
     db = TestingSessionLocal()
     try:
-        coop = Cooperative(name="Coop FarmForce", country="CI")
+        coop = db.query(Cooperative).filter(Cooperative.name == "Coop FarmForce").first()
+        if not coop:
+            coop = Cooperative(name="Coop FarmForce", country="CI")
+            db.add(coop)
+            db.flush()
         producer = Producer(
             cooperative=coop,
             nom_complet="Yao FarmForce",
@@ -37,7 +46,7 @@ def _seed_producer():
             localite="Yeyasso",
             is_active=True,
         )
-        db.add_all([coop, producer])
+        db.add(producer)
         db.commit()
         return producer.id
     finally:
@@ -69,7 +78,7 @@ def test_create_farmforce_assessment_calculates_profit(client):
         "hired_labor_items": [
             {"month": "Octobre", "workers": 2, "days_per_worker": 4, "daily_wage_cfa": 3000},
         ],
-    })
+    }, headers=_admin_headers())
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -94,7 +103,7 @@ def test_farmforce_net_income_subtracts_household_expenses(client):
             {"category": "Alimentation", "amount_cfa": 300000},
             {"category": "Education", "amount_cfa": 100000},
         ],
-    })
+    }, headers=_admin_headers())
     assert response.status_code == 200, response.text
     data = response.json()
     # revenu = 1 000 000 (cacao) + 50 000 (vivrier) = 1 050 000
@@ -107,11 +116,12 @@ def test_farmforce_net_income_subtracts_household_expenses(client):
 
 def test_farmforce_update_assessment(client):
     producer_id = _seed_producer()
+    h = _admin_headers()
     created = client.post("/farmforce/assessments", json={
         "producer_id": producer_id,
         "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
-    }).json()
+    }, headers=h).json()
     aid = created["id"]
     assert created["profit_cfa"] == 100000
 
@@ -120,7 +130,7 @@ def test_farmforce_update_assessment(client):
         "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 200, "unit_price_cfa": 1000}],
         "household_expense_items": [{"category": "Sante", "amount_cfa": 50000}],
-    })
+    }, headers=h)
     assert updated.status_code == 200, updated.text
     body = updated.json()
     assert body["id"] == aid                # meme enregistrement
@@ -128,18 +138,19 @@ def test_farmforce_update_assessment(client):
     assert body["net_income_cfa"] == 150000 # 200000 - 50000
 
     # Pas de doublon : toujours 1 seul livret pour ce producteur.
-    listing = client.get(f"/farmforce/assessments?producer_id={producer_id}").json()
+    listing = client.get(f"/farmforce/assessments?producer_id={producer_id}", headers=h).json()
     assert len(listing) == 1
 
 
 def test_farmforce_living_income_verdict(client):
     """Le verdict revenu vital compare le revenu net au seuil de reference."""
     producer_id = _seed_producer()
+    h = _admin_headers()
     # Revenu net eleve -> atteint
     high = client.post("/farmforce/assessments", json={
         "producer_id": producer_id, "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 5000, "unit_price_cfa": 1000}],
-    }).json()
+    }, headers=h).json()
     assert high["living_income_benchmark_cfa"] is not None
     assert high["living_income_status"] == "atteint"  # 5 000 000 > seuil
     assert high["living_income_gap_cfa"] > 0
@@ -148,7 +159,7 @@ def test_farmforce_living_income_verdict(client):
     low = client.post("/farmforce/assessments", json={
         "producer_id": producer_id, "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
-    }).json()
+    }, headers=h).json()
     assert low["living_income_status"] == "ecart"  # 100 000 < seuil
     assert low["living_income_gap_cfa"] < 0
 
@@ -160,7 +171,7 @@ def test_farmforce_livret_pdf_download(client):
         "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
         "household_expense_items": [{"category": "Alimentation", "amount_cfa": 20000}],
-    }).json()
+    }, headers=_admin_headers()).json()
     r = client.get(f"/farmforce/assessments/{created['id']}/livret.pdf", headers=_admin_headers())
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
@@ -179,7 +190,7 @@ def test_farmforce_livret_requires_auth_and_coop_isolation(client):
     created = client.post("/farmforce/assessments", json={
         "producer_id": producer_id, "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
-    }).json()
+    }, headers=_admin_headers()).json()
     url = f"/farmforce/assessments/{created['id']}/livret.pdf"
 
     # Sans authentification → refusé
@@ -204,31 +215,71 @@ def test_farmforce_livret_requires_auth_and_coop_isolation(client):
     assert client.get(url, headers=_admin_headers()).status_code == 200
 
 
+def test_farmforce_assessments_require_auth(client):
+    """Sans jeton, AUCUNE donnée de livret ne fuite (ni liste, ni résumé, ni détail)."""
+    producer_id = _seed_producer()
+    created = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+    }, headers=_admin_headers()).json()
+
+    assert client.get("/farmforce/assessments").status_code in (401, 403)
+    assert client.get("/farmforce/summary").status_code in (401, 403)
+    assert client.get(f"/farmforce/assessments/{created['id']}").status_code in (401, 403)
+    assert client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+    }).status_code in (401, 403)
+
+
+def test_farmforce_cross_coop_create_rejected(client):
+    """Un utilisateur ne peut pas créer de livret pour le producteur d'une autre coop."""
+    producer_id = _seed_producer()  # Coop FarmForce
+    # Admin d'une autre coopérative
+    db = TestingSessionLocal()
+    try:
+        other = Cooperative(name="Autre Coop Create", country="CI")
+        ou = User(email="autre.create@test.ci", password_hash="x",
+                  role="admin", cooperative=other, is_active=True)
+        db.add_all([other, ou])
+        db.commit()
+        other_headers = {"Authorization": "Bearer " + create_access_token({
+            "sub": ou.email, "role": ou.role, "coop_id": ou.cooperative_id,
+        })}
+    finally:
+        db.close()
+    r = client.post("/farmforce/assessments", json={
+        "producer_id": producer_id, "campaign_label": "2025-2026",
+        "revenue_items": [{"product": "Cacao", "quantity": 100, "unit_price_cfa": 1000}],
+    }, headers=other_headers)
+    assert r.status_code == 404
+
+
 def test_farmforce_update_not_found(client):
     producer_id = _seed_producer()
     r = client.put("/farmforce/assessments/99999", json={
         "producer_id": producer_id, "campaign_label": "2025-2026",
-    })
+    }, headers=_admin_headers())
     assert r.status_code == 404
 
 
 def test_farmforce_summary_and_list(client):
     producer_id = _seed_producer()
+    h = _admin_headers()
     response = client.post("/farmforce/assessments", json={
         "producer_id": producer_id,
         "campaign_label": "2025-2026",
         "revenue_items": [{"product": "Cacao", "quantity": 10, "unit_price_cfa": 1000}],
         "cost_items": [{"product": "Machette", "cost_cfa": 2000}],
         "family_labor_items": [{"producer_days": 4}],
-    })
+    }, headers=h)
     assert response.status_code == 200
 
-    summary = client.get("/farmforce/summary")
+    summary = client.get("/farmforce/summary", headers=h)
     assert summary.status_code == 200
     assert summary.json()["assessments"] == 1
     assert summary.json()["profit_cfa"] == 8000
 
-    listing = client.get(f"/farmforce/assessments?producer_id={producer_id}")
+    listing = client.get(f"/farmforce/assessments?producer_id={producer_id}", headers=h)
     assert listing.status_code == 200
     assert len(listing.json()) == 1
 
@@ -252,6 +303,7 @@ def test_import_farmforce_excel_endpoint_creates_assessment(client):
         response = client.post(
             f"/farmforce/import/excel?producer_id={producer_id}",
             files={"file": ("farmforce.xlsx", fh, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers=_admin_headers(),
         )
 
     assert response.status_code == 200, response.text
