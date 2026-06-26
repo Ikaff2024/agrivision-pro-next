@@ -440,6 +440,7 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
         <div id="harvest-container"></div>
         <div id="ssrte-container"></div>
         <div id="eudr-container"></div>
+        <div id="cert-container"></div>
         ${agroData && agroData.metrics && agroData.metrics.species_count > 0 ? `
         <div class="agro-card">
           <div class="agro-card-title">
@@ -579,6 +580,9 @@ function _renderPlantationDetail(plantation, diagnostics, history, agroData, rec
     // EUDR-01a : carte conformite parcellaire
     renderEudrCard(plantation);
 
+    // Certifications de la parcelle (liste + ajout/retrait)
+    renderCertCard(plantation);
+
     // Draw chart if enough data
     if (history.length >= 1) {
       const sorted = [...history].reverse();
@@ -661,6 +665,57 @@ async function savePlantCount() {
   } catch (e) {
     toast("Erreur : " + e.message, "error");
   }
+}
+
+/* ── Certifications de la parcelle (où renseigner la certification) ───────── */
+async function renderCertCard(p) {
+  const el = document.getElementById('cert-container');
+  if (!el) return;
+  const role = ((typeof getCurrentUser === 'function' && getCurrentUser()) || {}).role;
+  const canEdit = ['admin', 'agronomist', 'gestionnaire'].includes(role);
+  let current = [], avail = [];
+  try {
+    const [rc, ra] = await Promise.all([
+      authFetch('/plantations/' + pid + '/certifications'),
+      authFetch('/certifications'),
+    ]);
+    current = (rc && rc.ok) ? await rc.json() : [];
+    avail = (ra && ra.ok) ? await ra.json() : [];
+  } catch (e) { /* hors ligne : carte minimale */ }
+  const chip = c => `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#e8f5ee;color:#1a6b3a;border:1px solid #bfe3cd;font-size:12px;font-weight:700">${esc(c.code || '?')}${canEdit ? ` <a href="#" onclick="removeCert(${c.certification_id});return false" title="Retirer" style="color:#922b21;font-weight:800;text-decoration:none">✕</a>` : ''}</span>`;
+  const chips = current.length
+    ? current.map(chip).join(' ')
+    : '<span style="color:var(--muted);font-size:13px">Aucune certification sur cette parcelle.</span>';
+  const have = new Set(current.map(c => c.code));
+  const opts = avail.filter(a => !have.has(a.code)).map(a => `<option value="${esc(a.code)}">${esc(a.code)} — ${esc(a.nom_complet || '')}</option>`).join('');
+  const addCtrl = (canEdit && opts) ? `
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <select class="form-input" id="cert-add-sel" style="flex:1">${opts}</select>
+      <button class="btn btn-outline btn-sm" onclick="addCert()">Ajouter</button>
+    </div>` : (canEdit ? '<div style="color:var(--muted);font-size:12px;margin-top:10px">Toutes les certifications du référentiel sont déjà affectées.</div>' : '');
+  el.innerHTML = `
+    <div style="background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:12px;padding:16px;margin-top:14px">
+      <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;margin-bottom:10px">🏷️ Certifications</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+      ${addCtrl}
+    </div>`;
+}
+
+async function addCert() {
+  const sel = document.getElementById('cert-add-sel');
+  const code = sel && sel.value;
+  if (!code) return;
+  const r = await authFetch('/plantations/' + pid + '/certifications', { method: 'POST', body: JSON.stringify({ code }) });
+  if (!r || !r.ok) { const e = await r.json().catch(() => ({})); return toast(e.detail || 'Ajout impossible.', 'error'); }
+  toast('Certification ajoutée.');
+  renderCertCard(window._plantation || {});
+}
+
+async function removeCert(certId) {
+  const r = await authFetch('/plantations/' + pid + '/certifications/' + certId, { method: 'DELETE' });
+  if (!r || !r.ok) return toast('Retrait impossible.', 'error');
+  toast('Certification retirée.');
+  renderCertCard(window._plantation || {});
 }
 
 /* ── Edition de la plantation ─────────────────────────────────── */

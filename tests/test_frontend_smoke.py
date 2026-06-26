@@ -78,6 +78,7 @@ PAGE_MARKERS = {
         "openEditModal",        # édition de plantation (corrige le manque région)
         "savePlantationEdit",
         "saveDefoCheck",        # contrôle déforestation EUDR-01b
+        "renderCertCard",       # certifications de la parcelle (ajout/retrait)
     ],
     "plantations.html": [
         "renderData",   # rendu de la liste paginée serveur (P2 scale)
