@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.62-geo-capture';
+const CACHE_VERSION = 'avp-v4.63-plan-gate-flash';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 

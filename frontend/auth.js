@@ -778,6 +778,17 @@ function navClick(e, el) {
 }
 
 async function applyPlanFeatures(activePage) {
+  // Garde-fou SYNCHRONE (anti-flash) : si le cache du plan exclut déjà la page courante,
+  // on redirige AVANT tout appel réseau → plus de flash ~1s avant le redirect async.
+  // (Ne concerne que les vrais modules de menu ; les pages hors-menu n'ont pas de data-mod.)
+  const _cachedSync = getCachedModules();
+  const _navSync = activePage
+    ? document.querySelector(`#sidebar a.nav-link[data-mod="${(window.CSS && CSS.escape) ? CSS.escape(activePage) : activePage}"]`)
+    : null;
+  if (_cachedSync && _navSync && activePage !== 'dashboard' && !_cachedSync.has(activePage)) {
+    window.location.replace('index.html');
+    return;
+  }
   try {
     const res = await authFetch('/me/features');
     if (!res || !res.ok) return;
