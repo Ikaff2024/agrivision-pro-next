@@ -99,6 +99,11 @@ PAGE_MARKERS = {
         "renderPlantationList",
         "selectPlantation",
     ],
+    "monitoring.html": [
+        "createVisit",
+        "submitComplete",
+        "captured_latitude",     # géo-horodatage envoyé à la clôture
+    ],
     "risk_assessment.html": [
         "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)
         "onProducerChange",
@@ -120,6 +125,7 @@ PAGE_MARKERS = {
         "downloadFicheB",     # export PDF de la Fiche B
         "addVisitChild",      # tableau enfants structuré (Fiche C)
         "downloadFicheC",     # export PDF de la Fiche C
+        "captured_latitude",  # géo-horodatage envoyé à la création de visite SSRTE
         "communityServices",  # accès aux services (Fiche A)
         "downloadFicheA",     # export PDF de la Fiche A
     ],
@@ -139,6 +145,7 @@ PAGE_MARKERS = {
         "ensureFreshToken",
         "openChangePassword",      # changer son propre mot de passe (self-service)
         "submitChangePassword",
+        "avpGeoBadge",             # badge géo-horodatage anti-fraude (helper partagé)
     ],
 }
 

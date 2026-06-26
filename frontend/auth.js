@@ -383,6 +383,28 @@ function _avpModal({ message, input = false, defaultValue = '', placeholder = ''
 function avpConfirm(message, opts = {}) { return _avpModal({ message, input: false, ...opts }); }
 function avpPrompt(message, opts = {}) { return _avpModal({ message, input: true, ...opts }); }
 
+/* ── Géo-horodatage anti-fraude : helpers partagés (capture texte + badge) ─── */
+function avpParseLatLng(s) {
+  if (!s) return null;
+  const parts = String(s).split(',');
+  if (parts.length < 2) return null;
+  const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  return { lat, lng };
+}
+function avpGeoBadge(geo) {
+  if (!geo || !geo.geo_status) return '';
+  const map = {
+    verified:     ['#1a6b3a', '✓ GPS vérifié'],
+    far:          ['#922b21', '⚠ Hors zone' + (geo.distance_m != null ? ' (' + Math.round(geo.distance_m) + ' m)' : '')],
+    no_fix:       ['#9a6200', '⚠ Sans GPS'],
+    overridden:   ['#9a6200', '⚠ Sans GPS (motivé)'],
+    no_reference: ['#6a7d64', '📍 GPS (réf. inconnue)'],
+  };
+  const m = map[geo.geo_status] || ['#6a7d64', geo.geo_status];
+  return `<span style="font-size:11px;font-weight:700;color:${m[0]}">${m[1]}</span>`;
+}
+
 /* ── Changer mon mot de passe (self-service, tous roles) ───────── */
 function ensureChangePasswordModal() {
   if (document.getElementById('avp-cp-overlay')) return;

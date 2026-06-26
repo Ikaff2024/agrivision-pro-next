@@ -813,7 +813,7 @@ async function loadHistory() {
   const visits = visitsRes.ok ? await visitsRes.json() : [];
   _ssrteData = { communities, households, visits };
   const rows = [
-    ...visits.map(v => ({ type:'visit', id:v.id, status:v.status || 'draft', kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${(v.dangerous_tasks_observed||[]).length} tache(s)`, pdf:`downloadFicheC(${v.id})` })),
+    ...visits.map(v => ({ type:'visit', id:v.id, status:v.status || 'draft', kind:'Fiche C', title:v.plantation_name, meta:`${v.visit_date} - suspicion ${v.suspected_child_labor ? 'oui' : 'non'} - ${(v.dangerous_tasks_observed||[]).length} tache(s)${v.geo ? ' · '+avpGeoBadge(v.geo) : ''}`, pdf:`downloadFicheC(${v.id})` })),
     ...households.map(h => ({ type:'household', id:h.id, status:h.status || 'draft', kind:'F1', title:h.producer_name, meta:`${h.interview_date} - risque ${h.risk_level} (${h.risk_score})`, pdf:`downloadFicheB(${h.id})` })),
     ...communities.map(c => ({ type:'community', id:c.id, status:c.status || 'draft', kind:'Fiche A', title:c.locality, meta:`${c.interview_date} - ecole ${c.school_available ? 'oui' : 'non'} - comite ${c.has_child_protection_committee ? 'oui' : 'non'}`, pdf:`downloadFicheA(${c.id})` }))
   ];
@@ -1029,12 +1029,17 @@ function syncSuspicion() {
 
 async function saveVisit() {
   const photo = val('photo-ref');
+  const _vg = avpParseLatLng(val('visit-gps'));   // GPS numérique pour le géo-horodatage
   const body = {
     plantation_id: Number(document.getElementById('plantation').value),
     visit_date: val('visit-date') || today(),
     interviewer_name: val('visit-agent') || null,
     gps_location: val('visit-gps') || null,
     gps_accuracy: gpsAccuracy,
+    captured_latitude: _vg ? _vg.lat : null,
+    captured_longitude: _vg ? _vg.lng : null,
+    captured_accuracy_m: gpsAccuracy,
+    client_reported_at: new Date().toISOString(),
     section: val('vc-section') || null,
     supplier: val('vc-supplier') || null,
     sub_prefecture: val('vc-sub-prefecture') || null,

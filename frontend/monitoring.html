@@ -246,6 +246,7 @@ async function loadVisits() {
       </div>
       <div class="visit-meta">Statut: ${labels[v.status] || v.status}</div>
       ${v.status === 'completed' ? `<div class="visit-meta">Preuves: GPS ${v.visit_location ? 'oui' : 'non'}${v.gps_accuracy ? ' (' + Math.round(v.gps_accuracy) + 'm)' : ''} - consentement ${v.consent_given ? 'oui' : 'non'} - photos ${(v.photos || []).length}</div>` : ''}
+      ${v.geo ? `<div class="visit-meta">${avpGeoBadge(v.geo)}</div>` : ''}
       ${v.observations ? `<div class="visit-meta">${v.status === 'completed' ? 'Constats' : 'Objectif'}: ${v.observations}</div>` : ''}
       <div class="actions-row">
         ${v.status !== 'completed' ? `<button class="btn btn-sm btn-primary" onclick="openComplete(${v.id})">Cloturer</button>` : ''}
@@ -370,12 +371,18 @@ function closeComplete() {
 async function submitComplete() {
   if (!_completeId) return;
   const id = _completeId;
+  const _cc = avpParseLatLng(document.getElementById('c-location').value);
   const payload = {
     actual_date: document.getElementById('c-date').value || today(),
     visit_location: document.getElementById('c-location').value.trim() || null,
     checklist_data: checklistData(),
     observations: document.getElementById('c-observations').value.trim() || null,
     dangerous_tasks_observed: document.querySelector('.c-check[value="dangerous_tasks_checked"]').checked ? ['dangerous_tasks_checked'] : [],
+    // Géo-horodatage anti-fraude : GPS numérique capté à la clôture.
+    captured_latitude: _cc ? _cc.lat : null,
+    captured_longitude: _cc ? _cc.lng : null,
+    captured_accuracy_m: gpsAcc['c-location'] || null,
+    client_reported_at: new Date().toISOString(),
     ...proofPayload()
   };
   const res = await submitOffline(`/monitoring/visits/${id}/complete`, payload, `Cloture visite ${id}`);
