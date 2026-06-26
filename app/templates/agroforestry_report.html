@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bilan agroforestier</title>
+<style>
+  :root {
+    --green: #166534;
+    --green-soft: #dcfce7;
+    --ink: #111827;
+    --text: #374151;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --soft: #f9fafb;
+  }
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm 14mm;
+    @bottom-left {
+      content: "{{ coop_name or 'AgriVision Pro' }} — Bilan agroforestier";
+      font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: var(--text); line-height: 1.4; }
+  h1, h2, h3 { color: var(--ink); margin: 0; }
+  h1 { font-size: 28pt; line-height: 1.05; color: white; }
+  h2 { font-size: 14pt; margin-top: 16pt; margin-bottom: 8pt; padding-bottom: 4pt; border-bottom: 2pt solid var(--green); color: var(--green); }
+  table { width: 100%; border-collapse: collapse; margin-top: 6pt; }
+  th { background: var(--green); color: white; padding: 6pt; text-align: left; font-size: 8pt; text-transform: uppercase; }
+  td { padding: 5pt 6pt; border-bottom: 0.5pt solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--soft); }
+  .cover {
+    background: linear-gradient(135deg, #0c2018 0%, #1a4231 100%);
+    color: white; padding: 22mm 18mm; min-height: 90mm; margin: -14mm -14mm 12mm -14mm;
+  }
+  .logo { height: 16mm; margin-bottom: 10mm; }
+  .brand { font-size: 13pt; font-weight: 700; margin-bottom: 18mm; }
+  .eyebrow { font-size: 8pt; text-transform: uppercase; letter-spacing: 1.8pt; opacity: 0.85; margin-bottom: 4pt; }
+  .subtitle { font-size: 11pt; opacity: 0.88; margin-top: 6pt; max-width: 145mm; }
+  .meta { margin-top: 16pt; font-size: 9pt; opacity: 0.8; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7pt; margin-top: 10pt; }
+  .kpi { border: 1pt solid var(--line); border-radius: 3mm; padding: 8pt 10pt; }
+  .kpi .v { font-size: 18pt; font-weight: 700; color: var(--ink); }
+  .kpi .l { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .4pt; color: var(--muted); margin-top: 2pt; }
+  .empty { color: var(--muted); font-style: italic; padding: 8pt 0; }
+  .note { color: var(--muted); font-size: 8pt; margin-top: 6pt; }
+</style>
+</head>
+<body>
+  <div class="cover">
+    {% if coop_logo %}<img class="logo" src="{{ coop_logo }}">{% endif %}
+    <div class="brand">{{ coop_name or 'AgriVision Pro' }}</div>
+    <div class="eyebrow">Stock carbone &amp; agroforesterie</div>
+    <h1>Bilan agroforestier</h1>
+    <div class="subtitle">Inventaire des espèces associées et estimation du stock carbone de la coopérative.</div>
+    <div class="meta">Généré le {{ generated_at }}</div>
+  </div>
+
+  <h2>Synthèse coopérative</h2>
+  <div class="grid">
+    <div class="kpi"><div class="v">{{ s.total_carbon_tco2 }} tCO₂</div><div class="l">Stock carbone estimé</div></div>
+    <div class="kpi"><div class="v">{{ s.total_trees_estimated }}</div><div class="l">Arbres estimés</div></div>
+    <div class="kpi"><div class="v">{{ s.unique_species_count }}</div><div class="l">Espèces uniques</div></div>
+    <div class="kpi"><div class="v">{{ s.plantations_with_inventory }} / {{ s.total_plantations }}</div><div class="l">Parcelles inventoriées</div></div>
+    <div class="kpi"><div class="v">{{ s.avg_conformity_score }} / 100</div><div class="l">Score conformité moyen</div></div>
+  </div>
+  <div class="note">Estimation allométrique simplifiée (FAO/IPCC). Le stock carbone est indicatif, non certifié.</div>
+
+  <h2>Espèces inventoriées</h2>
+  {% if species %}
+  <table>
+    <thead><tr><th>Espèce</th><th>Nom local</th><th>Strate</th><th>Arbres estimés</th></tr></thead>
+    <tbody>
+      {% for sp in species %}
+      <tr><td>{{ sp.name }}</td><td>{{ sp.local or '—' }}</td><td>{{ sp.layer or '—' }}</td><td>{{ sp.trees }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucune espèce inventoriée.</div>{% endif %}
+
+  <h2>Détail par parcelle</h2>
+  {% if plantations %}
+  <table>
+    <thead><tr><th>Parcelle</th><th>Espèces</th><th>Arbres estimés</th><th>tCO₂</th><th>Conformité</th></tr></thead>
+    <tbody>
+      {% for p in plantations %}
+      <tr><td>{{ p.name }}</td><td>{{ p.species_count }}</td><td>{{ p.trees_est }}</td><td>{{ p.carbon_tco2 }}</td><td>{{ p.conformity }} / 100</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">Aucune parcelle inventoriée.</div>{% endif %}
+</body>
+</html>

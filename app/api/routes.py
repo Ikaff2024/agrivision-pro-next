@@ -22,6 +22,9 @@ from app.services.reports import (
     build_plantation_context,
     generate_plantation_pdf,
     report_filename,
+    coop_brand,
+    generate_agroforestry_pdf,
+    agroforestry_report_filename,
 )
 
 router = APIRouter()
@@ -1361,6 +1364,121 @@ def get_agroforestry_summary(
         "total_plantations": len(plantations),
         "unique_species_count": len(species_all),
     }
+
+
+@router.get("/agroforestry/report.pdf")
+def get_agroforestry_report_pdf(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Bilan agroforestier de la coopérative au format PDF brandé, cohérent avec
+    les autres états (couverture, synthèse KPI, inventaire des espèces, détail
+    par parcelle). Remplace l'impression navigateur côté frontend.
+    """
+    from datetime import datetime as _dt
+
+    species_lib = {s["name"]: s for s in SPECIES_LIBRARY}
+
+    plantations = db.query(Plantation).filter(
+        Plantation.cooperative_id == current_user.cooperative_id
+    ).all()
+
+    total_carbon = 0.0
+    total_trees = 0.0
+    conformity_scores = []
+    # Agrégation par espèce : arbres estimés cumulés (densité × ha)
+    species_trees: dict[str, float] = {}
+    plantation_rows = []
+
+    for p in plantations:
+        records = db.query(AgroforestryRecord).filter(
+            AgroforestryRecord.plantation_id == p.id
+        ).all()
+        if not records:
+            continue
+        m = _compute_metrics(records)
+        ha = p.hectares or 1.0
+        carbon_p = m["carbon_stock_tco2_ha"] * ha
+        trees_p = m["total_trees_per_ha"] * ha
+        total_carbon += carbon_p
+        total_trees += trees_p
+        conformity_scores.append(m["conformity_score"])
+
+        for r in records:
+            species_trees[r.species_name] = (
+                species_trees.get(r.species_name, 0.0) + (r.count_per_hectare or 0) * ha
+            )
+
+        plantation_rows.append({
+            "name": p.name,
+            "species_count": m["species_count"],
+            "trees_est": round(trees_p),
+            "carbon_tco2": round(carbon_p, 1),
+            "conformity": m["conformity_score"],
+        })
+
+    avg_conformity = (
+        round(sum(conformity_scores) / len(conformity_scores)) if conformity_scores else 0
+    )
+
+    species_list = []
+    for name, trees in sorted(species_trees.items(), key=lambda kv: kv[1], reverse=True):
+        lib = species_lib.get(name)
+        species_list.append({
+            "name": name,
+            "local": lib["local"] if lib else None,
+            "layer": ({
+                "understory": "Sous-étage",
+                "intermediate": "Intermédiaire",
+                "superior": "Supérieure",
+            }.get(lib["layer"], lib["layer"]) if lib else None),
+            "trees": round(trees),
+        })
+
+    plantation_rows.sort(key=lambda r: r["carbon_tco2"], reverse=True)
+
+    brand = coop_brand(db, current_user.cooperative_id)
+    context = {
+        **brand,
+        "generated_at": _dt.now().strftime("%d/%m/%Y à %H:%M"),
+        "s": {
+            "total_carbon_tco2": round(total_carbon, 1),
+            "total_trees_estimated": round(total_trees),
+            "unique_species_count": len(species_trees),
+            "plantations_with_inventory": len(conformity_scores),
+            "total_plantations": len(plantations),
+            "avg_conformity_score": avg_conformity,
+        },
+        "species": species_list,
+        "plantations": plantation_rows,
+    }
+
+    try:
+        pdf_bytes = generate_agroforestry_pdf(context)
+    except Exception as e:
+        import traceback, logging
+        logging.getLogger("agrivision").error(
+            "Echec generation bilan agroforestier PDF : %s\n%s",
+            type(e).__name__, traceback.format_exc()
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la generation du bilan : {type(e).__name__} - {str(e)[:200]}"
+        )
+
+    filename = agroforestry_report_filename()
+    headers = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{filename}\"; "
+            f"filename*=UTF-8''{quote(filename)}"
+        )
+    }
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers=headers,
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════

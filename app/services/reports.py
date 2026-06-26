@@ -320,6 +320,37 @@ def generate_plantation_pdf(context: dict) -> bytes:
     return pdf_bytes
 
 
+def generate_agroforestry_pdf(context: dict) -> bytes:
+    """
+    Génère le bilan agroforestier PDF de la coopérative (template brandé,
+    cohérent avec les autres états AgriVision Pro).
+
+    Import différé de WeasyPrint pour ne pas casser l'import du module
+    en environnement de test où Cairo/Pango ne sont pas installés.
+
+    Args:
+        context: dict avec coop_logo, coop_name, generated_at, s (synthèse),
+                 species (liste) et plantations (liste). Voir
+                 GET /agroforestry/report.pdf.
+
+    Returns:
+        bytes du PDF généré
+    """
+    from weasyprint import HTML  # import différé
+
+    template = _jinja_env.get_template("agroforestry_report.html")
+    html_content = template.render(**context)
+
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    return pdf_bytes
+
+
+def agroforestry_report_filename() -> str:
+    """Nom de fichier propre pour le bilan agroforestier."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    return f"Bilan_Agroforestier_{today}.pdf"
+
+
 def generate_cacaoguard_pdf(context: dict) -> bytes:
     """
     Genere le PDF officiel CacaoGuard.
