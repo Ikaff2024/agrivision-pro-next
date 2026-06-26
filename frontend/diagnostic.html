@@ -303,6 +303,16 @@ input[type=range]{width:100%;height:5px;border-radius:99px;outline:none;cursor:p
               </div>
             </div>
 
+            <!-- Géo-horodatage anti-fraude : GPS capté à la saisie terrain -->
+            <div class="form-group" style="margin:6px 0 14px">
+              <label class="form-label" style="font-size:13px">Géo-horodatage (anti-fraude)</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="input" id="diag-gps" placeholder="lat,lng" style="flex:1" readonly>
+                <button type="button" class="btn btn-sm btn-outline" onclick="grabDiagGps()">📍 Capturer</button>
+              </div>
+              <div id="diag-gps-note" style="font-size:12px;color:#6a7d64;margin-top:4px">GPS non capturé.</div>
+            </div>
+
             <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px"
               id="run-btn" onclick="runDiagnostic()">
               <span class="material-symbols-outlined" style="font-size:18px">biotech</span>
@@ -607,6 +617,31 @@ function showTab(tab, el) {
   el.classList.add('active');
 }
 
+let _diagGpsAcc = null;
+function grabDiagGps() {
+  const note = document.getElementById('diag-gps-note');
+  if (!navigator.geolocation) { note.textContent = 'GPS non disponible sur cet appareil.'; return; }
+  note.textContent = 'Capture GPS...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude.toFixed(6), lng = pos.coords.longitude.toFixed(6);
+    _diagGpsAcc = pos.coords.accuracy || null;
+    document.getElementById('diag-gps').value = `${lat},${lng}`;
+    note.textContent = `GPS capturé — précision ${Math.round(_diagGpsAcc || 0)}m`;
+  }, () => { note.textContent = 'GPS refusé ou indisponible.'; },
+     { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
+// Construit le suffixe de requête géo-horodatage (anti-fraude).
+function _diagGeoQuery() {
+  const g = avpParseLatLng(document.getElementById('diag-gps').value);
+  const p = new URLSearchParams();
+  if (g) { p.set('captured_latitude', g.lat); p.set('captured_longitude', g.lng); }
+  if (_diagGpsAcc != null) p.set('captured_accuracy_m', _diagGpsAcc);
+  p.set('client_reported_at', new Date().toISOString());
+  const s = p.toString();
+  return s ? '&' + s : '';
+}
+
 // Sprint Offline V1.6 - Phase 4 : runDiagnostic() offline-aware
 async function runDiagnostic() {
   const pid = document.getElementById('plantation-select').value;
@@ -641,7 +676,7 @@ async function runDiagnostic() {
     // Tentative reseau
     let res;
     try {
-      res = await authFetch(`/cacao/diagnostic?plantation_id=${pid}`, {
+      res = await authFetch(`/cacao/diagnostic?plantation_id=${pid}${_diagGeoQuery()}`, {
         method: 'POST', body: JSON.stringify(inputs)
       });
     } catch (netErr) {
@@ -807,7 +842,10 @@ function showResult(r) {
   document.getElementById('result-empty').style.display = 'none';
   document.getElementById('result-card').style.display = '';
   document.getElementById('r-score').textContent = Math.round(r.global_score);
-  document.getElementById('r-badge').innerHTML = riskBadge(r.global_risk_level);
+  // Géo-horodatage anti-fraude : badge à côté du risque si capturé.
+  const _geoB = r.geo ? avpGeoBadge(r.geo) : '';
+  document.getElementById('r-badge').innerHTML = riskBadge(r.global_risk_level)
+    + (_geoB ? `<div style="margin-top:4px">${_geoB}</div>` : '');
 
   const colors = { LOW: '#1a6b3a', MEDIUM: '#9a6200', HIGH: '#922b21' };
   document.getElementById('r-header').style.background = colors[r.global_risk_level] || '#1a4231';

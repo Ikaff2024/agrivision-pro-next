@@ -127,6 +127,15 @@
             <textarea class="form-input" id="notes" rows="3" placeholder="Observation, entretien parent/enfant, contexte..."></textarea>
           </div>
 
+          <div class="form-group" style="margin-top:14px">
+            <label class="form-label">Géo-horodatage (anti-fraude)</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="form-input" id="ra-gps" placeholder="lat,lng" style="flex:1" readonly>
+              <button type="button" class="btn btn-sm btn-outline" onclick="grabRaGps()">📍 Capturer</button>
+            </div>
+            <div id="ra-gps-note" class="text-sm text-muted" style="margin-top:4px">GPS non capturé.</div>
+          </div>
+
           <div id="save-err" style="display:none;color:var(--high);font-size:13px;margin-bottom:12px"></div>
           <button class="btn btn-primary" id="save-btn" onclick="saveAssessment()" style="width:100%;justify-content:center">
             <span class="material-symbols-outlined" style="font-size:18px">save</span>
@@ -398,6 +407,20 @@ function renderScore() {
   ].map(([k, v]) => `<div class="factor-row"><span>${k}</span><strong>${v}</strong></div>`).join('');
 }
 
+let _raGpsAcc = null;
+function grabRaGps() {
+  const note = document.getElementById('ra-gps-note');
+  if (!navigator.geolocation) { note.textContent = 'GPS non disponible sur cet appareil.'; return; }
+  note.textContent = 'Capture GPS...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude.toFixed(6), lng = pos.coords.longitude.toFixed(6);
+    _raGpsAcc = pos.coords.accuracy || null;
+    document.getElementById('ra-gps').value = `${lat},${lng}`;
+    note.textContent = `GPS capturé — précision ${Math.round(_raGpsAcc || 0)}m`;
+  }, () => { note.textContent = 'GPS refusé ou indisponible.'; },
+     { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
 async function saveAssessment() {
   const err = document.getElementById('save-err');
   err.style.display = 'none';
@@ -410,13 +433,19 @@ async function saveAssessment() {
   btn.disabled = true;
   btn.textContent = 'Enregistrement...';
   try {
+    const _g = avpParseLatLng(document.getElementById('ra-gps').value);
     const payload = {
         child_id: selectedChild.id,
         assessment_type: 'follow_up',
         overall_risk_score: currentScore,
         overall_risk_level: currentLevel,
         risk_factors: currentFactors,
-        notes: document.getElementById('notes').value.trim() || null
+        notes: document.getElementById('notes').value.trim() || null,
+        // Géo-horodatage anti-fraude : GPS capté à la validation.
+        captured_latitude: _g ? _g.lat : null,
+        captured_longitude: _g ? _g.lng : null,
+        captured_accuracy_m: _raGpsAcc,
+        client_reported_at: new Date().toISOString(),
       };
     const res = await submitOffline('/children/assessments', payload, `Evaluation risque enfant ${selectedChild.id}`);
     if (res.queued) {
@@ -429,7 +458,12 @@ async function saveAssessment() {
       const e = await res.response?.json().catch(() => ({}));
       throw new Error(e.detail || 'Enregistrement impossible — réessayez.');
     }
-    toast('Evaluation enregistree.');
+    const _saved = await res.response.json().catch(() => ({}));
+    const _badge = _saved.geo ? avpGeoBadge(_saved.geo).replace(/<[^>]+>/g, '') : '';
+    toast('Evaluation enregistree.' + (_badge ? ' ' + _badge : ''));
+    document.getElementById('ra-gps').value = '';
+    document.getElementById('ra-gps-note').textContent = 'GPS non capturé.';
+    _raGpsAcc = null;
     await loadChildren();
   } catch (e) {
     err.textContent = e.message;

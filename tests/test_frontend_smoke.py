@@ -109,6 +109,13 @@ PAGE_MARKERS = {
         "producer-select",   # filtre producteur amont (évite de défiler des milliers d'enfants)
         "onProducerChange",
         "loadProducers",
+        "grabRaGps",          # géo-horodatage anti-fraude (Phase B) à la validation
+        "captured_latitude",
+    ],
+    "diagnostic.html": [
+        "runDiagnostic",
+        "grabDiagGps",        # géo-horodatage anti-fraude (Phase B) à la saisie
+        "captured_latitude",
     ],
     "farmforce.html": [
         "foodSecurity",          # vivrier/élevage (revenu vital)

@@ -88,3 +88,66 @@ def test_monitoring_complete_geostamp_verified(client, auth_headers):
     }, headers=auth_headers)
     assert r.status_code == 200, r.text
     assert r.json()["geo"]["geo_status"] == "verified"
+
+
+# ── Diagnostic agronomique (Phase B) ─────────────────────────────────────────
+_INPUTS = {
+    "country": "Côte d'Ivoire", "region": "Soubré",
+    "humidity_pct": 65.0, "rainfall_mm_month": 120.0, "avg_temp_c": 24.0,
+    "plantation_age_years": 15.0, "shade_tree_density_pct": 35.0,
+}
+
+
+def test_diagnostic_geostamp_verified(client, auth_headers):
+    pid = _plantation(_coop_id())
+    r = client.post(
+        f"/cacao/diagnostic?plantation_id={pid}"
+        f"&captured_latitude=5.7802&captured_longitude=-6.5901",
+        json=_INPUTS, headers=auth_headers,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["geo"]["geo_status"] == "verified"
+
+
+def test_diagnostic_geostamp_no_fix(client, auth_headers):
+    pid = _plantation(_coop_id())
+    r = client.post(f"/cacao/diagnostic?plantation_id={pid}", json=_INPUTS, headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["geo"]["geo_status"] == "no_fix"
+
+
+# ── Évaluation de risque enfant (Phase B) ────────────────────────────────────
+def _child(coop_id, lat=5.78, lng=-6.59):
+    """Crée un producteur géolocalisé + un enfant, renvoie child_id."""
+    pid = _producer(coop_id, lat=lat, lng=lng)
+    db = TestingSessionLocal()
+    try:
+        from app.db.models_social import Child, SchoolStatus
+        c = Child(producer_id=pid, first_name="Geo", last_name="Enfant",
+                  date_of_birth=__import__("datetime").date(2014, 1, 1),
+                  gender="F", school_status=SchoolStatus.ENROLLED, is_active=True)
+        db.add(c)
+        db.commit()
+        return c.id
+    finally:
+        db.close()
+
+
+def test_risk_assessment_geostamp_verified(client, auth_headers):
+    cid = _child(_coop_id())
+    r = client.post("/children/assessments", json={
+        "child_id": cid, "overall_risk_score": 20.0, "overall_risk_level": "low",
+        "captured_latitude": 5.7801, "captured_longitude": -6.5899,
+    }, headers=auth_headers)
+    assert r.status_code == 201, r.text
+    assert r.json()["geo"]["geo_status"] == "verified"
+
+
+def test_risk_assessment_geostamp_far(client, auth_headers):
+    cid = _child(_coop_id())
+    r = client.post("/children/assessments", json={
+        "child_id": cid, "overall_risk_score": 20.0, "overall_risk_level": "low",
+        "captured_latitude": 5.90, "captured_longitude": -6.59,
+    }, headers=auth_headers)
+    assert r.status_code == 201, r.text
+    assert r.json()["geo"]["geo_status"] == "far"

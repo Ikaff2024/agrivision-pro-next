@@ -122,6 +122,12 @@ class RiskAssessmentCreate(BaseModel):
     risk_factors: dict = Field(default_factory=dict)
     notes: Optional[str] = None
     assessor_id: Optional[int] = None
+    # Géo-horodatage anti-fraude : GPS capté par l'appareil à la validation.
+    captured_latitude: Optional[float] = None
+    captured_longitude: Optional[float] = None
+    captured_accuracy_m: Optional[float] = None
+    client_reported_at: Optional[datetime] = None
+    geo_override_reason: Optional[str] = Field(None, max_length=300)
 
 
 class AlertResponse(BaseModel):
@@ -719,12 +725,27 @@ def create_assessment(
 
     db.add(assessment)
     db.flush()
+
+    # Géo-horodatage anti-fraude : GPS capté + heure serveur, comparé au GPS producteur.
+    from app.services.geostamp import record_geostamp, geostamp_dict
+    _prod = db.query(Producer).filter(Producer.id == child.producer_id).first()
+    _gs = record_geostamp(
+        db, entity_type="risk_assessment", entity_id=assessment.id,
+        cooperative_id=(current_user.cooperative_id if current_user else None),
+        captured_lat=data.captured_latitude, captured_lng=data.captured_longitude,
+        accuracy=data.captured_accuracy_m, client_reported_at=data.client_reported_at,
+        expected_lat=(_prod.latitude if _prod else None),
+        expected_lng=(_prod.longitude if _prod else None),
+        recorded_by=(current_user.email if current_user else None),
+        override_reason=data.geo_override_reason,
+    )
+
     _ensure_alert_for_child(db, child)
     ensure_remediation_plan_for_child(db, child)
     db.commit()
     db.refresh(assessment)
 
-    return {"message": "Evaluation creee", "assessment_id": assessment.id}
+    return {"message": "Evaluation creee", "assessment_id": assessment.id, "geo": geostamp_dict(_gs)}
 
 
 @router.post("/{child_id:int}/calculate-risk")

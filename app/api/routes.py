@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
@@ -500,7 +501,15 @@ def get_plantation(
         .filter(Diagnostic.plantation_id == plantation_id)
         .all()
     )
-    return {"plantation": plantation, "diagnostics": diagnostics}
+    # Géo-horodatage : badge anti-fraude par diagnostic (map id -> geostamp).
+    from app.services.geostamp import latest_map, geostamp_dict
+    _geo = latest_map(db, "diagnostic", [d.id for d in diagnostics])
+    geo_by_diagnostic = {d.id: geostamp_dict(_geo.get(d.id)) for d in diagnostics if _geo.get(d.id)}
+    return {
+        "plantation": plantation,
+        "diagnostics": diagnostics,
+        "geo_by_diagnostic": geo_by_diagnostic,
+    }
 
 
 
@@ -536,6 +545,12 @@ def diagnostic_endpoint(
     inputs: CacaoInputs,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    # Géo-horodatage anti-fraude : GPS capté par l'appareil à la saisie terrain.
+    captured_latitude: Optional[float] = Query(None),
+    captured_longitude: Optional[float] = Query(None),
+    captured_accuracy_m: Optional[float] = Query(None),
+    client_reported_at: Optional[datetime] = Query(None),
+    geo_override_reason: Optional[str] = Query(None, max_length=300),
 ):
     if current_user.role not in {"admin", "agronomist"}:
         raise HTTPException(status_code=403, detail="Rôle agronome requis.")
@@ -593,6 +608,20 @@ def diagnostic_endpoint(
         global_risk_level=report.global_risk_level,
     )
     db.add(new_diagnostic)
+    db.flush()
+
+    # Géo-horodatage anti-fraude : GPS capté + heure serveur, comparé au GPS parcelle.
+    from app.services.geostamp import record_geostamp, geostamp_dict
+    _gs = record_geostamp(
+        db, entity_type="diagnostic", entity_id=new_diagnostic.id,
+        cooperative_id=current_user.cooperative_id,
+        captured_lat=captured_latitude, captured_lng=captured_longitude,
+        accuracy=captured_accuracy_m, client_reported_at=client_reported_at,
+        expected_lat=plantation.latitude, expected_lng=plantation.longitude,
+        recorded_by=current_user.email,
+        override_reason=geo_override_reason,
+    )
+
     db.commit()
     db.refresh(new_diagnostic)
     # Générer les recommandations actionnables
@@ -622,6 +651,7 @@ def diagnostic_endpoint(
         ],
         "recommendations":   rec_list,
         "diagnostic_id":     new_diagnostic.id,
+        "geo":               geostamp_dict(_gs),
     }
 
 
