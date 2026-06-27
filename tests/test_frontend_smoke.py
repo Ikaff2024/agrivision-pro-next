@@ -74,6 +74,10 @@ PAGE_MARKERS = {
         "ingestVeille",
         "setVeilleFilter",   # filtre par catégorie (topic) du moteur open-source
     ],
+    "direction.html": [
+        "loadDirection",
+        "loadAiSummary",     # résumé exécutif IA (réaffectation du moteur)
+    ],
     "plantation_detail.html": [
         "renderEudrCard",
         "downloadDdsPdf",

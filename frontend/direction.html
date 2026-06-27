@@ -40,9 +40,14 @@
         <div class="page-title">Tableau de bord direction</div>
         <div class="page-sub">Vue consolidée : conformité, durabilité et performance de la coopérative</div>
       </div>
-      <button class="btn btn-outline" onclick="loadDirection()">
-        <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" id="ai-sum-btn" onclick="loadAiSummary()">
+          <span class="material-symbols-outlined" style="font-size:18px">auto_awesome</span> Synthèse IA
+        </button>
+        <button class="btn btn-outline" onclick="loadDirection()">
+          <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -50,6 +55,11 @@
         Le tableau de bord direction est réservé aux rôles <strong>Administrateur</strong> et <strong>Agronome</strong>.
       </div>
       <div id="board">
+        <!-- Résumé exécutif rédigé par le moteur IA (à la demande) -->
+        <div id="ai-summary" class="grp" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd">
+          <div class="grp-title" style="color:#1e40af"><span class="material-symbols-outlined" style="font-size:18px">auto_awesome</span> Synthèse exécutive IA <span id="ai-summary-meta" style="font-weight:500;font-size:11px;opacity:.7"></span></div>
+          <p id="ai-summary-text" style="color:#1e3a8a;white-space:pre-wrap;margin:6px 0 0"></p>
+        </div>
         <div class="grp">
           <div class="grp-title"><span class="material-symbols-outlined" style="font-size:18px">groups</span> Périmètre</div>
           <div class="cards">
@@ -201,6 +211,34 @@ function wireDrilldowns() {
       card.dataset.wired = '1'; card.classList.add('clickable'); card.title = 'Voir le détail';
       card.addEventListener('click', () => { location.href = page; });
     }
+  }
+}
+
+// Résumé exécutif IA (à la demande) — généré par le fournisseur sélectionné.
+async function loadAiSummary() {
+  const btn = document.getElementById('ai-sum-btn');
+  const box = document.getElementById('ai-summary');
+  const txt = document.getElementById('ai-summary-text');
+  if (btn) { btn.disabled = true; }
+  box.style.display = 'block';
+  txt.textContent = 'Génération en cours…';
+  document.getElementById('ai-summary-meta').textContent = '';
+  try {
+    const r = await authFetch('/dashboard/direction/ai-summary');
+    const d = await r.json().catch(() => ({}));
+    if (!r || !r.ok) {
+      txt.textContent = (r && r.status === 502)
+        ? 'Synthèse indisponible : fournisseur IA non configuré côté serveur.'
+        : (d.detail || 'Synthèse indisponible.');
+      return;
+    }
+    txt.textContent = d.summary || 'Aucune synthèse générée.';
+    const when = d.generated_at ? new Date(d.generated_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    document.getElementById('ai-summary-meta').textContent = [d.model, when].filter(Boolean).join(' · ');
+  } catch (e) {
+    txt.textContent = 'Serveur injoignable.';
+  } finally {
+    if (btn) { btn.disabled = false; }
   }
 }
 

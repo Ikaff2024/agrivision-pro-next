@@ -139,8 +139,8 @@
 
       <!-- ───────── Veille réglementaire (moteur open-source) ───────── -->
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:30px 0 6px;border-top:1px solid var(--border,#e6ddd0);padding-top:22px">
-        <div class="section-title" style="margin:0">Veille réglementaire
-          <span style="font-size:11px;font-weight:600;color:var(--muted,#6a7d64)">· moteur open-source</span></div>
+        <div class="section-title" style="margin:0">Veille réglementaire — EUDR &amp; durabilité
+          <span style="font-size:11px;font-weight:600;color:var(--muted,#6a7d64)">· moteur open-source (prix &amp; marché ci-dessus)</span></div>
         <div id="vr-actions" style="display:none;gap:8px"></div>
       </div>
       <div class="vm-ai" id="vr-digest" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd">
@@ -358,10 +358,14 @@ async function loadVeille() {
   try {
     const [dr, ir] = await Promise.all([
       authFetch('/veille/digest'),
-      authFetch('/veille/items?limit=30'),
+      authFetch('/veille/items?limit=50'),
     ]);
     const digest = dr && dr.ok ? (await dr.json()).digest : null;
-    const items = ir && ir.ok ? ((await ir.json()).items || []) : [];
+    let items = ir && ir.ok ? ((await ir.json()).items || []) : [];
+    // Différenciation des deux blocs : le bloc « Veille Marché » (haut) traite le
+    // prix/marché ; ici on ne garde que la veille RÉGLEMENTAIRE (EUDR, durabilité,
+    // certification…) → on exclut les actualités purement marché. Plus de doublon.
+    items = items.filter(it => !(it.topics || []).map(t => String(t).toLowerCase()).includes('marche'));
     renderVeilleDigest(digest);
     renderVeilleItems(items);
   } catch (e) { /* section optionnelle : on n'interrompt pas la veille marché */ }

@@ -194,3 +194,60 @@ def direction_dashboard(
             "open": open_alerts,
         },
     }
+
+
+@router.get("/direction/ai-summary")
+def direction_ai_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Résumé exécutif rédigé par le moteur IA (fournisseur sélectionné) à partir des
+    KPI de direction. Réutilise l'agrégat /dashboard/direction — pas de doublon de
+    calcul. Réservé direction ; généré à la demande (coût borné)."""
+    data = direction_dashboard(db, current_user)  # réutilise l'agrégat (et le garde-fou de rôle)
+    p, e = data["perimeter"], data["eudr"]
+    c, li, v = data["child_protection"], data["living_income"], data["volume"]
+    facts = (
+        f"- Périmètre : {p['producers_active']} producteurs actifs, {p['plantations']} parcelles, {p['total_hectares']} ha.\n"
+        f"- EUDR : {e['compliance_rate_pct']}% conformes ({e['conforme']} conformes, {e['a_verifier']} à vérifier, "
+        f"{e['non_conforme']} non conformes ; {e['without_polygon']} sans polygone).\n"
+        f"- Protection enfant : {c['children_total']} enfants suivis, {c['high_risk_children']} à risque élevé/critique, "
+        f"scolarisation {c['school_enrollment_rate_pct']}%, {c['active_traceability_blocks']} blocages traçabilité actifs.\n"
+        f"- Revenu vital : {li['assessments']} évaluations, {li['reached_rate_pct']}% au seuil vital, "
+        f"revenu net moyen {li['average_net_income_cfa']} FCFA.\n"
+        f"- Volumes : {v['total_kg']} kg total, {v['certified_rate_pct']}% certifié.\n"
+        f"- Alertes ouvertes : {data['alerts']['open']}."
+    )
+    prompt = (
+        "Tu es analyste pour la DIRECTION d'une coopérative de cacao en Côte d'Ivoire. "
+        "À partir UNIQUEMENT des indicateurs ci-dessous, rédige un résumé exécutif en français "
+        "(4 à 6 phrases) : 1) la situation d'ensemble, 2) les 2-3 risques prioritaires, "
+        "3) 2 recommandations actionnables et chiffrées. Sois concret, n'invente aucun chiffre.\n\n"
+        f"INDICATEURS :\n{facts}"
+    )
+    try:
+        from app.services import llm_client
+        out = llm_client.chat(db, prompt, max_tokens=500, temperature=0.3)
+    except llm_client.LLMNotConfigured as ex:
+        raise HTTPException(status_code=502, detail=str(ex))
+    except Exception as ex:  # noqa: BLE001
+        import httpx as _httpx
+        if isinstance(ex, _httpx.HTTPError):
+            raise HTTPException(status_code=502, detail=f"Fournisseur IA injoignable : {type(ex).__name__}.")
+        raise
+    # Suivi du coût (best-effort).
+    try:
+        from app.db.models import AiUsage
+        from app.services.ai_cost import compute_cost_usd
+        it_, ot_ = out.get("input_tokens", 0), out.get("output_tokens", 0)
+        db.add(AiUsage(
+            cooperative_id=current_user.cooperative_id, user_id=current_user.id,
+            plantation_id=None, feature="direction_summary",
+            model=out.get("model", ""), input_tokens=it_, output_tokens=ot_,
+            cost_usd=compute_cost_usd(it_, ot_, out.get("model")),
+        ))
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+    return {"summary": (out.get("text") or "").strip(), "model": out.get("model"),
+            "generated_at": data["generated_at"]}

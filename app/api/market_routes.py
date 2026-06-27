@@ -82,7 +82,9 @@ def _load_market_cache(db: Session) -> Optional[dict]:
 
 
 # ── Actualités issues du moteur de veille open-source (RSS cacao monde + CI) ──
-_MARKET_TOPICS = ["marche", "cacao", "monde", "cote_ivoire", "eudr"]
+# Bloc MARCHÉ = prix/marché uniquement (topic "marche"). La veille EUDR/réglementaire
+# vit dans la page Veille (moteur open-source) → pas de doublon entre les deux blocs.
+_MARKET_TOPICS = ["marche"]
 
 
 def _market_cat(topics) -> str:
