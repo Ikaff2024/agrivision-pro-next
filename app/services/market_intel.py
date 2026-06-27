@@ -249,6 +249,19 @@ async def _call_claude_market() -> tuple[Optional[dict], Optional[dict]]:
         return None, None
 
 
+async def get_market_prices() -> dict:
+    """Prix marché SANS IA : cours réel ICE New York + prix bord-champ officiel CCC.
+
+    Indépendant de tout fournisseur LLM (les actualités/synthèse sont désormais
+    produites par le moteur de veille open-source + le fournisseur sélectionné,
+    cf. market_routes). Londres reste indisponible (pas de flux libre fiable)."""
+    ny = await _fetch_ny_cocoa()
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "prices": {"ccc": _ccc_price(), "ny": ny, "london": None},
+    }
+
+
 def _build(ny: Optional[dict], parsed: Optional[dict]) -> dict:
     parsed = parsed or {}
 

@@ -1,11 +1,18 @@
 """
 Veille Marché Cacao (module premium).
 
-GET /market/intelligence : prix (CCC officiel + cours Londres/NY indicatifs),
-actualités filtrables et synthèse IA. L'appel Claude se fait CÔTÉ SERVEUR
-(clé protégée), avec cache partagé et suivi de coût (AiUsage).
+GET /market/intelligence : prix (CCC officiel + cours réel ICE New York),
+actualités filtrables et synthèse IA.
+
+Architecture (agnostique de Claude) :
+- PRIX : cours réel ICE New York + prix bord-champ officiel CCC (aucune IA).
+- ACTUALITÉS : tirées du moteur de veille open-source (RSS Google News cacao
+  monde + Côte d'Ivoire), donc une seule source de news pour toute la page.
+- SYNTHÈSE : générée par le FOURNISSEUR sélectionné (sélecteur propriétaire,
+  ex. OpenRouter) via le client LLM partagé — plus de dépendance à Claude.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Cooperative, User
-from app.services.market_intel import get_market_intelligence, last_diagnostic
+from app.services.market_intel import get_market_prices
 
 logger = logging.getLogger("agrivision")
 
@@ -74,6 +81,67 @@ def _load_market_cache(db: Session) -> Optional[dict]:
         return None
 
 
+# ── Actualités issues du moteur de veille open-source (RSS cacao monde + CI) ──
+_MARKET_TOPICS = ["marche", "cacao", "monde", "cote_ivoire", "eudr"]
+
+
+def _market_cat(topics) -> str:
+    """Catégorie d'affichage (chips marché) à partir des topics de veille."""
+    ts = {(t or "").lower() for t in (topics or [])}
+    if "eudr" in ts:
+        return "EUDR"
+    if ts & {"marche", "cacao", "monde", "cote_ivoire", "certification", "durabilite"}:
+        return "Marché"
+    return "Autre"
+
+
+def _news_from_veille(db: Session, limit: int = 12) -> list:
+    """Mappe les items de veille récents (marché/cacao) au format des actualités marché."""
+    from app.services import veille_engine
+    items = veille_engine.retrieve(db, topics=_MARKET_TOPICS, limit=limit)
+    out = []
+    for it in items:
+        d = ""
+        if getattr(it, "published_at", None):
+            try:
+                d = it.published_at.date().isoformat()
+            except Exception:  # noqa: BLE001
+                d = ""
+        out.append({
+            "title": it.title,
+            "source": it.source_name or it.source_key or "",
+            "date": d,
+            "cat": _market_cat(it.topics),
+            "summary": it.summary or "",
+            "url": it.url,
+        })
+    return out
+
+
+def _market_prompt(news: list) -> str:
+    lines = [
+        f"- [{n['source']}] {n['title']}" + (f" ({n['date']})" if n['date'] else "")
+        for n in news[:10]
+    ]
+    return (
+        "Tu es analyste de la filière cacao pour une coopérative ivoirienne. À partir "
+        "UNIQUEMENT des actualités ci-dessous, rédige 2 à 3 phrases stratégiques "
+        "(prix/marché, EUDR, opportunités et risques pour la coopérative). "
+        "N'invente rien qui n'y figure pas.\n\nACTUALITÉS :\n" + "\n".join(lines)
+    )
+
+
+def _load_summary_cache(db: Session) -> dict:
+    return _load_market_cache(db) or {}
+
+
+def _save_summary_cache(db: Session, summary: str, model: Optional[str]) -> None:
+    _save_market_cache(db, {
+        "ai_summary": summary, "ai_model": model,
+        "ai_generated_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 @router.get("/intelligence")
 async def market_intelligence(
     refresh: bool = Query(False, description="Forcer une actualisation (admin/agronome)"),
@@ -96,48 +164,77 @@ async def market_intelligence(
 
     # Le rafraîchissement forcé est réservé aux rôles d'écriture (borne le coût IA).
     force = bool(refresh) and current_user.role in ("admin", "agronomist")
-    data, usage = await get_market_intelligence(force=force)
 
-    # Suivi du coût de revient : on enregistre les tokens réellement consommés.
-    # Best-effort : un échec d'enregistrement ne casse jamais la réponse.
-    if usage:
-        try:
-            from app.db.models import AiUsage
-            from app.services.ai_cost import compute_cost_usd
-            db.add(AiUsage(
-                cooperative_id=current_user.cooperative_id,
-                user_id=current_user.id,
-                plantation_id=None,
-                feature="market_intelligence",
-                model=usage.get("model", ""),
-                input_tokens=usage.get("input_tokens", 0),
-                output_tokens=usage.get("output_tokens", 0),
-                cost_usd=compute_cost_usd(usage.get("input_tokens", 0), usage.get("output_tokens", 0)),
-            ))
-            db.commit()
-        except Exception as e:  # noqa: BLE001
-            db.rollback()
-            logger.warning("Enregistrement AiUsage (veille) échoué (ignoré) : %s", e)
+    # 1) Prix (réel, sans IA) + 2) actualités (moteur de veille open-source).
+    prices = await get_market_prices()
+    news = _news_from_veille(db)
 
-    # Persistance DB : on sauvegarde une bonne charge (avec actualités) ; sinon on
-    # ressert la dernière bonne charge persistée (les actus survivent à un redéploiement).
-    if data.get("news"):
-        _save_market_cache(db, data)
-    else:
-        persisted = _load_market_cache(db)
-        if persisted and persisted.get("news"):
-            persisted["prices"] = data.get("prices", persisted.get("prices"))
-            persisted["cached"] = True
-            persisted["stale"] = True
-            persisted["note"] = data.get("note")
-            data = persisted
+    # 3) Synthèse par le FOURNISSEUR sélectionné (cache pour borner le coût :
+    #    régénérée seulement sur refresh forcé ou si aucune synthèse en cache).
+    cache = _load_summary_cache(db)
+    ai_summary = cache.get("ai_summary") or ""
+    ai_model = cache.get("ai_model")
+    diag = {
+        "ok": None, "key_present": False, "key_prefix": "", "status": None,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "reason": "Aucune synthèse générée.",
+    }
+    from app.services.platform_settings import resolve_ai_config, available_providers
+    provider, model = resolve_ai_config(db)
+    ready = next((p["ready"] for p in available_providers() if p["id"] == provider), False)
+    diag["key_present"], diag["key_prefix"] = ready, provider
 
-    # Prix d'achat RÉEL de la coopérative (par requête, propre à la coop).
-    data = dict(data)
-    data["coop_price"] = _coop_recent_price(db, current_user.cooperative_id)
+    if news and (force or not ai_summary):
+        if not ready:
+            diag["ok"] = False
+            diag["reason"] = f"Fournisseur IA « {provider} » non configuré (clé serveur manquante)."
+        else:
+            try:
+                from app.services import llm_client
+                out = llm_client.chat(db, _market_prompt(news), max_tokens=400, temperature=0.3)
+                ai_summary = (out.get("text") or "").strip() or ai_summary
+                ai_model = out.get("model") or model
+                _save_summary_cache(db, ai_summary, ai_model)
+                diag["ok"], diag["reason"] = True, "OK — synthèse générée par le fournisseur sélectionné."
+                # Suivi du coût de revient (tokens réellement consommés).
+                try:
+                    from app.db.models import AiUsage
+                    from app.services.ai_cost import compute_cost_usd
+                    it_, ot_ = out.get("input_tokens", 0), out.get("output_tokens", 0)
+                    db.add(AiUsage(
+                        cooperative_id=current_user.cooperative_id, user_id=current_user.id,
+                        plantation_id=None, feature="market_intelligence",
+                        model=ai_model or "", input_tokens=it_, output_tokens=ot_,
+                        cost_usd=compute_cost_usd(it_, ot_, ai_model),
+                    ))
+                    db.commit()
+                except Exception as e:  # noqa: BLE001
+                    db.rollback()
+                    logger.warning("AiUsage (marché) échoué (ignoré) : %s", e)
+            except Exception as e:  # noqa: BLE001
+                diag["ok"] = False
+                diag["reason"] = f"Synthèse IA indisponible : {type(e).__name__}."
+                logger.warning("Synthèse marché (%s) échouée : %s", provider, e)
+    elif not news:
+        diag["reason"] = "Aucune actualité ingérée — cliquez « Rafraîchir les sources »."
 
-    # Diagnostic IA réservé aux admins : pourquoi la veille n'a-t-elle pas d'actus ?
-    # (clé absente, 401, recherche web non activée, crédit…). Jamais exposé aux autres rôles.
+    note = None
+    if not news:
+        note = ("Aucune actualité pour le moment. "
+                "Admin : cliquez « Rafraîchir les sources » dans la veille réglementaire ci-dessous.")
+    elif not ai_summary and not ready:
+        note = "Synthèse IA indisponible (fournisseur non configuré). Prix et actualités à jour."
+
+    data = {
+        "generated_at": prices.get("generated_at"),
+        "live": bool(news),
+        "cached": False,
+        "prices": prices.get("prices", {}),
+        "news": news,
+        "ai_summary": ai_summary or None,
+        "note": note,
+        "coop_price": _coop_recent_price(db, current_user.cooperative_id),
+    }
     if current_user.role == "admin":
-        data["diag"] = last_diagnostic()
+        data["diag"] = diag
     return data

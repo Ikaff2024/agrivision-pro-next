@@ -66,7 +66,10 @@ def _anthropic_chat(prompt: str, model: str, max_tokens: int) -> dict:
     r.raise_for_status()
     data = r.json()
     text = ((data.get("content") or [{}])[0].get("text") or "")
-    return {"text": text, "model": data.get("model", used_model)}
+    u = data.get("usage") or {}
+    return {"text": text, "model": data.get("model", used_model),
+            "input_tokens": int(u.get("input_tokens", 0) or 0),
+            "output_tokens": int(u.get("output_tokens", 0) or 0)}
 
 
 def _openai_compatible_chat(provider: str, model: str, prompt: str,
@@ -95,4 +98,7 @@ def _openai_compatible_chat(provider: str, model: str, prompt: str,
     r.raise_for_status()
     data = r.json()
     text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "")
-    return {"text": text, "model": data.get("model", used_model)}
+    u = data.get("usage") or {}
+    return {"text": text, "model": data.get("model", used_model),
+            "input_tokens": int(u.get("prompt_tokens", 0) or 0),
+            "output_tokens": int(u.get("completion_tokens", 0) or 0)}
