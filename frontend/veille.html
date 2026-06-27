@@ -336,15 +336,21 @@ function renderNews() {
   }
   empty.style.display = 'none';
   list.style.display = 'flex';
-  list.innerHTML = items.map(n => `
+  list.innerHTML = items.map(n => {
+    // Nettoyage HTML (flux Google News) + résumé masqué s'il répète le titre.
+    const title = stripHtml(n.title || '');
+    let sum = stripHtml(n.summary || '');
+    if (sum && title && sum.toLowerCase().startsWith(title.slice(0, 40).toLowerCase())) sum = '';
+    return `
     <div class="vm-news-card">
       <span class="badge ${badgeClass(n.cat)}">${esc(n.cat || 'Autre')}</span>
       <div style="flex:1;min-width:0">
-        <div class="t">${esc(n.title)}</div>
-        ${n.summary ? `<div class="s">${esc(n.summary)}</div>` : ''}
+        <div class="t">${esc(title)}</div>
+        ${sum ? `<div class="s">${esc(sum)}</div>` : ''}
         <div class="src"><strong>${esc(n.source || '')}</strong>${n.date ? ' · ' + esc(n.date) : ''}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ───────── Veille réglementaire (moteur open-source) — digest + items ─────────
