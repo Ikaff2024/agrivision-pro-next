@@ -71,6 +71,7 @@ PAGE_MARKERS = {
         "loadMarket",   # veille marché (existant)
         "loadVeille",   # veille réglementaire open-source (digest + items)
         "ingestVeille",
+        "setVeilleFilter",   # filtre par catégorie (topic) du moteur open-source
     ],
     "plantation_detail.html": [
         "renderEudrCard",

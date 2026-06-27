@@ -148,6 +148,7 @@
           Synthèse <span id="vr-digest-meta" style="font-weight:600;font-size:11px;opacity:.75"></span></div>
         <p id="vr-digest-text" style="color:#1e3a8a;white-space:pre-wrap"></p>
       </div>
+      <div class="vm-chips" id="vr-chips" style="display:none"></div>
       <div class="vm-news" id="vr-items"></div>
       <div id="vr-empty" style="display:none;text-align:center;padding:24px;color:var(--muted,#6a7d64)">
         Aucune source de veille pour l'instant. <span id="vr-empty-admin"></span></div>
@@ -161,6 +162,8 @@ initApp('veille');
 
 let _allNews = [];
 let _filter = 'tous';
+let _veilleItems = [];          // items veille open-source chargés
+let _vrFilter = 'tous';          // catégorie active (topic) du moteur open-source
 
 document.addEventListener('DOMContentLoaded', () => {
   computeEudrDays();
@@ -362,11 +365,65 @@ function renderVeilleDigest(d) {
   document.getElementById('vr-digest-meta').textContent = [d.model, when].filter(Boolean).join(' · ');
 }
 
+// Libellés lisibles pour les catégories (topics) du moteur open-source.
+const VR_TOPIC_LABELS = {
+  eudr: 'EUDR', ue: 'UE', reglementation: 'Réglementation', cacao: 'Cacao',
+  marche: 'Marché', marches: 'Marchés', certification: 'Certification',
+  durabilite: 'Durabilité', marche_intel: 'Marché',
+};
+function _vrLabel(t) {
+  return VR_TOPIC_LABELS[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+}
+
 function renderVeilleItems(items) {
+  _veilleItems = items || [];
+  _vrFilter = 'tous';
+  _renderVeilleChips();
+  _renderVeilleList();
+}
+
+// Chips de catégorie dérivées des topics réellement présents (comme le moteur Claude).
+function _renderVeilleChips() {
+  const box = document.getElementById('vr-chips');
+  if (!box) return;
+  const topics = new Set();
+  _veilleItems.forEach(it => (it.topics || []).forEach(t => { if (t) topics.add(String(t).toLowerCase()); }));
+  if (!topics.size) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const cats = ['tous', ...[...topics].sort()];
+  box.style.display = 'flex';
+  box.innerHTML = cats.map(t => {
+    const label = t === 'tous' ? 'Tous' : _vrLabel(t);
+    const active = (_vrFilter === t) ? ' active' : '';
+    return `<span class="vm-chip${active}" onclick="setVeilleFilter('${t}',this)">${esc(label)}</span>`;
+  }).join('');
+}
+
+function setVeilleFilter(topic, el) {
+  _vrFilter = topic;
+  document.querySelectorAll('#vr-chips .vm-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  _renderVeilleList();
+}
+
+function _renderVeilleList() {
   const list = document.getElementById('vr-items');
   const empty = document.getElementById('vr-empty');
   if (!list) return;
-  if (!items.length) { list.style.display = 'none'; if (empty) empty.style.display = 'block'; return; }
+  const items = _vrFilter === 'tous'
+    ? _veilleItems
+    : _veilleItems.filter(it => (it.topics || []).some(t => String(t).toLowerCase() === _vrFilter));
+  if (!items.length) {
+    if (_veilleItems.length) {
+      // Le filtre courant ne renvoie rien, mais des items existent dans d'autres catégories.
+      if (empty) empty.style.display = 'none';
+      list.style.display = 'flex';
+      list.innerHTML = '<div style="text-align:center;padding:18px;color:var(--muted,#6a7d64)">Aucune actualité dans cette catégorie.</div>';
+    } else {
+      list.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+    }
+    return;
+  }
   if (empty) empty.style.display = 'none';
   list.style.display = 'flex';
   list.innerHTML = items.map(it => {
@@ -375,7 +432,7 @@ function renderVeilleItems(items) {
     const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title);
     const date = it.published_at ? ' · ' + esc(new Date(it.published_at).toLocaleDateString('fr-FR')) : '';
     return `<div class="vm-news-card">
-      <span class="badge ${badgeClass(topic)}">${esc(topic)}</span>
+      <span class="badge ${badgeClass(topic)}">${esc(_vrLabel(topic))}</span>
       <div style="flex:1;min-width:0">
         <div class="t">${title}</div>
         ${it.summary ? `<div class="s">${esc(it.summary)}</div>` : ''}
