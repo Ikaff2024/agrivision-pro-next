@@ -28,7 +28,9 @@
 .dl-val{font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-left:auto;min-width:24px;text-align:right}
 .empty-chart{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;flex-direction:column;gap:8px}
 .empty-chart-icon{font-size:32px;opacity:.2}
-.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:16px;margin-bottom:28px}
+/* auto-fit (et non auto-fill) : quand des cartes sont masquées selon le plan,
+   les cartes restantes s'étirent pour remplir la largeur → pas de colonnes vides. */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:16px;margin-bottom:28px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
   padding:22px 20px;box-shadow:var(--sh);position:relative;overflow:hidden}
 .stat-val{font-family:'Fraunces',serif;font-size:38px;font-weight:700;line-height:1}
