@@ -363,8 +363,8 @@ def test_compute_score_perfect_plantation(client):
     _add_deforestation_check(db, p, verdict="clear")
     s = compute_eudr_score(p, db)
     db.close()
-    assert s.score == 6          # 6 regles (EUDR-01b ajoute la deforestation)
-    assert s.max_score == 6
+    assert s.score == 5          # 5 regles ENVIRONNEMENTALES (social dissocie)
+    assert s.max_score == 5
     assert s.status == "conforme"
     assert s.badge_color == "green"
     assert s.has_polygon is True
@@ -373,7 +373,7 @@ def test_compute_score_perfect_plantation(client):
 
 def test_area_mismatch_caps_conforme_to_a_verifier(client):
     """Règle bloquante : une superficie incohérente (>20%) interdit le badge
-    « conforme » même si le prorata l'accorderait (5/6) — cohérence fiche ↔ menu EUDR."""
+    « conforme » même si le prorata l'accorderait (4/5) — cohérence fiche ↔ menu EUDR."""
     db = TestingSessionLocal()
     p = _make_plantation(db, hectares=1.0, with_producer=True)
     _add_boundary(db, p, geojson=VALID_POLYGON, area=5.0, points=5)  # aire géo très ≠ déclarée
@@ -383,7 +383,7 @@ def test_area_mismatch_caps_conforme_to_a_verifier(client):
     s = compute_eudr_score(p, db)
     db.close()
     failed = {r.rule_id for r in s.rules if not r.passed}
-    assert s.score == 5 and "area_matches" in failed   # seule la cohérence d'aire échoue
+    assert s.score == 4 and "area_matches" in failed   # seule la cohérence d'aire échoue
     assert s.status == "a_verifier"                      # bloquée, pas « conforme »
     assert s.badge_color == "orange"
 
@@ -440,11 +440,10 @@ def test_compute_score_no_polygon_no_inspection(client):
     # area_matches: False (no geo area)
     # gps_in_cocoa_zone: True (fallback point in bbox)
     # recent_inspection: False
-    # no_active_block: True (no block)
-    # no_deforestation: False (aucun controle) => 2/6
-    assert s.score == 2
-    assert s.max_score == 6
-    assert s.status == "non_conforme"  # 2/6 = 33% (< 40%)
+    # no_deforestation: False (aucun controle) => 1/5 (social dissocie)
+    assert s.score == 1
+    assert s.max_score == 5
+    assert s.status == "non_conforme"  # 1/5 = 20% (< 40%)
     assert s.badge_color == "red"
     assert s.has_polygon is False
 
@@ -459,7 +458,7 @@ def test_compute_score_worst_case(client):
     db.add(p); db.commit(); db.refresh(p)
     s = compute_eudr_score(p, db)
     db.close()
-    # All fail except no_active_block (no producer = vacuous true)
-    assert s.score == 1
+    # Toutes les règles échouent (social dissocié → plus de no_active_block vacuously-true)
+    assert s.score == 0
     assert s.status == "non_conforme"
     assert s.badge_color == "red"

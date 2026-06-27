@@ -130,21 +130,48 @@ def test_lot_movements_and_status(client):
     assert r4.status_code == 400
 
 
-def test_lot_blocks_child_labor_producer(client):
-    """Un producteur sous blocage CacaoGuard ne peut pas etre affecte a un lot."""
-    h = _login(client, "lot.block@test.ci", coop="Coop Block")
+def test_social_block_default_alerts_not_blocks(client):
+    """Social DISSOCIÉ de l'EUDR : par défaut un cas social (travail enfant) est
+    SIGNALÉ mais ne bloque ni la constitution du lot ni l'export."""
+    h = _login(client, "lot.social@test.ci", coop="Coop Social")
     p = _plantation(client, h)
     hv = _harvest(client, h, p["id"], 500)
-    producer_id = p["producer_id"]
-    # Cree un blocage de tracabilite actif sur ce producteur
     blk = client.post("/compliance/blocks", json={
-        "producer_id": producer_id, "block_description": "Cas travail enfant",
+        "producer_id": p["producer_id"], "block_description": "Cas travail enfant",
     }, headers=h)
     assert blk.status_code in (200, 201), blk.text
-    # L'affectation au lot doit etre refusee (409)
-    r = client.post("/lots", json={"harvest_ids": [hv["id"]]}, headers=h)
+    # Affectation autorisée (plus de blocage social à la constitution)
+    lot = client.post("/lots", json={"harvest_ids": [hv["id"]]}, headers=h)
+    assert lot.status_code == 201, lot.text
+    lot = lot.json()
+    # Dérogation EUDR (parcelle sans polygone) pour ISOLER l'effet social
+    client.post(f"/plantations/{p['id']}/export-waiver",
+                json={"reason": "Isolation test social"}, headers=h)
+    # Export autorisé malgré le cas social (alerte, pas blocage)
+    r = client.post(f"/lots/{lot['id']}/movements",
+                    json={"movement_type": "export_out"}, headers=h)
+    assert r.status_code == 200, r.text
+
+
+def test_social_block_export_when_coop_enforces(client):
+    """Si la coopérative ACTIVE le blocage social, l'export est refusé (409)."""
+    h = _login(client, "lot.enforce@test.ci", coop="Coop Enforce")
+    cid = client.get("/me", headers=h).json()["cooperative_id"]
+    up = client.patch(f"/cooperatives/{cid}/profile",
+                      json={"enforce_social_export_block": True}, headers=h)
+    assert up.status_code == 200, up.text
+    p = _plantation(client, h)
+    hv = _harvest(client, h, p["id"], 500)
+    client.post("/compliance/blocks", json={
+        "producer_id": p["producer_id"], "block_description": "Cas travail enfant",
+    }, headers=h)
+    lot = client.post("/lots", json={"harvest_ids": [hv["id"]]}, headers=h).json()
+    client.post(f"/plantations/{p['id']}/export-waiver",
+                json={"reason": "Isolation test social"}, headers=h)
+    r = client.post(f"/lots/{lot['id']}/movements",
+                    json={"movement_type": "export_out"}, headers=h)
     assert r.status_code == 409, r.text
-    assert "blocked_producers" in str(r.json())
+    assert "social_blocked_producers" in str(r.json())
 
 
 def test_lot_requires_auth_and_role(client):

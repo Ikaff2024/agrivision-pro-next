@@ -26,7 +26,7 @@ def _gap(body, rule_id):
 
 
 def _seed_two_plantations():
-    """P1 conforme (6/6) ; P2 sans polygone ni contrôle déforestation."""
+    """P1 conforme (5/5) ; P2 sans polygone ni contrôle déforestation."""
     db = TestingSessionLocal()
     try:
         coop = Cooperative(name="Coop readiness", country="CI"); db.add(coop); db.flush()
@@ -68,9 +68,10 @@ def test_readiness_aggregates_gaps(client):
     assert _gap(body, "polygon_valid")["count"] == 1
     assert _gap(body, "no_deforestation")["count"] == 1
     assert _gap(body, "area_matches")["count"] == 1
-    # P1 et P2 ont une inspection récente et aucun blocage
+    # P1 et P2 ont une inspection récente
     assert _gap(body, "recent_inspection")["count"] == 0
-    assert _gap(body, "no_active_block")["count"] == 0
+    # Le social est dissocié de l'EUDR : plus de gap "no_active_block".
+    assert all(g["rule_id"] != "no_active_block" for g in body["gaps"])
 
     # La parcelle à délimiter est bien listée, avec une action recommandée.
     poly_gap = _gap(body, "polygon_valid")
@@ -91,7 +92,7 @@ def test_readiness_empty_coop(client):
     assert body["total"] == 0
     assert body["ready_pct"] == 0.0
     assert len(body["gaps"]) == len(["polygon_valid", "no_deforestation", "recent_inspection",
-                                     "no_active_block", "area_matches", "gps_in_cocoa_zone"])
+                                     "area_matches", "gps_in_cocoa_zone"])
 
 
 def test_readiness_requires_auth(client):

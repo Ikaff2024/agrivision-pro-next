@@ -91,9 +91,9 @@ def test_build_dds_context_has_required_fields(client):
         assert "dds_reference" in ctx
         assert ctx["dds_reference"].startswith("DDS-")
         assert ctx["plantation"].id == pid
-        assert ctx["score"] == 6  # plantation parfaite (6 regles avec EUDR-01b)
+        assert ctx["score"] == 5  # plantation parfaite (5 regles environnementales)
         assert ctx["status"] == "conforme"
-        assert len(ctx["rules"]) == 6
+        assert len(ctx["rules"]) == 5
         assert ctx["cooperative_name"] == "Coop DDS"
         assert ctx["producer_code"] == "YEY-0001"
         assert ctx["polygon_geojson"] is not None

@@ -162,6 +162,15 @@
         <div style="font-size:13px;color:var(--muted,#6a7d64);margin:16px 0 6px">Responsables de la coopérative <span style="opacity:.8">(président, directeur, gérant…)</span></div>
         <div id="managers-rows"></div>
         <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="addManagerRow()">+ Ajouter un responsable</button>
+
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-l,#eee)">
+          <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="coop-enforce-social" style="margin-top:3px">
+            <span><strong>Bloquer l'export en cas social (travail enfant)</strong><br>
+              <span style="color:var(--muted,#6a7d64)">Par défaut, un cas social est <em>signalé</em> mais ne bloque pas l'export (le travail des enfants n'est pas une exigence EUDR). Activez ceci si votre acheteur exige un blocage strict — le déblocage se fait alors via la remédiation.</span>
+            </span>
+          </label>
+        </div>
         <div style="margin-top:14px">
           <button class="btn btn-primary" id="coop-save-btn" onclick="saveCoopProfile()">Enregistrer le profil</button>
           <span style="font-size:11.5px;color:var(--muted,#6a7d64);margin-left:8px">Le nom mis à jour apparaît sur les nouveaux PDF.</span>
@@ -293,6 +302,7 @@ async function loadCoopProfile() {
     const d = await r.json();
     document.getElementById('coop-name').value = d.name || '';
     document.getElementById('coop-country').value = d.country || '';
+    const enf = document.getElementById('coop-enforce-social'); if (enf) enf.checked = !!d.enforce_social_export_block;
     const box = document.getElementById('managers-rows');
     box.innerHTML = '';
     (d.managers || []).forEach(m => box.appendChild(_mgrRow(m)));
@@ -312,7 +322,12 @@ async function saveCoopProfile() {
   try {
     const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/profile', {
       method: 'PATCH',
-      body: JSON.stringify({ name, country: document.getElementById('coop-country').value.trim(), managers }),
+      body: JSON.stringify({
+        name,
+        country: document.getElementById('coop-country').value.trim(),
+        managers,
+        enforce_social_export_block: document.getElementById('coop-enforce-social').checked,
+      }),
     });
     if (r && r.ok) { toast('Profil de la coopérative enregistré.'); loadCoopProfile(); }
     else { let e = {}; try { e = await r.json(); } catch (_) {} toast(e.detail || 'Enregistrement impossible.', 'error'); }

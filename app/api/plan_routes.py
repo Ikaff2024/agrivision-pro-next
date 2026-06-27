@@ -94,6 +94,7 @@ class CoopProfileUpdate(BaseModel):
     name: str | None = None
     country: str | None = None
     managers: list[CoopManager] | None = None
+    enforce_social_export_block: bool | None = None
 
 
 def _managers_list(coop: Cooperative) -> list:
@@ -115,6 +116,7 @@ def get_cooperative_profile(
         "name": coop.name,
         "country": coop.country,
         "managers": _managers_list(coop),
+        "enforce_social_export_block": bool(coop.enforce_social_export_block),
     }
 
 
@@ -146,6 +148,8 @@ def update_cooperative_profile(
              "phone": (m.phone or "").strip() or None}
             for m in data.managers if (m.name or "").strip()
         ]
+    if data.enforce_social_export_block is not None:
+        coop.enforce_social_export_block = bool(data.enforce_social_export_block)
     db.commit()
     db.refresh(coop)
     return {
@@ -153,6 +157,7 @@ def update_cooperative_profile(
         "name": coop.name,
         "country": coop.country,
         "managers": _managers_list(coop),
+        "enforce_social_export_block": bool(coop.enforce_social_export_block),
     }
 
 

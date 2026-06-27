@@ -22,7 +22,7 @@ def _login(client, email, password="pass1234", role="admin", coop="Coop Export")
 
 
 def _plantation(client, h, name="P-NC", owner="Yao Export"):
-    # Sans polygone / GPS / inspection -> EUDR non conforme (score 1/6).
+    # Sans polygone / GPS / inspection -> EUDR non conforme (score 0/5).
     return client.post("/plantations", json={
         "name": name, "owner_name": owner, "country": "Côte d'Ivoire",
         "region": "Soubré", "hectares": 3.0,

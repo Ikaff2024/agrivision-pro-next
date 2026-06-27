@@ -72,10 +72,10 @@ def test_eudr_score_perfect_plantation_returns_6(client):
     r = client.get(f"/plantations/{pid}/eudr-score", headers=auth)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["score"] == 6
+    assert body["score"] == 5
     assert body["status"] == "conforme"
     assert body["badge_color"] == "green"
-    assert len(body["rules"]) == 6
+    assert len(body["rules"]) == 5
     for rule in body["rules"]:
         assert rule["passed"] is True
 
@@ -86,10 +86,10 @@ def test_eudr_score_no_polygon(client):
     r = client.get(f"/plantations/{pid}/eudr-score", headers=auth)
     assert r.status_code == 200
     body = r.json()
-    # polygon:F, area:F, gps:T, recent_inspection:F, no_block:T, no_deforestation:F => 2/6
-    assert body["score"] == 2
-    assert len(body["rules"]) == 6
-    assert body["status"] == "non_conforme"  # 2/6 = 33% (< 40%)
+    # polygon:F, area:F, gps:T, recent_inspection:F, no_deforestation:F => 1/5 (social dissocie)
+    assert body["score"] == 1
+    assert len(body["rules"]) == 5
+    assert body["status"] == "non_conforme"  # 1/5 = 20% (< 40%)
 
 
 def test_record_deforestation_check_clear_raises_score(client):

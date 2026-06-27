@@ -1,10 +1,14 @@
 """
-Moteur de scoring EUDR — 6 regles deterministes (methodologie eudr-1.1b).
+Moteur de scoring EUDR — 5 regles deterministes ENVIRONNEMENTALES (methodologie eudr-1.2).
 
-Regles : polygone valide, superficie coherente, GPS en zone cacao, inspection
-recente, absence de blocage tracabilite actif, absence de deforestation post-2020.
+EUDR = environnement + geolocalisation UNIQUEMENT : polygone valide, superficie
+coherente, GPS en zone cacao, inspection recente, absence de deforestation post-2020.
+La conformite SOCIALE (travail des enfants / blocages CacaoGuard) est un VOLET
+SEPARE — elle n'entre PLUS dans le score EUDR (dissociation, cf. demande produit :
+le travail des enfants n'est pas une exigence EUDR).
+
 Chaque regle retourne `(passed: bool, reason: str)`. Le score est le nombre de
-regles passees (0-6) ; le statut se deduit AU PRORATA (independant du nombre de
+regles passees (0-5) ; le statut se deduit AU PRORATA (independant du nombre de
 regles, cf. _status_from_score) :
 - >= 80 % : conforme (vert)
 - 40-79 % : a_verifier (orange)
@@ -97,7 +101,7 @@ class EudrScore:
         }
 
 
-METHODOLOGY_VERSION = "eudr-1.1b"
+METHODOLOGY_VERSION = "eudr-1.2"
 
 # Règles « bloquantes » pour le badge « conforme » (vert) : ce sont les données de
 # géolocalisation qui DOIVENT être cohérentes pour qu'un auditeur accepte la parcelle.
@@ -379,12 +383,12 @@ def rule_no_deforestation(plantation: Plantation, db: Session) -> RuleResult:
 # Orchestrateur
 # ---------------------------------------------------------------------------
 
-def _status_from_score(score: int, max_score: int = 6) -> tuple[str, str]:
+def _status_from_score(score: int, max_score: int = 5) -> tuple[str, str]:
     """Retourne (status, badge_color) selon le seuil EUDR, AU PRORATA du max.
 
     Seuils en pourcentage (independants du nombre de regles) :
     >= 80 % conforme, 40-79 % a_verifier, < 40 % non_conforme.
-    Ex. avec 6 regles : >= 5 conforme, 3-4 a_verifier, 0-2 non_conforme.
+    Ex. avec 5 regles : >= 4 conforme, 2-3 a_verifier, 0-1 non_conforme.
     """
     if max_score <= 0:
         return "a_verifier", "orange"
@@ -406,12 +410,13 @@ def compute_eudr_score(
     Charge les dependances (boundary, inspections, blocs) via la session.
     """
     boundary = plantation.boundary  # relation 1-1
+    # EUDR = environnement/géoloc UNIQUEMENT. La règle sociale (blocage CacaoGuard /
+    # travail enfant) est DISSOCIÉE : elle n'entre plus dans le score EUDR.
     rules = [
         rule_polygon_valid(boundary),
         rule_area_matches(plantation, boundary),
         rule_gps_in_cocoa_zone(plantation, boundary),
         rule_recent_inspection(plantation, db, today=today),
-        rule_no_active_traceability_block(plantation, db),
         rule_no_deforestation(plantation, db),
     ]
     score = sum(r.weight for r in rules if r.passed)

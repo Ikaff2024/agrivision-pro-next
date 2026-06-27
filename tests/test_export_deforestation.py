@@ -14,7 +14,7 @@ from app.db.models import (
 from tests.conftest import TestingSessionLocal
 
 # Polygone valide en zone cacao CI (≈ 1 ha) → polygone/aire/GPS OK (parcelle
-# "à vérifier" 4/6, NON non_conforme) pour isoler l'effet de la déforestation.
+# "à vérifier", NON non_conforme) pour isoler l'effet de la déforestation.
 VALID_POLY = json.dumps({"type": "Polygon", "coordinates": [[
     [-6.590, 5.780], [-6.585, 5.780], [-6.585, 5.785], [-6.590, 5.785], [-6.590, 5.780],
 ]]})

@@ -28,6 +28,10 @@ class Cooperative(Base):
     # Identités des responsables de la coopérative (président, directeur, gérant…).
     # Liste de {name, role, phone} — affichable sur les états officiels.
     managers   = Column(JSON, nullable=True)
+    # Volet SOCIAL (travail enfant) dissocié de l'EUDR : par défaut un cas social
+    # AVERTIT mais ne bloque pas l'export. Une coop dont l'acheteur l'exige peut
+    # ACTIVER le blocage social à l'export (dérogation admin possible).
+    enforce_social_export_block = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

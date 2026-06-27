@@ -234,11 +234,12 @@ def get_cooperative_summary(
 
 # Ordre d'affichage + libellés/actions des blocages de conformité (les plus
 # actionnables d'abord). Les rule_id correspondent à app/eudr/scoring.py.
+# EUDR = environnement/géoloc uniquement (le social est dissocié : plus de
+# "no_active_block" ici).
 _GAP_DEFS = [
     ("polygon_valid", "Parcelles à délimiter", "Tracer le polygone sur la carte"),
     ("no_deforestation", "Contrôle déforestation à faire", "Lancer le contrôle satellite (GFW)"),
     ("recent_inspection", "Inspection de plus de 12 mois", "Planifier une visite terrain"),
-    ("no_active_block", "Blocage CacaoGuard actif", "Traiter via le plan de remédiation"),
     ("area_matches", "Superficie incohérente", "Vérifier la superficie déclarée vs tracé"),
     ("gps_in_cocoa_zone", "Localisation hors zone cacao", "Corriger les coordonnées GPS"),
 ]

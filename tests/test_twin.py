@@ -93,7 +93,7 @@ def test_twin_conformant_has_no_blocking_alerts(client):
     assert "deforestation_todo" not in codes
     assert "no_diagnostic" not in codes
     assert "no_harvest" not in codes
-    # EUDR conforme (6/6) + récolte 500 kg/ha → aucune alerte
+    # EUDR conforme (5 règles environnementales) + récolte 500 kg/ha → aucune alerte
     assert body["twin"]["eudr"]["status"] == "conforme"
     assert body["twin"]["harvests"]["yield_kg_ha"] == 500.0
     assert body["alert_count"] == 0

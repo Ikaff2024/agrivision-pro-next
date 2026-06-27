@@ -136,20 +136,38 @@ def _load_scoped_harvests(db: Session, user: User, harvest_ids: list[int]) -> li
     return harvests
 
 
-def _guard_child_labor(db: Session, harvests: list[Harvest]) -> None:
-    """Refuse l'affectation si un producteur concerne a un blocage CacaoGuard actif."""
+def _social_blocked_producers(db: Session, lot: Lot) -> dict:
+    """Producteurs du lot sous blocage SOCIAL CacaoGuard actif (travail enfant…)."""
+    harvests = db.query(Harvest).filter(Harvest.lot_id == lot.id).all()
     producer_ids = {pid for h in harvests if (pid := _harvest_producer_id(db, h)) is not None}
-    blocked = _blocked_producers(db, producer_ids)
+    return _blocked_producers(db, producer_ids)
+
+
+def _guard_social_export(db: Session, lot: Lot) -> None:
+    """Volet SOCIAL — DISSOCIÉ de l'EUDR.
+
+    Par défaut, un cas social (travail des enfants / blocage CacaoGuard) n'empêche
+    PAS l'expédition : il est SIGNALÉ (passeport / fiche lot), pas bloquant — pour
+    ne pas freiner l'adoption (le travail des enfants n'est pas une exigence EUDR).
+
+    Une coopérative dont l'acheteur l'exige peut ACTIVER le blocage social à
+    l'export (`enforce_social_export_block`) ; le déblocage passe alors par la
+    résolution du cas (remédiation CacaoGuard), pas par une dérogation EUDR.
+    """
+    coop = db.query(Cooperative).filter(Cooperative.id == lot.cooperative_id).first()
+    if not coop or not getattr(coop, "enforce_social_export_block", False):
+        return  # posture par défaut : alerte, pas de blocage
+    blocked = _social_blocked_producers(db, lot)
     if blocked:
-        details = [
-            {"producer_id": pid, "reason": b.block_reason.value, "block_id": b.id}
-            for pid, b in blocked.items()
-        ]
         raise HTTPException(
             status_code=409,
             detail={
-                "message": "Affectation refusee : producteur(s) sous blocage de tracabilite CacaoGuard.",
-                "blocked_producers": details,
+                "message": "Expedition refusee : blocage SOCIAL actif (ex. travail des enfants) "
+                           "et blocage social active par la cooperative. Resolvez le cas via la remediation.",
+                "social_blocked_producers": [
+                    {"producer_id": pid, "reason": b.block_reason.value, "block_id": b.id}
+                    for pid, b in blocked.items()
+                ],
             },
         )
 
@@ -346,7 +364,9 @@ def create_lot(
 ):
     _require_write(current_user)
     harvests = _load_scoped_harvests(db, current_user, data.harvest_ids)
-    _guard_child_labor(db, harvests)
+    # Social dissocié de l'EUDR : on n'empêche PLUS la constitution du lot pour un
+    # cas social (c'est signalé, pas bloquant). Le blocage social éventuel agit à
+    # l'export, et seulement si la coopérative l'a activé.
 
     lot = Lot(
         cooperative_id=_coop_id(current_user),
@@ -393,7 +413,7 @@ def affect_harvests(
     if lot.status not in {"open"}:
         raise HTTPException(status_code=409, detail="Seul un lot 'open' peut recevoir des recoltes.")
     harvests = _load_scoped_harvests(db, current_user, data.harvest_ids)
-    _guard_child_labor(db, harvests)
+    # Social dissocié : l'affectation n'est plus bloquée pour un cas social (signalé).
     for h in harvests:
         if h.lot_id and h.lot_id != lot.id:
             raise HTTPException(status_code=409, detail=f"Recolte {h.id} deja affectee au lot {h.lot_id}.")
@@ -426,8 +446,11 @@ def add_movement(
         lot.status = "sealed"
     waivers_used: list[dict] = []
     if mtype == "export_out":
-        # Blocage export : parcelles EUDR non conformes => refus, sauf derogation admin.
+        # Blocage export EUDR (environnement) : parcelles non conformes / déforestation
+        # détectée => refus, sauf dérogation admin.
         waivers_used = _guard_export_compliance(db, lot)
+        # Volet SOCIAL (dissocié) : ne bloque que si la coopérative l'a activé.
+        _guard_social_export(db, lot)
         lot.status = "shipped"
 
     qty = data.quantity_kg if data.quantity_kg is not None else lot.total_weight_kg

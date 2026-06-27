@@ -81,6 +81,9 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS managers JSON"
                 ))
                 conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS enforce_social_export_block BOOLEAN DEFAULT FALSE NOT NULL"
+                ))
+                conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
                 ))
                 # Sprint #0 - Phase 0.1.a-1 : entite Producer
@@ -209,6 +212,17 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migrations EUDR cache : OK (eudr_score/max/status/color/has_polygon/rules_failed/computed_at)")
+
+                # Dissociation social/EUDR (eudr-1.2) : le score passe de 6 à 5 règles.
+                # On invalide le cache des parcelles encore évaluées avec 6 règles
+                # (eudr_max_score = 6) pour qu'il soit recalculé en 5 règles à la
+                # 1re lecture (ensure_scores). Auto-limité : après recalcul max=5,
+                # la condition ne matche plus → no-op aux démarrages suivants.
+                conn.execute(text(
+                    "UPDATE plantations SET eudr_computed_at = NULL WHERE eudr_max_score = 6"
+                ))
+                conn.commit()
+                logger.info("Migration EUDR 1.2 : cache 6-règles invalidé (recalcul lazy en 5 règles)")
 
                 # FarmForce (Livret de suivi) : depenses menage + revenu net disponible
                 for col_ddl in [
