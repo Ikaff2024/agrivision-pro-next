@@ -325,6 +325,9 @@ function renderPlanCard(p) {
         <button class="plan-action-btn" onclick="openAddAction(${p.id})">
           <span class="material-symbols-outlined" style="font-size:14px">add_task</span>Ajouter action
         </button>
+        <button class="plan-action-btn" id="sugg-btn-${p.id}" onclick="suggestActions(${p.id})">
+          <span class="material-symbols-outlined" style="font-size:14px">auto_awesome</span>Suggérer (IA)
+        </button>
         ${canApprove ? `<button class="plan-action-btn primary" onclick="openApprove(${p.id})">
           <span class="material-symbols-outlined" style="font-size:14px">verified</span>Approuver
         </button>` : ''}
@@ -335,8 +338,53 @@ function renderPlanCard(p) {
           <span class="material-symbols-outlined" style="font-size:14px">priority_high</span>Escalader
         </button>` : ''}
       </div>
+      <div id="sugg-${p.id}" style="display:none;margin-top:10px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:10px"></div>
     </div>
   `;
+}
+
+const ACTION_LABELS = { education:'Éducation', economic_support:'Appui économique', awareness:'Sensibilisation', legal:'Juridique', health:'Santé', other:'Autre' };
+
+async function suggestActions(planId){
+  const box = document.getElementById('sugg-'+planId);
+  const btn = document.getElementById('sugg-btn-'+planId);
+  if(btn) btn.disabled = true;
+  box.style.display='block';
+  box.innerHTML = '<span style="color:#1e40af;font-size:12.5px">Génération de suggestions par l\'IA…</span>';
+  try {
+    const r = await cgFetch(`/remediation/plans/${planId}/suggest-actions`, { method:'POST' });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok){
+      box.innerHTML = `<span style="color:#922b21;font-size:12.5px">${r.status===502?'Fournisseur IA non configuré côté serveur.':(d.detail||'Suggestion impossible.')}</span>`;
+      return;
+    }
+    const sugg = d.suggestions || [];
+    if(!sugg.length){ box.innerHTML = '<span style="color:#1e40af;font-size:12.5px">Aucune suggestion générée.</span>'; return; }
+    box.innerHTML = `<div style="font-weight:800;color:#1e40af;font-size:12.5px;margin-bottom:6px">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">auto_awesome</span>
+        Suggestions IA (${ESC_R(d.model||'')}) — revoyez puis ajoutez :</div>` +
+      sugg.map((s,i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid #bfdbfe">
+        <div style="flex:1">
+          <span class="badge b-${s.action_type==='health'?'major':'open'}" style="background:#dbeafe;color:#1e40af">${ACTION_LABELS[s.action_type]||s.action_type}</span>
+          <span style="font-size:12px;color:#1e3a8a"> · délai ~${s.timeframe_days} j</span>
+          <div style="font-size:13px;color:#1e3a8a;margin-top:2px">${ESC_R(s.description)}</div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick='addSuggested(${planId}, ${JSON.stringify(s)})'>Ajouter</button>
+      </div>`).join('');
+  } catch(e){ box.innerHTML = '<span style="color:#922b21;font-size:12.5px">Serveur injoignable.</span>'; }
+  finally { if(btn) btn.disabled = false; }
+}
+
+function ESC_R(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+
+async function addSuggested(planId, s){
+  const planned = new Date(Date.now() + (s.timeframe_days||30)*86400000).toISOString().slice(0,10);
+  const r = await cgFetch(`/remediation/plans/${planId}/actions`, { method:'POST', body: JSON.stringify({
+    action_type: s.action_type, description: s.description, planned_date: planned,
+  })});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Ajout impossible : '+(e.detail||''), 'error'); }
+  toast('Action ajoutée au plan.');
+  await loadPlans();
 }
 
 async function createPlan() {

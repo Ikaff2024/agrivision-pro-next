@@ -443,6 +443,108 @@ def add_plan_action(
     return _action_to_dict(action)
 
 
+_VALID_ACTION_TYPES = {t.value for t in ActionType}
+
+
+@router.post("/remediation/plans/{plan_id:int}/suggest-actions")
+def suggest_plan_actions(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Propose (IA) un BROUILLON d'actions de remédiation à partir du profil et des
+    facteurs de risque de l'enfant. Ne crée RIEN : renvoie des suggestions que le
+    travailleur social revoit puis ajoute. Réservé admin/agronome."""
+    require_role(current_user, {"admin", "agronomist"})
+    plan = _get_plan_or_404(db, plan_id, current_user)
+
+    from app.db.models_social import Child
+    child = db.query(Child).filter(Child.id == plan.child_id).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="Enfant du plan introuvable.")
+
+    def _age(dob):
+        try:
+            return int((date.today() - dob).days / 365.25)
+        except Exception:  # noqa: BLE001
+            return None
+
+    facts = (
+        f"- Âge : {_age(child.date_of_birth)} ans ; sexe : {child.gender}.\n"
+        f"- Scolarité : {getattr(child.school_status, 'value', child.school_status)}"
+        f"{' (école : ' + child.school_name + ')' if getattr(child, 'school_name', None) else ''}.\n"
+        f"- Travaille à la ferme : {'oui' if child.is_working_on_farm else 'non'}"
+        f"{' — fréquence ' + getattr(child.work_frequency, 'value', str(child.work_frequency)) if child.is_working_on_farm and child.work_frequency else ''}.\n"
+        f"- Tâches dangereuses : {', '.join(child.dangerous_tasks_performed) if getattr(child, 'dangerous_tasks_performed', None) else 'aucune signalée'}.\n"
+        f"- Niveau de risque : {getattr(child.risk_level, 'value', child.risk_level)} (score {child.risk_score}).\n"
+        f"- Facteurs de risque : {child.risk_factors or {}}.\n"
+        f"- Objectif du plan : {plan.main_objective}."
+    )
+    prompt = (
+        "Tu es travailleur social spécialiste de la lutte contre le travail des enfants "
+        "dans le cacao en Côte d'Ivoire. À partir UNIQUEMENT du profil ci-dessous, propose "
+        "3 à 5 actions de remédiation CONCRÈTES et réalisables. Réponds STRICTEMENT en JSON : "
+        'une liste d\'objets {"action_type","description","timeframe_days"} où action_type est '
+        "l'un de : education, economic_support, awareness, legal, health, other ; description = "
+        "1 phrase actionnable ; timeframe_days = délai indicatif en jours (entier). "
+        "N'ajoute aucun texte hors du JSON.\n\n"
+        f"PROFIL ENFANT :\n{facts}"
+    )
+    try:
+        from app.services import llm_client
+        out = llm_client.chat(db, prompt, max_tokens=700, temperature=0.3)
+    except llm_client.LLMNotConfigured as ex:
+        raise HTTPException(status_code=502, detail=str(ex))
+    except Exception as ex:  # noqa: BLE001
+        import httpx as _httpx
+        if isinstance(ex, _httpx.HTTPError):
+            raise HTTPException(status_code=502, detail=f"Fournisseur IA injoignable : {type(ex).__name__}.")
+        raise
+
+    import json as _json
+    import re as _re
+    text = out.get("text") or ""
+    m = _re.search(r"\[.*\]", text, _re.DOTALL)
+    suggestions = []
+    if m:
+        try:
+            for it in _json.loads(m.group(0)):
+                if not isinstance(it, dict):
+                    continue
+                at = str(it.get("action_type", "other")).strip().lower()
+                if at not in _VALID_ACTION_TYPES:
+                    at = "other"
+                desc = str(it.get("description", "")).strip()
+                if not desc:
+                    continue
+                try:
+                    days = int(it.get("timeframe_days") or 30)
+                except (TypeError, ValueError):
+                    days = 30
+                suggestions.append({"action_type": at, "description": desc[:2000],
+                                    "timeframe_days": max(1, min(days, 365))})
+        except (ValueError, TypeError):
+            suggestions = []
+
+    # Suivi du coût (best-effort).
+    try:
+        from app.db.models import AiUsage
+        from app.services.ai_cost import compute_cost_usd
+        it_, ot_ = out.get("input_tokens", 0), out.get("output_tokens", 0)
+        db.add(AiUsage(
+            cooperative_id=current_user.cooperative_id if current_user else None,
+            user_id=current_user.id if current_user else None,
+            plantation_id=None, feature="remediation_suggest",
+            model=out.get("model", ""), input_tokens=it_, output_tokens=ot_,
+            cost_usd=compute_cost_usd(it_, ot_, out.get("model")),
+        ))
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+
+    return {"plan_id": plan.id, "model": out.get("model"), "suggestions": suggestions}
+
+
 @router.get("/remediation/actions/{action_id:int}")
 def get_action(
     action_id: int,

@@ -163,6 +163,8 @@ PAGE_MARKERS = {
         "submitCompleteAction",
         "onCaFilesChange",       # pièce jointe de preuve à la clôture d'action
         "ca-files",
+        "suggestActions",        # brouillon d'actions de remédiation par IA
+        "addSuggested",
     ],
     "certification.html": [
         "loadCoverage",        # couverture par standard
