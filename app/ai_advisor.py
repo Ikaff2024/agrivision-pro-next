@@ -137,7 +137,8 @@ def _http_error_message(status: int, body_text: str) -> str:
     return f"Erreur API IA ({status}). Réessayez dans quelques instants."
 
 
-async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict):
+async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list, boundary: dict,
+                        provider: str | None = None, model: str | None = None):
     """
     Génère l'analyse agronomique structurée via le fournisseur IA configuré.
 
@@ -145,19 +146,22 @@ async def get_ai_advice(plantation: dict, latest_diag: dict, agro_records: list,
       - ``result`` : le dict d'analyse (ou ``{"error": ...}`` en cas d'echec) ;
       - ``usage``  : ``{"model", "input_tokens", "output_tokens"}`` (suivi de cout).
 
-    Anthropic par défaut ; bascule possible vers un LLM open source compatible
-    OpenAI (DeepSeek, Qwen…) via ``AI_PROVIDER`` — le format de sortie est identique.
+    Anthropic par défaut ; bascule possible vers un LLM compatible OpenAI
+    (DeepSeek, Qwen, OpenRouter…). ``provider``/``model`` permettent de surcharger
+    au runtime (sélecteur propriétaire) ; sinon repli sur ``AI_PROVIDER`` (env).
     """
+    prov = (provider or AI_PROVIDER or "anthropic").strip().lower()
     prompt = build_agro_prompt(plantation, latest_diag, agro_records, boundary)
-    if AI_PROVIDER in ("anthropic", "claude", ""):
-        return await _advice_anthropic(prompt, plantation)
-    return await _advice_openai_compatible(prompt, plantation)
+    if prov in ("anthropic", "claude", ""):
+        return await _advice_anthropic(prompt, plantation, model)
+    return await _advice_openai_compatible(prompt, plantation, prov, model)
 
 
-async def _advice_anthropic(prompt: str, plantation: dict):
+async def _advice_anthropic(prompt: str, plantation: dict, model: str | None = None):
     if not ANTHROPIC_API_KEY:
         logger.error("ANTHROPIC_API_KEY non configurée")
         return {"error": "Clé API IA non configurée. Contactez l'administrateur."}, None
+    used_model = (model or "").strip() or CLAUDE_MODEL
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
@@ -168,7 +172,7 @@ async def _advice_anthropic(prompt: str, plantation: dict):
                     "content-type":      "application/json",
                 },
                 json={
-                    "model":      CLAUDE_MODEL,
+                    "model":      used_model,
                     "max_tokens": 1500,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -177,7 +181,7 @@ async def _advice_anthropic(prompt: str, plantation: dict):
             data = response.json()
             usage_raw = data.get("usage") or {}
             usage = {
-                "model": data.get("model", CLAUDE_MODEL),
+                "model": data.get("model", used_model),
                 "input_tokens": int(usage_raw.get("input_tokens", 0) or 0),
                 "output_tokens": int(usage_raw.get("output_tokens", 0) or 0),
             }
@@ -194,18 +198,21 @@ async def _advice_anthropic(prompt: str, plantation: dict):
         return {"error": "Analyse IA temporairement indisponible."}, None
 
 
-async def _advice_openai_compatible(prompt: str, plantation: dict):
-    """Conseil via un endpoint compatible OpenAI (/chat/completions) : DeepSeek, Qwen…"""
-    preset = _OPENAI_PRESETS.get(AI_PROVIDER)
+async def _advice_openai_compatible(prompt: str, plantation: dict,
+                                    provider: str | None = None, model: str | None = None):
+    """Conseil via un endpoint compatible OpenAI (/chat/completions) : DeepSeek, Qwen, OpenRouter…"""
+    provider = (provider or AI_PROVIDER)
+    preset = _OPENAI_PRESETS.get(provider)
     base_url = (os.getenv("AI_OPENAI_BASE_URL") or (preset[0] if preset else "")).rstrip("/")
-    model = os.getenv("AI_OPENAI_MODEL") or (preset[1] if preset else "")
+    # Modèle : surcharge runtime (sélecteur propriétaire) > env > défaut du preset.
+    model = (model or "").strip() or os.getenv("AI_OPENAI_MODEL") or (preset[1] if preset else "")
     api_key = os.getenv("AI_OPENAI_API_KEY") or (os.getenv(preset[2]) if preset else "") or ""
     if not base_url or not api_key or not model:
-        logger.error("Fournisseur IA '%s' incomplet (base_url/clé/modèle manquant).", AI_PROVIDER)
+        logger.error("Fournisseur IA '%s' incomplet (base_url/clé/modèle manquant).", provider)
         return {"error": "Fournisseur IA non configuré (clé/URL/modèle manquant). Contactez l'administrateur."}, None
     headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
     # OpenRouter : en-têtes d'attribution facultatifs (classements + quotas appli).
-    if AI_PROVIDER == "openrouter":
+    if provider == "openrouter":
         referer = os.getenv("OPENROUTER_SITE_URL") or "https://agrivision.pro"
         title = os.getenv("OPENROUTER_APP_NAME") or "AgriVision Pro"
         headers["HTTP-Referer"] = referer
@@ -234,13 +241,13 @@ async def _advice_openai_compatible(prompt: str, plantation: dict):
                 "output_tokens": int(u.get("completion_tokens", 0) or 0),
             }
             result = _parse_advice_json(raw_text)
-            logger.info("AI advice OK (%s / %s) pour plantation %s", AI_PROVIDER, model, plantation.get('id'))
+            logger.info("AI advice OK (%s / %s) pour plantation %s", provider, model, plantation.get('id'))
             return result, usage
     except httpx.TimeoutException:
-        logger.warning("AI advice timeout (%s)", AI_PROVIDER)
+        logger.warning("AI advice timeout (%s)", provider)
         return {"error": "L'analyse IA a pris trop de temps. Réessayez dans quelques instants."}, None
     except httpx.HTTPStatusError as e:
         return {"error": _http_error_message(e.response.status_code, e.response.text)}, None
     except Exception as e:
-        logger.warning("AI advice erreur (%s) : %s", AI_PROVIDER, e)
+        logger.warning("AI advice erreur (%s) : %s", provider, e)
         return {"error": "Analyse IA temporairement indisponible."}, None

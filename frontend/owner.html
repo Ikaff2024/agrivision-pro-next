@@ -240,6 +240,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         </div>
       </div>
     </div>
+
+    <!-- Sélecteur de fournisseur IA (Conseil agronomique) — runtime, sans toucher aux variables Railway -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-header">
+        <div class="card-title">🤖 Fournisseur IA — Conseil agronomique</div>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px">
+          Choisissez le moteur IA qui alimente le Conseil agronomique. Les clés API restent des secrets serveur (variables d'environnement) — ici on ne choisit que le fournisseur et le modèle. Un fournisseur « non configuré » nécessite que sa clé soit définie côté serveur.
+        </p>
+        <div id="ai-provider-panel">
+          <div class="loading-overlay"><div class="spinner" style="border-top-color:var(--accent)"></div></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -435,6 +450,88 @@ function renderDashboard(data) {
   // ── Coût de revient IA (chargé séparément, période sélectionnable) ──────────
   ensureAiDatesPrefilled();
   loadAiCost();
+  loadAiProvider();
+}
+
+// ── Fournisseur IA (sélecteur runtime) ──────────────────────────────────────
+let _aiProviders = [];
+async function loadAiProvider() {
+  const panel = document.getElementById('ai-provider-panel');
+  if (!panel) return;
+  panel.innerHTML = '<div class="loading-overlay"><div class="spinner" style="border-top-color:var(--accent)"></div></div>';
+  try {
+    const res = await fetch(`${API_BASE}/owner/ai-config`, { headers: { 'X-Owner-Key': ownerKey } });
+    if (!res.ok) { panel.innerHTML = '<p style="color:var(--muted);padding:8px">Erreur de chargement du fournisseur IA.</p>'; return; }
+    const data = await res.json();
+    _aiProviders = data.providers || [];
+    renderAiProvider(data.current || {});
+  } catch (e) {
+    panel.innerHTML = '<p style="color:var(--muted);padding:8px">Impossible de contacter le serveur.</p>';
+  }
+}
+
+function renderAiProvider(current) {
+  const panel = document.getElementById('ai-provider-panel');
+  const esc = s => { const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; };
+  const curProv = current.provider || 'anthropic';
+  const opts = _aiProviders.map(p =>
+    `<option value="${esc(p.id)}" ${p.id===curProv?'selected':''}>${esc(p.label)}${p.ready ? '' : ' — non configuré'}</option>`
+  ).join('');
+  const cur = _aiProviders.find(p => p.id === curProv);
+  const placeholder = cur ? cur.default_model : '';
+  panel.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <div style="flex:1;min-width:200px">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Fournisseur</label>
+        <select id="aip-provider" onchange="onAipProviderChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)">${opts}</select>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Modèle <span style="opacity:.7">(vide = modèle par défaut)</span></label>
+        <input id="aip-model" value="${esc(current.model||'')}" placeholder="${esc(placeholder)}" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)">
+      </div>
+      <button onclick="saveAiProvider()" style="padding:9px 18px;border-radius:7px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Enregistrer</button>
+    </div>
+    <div id="aip-msg" style="margin-top:10px;font-size:12.5px"></div>
+    <div id="aip-hint" style="margin-top:6px;font-size:12px;color:var(--muted)"></div>`;
+  _renderAipHint();
+}
+
+function _renderAipHint() {
+  const sel = document.getElementById('aip-provider');
+  if (!sel) return;
+  const p = _aiProviders.find(x => x.id === sel.value);
+  const hint = document.getElementById('aip-hint');
+  if (!p) { hint.textContent = ''; return; }
+  hint.innerHTML = p.ready
+    ? `✅ Prêt à l'emploi (clé serveur détectée). Modèle par défaut : <code>${p.default_model}</code>.`
+    : `⚠ Clé manquante côté serveur : définissez la variable <code>${p.key_env}</code>${p.needs_base_url ? ' et <code>AI_OPENAI_BASE_URL</code>' : ''} (Railway) avant utilisation.`;
+}
+
+function onAipProviderChange() {
+  const sel = document.getElementById('aip-provider');
+  const p = _aiProviders.find(x => x.id === sel.value);
+  const modelEl = document.getElementById('aip-model');
+  if (modelEl && p) { modelEl.value = ''; modelEl.placeholder = p.default_model || ''; }
+  _renderAipHint();
+}
+
+async function saveAiProvider() {
+  const provider = document.getElementById('aip-provider').value;
+  const model = document.getElementById('aip-model').value.trim();
+  const msg = document.getElementById('aip-msg');
+  msg.textContent = 'Enregistrement…'; msg.style.color = 'var(--muted)';
+  try {
+    const res = await fetch(`${API_BASE}/owner/ai-config`, {
+      method: 'PUT',
+      headers: { 'X-Owner-Key': ownerKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, model }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { msg.textContent = data.detail || 'Échec de l\'enregistrement.'; msg.style.color = 'var(--danger, #b91c1c)'; return; }
+    msg.textContent = '✓ Fournisseur IA mis à jour.'; msg.style.color = 'var(--accent)';
+  } catch (e) {
+    msg.textContent = 'Serveur injoignable.'; msg.style.color = 'var(--danger, #b91c1c)';
+  }
 }
 
 // ── Coût de revient IA (API Claude) ─────────────────────────────────────────

@@ -224,6 +224,21 @@ class AiUsage(Base):
     cooperative = relationship("Cooperative")
 
 
+class PlatformSetting(Base):
+    """Réglages plateforme clé→valeur (niveau IKAFFANAN LTD, propriétaire).
+
+    Permet de modifier au runtime des paramètres globaux sans redéploiement ni
+    accès aux variables d'environnement (ex. fournisseur IA + modèle du Conseil
+    agronomique). Une clé = une ligne. Les SECRETS (clés API) restent en variables
+    d'environnement — on ne stocke jamais de clé ici.
+    """
+    __tablename__ = "platform_settings"
+
+    key        = Column(String, primary_key=True, index=True)
+    value      = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class MarketCache(Base):
     """Dernière bonne charge de veille marché (actualités + synthèse), persistée.
 

@@ -147,6 +147,8 @@ PAGE_MARKERS = {
     "owner.html": [
         "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative
         "renderAiCost",
+        "loadAiProvider",      # sélecteur de fournisseur IA (runtime, propriétaire)
+        "saveAiProvider",
     ],
     "import.html": [
         "loadImportHistory",   # historique des imports

@@ -1638,6 +1638,53 @@ def activate_cooperative(
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ─── Fournisseur IA (Conseil agronomique) — sélecteur propriétaire ──────────
+# ════════════════════════════════════════════════════════════════════════════
+
+class AiConfigUpdate(BaseModel):
+    provider: str
+    model: Optional[str] = None   # vide → modèle par défaut du fournisseur
+
+
+@router.get("/owner/ai-config")
+def get_ai_config(
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Fournisseur + modèle IA effectifs, et liste des fournisseurs disponibles.
+
+    Réservé IKAFFANAN LTD. Les clés API ne sont jamais exposées — seulement
+    l'état « configuré ou non » par fournisseur.
+    """
+    _check_owner_key(x_owner_key)
+    from app.services.platform_settings import resolve_ai_config, available_providers
+    provider, model = resolve_ai_config(db)
+    return {
+        "current": {"provider": provider, "model": model},
+        "providers": available_providers(),
+    }
+
+
+@router.put("/owner/ai-config")
+def update_ai_config(
+    data: AiConfigUpdate,
+    db: Session = Depends(get_db),
+    x_owner_key: Optional[str] = Header(None),
+):
+    """Change le fournisseur (et le modèle) IA au runtime. Réservé IKAFFANAN LTD."""
+    _check_owner_key(x_owner_key)
+    from app.services.platform_settings import (
+        set_setting, valid_provider_ids, AI_PROVIDER_KEY, AI_MODEL_KEY,
+    )
+    provider = (data.provider or "").strip().lower()
+    if provider not in valid_provider_ids():
+        raise HTTPException(status_code=400, detail=f"Fournisseur IA inconnu : '{provider}'.")
+    set_setting(db, AI_PROVIDER_KEY, provider)
+    set_setting(db, AI_MODEL_KEY, (data.model or "").strip())
+    return {"message": "Fournisseur IA mis à jour.", "provider": provider, "model": (data.model or "").strip()}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # ─── Dashboard Propriétaire — Statistiques globales IKAFFANAN LTD ───────────
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -2123,7 +2170,13 @@ async def plantation_ai_advice(
         if boundary else {"has_boundary": False}
     )
 
-    result, usage = await get_ai_advice(plantation_dict, diag_dict, agro_list, boundary_dict)
+    # Fournisseur + modèle IA : choix runtime du propriétaire (sinon variables d'env).
+    from app.services.platform_settings import resolve_ai_config
+    _ai_provider, _ai_model = resolve_ai_config(db)
+    result, usage = await get_ai_advice(
+        plantation_dict, diag_dict, agro_list, boundary_dict,
+        provider=_ai_provider, model=_ai_model,
+    )
 
     # Suivi du cout de revient : on enregistre les tokens reellement consommes.
     # Best-effort : un echec d'enregistrement ne doit jamais casser la reponse IA.
