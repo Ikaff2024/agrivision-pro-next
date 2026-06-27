@@ -38,8 +38,9 @@ Enregistrer les **achats bord champ** : pesée, bon d'achat, prix, montant — e
 4. **Enregistrer l'achat** → une **récolte de 1 000 kg** est créée sur la parcelle ; elle alimente les
    **volumes** et devient affectable à un **lot** (voir 5.B).
 
-> 🚫 Si Koffi Yao est sous **blocage CacaoGuard**, un avertissement s'affiche et sa récolte ne pourra pas
-> entrer dans un lot tant que le cas n'est pas résolu.
+> ⚠️ Si Koffi Yao est sous **blocage social CacaoGuard** (cas travail des enfants), c'est **signalé**
+> mais cela **n'empêche pas** par défaut l'achat ni l'entrée en lot — le social est **dissocié de l'EUDR**.
+> Une coopérative peut activer un **blocage social à l'export** (Admin ▸ profil coopérative) si son acheteur l'exige.
 
 ---
 
@@ -55,9 +56,10 @@ expédition), les **fusionner**, et éditer un **passeport de traçabilité** (P
 3. **Nouveau lot** : campagne, entrepôt, puis **choisissez une plantation** → cochez les **récoltes libres** à inclure.
 4. **Créer le lot** : un **code** unique est généré (ex. `LOT-2026-00001`), le **poids** et le **nb de sacs** se calculent.
 
-> 🔒 **Sécurité CacaoGuard** : si une récolte appartient à un producteur **bloqué** (cas travail des enfants),
-> l'application **refuse** de l'ajouter au lot (message d'erreur). C'est voulu : la traçabilité physique
-> hérite de la conformité sociale.
+> ⚖️ **Social dissocié de l'EUDR** : un producteur sous blocage social (travail des enfants) est
+> **signalé** sur le lot (encart d'alerte) mais n'empêche pas, par défaut, la constitution ni l'export
+> du lot. L'**EUDR** (déforestation / non-conformité géoloc) peut, lui, bloquer l'export (dérogation admin
+> possible). Le **blocage social à l'export** est **activable en option** par coopérative (Admin ▸ profil).
 
 ### Suivre le cycle de vie d'un lot
 - Ouvrez un lot → boutons : **Entrée magasin** (choisir l'entrepôt), **Sceller**, **Expédier**.
@@ -92,8 +94,17 @@ expédition), les **fusionner**, et éditer un **passeport de traçabilité** (P
 ## 5.C — Certification
 
 ### À quoi ça sert
-Gérer les **audits** de certification (Rainforest Alliance, Fairtrade, Cocoa Horizons…),
-les **non-conformités** et leurs **actions correctives** avec **échéances**.
+Un **cockpit de certification** : suivre la **couverture** par standard, les **échéances**, tenir un
+**registre exportable**, **affecter en masse** une certification à des parcelles, et gérer les **audits**,
+**non-conformités** et **actions correctives**.
+
+### Couverture, échéances & registre
+- **Couverture par standard** (FT, RA, EUDR, ARS 1000) : parcelles/producteurs/surface certifiés, %,
+  et compteurs **expirés / expirant < 90 j**.
+- **Registre certifié** : tableau parcelle × certification (dates, statut), filtrable, avec **Export CSV**
+  (utile pour préparer un audit).
+- **Affecter en masse** : choisir un standard + dates d'obtention/expiration, sélectionner plusieurs
+  parcelles → **Affecter aux parcelles**.
 
 ### Créer un audit (pas à pas)
 1. Menu **Certification**.
@@ -104,6 +115,8 @@ les **non-conformités** et leurs **actions correctives** avec **échéances**.
 ### Enregistrer une non-conformité (NC)
 1. Panneau **Nouvelle non-conformité** : reliez-la à un audit (facultatif), choisissez la **sévérité**
    (Mineure / Majeure / Critique), décrivez le problème, l'**action corrective**, le **responsable** et l'**échéance**.
+   > 💡 Bouton **« Rédiger (IA) »** : génère un **brouillon** d'action corrective à partir de la description
+   > et de la sévérité — à revoir avant d'enregistrer.
 2. **Enregistrer**. Une NC dont l'échéance est dépassée s'affiche **« en retard »**.
 
 ### Résoudre une NC

@@ -7,13 +7,16 @@ Vérifier qu'une parcelle respecte le **règlement européen sur la déforestati
 le **DDS** (Déclaration de Diligence Raisonnée) en PDF. C'est exigé par les acheteurs européens.
 
 ### Comment se calcule la conformité
-Le score repose sur **6 règles**, exprimé en **pourcentage** :
+L'EUDR est **strictement environnemental / géolocalisation**. Le score repose sur **5 critères**, exprimé en **pourcentage** :
 1. Polygone de la parcelle **valide**,
-2. **Superficie** cohérente,
+2. **Superficie** cohérente avec le tracé,
 3. **GPS** dans la zone cacao,
-4. **Inspection récente**,
-5. **Aucun blocage** de traçabilité actif,
-6. **Aucune déforestation** après le 31/12/2020.
+4. **Inspection récente** (< 12 mois),
+5. **Aucune déforestation** après le 31/12/2020.
+
+> ⚖️ **Le social est dissocié de l'EUDR.** Le travail des enfants n'est **pas** un critère EUDR : il
+> n'entre **plus** dans ce score (voir CacaoGuard). Une parcelle ne peut pas être « conforme » si une
+> donnée de géolocalisation est incohérente (polygone, superficie ou GPS) — elle retombe à « à vérifier ».
 
 | Statut | Seuil |
 |---|---|
@@ -25,11 +28,13 @@ Le score repose sur **6 règles**, exprimé en **pourcentage** :
 1. Menu **EUDR**.
 2. Consultez le **score par parcelle** et le **résumé coopérative** (taux de conformité).
 3. Pour faire **monter** le score d'une parcelle :
-   - **Délimitez** la parcelle (Carte → *Tracer par GPS* de préférence) → règles 1, 2, 3.
-   - Réalisez une **inspection** récente → règle 4.
-   - Résolvez les **blocages** (CacaoGuard) → règle 5.
-   - Renseignez/contrôlez la **déforestation** (constat terrain ou satellite GFW) → règle 6.
+   - **Délimitez** la parcelle (Carte → *Tracer par GPS* de préférence) → critères 1, 2, 3.
+   - Réalisez une **inspection** récente → critère 4.
+   - Renseignez/contrôlez la **déforestation** (constat terrain ou satellite GFW) → critère 5.
 4. Téléchargez le **DDS PDF** pour l'acheteur.
+
+> 💡 Le contrôle déforestation (manuel ou satellite) **met à jour le score immédiatement** ; clôturer
+> une visite terrain rafraîchit aussi le critère « inspection ».
 
 > La **déforestation** peut être confirmée par **constat terrain** (saisie manuelle) ou
 > **automatiquement** par satellite (Global Forest Watch) si les clés sont configurées.

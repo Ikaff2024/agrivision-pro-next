@@ -28,8 +28,9 @@ def test_assistant_grounded_on_snapshot(client, monkeypatch):
     r = client.post("/assistant/ask", json={"question": "Quelles parcelles non conformes ?"}, headers=h)
     assert r.status_code == 200, r.text
     assert r.json()["answer"]
-    # Le prompt est ANCRÉ : il contient la question + un instantané JSON cloisonné.
-    assert "QUESTION" in captured["prompt"] and "DONNÉES" in captured["prompt"]
+    # Le prompt est ANCRÉ : question + guide d'utilisation + instantané JSON cloisonné.
+    assert "QUESTION" in captured["prompt"] and "INSTANTANÉ" in captured["prompt"]
+    assert "GUIDE" in captured["prompt"]        # aide à l'utilisation incluse
     assert "Parcelle X" in captured["prompt"]   # entité réelle de la coop incluse
 
 
@@ -42,11 +43,16 @@ def test_assistant_502_when_provider_unconfigured(client, monkeypatch):
     assert r.status_code == 502
 
 
-def test_assistant_reserved_to_direction(client, monkeypatch):
-    monkeypatch.setattr(llmc, "chat", lambda db, p, **k: {"text": "x", "model": "m"})
+def test_assistant_help_open_to_all_but_data_reserved(client, monkeypatch):
+    """L'aide à l'utilisation est ouverte à tous ; les DONNÉES restent direction."""
+    captured = {}
+    monkeypatch.setattr(llmc, "chat", lambda db, p, **k: (captured.update(prompt=p) or {"text": "ok", "model": "m"}))
     h = _admin(client, "assist.role@test.ci", coop="Coop Assist Role")
     h_tech = create_member_headers(client, h, "assist.tech@test.ci", "technician")
-    assert client.post("/assistant/ask", json={"question": "Test ?"}, headers=h_tech).status_code == 403
+    r = client.post("/assistant/ask", json={"question": "Comment tracer une parcelle ?"}, headers=h_tech)
+    assert r.status_code == 200, r.text          # le technicien peut être aidé
+    assert "GUIDE" in captured["prompt"]          # aide disponible
+    assert "non disponible pour votre rôle" in captured["prompt"]   # mais pas l'instantané données
 
 
 def test_assistant_requires_auth(client):

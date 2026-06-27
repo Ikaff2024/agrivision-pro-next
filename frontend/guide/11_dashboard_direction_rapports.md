@@ -16,6 +16,10 @@ La page d'**accueil** après connexion : vue **opérationnelle** de votre coopé
 
 > Le mot **« risque »** ici = **agronomique** (santé des parcelles, issu des diagnostics).
 
+> 📐 **Le tableau de bord s'adapte à votre plan** : les indicateurs de modules non inclus dans votre
+> abonnement sont **masqués** (et la grille se réorganise automatiquement) — vous ne voyez que ce qui
+> vous concerne.
+
 ---
 
 ## 11.B — Direction (vue stratégique)
@@ -23,6 +27,9 @@ La page d'**accueil** après connexion : vue **opérationnelle** de votre coopé
 ### À quoi ça sert
 Une vue **consolidée pour la direction** : conformité et durabilité en un coup d'œil. Réservée aux
 rôles **Administrateur** et **Agronome**.
+
+> 🤖 Bouton **« Synthèse IA »** : génère un **résumé exécutif** (situation, risques prioritaires,
+> 2 recommandations chiffrées) à partir de vos KPI, via le moteur IA configuré.
 
 ### Ce qu'on y voit
 - **Périmètre** : producteurs actifs, plantations, superficie.

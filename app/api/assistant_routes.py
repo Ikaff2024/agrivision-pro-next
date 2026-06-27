@@ -19,9 +19,37 @@ from app.db.models import Plantation, Producer, User
 
 router = APIRouter(tags=["Assistant IA"])
 
-# Aligné sur le tableau de bord direction (qui alimente l'instantané).
-_ALLOWED = {"admin", "agronomist"}
+# Les RÉPONSES DONNÉES (instantané) restent réservées à la direction (admin/agronome,
+# qui alimente l'instantané). L'AIDE À L'UTILISATION est ouverte à tous les rôles.
+_DATA_ROLES = {"admin", "agronomist"}
 _CAP = 60  # bornage des listes d'entités dans l'instantané
+
+# Guide d'utilisation COMPACT (où trouver / comment faire) — sert l'aide à la prise
+# en main. Mis à jour avec les fonctions : tenir synchronisé avec frontend/guide.
+PLATFORM_GUIDE = (
+    "AgriVision Pro — plateforme de conformité/traçabilité cacao. Navigation par piliers :\n"
+    "• PILOTER : Dashboard (vue d'ensemble, adaptée au plan), Direction (KPI + bouton « Synthèse IA »), "
+    "Assistant IA (cette page), Rapports, Veille Marché (prix réels + synthèse ; la veille EUDR/durabilité est en bas de cette page).\n"
+    "• PRODUIRE : Plantations (fiche parcelle, certifications, contrôle déforestation), Producteurs "
+    "(« Nouveau producteur », édition, Export CSV), Diagnostic (analyse agronomique + « Conseil IA »), "
+    "Carte (bouton « Délimiter une parcelle » pour tracer le polygone), Satellite (NDVI), "
+    "Agroforesterie (espèces + bilan PDF), Récoltes, Parcelles à risque.\n"
+    "• TRACER : Achats, Traçabilité lots (créer un lot, affecter des récoltes, sceller, expédier, "
+    "passeport PDF, dérogation export admin), Certification (couverture par standard, échéances, "
+    "registre + export CSV, affectation en masse, audits & non-conformités avec « Rédiger (IA) »).\n"
+    "• PROTÉGER : CacaoGuard, Protection enfant (recensement + « Évaluer un enfant »), Fiches SSRTE, "
+    "EUDR (conformité parcellaire, DDS, contrôle déforestation), Conformité, Revenu vital (livret), "
+    "Monitoring (visites terrain géolocalisées), Remédiation (plans + actions, bouton « Suggérer (IA) »), "
+    "Signalements, Formation.\n"
+    "• CONFIGURATION : Admin (membres, profil & responsables de la coopérative, logo, blocage social optionnel), Aide/Guide.\n"
+    "Actions clés : tracer une parcelle → Carte ▸ Délimiter ; générer un DDS → fiche plantation ▸ carte EUDR ▸ Télécharger DDS ; "
+    "contrôle déforestation → fiche plantation ou menu EUDR ; créer/expédier un lot → Traçabilité lots ; "
+    "choisir le fournisseur IA → page propriétaire (owner).\n"
+    "Règles : l'EUDR = 5 critères ENVIRONNEMENTAUX (polygone, superficie cohérente, GPS en zone cacao, "
+    "inspection < 12 mois, pas de déforestation post-2020). Le volet SOCIAL (travail des enfants) est "
+    "DISSOCIÉ de l'EUDR : signalé par défaut, ne bloque l'export que si la coopérative l'active. "
+    "Le menu/dashboard s'adapte au plan d'abonnement de la coopérative."
+)
 
 
 class AssistantQuestion(BaseModel):
@@ -93,19 +121,25 @@ def assistant_ask(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Répond à une question en langage naturel à partir des données de la coopérative."""
-    if current_user.role not in _ALLOWED:
-        raise HTTPException(status_code=403, detail="Assistant réservé à la direction (admin/agronome).")
-
-    snapshot = _build_snapshot(db, current_user)
+    """Assistant : aide à l'utilisation (tous rôles) + réponses chiffrées sur les
+    données (réservées à la direction)."""
+    # Données : seulement pour la direction (l'instantané vient du tableau direction).
+    if current_user.role in _DATA_ROLES:
+        snapshot_json = json.dumps(_build_snapshot(db, current_user), ensure_ascii=False, default=str)
+    else:
+        snapshot_json = ("non disponible pour votre rôle (les réponses chiffrées sur les données "
+                         "sont réservées à la direction) — répondre uniquement aux questions d'utilisation.")
     prompt = (
-        "Tu es l'assistant data d'une coopérative de cacao en Côte d'Ivoire. "
-        "Réponds à la QUESTION en français, de façon concise et chiffrée, en t'appuyant "
-        "EXCLUSIVEMENT sur les DONNÉES JSON ci-dessous (déjà cloisonnées à cette coopérative). "
-        "Si l'information n'y figure pas, dis-le clairement et n'invente aucun chiffre. "
-        "Quand une liste est plafonnée, précise-le.\n\n"
+        "Tu es l'assistant de la plateforme AgriVision Pro (cacao, Côte d'Ivoire). Tu as DEUX rôles :\n"
+        "1) AIDE À L'UTILISATION : explique où trouver une fonction et comment réaliser une action, "
+        "en t'appuyant sur le GUIDE.\n"
+        "2) DONNÉES : réponds aux questions chiffrées EXCLUSIVEMENT à partir de l'INSTANTANÉ "
+        "(déjà cloisonné à cette coopérative) ; si l'info n'y figure pas (ou instantané non disponible), "
+        "dis-le et n'invente aucun chiffre ; précise quand une liste est plafonnée.\n"
+        "Réponds en français, de façon concise et structurée.\n\n"
         f"QUESTION : {data.question.strip()}\n\n"
-        f"DONNÉES :\n{json.dumps(snapshot, ensure_ascii=False, default=str)}"
+        f"GUIDE :\n{PLATFORM_GUIDE}\n\n"
+        f"INSTANTANÉ (données) :\n{snapshot_json}"
     )
     try:
         from app.services import llm_client
