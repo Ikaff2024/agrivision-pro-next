@@ -25,6 +25,7 @@ CATEGORY_LABELS = {
 CATEGORY_OF = {
     # Cœur agronomique
     "dashboard": "core",
+    "assistant": "core",   # Assistant IA « mes données » — inclus pour tous les plans
     "plantations": "core",
     "producers": "core",
     "diagnostic": "core",

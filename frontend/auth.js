@@ -702,6 +702,7 @@ function renderSidebar(activePage) {
     // 📊 Piloter — décider et prouver (Dashboard en tête = page d'accueil)
     { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard', group: '📊 Piloter' },
     { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction', group: '📊 Piloter' },
+    { id: 'assistant', href: 'assistant.html', icon: 'forum', label: 'Assistant IA', group: '📊 Piloter' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports', group: '📊 Piloter' },
     { id: 'veille', href: 'veille.html', icon: 'trending_up', label: 'Veille Marché', group: '📊 Piloter' },
     // 🌱 Produire — exploitations & performance

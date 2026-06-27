@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a4231">
+  <title>AgriVision Pro — Assistant IA</title>
+  <script src="config.js?v=staging1"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" data-avp-fonts href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+  <script src="auth.js?v=assistant1"></script>
+  <style>
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px;margin-bottom:16px}
+    .chip{display:inline-block;border:1px solid var(--border,#e6ddd0);border-radius:99px;padding:6px 12px;font-size:12.5px;color:var(--primary,#1a4231);background:var(--surface,#fff);cursor:pointer;margin:0 6px 6px 0}
+    .chip:hover{border-color:var(--accent,#52b788);background:var(--surface-warm,#f7f4ee)}
+    .ask-row{display:flex;gap:8px;flex-wrap:wrap}
+    .ask-row input{flex:1;min-width:240px;padding:11px 13px;border:1px solid var(--border,#e6ddd0);border-radius:10px;font-size:14px}
+    .answer{white-space:pre-wrap;line-height:1.55;color:var(--text);background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;margin-top:14px;color:#1e3a8a}
+    .qa-item{border-top:1px solid var(--border-l,#eee);padding:12px 0}
+    .qa-q{font-weight:700;color:var(--text)}
+  </style>
+</head>
+<body>
+<div class="avp-layout">
+  <nav id="sidebar"></nav>
+  <div class="avp-main">
+    <div class="avp-header">
+      <div>
+        <div class="page-title">Assistant IA</div>
+        <div class="page-sub">Posez une question sur les données de votre coopérative — réponse ancrée sur vos chiffres.</div>
+      </div>
+    </div>
+
+    <div class="avp-content">
+      <div class="panel">
+        <div class="ask-row">
+          <input id="q-input" placeholder="Ex : combien de parcelles non conformes EUDR à Soubré ?"
+                 onkeydown="if(event.key==='Enter')askAssistant()">
+          <button class="btn btn-primary" id="ask-btn" onclick="askAssistant()">
+            <span class="material-symbols-outlined" style="font-size:18px">send</span> Demander
+          </button>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:12px;color:var(--muted,#6a7d64);margin-bottom:6px">Suggestions :</div>
+          <span class="chip" onclick="askSuggested(this)">Quelles parcelles sont non conformes EUDR ?</span>
+          <span class="chip" onclick="askSuggested(this)">Quels producteurs sont sous blocage ?</span>
+          <span class="chip" onclick="askSuggested(this)">Quel est le taux de scolarisation des enfants suivis ?</span>
+          <span class="chip" onclick="askSuggested(this)">Quel volume est certifié et sous quels standards ?</span>
+          <span class="chip" onclick="askSuggested(this)">Combien de ménages atteignent le revenu vital ?</span>
+        </div>
+        <div id="answer" class="answer" style="display:none"></div>
+        <div id="answer-meta" style="font-size:11.5px;color:var(--muted,#6a7d64);margin-top:6px"></div>
+      </div>
+
+      <div class="panel" id="history-panel" style="display:none">
+        <div class="section-title">Historique de la session</div>
+        <div id="history"></div>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted,#6a7d64)">
+        L'assistant répond uniquement à partir d'un instantané de vos données (cloisonné à votre coopérative).
+        Il ne remplace pas une vérification sur les fiches détaillées.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+initApp('assistant');
+const _hist = [];
+
+function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+function askSuggested(el){ document.getElementById('q-input').value = el.textContent.trim(); askAssistant(); }
+
+async function askAssistant(){
+  const q = document.getElementById('q-input').value.trim();
+  if(q.length < 3) return toast('Posez une question.');
+  const btn = document.getElementById('ask-btn');
+  const ans = document.getElementById('answer');
+  const meta = document.getElementById('answer-meta');
+  btn.disabled = true;
+  ans.style.display = 'block'; ans.textContent = 'Analyse de vos données…'; meta.textContent = '';
+  try {
+    const r = await authFetch('/assistant/ask', { method:'POST', body: JSON.stringify({ question: q }) });
+    const d = await r.json().catch(()=>({}));
+    if(!r || !r.ok){
+      ans.textContent = (r && r.status === 403) ? 'Assistant réservé à la direction (admin/agronome).'
+        : (r && r.status === 502) ? 'Fournisseur IA non configuré côté serveur.'
+        : (d.detail || 'Réponse indisponible.');
+      return;
+    }
+    ans.textContent = d.answer || 'Aucune réponse.';
+    meta.textContent = d.model ? ('Moteur : ' + d.model) : '';
+    _hist.unshift({ q, a: d.answer || '' });
+    renderHistory();
+  } catch(e){ ans.textContent = 'Serveur injoignable.'; }
+  finally { btn.disabled = false; }
+}
+
+function renderHistory(){
+  if(!_hist.length) return;
+  document.getElementById('history-panel').style.display = 'block';
+  document.getElementById('history').innerHTML = _hist.map(h=>`
+    <div class="qa-item"><div class="qa-q">${esc(h.q)}</div>
+      <div style="white-space:pre-wrap;color:var(--muted,#6a7d64);margin-top:4px">${esc(h.a)}</div></div>`).join('');
+}
+</script>
+</body>
+</html>

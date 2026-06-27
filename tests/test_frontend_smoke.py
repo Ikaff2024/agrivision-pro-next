@@ -173,6 +173,10 @@ PAGE_MARKERS = {
         "bulkAssign",          # affectation en masse
         "draftCorrectiveAction",  # rédaction IA de l'action corrective
     ],
+    "assistant.html": [
+        "askAssistant",        # Q&A langage naturel ancré sur les données
+        "/assistant/ask",
+    ],
     "complaints.html": [],  # existence suffit
     "owner.html": [
         "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative
