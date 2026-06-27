@@ -160,6 +160,12 @@ PAGE_MARKERS = {
         "onCaFilesChange",       # pièce jointe de preuve à la clôture d'action
         "ca-files",
     ],
+    "certification.html": [
+        "loadCoverage",        # couverture par standard
+        "loadRegister",        # registre certifié filtrable
+        "exportRegisterCsv",   # export CSV du registre
+        "bulkAssign",          # affectation en masse
+    ],
     "complaints.html": [],  # existence suffit
     "owner.html": [
         "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative

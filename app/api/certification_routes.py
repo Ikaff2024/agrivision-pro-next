@@ -6,7 +6,7 @@ Tout est cloisonne par cooperative ; ecriture reservee admin/agronomist.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -371,6 +371,213 @@ def update_non_conformity(nc_id: int, data: NonConformityUpdate, db: Session = D
 
 
 # ── Synthese ─────────────────────────────────────────────────────────────────
+
+# ── Cockpit certification : couverture, échéances, registre, affectation en masse ─
+
+def _exp_date(link: PlantationCertification):
+    """Date d'expiration en `date` (le champ est un DateTime) — None si absente."""
+    d = link.date_expiration
+    if d is None:
+        return None
+    return d.date() if hasattr(d, "date") else d
+
+
+def _link_status(link: PlantationCertification, today: date) -> str:
+    d = _exp_date(link)
+    if d is None:
+        return "valid"            # pas d'échéance connue
+    if d < today:
+        return "expired"
+    if d <= today + timedelta(days=90):
+        return "expiring"
+    return "valid"
+
+
+@router.get("/certification/coverage")
+def certification_coverage(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Couverture par standard : parcelles/producteurs/surface certifiés + échéances.
+
+    Cloisonné par coopérative. Sert le cockpit (KPI par certification + alertes)."""
+    coop = _coop_id(current_user)
+    pq = db.query(Plantation)
+    if coop is not None:
+        pq = pq.filter(Plantation.cooperative_id == coop)
+    plantations = pq.all()
+    ha_by_pid = {p.id: float(p.hectares or 0) for p in plantations}
+    prod_by_pid = {p.id: p.producer_id for p in plantations}
+    pid_set = set(ha_by_pid.keys())
+
+    links = (
+        db.query(PlantationCertification)
+        .filter(PlantationCertification.plantation_id.in_(pid_set)).all()
+        if pid_set else []
+    )
+    certs = db.query(Certification).filter(Certification.actif == True).order_by(Certification.code).all()
+    today = date.today()
+
+    total_hectares = round(sum(ha_by_pid.values()), 2)
+    coverage = []
+    for c in certs:
+        clinks = [l for l in links if l.certification_id == c.id]
+        cert_pids = {l.plantation_id for l in clinks}
+        producers = {prod_by_pid.get(pid) for pid in cert_pids if prod_by_pid.get(pid)}
+        hectares = round(sum(ha_by_pid.get(pid, 0) for pid in cert_pids), 2)
+        statuses = [_link_status(l, today) for l in clinks]
+        coverage.append({
+            "certification_id": c.id, "code": c.code, "nom_complet": c.nom_complet,
+            "plantations_certified": len(cert_pids),
+            "producers_certified": len(producers),
+            "hectares_certified": hectares,
+            "pct_plantations": round(len(cert_pids) / len(pid_set) * 100, 1) if pid_set else 0.0,
+            "pct_hectares": round(hectares / total_hectares * 100, 1) if total_hectares else 0.0,
+            "expired": statuses.count("expired"),
+            "expiring_soon": statuses.count("expiring"),   # ≤ 90 jours
+        })
+    return {
+        "total_plantations": len(pid_set),
+        "total_hectares": total_hectares,
+        "certifications": coverage,
+    }
+
+
+@router.get("/certification/register")
+def certification_register(
+    code: Optional[str] = Query(None, description="Filtre par code certification (FT, RA…)"),
+    status: Optional[str] = Query(None, description="valid | expiring | expired"),
+    limit: int = Query(2000, ge=1, le=10000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Registre certifié : une ligne par parcelle × certification (exportable CSV)."""
+    coop = _coop_id(current_user)
+    pq = db.query(Plantation)
+    if coop is not None:
+        pq = pq.filter(Plantation.cooperative_id == coop)
+    plantations = {p.id: p for p in pq.all()}
+    if not plantations:
+        return {"count": 0, "rows": []}
+
+    lq = db.query(PlantationCertification).filter(
+        PlantationCertification.plantation_id.in_(plantations.keys())
+    )
+    if code:
+        cert = db.query(Certification).filter(Certification.code == code.strip().upper()).first()
+        if not cert:
+            return {"count": 0, "rows": []}
+        lq = lq.filter(PlantationCertification.certification_id == cert.id)
+    links = lq.limit(limit).all()
+    codes = _cert_codes(db, {l.certification_id for l in links})
+    # Producteurs (pour le nom) — chargés en une passe.
+    from app.db.models import Producer
+    prod_ids = {plantations[l.plantation_id].producer_id for l in links if l.plantation_id in plantations}
+    prod_ids = {pid for pid in prod_ids if pid}
+    producers = {
+        p.id: p.nom_complet
+        for p in (db.query(Producer).filter(Producer.id.in_(prod_ids)).all() if prod_ids else [])
+    }
+    today = date.today()
+    rows = []
+    for l in links:
+        p = plantations.get(l.plantation_id)
+        if not p:
+            continue
+        st = _link_status(l, today)
+        if status and st != status:
+            continue
+        exp = _exp_date(l)
+        obt = l.date_obtention.date() if (l.date_obtention and hasattr(l.date_obtention, "date")) else l.date_obtention
+        rows.append({
+            "plantation_id": p.id, "plantation_name": p.name,
+            "producer_name": producers.get(p.producer_id) or "",
+            "certification_id": l.certification_id, "code": codes.get(l.certification_id),
+            "hectares": float(p.hectares or 0),
+            "date_obtention": obt.isoformat() if obt else None,
+            "date_expiration": exp.isoformat() if exp else None,
+            "status": st,
+        })
+    return {"count": len(rows), "rows": rows}
+
+
+class BulkCertAssign(BaseModel):
+    certification_id: Optional[int] = None
+    code: Optional[str] = Field(None, max_length=40)
+    plantation_ids: list[int] = Field(default_factory=list)
+    date_obtention: Optional[date] = None
+    date_expiration: Optional[date] = None
+
+
+@router.post("/certification/bulk-assign")
+def bulk_assign_certification(
+    data: BulkCertAssign,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Affecte une certification à plusieurs parcelles d'un coup (idempotent).
+
+    Met à jour les dates si le lien existe déjà. Admin / agronome / gestionnaire."""
+    _require_write(current_user)
+    cert = _resolve_cert(db, PlantationCertAssign(certification_id=data.certification_id, code=data.code))
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certification introuvable (id ou code).")
+    coop = _coop_id(current_user)
+    valid_ids = {
+        p.id for p in db.query(Plantation.id, Plantation.cooperative_id)
+        .filter(Plantation.id.in_(data.plantation_ids)).all()
+        if coop is None or p.cooperative_id == coop
+    } if data.plantation_ids else set()
+    created, updated = 0, 0
+    obt = datetime(data.date_obtention.year, data.date_obtention.month, data.date_obtention.day) if data.date_obtention else None
+    exp = datetime(data.date_expiration.year, data.date_expiration.month, data.date_expiration.day) if data.date_expiration else None
+    for pid in valid_ids:
+        link = db.query(PlantationCertification).filter(
+            PlantationCertification.plantation_id == pid,
+            PlantationCertification.certification_id == cert.id,
+        ).first()
+        if link:
+            if obt is not None:
+                link.date_obtention = obt
+            if exp is not None:
+                link.date_expiration = exp
+            updated += 1
+        else:
+            db.add(PlantationCertification(
+                plantation_id=pid, certification_id=cert.id,
+                date_obtention=obt, date_expiration=exp,
+            ))
+            created += 1
+    db.commit()
+    return {"certification": cert.code, "created": created, "updated": updated,
+            "requested": len(data.plantation_ids), "applied": len(valid_ids)}
+
+
+class BulkCertRemove(BaseModel):
+    certification_id: int
+    plantation_ids: list[int] = Field(default_factory=list)
+
+
+@router.post("/certification/bulk-remove")
+def bulk_remove_certification(
+    data: BulkCertRemove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire une certification de plusieurs parcelles d'un coup. Admin/agronome/gestionnaire."""
+    _require_write(current_user)
+    coop = _coop_id(current_user)
+    valid_ids = {
+        p.id for p in db.query(Plantation.id, Plantation.cooperative_id)
+        .filter(Plantation.id.in_(data.plantation_ids)).all()
+        if coop is None or p.cooperative_id == coop
+    } if data.plantation_ids else set()
+    deleted = 0
+    if valid_ids:
+        deleted = db.query(PlantationCertification).filter(
+            PlantationCertification.plantation_id.in_(valid_ids),
+            PlantationCertification.certification_id == data.certification_id,
+        ).delete(synchronize_session=False)
+        db.commit()
+    return {"deleted": deleted, "certification_id": data.certification_id}
+
 
 @router.get("/certification/summary")
 def certification_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
