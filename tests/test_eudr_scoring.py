@@ -371,6 +371,23 @@ def test_compute_score_perfect_plantation(client):
     assert s.methodology_version == METHODOLOGY_VERSION
 
 
+def test_area_mismatch_caps_conforme_to_a_verifier(client):
+    """Règle bloquante : une superficie incohérente (>20%) interdit le badge
+    « conforme » même si le prorata l'accorderait (5/6) — cohérence fiche ↔ menu EUDR."""
+    db = TestingSessionLocal()
+    p = _make_plantation(db, hectares=1.0, with_producer=True)
+    _add_boundary(db, p, geojson=VALID_POLYGON, area=5.0, points=5)  # aire géo très ≠ déclarée
+    db.add(Inspection(plantation_id=p.id, type="EXTERNE", date=datetime.utcnow() - timedelta(days=10)))
+    db.commit()
+    _add_deforestation_check(db, p, verdict="clear")
+    s = compute_eudr_score(p, db)
+    db.close()
+    failed = {r.rule_id for r in s.rules if not r.passed}
+    assert s.score == 5 and "area_matches" in failed   # seule la cohérence d'aire échoue
+    assert s.status == "a_verifier"                      # bloquée, pas « conforme »
+    assert s.badge_color == "orange"
+
+
 # ----------------------------------------------------------------------------
 # Regle 6 (EUDR-01b) : no_deforestation
 # ----------------------------------------------------------------------------

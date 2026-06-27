@@ -92,6 +92,14 @@
         <select class="filter-select" id="filter-village" onchange="applyFilters()">
           <option value="">Tous villages</option>
         </select>
+        <div style="margin-left:auto;display:inline-flex;border:1px solid var(--border,#e6ddd0);border-radius:8px;overflow:hidden">
+          <button id="view-cards" class="btn btn-sm" style="border:none;border-radius:0" onclick="setChildrenView('cards')" title="Vue cartes">
+            <span class="material-symbols-outlined" style="font-size:17px">grid_view</span>
+          </button>
+          <button id="view-list" class="btn btn-sm" style="border:none;border-radius:0" onclick="setChildrenView('list')" title="Vue liste">
+            <span class="material-symbols-outlined" style="font-size:17px">table_rows</span>
+          </button>
+        </div>
       </div>
 
       <div class="child-grid" id="children-grid">
@@ -258,16 +266,41 @@ function filteredChildren() {
   return filtered;
 }
 
+// Vue cartes (par défaut) ou liste (tableau dense). Persistée localement.
+let _childrenView = localStorage.getItem('avp_children_view') || 'cards';
+function setChildrenView(v) {
+  _childrenView = v;
+  localStorage.setItem('avp_children_view', v);
+  _syncViewButtons();
+  applyFilters();
+}
+function _syncViewButtons() {
+  const cards = document.getElementById('view-cards');
+  const list = document.getElementById('view-list');
+  const on = 'var(--accent,#52b788)', off = 'transparent';
+  if (cards) cards.style.background = (_childrenView === 'cards') ? on : off;
+  if (cards) cards.style.color = (_childrenView === 'cards') ? '#fff' : 'inherit';
+  if (list) list.style.background = (_childrenView === 'list') ? on : off;
+  if (list) list.style.color = (_childrenView === 'list') ? '#fff' : 'inherit';
+}
+
+const RISK_CLS = { none:'badge-low', low:'badge-low', medium:'badge-med', high:'badge-high', critical:'badge-high' };
+const RISK_LBL = { none:'Aucun', low:'Faible', medium:'Moyen', high:'Eleve', critical:'Critique' };
+
 function renderChildren(children) {
+  _syncViewButtons();
   const grid = document.getElementById('children-grid');
   const drillBanner = (initialRisk === 'eleve')
     ? `<div style="grid-column:1/-1;background:#fef8ec;border:1px solid #f0c97a;border-radius:8px;padding:8px 12px;margin-bottom:4px;font-size:13px;color:#9a6200">Filtré depuis le tableau de bord : <strong>enfants à risque élevé/critique</strong>. <a href="children.html" style="font-weight:800;color:#9a6200">✕ Tout afficher</a></div>`
     : '';
   if (!children.length) {
+    grid.className = 'child-grid';
     grid.innerHTML = drillBanner + '<div class="empty-state" style="grid-column:1/-1">Aucun enfant enregistre.</div>';
     return;
   }
+  if (_childrenView === 'list') { renderChildrenList(children, drillBanner); return; }
 
+  grid.className = 'child-grid';
   grid.innerHTML = children.map(c => {
     const age = calculateAge(c.date_of_birth);
     const producer = allProducers.find(p => p.id === c.producer_id);
@@ -311,6 +344,48 @@ function renderChildren(children) {
         </div>
       </div>`;
   }).join('');
+}
+
+// Vue liste (tableau dense, filtrable comme les cartes).
+function renderChildrenList(children, drillBanner) {
+  const grid = document.getElementById('children-grid');
+  grid.className = '';  // pas la grille de cartes : on rend un tableau pleine largeur
+  const esc = s => { const d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; };
+  const rows = children.map(c => {
+    const prod = allProducers.find(p => p.id === c.producer_id);
+    const age = calculateAge(c.date_of_birth);
+    const ecole = c.school_status === 'enrolled' ? (c.school_name || 'Scolarisé') : 'Non scolarisé';
+    const travail = c.is_working_on_farm ? ('Oui' + (c.work_frequency ? ' — ' + esc(c.work_frequency) : '')) : 'Non';
+    const del = _isAdmin
+      ? `<button class="btn btn-sm btn-outline" style="color:#922b21;padding:3px 8px" title="Supprimer" onclick="event.stopPropagation(); deleteChild(${c.id}, '${(c.first_name + ' ' + c.last_name).replace(/'/g, "\\'")}')"><span class="material-symbols-outlined" style="font-size:15px">delete</span></button>`
+      : '';
+    return `<tr style="cursor:pointer;border-bottom:1px solid var(--border-l,#eee)" onclick="viewChild(${c.id})">
+      <td style="padding:9px 10px;font-weight:600">${esc(c.first_name)} ${esc(c.last_name)}</td>
+      <td style="padding:9px 10px">${age} ans</td>
+      <td style="padding:9px 10px">${esc(prod?.nom_complet || '-')}</td>
+      <td style="padding:9px 10px">${esc(prod?.localite || '-')}</td>
+      <td style="padding:9px 10px">${esc(ecole)}</td>
+      <td style="padding:9px 10px">${travail}</td>
+      <td style="padding:9px 10px"><span class="badge ${RISK_CLS[c.risk_level] || 'badge-low'}">${RISK_LBL[c.risk_level] || esc(c.risk_level)}</span></td>
+      <td style="padding:9px 10px;white-space:nowrap" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-outline" style="padding:3px 8px" title="Évaluation" onclick="viewChild(${c.id})"><span class="material-symbols-outlined" style="font-size:15px">fact_check</span></button>
+        <button class="btn btn-sm btn-outline" style="padding:3px 8px" title="Fiche producteur" onclick="openProducerProfile(${c.producer_id})"><span class="material-symbols-outlined" style="font-size:15px">person</span></button>
+        ${del}
+      </td>
+    </tr>`;
+  }).join('');
+  grid.innerHTML = drillBanner +
+    `<div style="overflow-x:auto;background:var(--surface,#fff);border:1px solid var(--border,#e6ddd0);border-radius:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;background:var(--surface-warm,#f7f4ee);color:var(--muted,#6a7d64)">
+          <th style="padding:9px 10px">Nom</th><th style="padding:9px 10px">Âge</th>
+          <th style="padding:9px 10px">Parent</th><th style="padding:9px 10px">Village</th>
+          <th style="padding:9px 10px">École</th><th style="padding:9px 10px">Travail</th>
+          <th style="padding:9px 10px">Risque</th><th style="padding:9px 10px">Actions</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 // Suppression d'un enfant (ex : doublon). Admin uniquement — soft-delete côté API.

@@ -1043,6 +1043,21 @@ def complete_visit(
 
     db.commit()
     db.refresh(visit)
+
+    # Rafraîchit le cache EUDR des parcelles du producteur : la règle « inspection
+    # < 12 mois » vient de changer → le drapeau doit disparaître immédiatement de la
+    # fenêtre EUDR (sinon il persiste jusqu'au prochain recompute). Best-effort.
+    try:
+        from app.eudr.score_cache import refresh_plantation_eudr
+        from app.db.models import Plantation
+        _pls = db.query(Plantation).filter(Plantation.producer_id == visit.producer_id).all()
+        for _pl in _pls:
+            refresh_plantation_eudr(_pl, db)
+        if _pls:
+            db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()  # la clôture de visite ne doit jamais échouer pour ça
+
     from app.services.geostamp import geostamp_dict
     return visit_to_dict(visit, geo=geostamp_dict(_gs))
 

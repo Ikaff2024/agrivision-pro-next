@@ -99,6 +99,16 @@ class EudrScore:
 
 METHODOLOGY_VERSION = "eudr-1.1b"
 
+# Règles « bloquantes » pour le badge « conforme » (vert) : ce sont les données de
+# géolocalisation qui DOIVENT être cohérentes pour qu'un auditeur accepte la parcelle.
+# Si l'une échoue, la parcelle ne peut pas être « conforme » même au prorata (elle
+# retombe au minimum à « à vérifier ») — évite l'incohérence « superficie ≠ déclarée »
+# affichée alors que le statut global dit « conforme ».
+# NB : on n'inclut PAS no_deforestation ici (décision produit : un contrôle de
+# déforestation manquant n'empêche pas le badge tant que l'intégration satellite
+# n'est pas branchée ; le blocage déforestation est géré à l'export).
+GATING_RULES = {"polygon_valid", "area_matches", "gps_in_cocoa_zone"}
+
 
 # ---------------------------------------------------------------------------
 # Implementation des 5 regles
@@ -407,6 +417,11 @@ def compute_eudr_score(
     score = sum(r.weight for r in rules if r.passed)
     max_score = sum(r.weight for r in rules)
     status, color = _status_from_score(score, max_score)
+    # Garde-fou cohérence : une règle bloquante en échec interdit le badge « conforme ».
+    if status == "conforme":
+        failed_ids = {r.rule_id for r in rules if not r.passed}
+        if GATING_RULES & failed_ids:
+            status, color = "a_verifier", "orange"
     return EudrScore(
         plantation_id=plantation.id,
         methodology_version=METHODOLOGY_VERSION,

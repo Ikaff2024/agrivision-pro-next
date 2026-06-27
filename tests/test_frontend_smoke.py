@@ -131,6 +131,8 @@ PAGE_MARKERS = {
     "children.html": [
         "deleteChild",           # suppression d'un enfant en doublon (admin)
         "exportChildrenCsv",     # export CSV (Excel) de la sélection
+        "setChildrenView",       # bascule vue cartes / liste
+        "renderChildrenList",    # vue liste (tableau) filtrable
     ],
     "ssrte.html": [
         "addMember",          # tableau membres du ménage (Fiche B)
