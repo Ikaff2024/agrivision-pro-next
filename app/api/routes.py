@@ -1167,7 +1167,7 @@ def _build_recommendations(metrics: dict, records: list) -> list:
             "action":"Introduire 2 a 3 especes complementaires. Recommandations : Persea americana (Avocatier) pour les revenus + Gliricidia sepium pour la fixation d'azote."})
     elif sp_count == 2:
         recos.append({"priority":"low","icon":"🌿","title":"Diversite a ameliorer",
-            "action":"Objectif : 3 especes minimum pour la conformite EUDR. Ajouter une espece de strate superieure (Iroko, Manguier) pour ameliorer le score carbone."})
+            "action":"Objectif : 3 especes minimum (bonne pratique agroforestiere / Rainforest Alliance). Ajouter une espece de strate superieure (Iroko, Manguier) pour ameliorer le score carbone."})
     elif sp_count >= 3:
         recos.append({"priority":"low","icon":"✅","title":"Bonne diversite floristique",
             "action":f"{sp_count} especes enregistrees. Continuer a diversifier avec des essences a fort potentiel carbone pour renforcer la certification."})
@@ -1180,16 +1180,17 @@ def _build_recommendations(metrics: dict, records: list) -> list:
         recos.append({"priority":"low","icon":"📈","title":"Stock carbone en developpement",
             "action":"Augmenter la densite d'arbres a longue duree de vie (Iroko, Frake, Khaya) pour accelerer la sequestration carbone et acceder aux financements climatiques."})
 
-    # Conformite globale
+    # Conformite AGROFORESTIERE (durabilite / certification) — distincte de l'EUDR,
+    # qui ne porte QUE sur la deforestation + geolocalisation (pas l'agroforesterie).
     if conf < 35:
-        recos.append({"priority":"high","icon":"⚠️","title":"Non conforme aux standards EUDR",
-            "action":"Score de conformite critique. Votre plantation ne repond pas encore aux exigences EUDR. Appliquer en priorite les recommandations ombrage et diversite."})
+        recos.append({"priority":"high","icon":"⚠️","title":"Pratiques agroforestieres insuffisantes",
+            "action":"Score agroforestier critique (ombrage/diversite/carbone). Ce score releve de la DURABILITE et de la certification (ex. Rainforest Alliance) — il n'entre PAS dans l'EUDR. Appliquer en priorite les recommandations ombrage et diversite."})
     elif conf < 65:
-        recos.append({"priority":"medium","icon":"📋","title":"Conformite partielle — ameliorations necessaires",
-            "action":"Des progres ont ete faits mais des ajustements sont requis. Concentrez-vous sur le point ayant le score le plus faible."})
+        recos.append({"priority":"medium","icon":"📋","title":"Agroforesterie partielle — ameliorations possibles",
+            "action":"Des progres ont ete faits mais des ajustements sont requis. Concentrez-vous sur le point (ombrage / diversite / carbone) ayant le score le plus faible."})
     else:
-        recos.append({"priority":"low","icon":"🏆","title":"Plantation conforme aux standards agroforestiers",
-            "action":"Excellent niveau de conformite. Cette plantation peut etre presentee aux acheteurs et certifications EUDR/Rainforest Alliance."})
+        recos.append({"priority":"low","icon":"🏆","title":"Bonnes pratiques agroforestieres",
+            "action":"Excellent niveau agroforestier. Atout pour les certifications durabilite (Rainforest Alliance) et les financements carbone. (Rappel : l'EUDR, lui, evalue la deforestation et la geolocalisation.)"})
 
     priority_order = {"high": 0, "medium": 1, "low": 2}
     recos.sort(key=lambda x: priority_order.get(x["priority"], 3))

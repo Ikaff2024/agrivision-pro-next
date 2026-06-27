@@ -556,8 +556,8 @@ function renderInventory(data) {
       </div>
       <div class="metric-card" style="border-top:3px solid ${conformityColor(m.conformity_score)}">
         ${gauge(m.conformity_score, conformityColor(m.conformity_score))}
-        <div class="metric-lbl" style="font-weight:700">Conformité globale</div>
-        <div class="metric-sub">${m.conformity_score >= 65 ? '✓ Conforme' : m.conformity_score >= 35 ? '⚠ Partiel' : '✗ Non conforme'}</div>
+        <div class="metric-lbl" style="font-weight:700">Conformité agroforestière</div>
+        <div class="metric-sub" title="Durabilité / certification — distinct de l'EUDR">${m.conformity_score >= 65 ? '✓ Bonne' : m.conformity_score >= 35 ? '⚠ Partielle' : '✗ Insuffisante'}</div>
       </div>
     </div>
 
