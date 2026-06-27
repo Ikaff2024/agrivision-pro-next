@@ -27,6 +27,30 @@ def test_normalize_entry_no_title_returns_none():
     assert veille_engine.normalize_entry({"key": "k"}, {"link": "http://x"}) is None
 
 
+def test_normalize_entry_strips_html_and_drops_redundant_summary():
+    """Les flux Google News mettent du HTML dans le résumé (qui répète le titre) :
+    on dé-balise le titre et on supprime le résumé redondant."""
+    src = {"key": "gnews_ci_cacao", "name": "Actualités cacao — CI", "topics": ["cacao", "cote_ivoire"]}
+    item = veille_engine.normalize_entry(src, {
+        "title": "Chute des cours du cacao en Côte d'Ivoire",
+        "link": "http://news/1",
+        "summary": '<a href="http://news/1">Chute des cours du cacao en Côte d\'Ivoire</a>&nbsp;<font color="#6f6f6f">RFI</font>',
+    })
+    assert "<" not in item["title"]
+    assert item["summary"] is None   # résumé redondant (répète le titre) → supprimé
+
+
+def test_normalize_entry_keeps_real_summary_cleaned():
+    """Un vrai résumé (différent du titre) est conservé, mais dé-balisé."""
+    src = {"key": "icco", "name": "ICCO", "topics": ["cacao"]}
+    item = veille_engine.normalize_entry(src, {
+        "title": "Rapport mensuel ICCO",
+        "link": "http://icco/1",
+        "summary": "<p>Les <b>cours</b> mondiaux du cacao ont progressé de 5%.</p>",
+    })
+    assert item["summary"] == "Les cours mondiaux du cacao ont progressé de 5%."
+
+
 # ── Ingestion : dédup + fail-soft ────────────────────────────────────────────
 def test_ingest_creates_then_dedups(client):
     db = TestingSessionLocal()

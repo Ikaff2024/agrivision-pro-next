@@ -183,6 +183,14 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
+// Dé-balise un texte HTML (flux Google News) → texte brut propre, espaces compactés.
+function stripHtml(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.innerHTML = String(s);
+  return (d.textContent || d.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
 function refreshMarket() { loadMarket(true); }
 
 async function loadMarket(force) {
@@ -430,13 +438,18 @@ function _renderVeilleList() {
   list.innerHTML = items.map(it => {
     const topic = (it.topics || [])[0] || 'source';
     const url = it.url || '';
-    const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title);
+    const rawTitle = stripHtml(it.title || '');
+    const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(rawTitle)}</a>` : esc(rawTitle);
     const date = it.published_at ? ' · ' + esc(new Date(it.published_at).toLocaleDateString('fr-FR')) : '';
+    // Nettoyage du résumé : les flux Google News y mettent du HTML brut qui répète
+    // le titre → on dé-balise et on masque s'il duplique le titre.
+    let sum = stripHtml(it.summary || '');
+    if (sum && rawTitle && sum.toLowerCase().startsWith(rawTitle.slice(0, 40).toLowerCase())) sum = '';
     return `<div class="vm-news-card">
       <span class="badge ${badgeClass(topic)}">${esc(_vrLabel(topic))}</span>
       <div style="flex:1;min-width:0">
         <div class="t">${title}</div>
-        ${it.summary ? `<div class="s">${esc(it.summary)}</div>` : ''}
+        ${sum ? `<div class="s">${esc(sum)}</div>` : ''}
         <div class="src"><strong>${esc(it.source_name || it.source_key || '')}</strong>${date}</div>
       </div>
     </div>`;

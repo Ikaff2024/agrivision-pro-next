@@ -89,17 +89,34 @@ def _hash(*parts: str) -> str:
     return h.hexdigest()
 
 
+def _strip_html(text: Optional[str]) -> str:
+    """Retire les balises HTML + décode les entités (&nbsp; …) et compacte les
+    espaces. Les flux Google News mettent un <a>/<font> dans le résumé ; on veut
+    du texte propre (affichage + prompt de synthèse plus net)."""
+    if not text:
+        return ""
+    import html as _html
+    import re as _re
+    t = _re.sub(r"<[^>]+>", " ", text)
+    t = _html.unescape(t)
+    return _re.sub(r"\s+", " ", t).strip()
+
+
 def normalize_entry(source: dict, entry) -> Optional[dict]:
     """Transforme une entrée brute (feedparser ou dict) en item normalisé.
 
     Renvoie None si inexploitable (pas de titre). Fonction PURE (testable).
     """
     get = entry.get if hasattr(entry, "get") else (lambda k, d=None: d)
-    title = (get("title") or "").strip()
+    title = _strip_html(get("title") or "")
     if not title:
         return None
     url = (get("link") or "").strip()
-    summary = (get("summary") or get("description") or "").strip()
+    summary = _strip_html(get("summary") or get("description") or "")
+    # Google News : le résumé répète le titre (+ nom du média) → redondant, on le
+    # supprime pour ne garder que titre + source. Sinon on garde le vrai résumé.
+    if summary and title and summary.lower().startswith(title[:40].lower()):
+        summary = ""
     published_at = None
     pp = get("published_parsed") or get("updated_parsed")
     if pp:
