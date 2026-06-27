@@ -828,6 +828,8 @@ async function applyPlanFeatures(activePage) {
     window.location.replace('index.html');
     return;
   }
+  // Masque immédiatement (anti-flash) les métriques hors plan, via le cache.
+  if (_cachedSync) avpGateMetricsByPlan(_cachedSync);
   try {
     const res = await authFetch('/me/features');
     if (!res || !res.ok) return;
@@ -849,7 +851,23 @@ async function applyPlanFeatures(activePage) {
     if (navLink && !allowed.has(activePage) && activePage !== 'dashboard') {
       window.location.replace('index.html');
     }
+    // Masque les métriques/sections hors plan (tableau de bord, direction…) pour
+    // ne pas montrer à l'utilisateur des chiffres de modules qu'il n'a pas.
+    avpGateMetricsByPlan(allowed);
   } catch (e) { /* non-bloquant */ }
+}
+
+/* ── Masquage des métriques hors plan ─────────────────────────────────
+   Tout élément portant data-plan-module="mod1 mod2" est masqué si AUCUN de ses
+   modules n'est inclus dans le plan de la coopérative. Évite d'afficher des KPI
+   (EUDR, Revenu vital…) que l'utilisateur ne comprend pas car hors de son offre. */
+function avpGateMetricsByPlan(allowed) {
+  if (!allowed || !allowed.size) return;
+  document.querySelectorAll('[data-plan-module]').forEach(el => {
+    const mods = (el.getAttribute('data-plan-module') || '').split(/\s+/).filter(Boolean);
+    const ok = mods.length === 0 || mods.some(m => allowed.has(m));
+    el.style.display = ok ? '' : 'none';
+  });
 }
 
 function initApp(page) {

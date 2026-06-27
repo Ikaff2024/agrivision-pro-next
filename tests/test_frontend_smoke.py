@@ -66,6 +66,7 @@ PAGE_MARKERS = {
     "lots.html": [
         "openLot",
         "grantLotWaiver",   # dérogation export en lot (P3 scale)
+        "renderSocialAlert",  # alerte sociale (travail enfant) dissociée de l'EUDR
     ],
     "veille.html": [
         "loadMarket",   # veille marché (existant)
@@ -179,6 +180,7 @@ PAGE_MARKERS = {
         "submitChangePassword",
         "avpGeoBadge",             # badge géo-horodatage anti-fraude (helper partagé)
         "avpExportCsv",            # export CSV/Excel partagé (BOM UTF-8)
+        "avpGateMetricsByPlan",    # masque les métriques hors plan (dashboard/direction)
     ],
 }
 

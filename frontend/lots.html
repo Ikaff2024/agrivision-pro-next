@@ -102,6 +102,8 @@
 
         <!-- Dérogation export du lot (admin) — visible si parcelles bloquantes ou déjà dérogées -->
         <div id="d-waiver-row" style="display:none;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;margin:0 0 12px;border:1px solid var(--border,#e6ddd0);border-radius:10px;background:var(--surface-warm,#f7f4ee)"></div>
+        <!-- Alerte SOCIALE (travail enfant) — distincte de l'EUDR. Signalement par défaut ; bloque l'export seulement si la coop l'a activé. -->
+        <div id="d-social" style="display:none;padding:10px 12px;margin:0 0 12px;border:1px solid #f0c97a;border-left:4px solid #9a6200;border-radius:10px;background:#fef8ec;color:#9a6200;font-size:13px"></div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px">
           <select class="form-input" id="mv-warehouse" style="max-width:160px"><option value="">Entrepôt…</option></select>
@@ -236,7 +238,19 @@ async function openLot(id){
     <li><strong>${m.movement_type}</strong> · ${fmt(m.quantity_kg)} kg${m.reference?' · '+m.reference:''}<br><span style="color:var(--muted)">${(m.created_at||'').replace('T',' ').slice(0,16)}</span></li>`).join('')
     || '<li style="color:var(--muted)">Aucun mouvement.</li>';
   renderWaiverRow(pp.summary || {});
+  renderSocialAlert(pp.summary || {});
   document.getElementById('detail').scrollIntoView({behavior:'smooth'});
+}
+
+// Alerte sociale (dissociée de l'EUDR) : producteur(s) du lot sous blocage social.
+function renderSocialAlert(summary){
+  const el = document.getElementById('d-social'); if(!el) return;
+  const n = summary.blocked_producers || 0;
+  if(!n){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML = `⚠ <strong>Alerte sociale</strong> — ${n} producteur(s) de ce lot sous blocage CacaoGuard `
+    + `(ex. travail des enfants). C'est <strong>signalé</strong> (non lié à l'EUDR) ; `
+    + `l'export n'est bloqué que si votre coopérative l'a activé. Traitez le cas via la remédiation.`;
 }
 
 function closeDetail(){ document.getElementById('detail').classList.add('hidden'); _currentLot=null; }
@@ -254,6 +268,10 @@ async function doMovement(type){
     if(d && d.non_compliant_plantations?.length){
       msg += ' Parcelles : ' + d.non_compliant_plantations.map(p=>p.name||p.plantation_id).join(', ')
            + '. Un admin peut accorder une dérogation pour ce lot (bouton ci-dessus).';
+    }
+    if(d && d.social_blocked_producers?.length){
+      // Blocage social activé par la coopérative : le déblocage passe par la remédiation.
+      msg += ' Cas social à résoudre via la remédiation (producteur sous blocage CacaoGuard).';
     }
     return toast('Mouvement impossible : ' + (msg||''), 'error');
   }
