@@ -26,17 +26,55 @@ logger = logging.getLogger("agrivision.veille")
 
 VEILLE_ENABLED = os.getenv("VEILLE_ENABLED", "").strip().lower() in ("1", "true", "yes")
 
+def _gnews_url(query: str, hl: str = "fr", gl: str = "CI") -> str:
+    """URL de recherche Google News RSS (gratuit, sans clé, stable) pour une
+    requête mot-clé, localisée par langue (`hl`) et pays (`gl`). Permet de
+    couvrir « toutes les news cacao » dans le monde ET en Côte d'Ivoire."""
+    from urllib.parse import quote_plus
+    lang = hl.split("-")[0]
+    return (
+        "https://news.google.com/rss/search?q=" + quote_plus(query)
+        + f"&hl={hl}&gl={gl}&ceid={gl}:{lang}"
+    )
+
+
 # Registre de sources curées (cacao / EUDR / durabilité), RSS/Atom publics.
-# ⚠️ URLs à VÉRIFIER/affiner en prod (le pipeline est fail-soft par source : une
-# source morte est ignorée + journalisée, sans casser l'ingestion). Élargissable
-# sans toucher au code. Le Conseil du Café-Cacao (CI) n'a pas de RSS stable →
-# scrape ciblé en Phase 2 (source prioritaire).
+# ⚠️ Pipeline fail-soft par source : une source morte est ignorée + journalisée,
+# sans casser l'ingestion. Élargissable sans toucher au code.
+#
+# Couverture cacao mondiale + Côte d'Ivoire assurée par des recherches Google
+# News RSS (mot-clé + langue + pays) : c'est la façon la plus robuste de capter
+# « toutes les news cacao » sans dépendre d'un RSS officiel (le Conseil du
+# Café-Cacao n'en a pas de stable). Les institutionnels (UE/ICCO/certifs) restent
+# pour la veille réglementaire.
 VEILLE_SOURCES = [
+    # ── Actualités CACAO — Côte d'Ivoire (FR) ────────────────────────────────
+    {"key": "gnews_ci_cacao", "name": "Actualités cacao — Côte d'Ivoire",
+     "url": _gnews_url("cacao Côte d'Ivoire", hl="fr", gl="CI"),
+     "topics": ["cacao", "cote_ivoire", "marche"]},
+    {"key": "gnews_ci_filiere", "name": "Filière cacao CI — prix & campagne",
+     "url": _gnews_url("cacao (prix OR campagne OR Conseil Café Cacao OR producteurs)", hl="fr", gl="CI"),
+     "topics": ["cacao", "cote_ivoire", "marche"]},
+    # ── Actualités CACAO — Monde ─────────────────────────────────────────────
+    {"key": "gnews_world_cocoa", "name": "Cocoa news — World",
+     "url": _gnews_url("cocoa (market OR price OR production OR harvest)", hl="en-US", gl="US"),
+     "topics": ["cacao", "monde", "marche"]},
+    {"key": "gnews_world_cocoa_fr", "name": "Actualités cacao — Monde (FR)",
+     "url": _gnews_url("cacao (marché mondial OR cours OR production)", hl="fr", gl="FR"),
+     "topics": ["cacao", "monde", "marche"]},
+    # ── Cacao & conformité (EUDR / déforestation / durabilité) ───────────────
+    {"key": "gnews_cocoa_eudr", "name": "Cacao & EUDR / déforestation",
+     "url": _gnews_url("cocoa (EUDR OR deforestation OR sustainability)", hl="en-US", gl="US"),
+     "topics": ["cacao", "eudr", "monde"]},
+    {"key": "gnews_cacao_eudr_fr", "name": "Cacao & EUDR (FR)",
+     "url": _gnews_url("cacao (EUDR OR déforestation OR durabilité)", hl="fr", gl="FR"),
+     "topics": ["cacao", "eudr", "reglementation"]},
+    # ── Sources institutionnelles (veille réglementaire) ─────────────────────
     {"key": "eu_news", "name": "Commission européenne — presse",
      "url": "https://ec.europa.eu/commission/presscorner/api/rss?language=fr",
      "topics": ["eudr", "ue", "reglementation"]},
     {"key": "icco", "name": "ICCO — Organisation internationale du cacao",
-     "url": "https://www.icco.org/feed/", "topics": ["cacao", "marche"]},
+     "url": "https://www.icco.org/feed/", "topics": ["cacao", "marche", "monde"]},
     {"key": "rainforest", "name": "Rainforest Alliance",
      "url": "https://www.rainforest-alliance.org/feed/", "topics": ["certification", "durabilite"]},
     {"key": "fairtrade", "name": "Fairtrade International",
