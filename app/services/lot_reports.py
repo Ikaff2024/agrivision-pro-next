@@ -45,6 +45,8 @@ def build_lot_passport_context(passport: dict) -> dict:
         "season": lot.get("season") or "—",
         "certification": cert.get("code") if cert else None,
         "warehouse": wh.get("name") if wh else None,
+        "exporter": lot.get("exporter") or None,
+        "external_ref": lot.get("external_ref") or None,   # n° de connaissement / lot export
         "total_weight_kg": summary.get("total_weight_kg", 0),
         "bag_count": summary.get("bag_count", 0),
         "harvests": summary.get("harvests", 0),
@@ -77,6 +79,8 @@ def _generate_fallback_pdf(context: dict) -> bytes:
         f"Lot : {_pdf_escape(context['code'])}",
         f"Statut : {_pdf_escape(context['status'])}",
         f"Poids total : {context.get('total_weight_kg')} kg ({context.get('bag_count')} sacs)",
+        f"Exportateur : {_pdf_escape(context.get('exporter') or '-')}",
+        f"N connaissement : {_pdf_escape(context.get('external_ref') or '-')}",
         f"Producteurs : {context.get('producers')} - Plantations : {context.get('plantations')}",
         f"Conformite EUDR : {context.get('eudr_compliance_rate_pct')}%",
         f"Producteurs bloques : {context.get('blocked_producers')}",

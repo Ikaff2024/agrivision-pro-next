@@ -429,11 +429,21 @@ async function saveAssessment() {
     err.style.display = 'block';
     return;
   }
+  const _g = avpParseLatLng(document.getElementById('ra-gps').value);
+  // Obstacle anti-fraude : sans GPS, l'évaluation est signalée. On demande une
+  // confirmation explicite (motif tracé) plutôt que de bloquer dur (terrain hors ligne).
+  let _geoReason = null;
+  if (!_g) {
+    const ok = await (typeof avpConfirm === 'function'
+      ? avpConfirm('Aucun GPS capturé pour cette évaluation. Elle sera signalée comme « non géolocalisée » (anti-fraude). Capturez le GPS si vous êtes sur le lieu de collecte. Enregistrer quand même ?', { okLabel: 'Enregistrer sans GPS' })
+      : Promise.resolve(confirm('Aucun GPS capturé. Enregistrer quand même ?')));
+    if (!ok) return;
+    _geoReason = 'Évaluation enregistrée sans GPS (confirmé par l’agent)';
+  }
   const btn = document.getElementById('save-btn');
   btn.disabled = true;
   btn.textContent = 'Enregistrement...';
   try {
-    const _g = avpParseLatLng(document.getElementById('ra-gps').value);
     const payload = {
         child_id: selectedChild.id,
         assessment_type: 'follow_up',
@@ -445,6 +455,7 @@ async function saveAssessment() {
         captured_latitude: _g ? _g.lat : null,
         captured_longitude: _g ? _g.lng : null,
         captured_accuracy_m: _raGpsAcc,
+        geo_override_reason: _geoReason,
         client_reported_at: new Date().toISOString(),
       };
     const res = await submitOffline('/children/assessments', payload, `Evaluation risque enfant ${selectedChild.id}`);

@@ -148,6 +148,26 @@
         </table>
       </div>
 
+      <!-- Profil de la coopérative (nom, pays, responsables) -->
+      <div class="section-title" style="margin-top:26px">Profil de la coopérative</div>
+      <div class="member-table-wrap" style="padding:18px">
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <label style="flex:2;min-width:240px;font-size:13px">Nom de la coopérative
+            <input id="coop-name" type="text" style="width:100%;padding:8px 10px;margin-top:4px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:14px">
+          </label>
+          <label style="flex:1;min-width:150px;font-size:13px">Pays
+            <input id="coop-country" type="text" style="width:100%;padding:8px 10px;margin-top:4px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:14px">
+          </label>
+        </div>
+        <div style="font-size:13px;color:var(--muted,#6a7d64);margin:16px 0 6px">Responsables de la coopérative <span style="opacity:.8">(président, directeur, gérant…)</span></div>
+        <div id="managers-rows"></div>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="addManagerRow()">+ Ajouter un responsable</button>
+        <div style="margin-top:14px">
+          <button class="btn btn-primary" id="coop-save-btn" onclick="saveCoopProfile()">Enregistrer le profil</button>
+          <span style="font-size:11.5px;color:var(--muted,#6a7d64);margin-left:8px">Le nom mis à jour apparaît sur les nouveaux PDF.</span>
+        </div>
+      </div>
+
       <!-- Logo de la coopérative (affiché sur les PDF) -->
       <div class="section-title" style="margin-top:26px">Logo de la coopérative</div>
       <div class="member-table-wrap" style="padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
@@ -250,6 +270,56 @@ initApp('admin');
 // ── Logo de la coopérative (PDF) ──────────────────────────────────────────────
 const LOGO_COOP_ID = (typeof getCurrentUser === 'function' ? (getCurrentUser() || {}).coop_id : null);
 
+// ── Profil de la coopérative (nom, pays, responsables) ───────────────────────
+function _mgrRow(m = {}) {
+  const esc = s => { const d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; };
+  const div = document.createElement('div');
+  div.className = 'mgr-row';
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+  div.innerHTML =
+    `<input class="mgr-name" placeholder="Nom et prénoms" value="${esc(m.name || '')}" style="flex:2;min-width:160px;padding:7px 9px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:13px">
+     <input class="mgr-role" placeholder="Fonction (Président…)" value="${esc(m.role || '')}" style="flex:1;min-width:130px;padding:7px 9px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:13px">
+     <input class="mgr-phone" placeholder="Téléphone" value="${esc(m.phone || '')}" style="flex:1;min-width:120px;padding:7px 9px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:13px">
+     <button class="btn btn-sm btn-outline" style="color:#922b21" onclick="this.closest('.mgr-row').remove()" title="Retirer">✕</button>`;
+  return div;
+}
+function addManagerRow(m) { document.getElementById('managers-rows').appendChild(_mgrRow(m)); }
+
+async function loadCoopProfile() {
+  if (!LOGO_COOP_ID) return;
+  try {
+    const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/profile');
+    if (!r || !r.ok) return;
+    const d = await r.json();
+    document.getElementById('coop-name').value = d.name || '';
+    document.getElementById('coop-country').value = d.country || '';
+    const box = document.getElementById('managers-rows');
+    box.innerHTML = '';
+    (d.managers || []).forEach(m => box.appendChild(_mgrRow(m)));
+  } catch (e) { /* silencieux */ }
+}
+
+async function saveCoopProfile() {
+  if (!LOGO_COOP_ID) { toast('Aucune coopérative associée à ce compte.', 'error'); return; }
+  const name = document.getElementById('coop-name').value.trim();
+  if (!name) { toast('Le nom de la coopérative est requis.', 'error'); return; }
+  const managers = [...document.querySelectorAll('#managers-rows .mgr-row')].map(r => ({
+    name: r.querySelector('.mgr-name').value.trim(),
+    role: r.querySelector('.mgr-role').value.trim(),
+    phone: r.querySelector('.mgr-phone').value.trim(),
+  })).filter(m => m.name);
+  const btn = document.getElementById('coop-save-btn'); if (btn) btn.disabled = true;
+  try {
+    const r = await authFetch('/cooperatives/' + LOGO_COOP_ID + '/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ name, country: document.getElementById('coop-country').value.trim(), managers }),
+    });
+    if (r && r.ok) { toast('Profil de la coopérative enregistré.'); loadCoopProfile(); }
+    else { let e = {}; try { e = await r.json(); } catch (_) {} toast(e.detail || 'Enregistrement impossible.', 'error'); }
+  } catch (e) { toast('Serveur injoignable.', 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
 async function loadLogo() {
   const box = document.getElementById('logo-preview');
   if (!box) return;
@@ -301,6 +371,7 @@ async function removeLogo() {
 }
 
 loadLogo();
+loadCoopProfile();
 
 const ROLE_LABELS = { admin: 'Admin', agronomist: 'Agronome', technician: 'Technicien', gestionnaire: 'Gestionnaire' };
 const ROLE_COLORS = { admin: 'var(--low)', agronomist: '#1e4a6e', technician: 'var(--muted)', gestionnaire: '#9a6200' };

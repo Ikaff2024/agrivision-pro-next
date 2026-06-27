@@ -83,6 +83,79 @@ def set_cooperative_plan(
     return {"cooperative_id": coop.id, "plan": coop.plan}
 
 
+# ── Profil de la coopérative (nom, pays, responsables) ────────────────────────
+class CoopManager(BaseModel):
+    name: str
+    role: str | None = None
+    phone: str | None = None
+
+
+class CoopProfileUpdate(BaseModel):
+    name: str | None = None
+    country: str | None = None
+    managers: list[CoopManager] | None = None
+
+
+def _managers_list(coop: Cooperative) -> list:
+    return coop.managers if isinstance(coop.managers, list) else []
+
+
+@router.get("/cooperatives/{cooperative_id:int}/profile")
+def get_cooperative_profile(
+    cooperative_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Profil de la coopérative (nom, pays, responsables). Lecture : tout membre de la coop."""
+    if current_user.cooperative_id is not None and cooperative_id != current_user.cooperative_id:
+        raise HTTPException(status_code=403, detail="Cooperative non autorisee.")
+    coop = _get_coop_or_404(db, cooperative_id)
+    return {
+        "cooperative_id": coop.id,
+        "name": coop.name,
+        "country": coop.country,
+        "managers": _managers_list(coop),
+    }
+
+
+@router.patch("/cooperatives/{cooperative_id:int}/profile")
+def update_cooperative_profile(
+    cooperative_id: int,
+    data: CoopProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Modifie le nom / pays / responsables de la coopérative. Admin, sa propre coop.
+
+    Le nom peut évoluer dans le temps ; il se répercute partout (en-têtes PDF, etc.).
+    """
+    _assert_coop_admin(current_user, cooperative_id)
+    coop = _get_coop_or_404(db, cooperative_id)
+    if data.name is not None:
+        new_name = data.name.strip()
+        if not new_name:
+            raise HTTPException(status_code=400, detail="Le nom de la coopérative ne peut pas être vide.")
+        coop.name = new_name
+    if data.country is not None:
+        coop.country = data.country.strip() or None
+    if data.managers is not None:
+        # Normalise : on garde les responsables ayant au moins un nom.
+        coop.managers = [
+            {"name": m.name.strip(),
+             "role": (m.role or "").strip() or None,
+             "phone": (m.phone or "").strip() or None}
+            for m in data.managers if (m.name or "").strip()
+        ]
+    db.commit()
+    db.refresh(coop)
+    return {
+        "cooperative_id": coop.id,
+        "name": coop.name,
+        "country": coop.country,
+        "managers": _managers_list(coop),
+    }
+
+
 # ── Logo de la coopérative (affiché sur les PDF) ──────────────────────────────
 _ALLOWED_LOGO_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 _MAX_LOGO_BYTES = 512 * 1024  # 512 Ko (stocké en base, intégré aux PDF)

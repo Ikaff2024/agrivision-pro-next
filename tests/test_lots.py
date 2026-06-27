@@ -62,6 +62,23 @@ def test_lot_passport_structure(client):
     assert "eudr_compliance_rate_pct" in pp["summary"]
 
 
+def test_lot_passport_includes_bill_of_lading(client):
+    """Exportateur + n° de connaissement saisis sur le lot figurent au passeport."""
+    h = _login(client, "lot.bl@test.ci", coop="Coop BL")
+    p = _plantation(client, h)
+    hv = _harvest(client, h, p["id"], 500)
+    lot = client.post("/lots", json={"harvest_ids": [hv["id"]]}, headers=h).json()
+    upd = client.patch(f"/lots/{lot['id']}",
+                       json={"exporter": "OCEAN-SA", "external_ref": "BL-2026-001"}, headers=h)
+    assert upd.status_code == 200, upd.text
+    pp = client.get(f"/lots/{lot['id']}/passport", headers=h).json()
+    assert pp["lot"]["external_ref"] == "BL-2026-001"
+    from app.services.lot_reports import build_lot_passport_context
+    ctx = build_lot_passport_context(pp)
+    assert ctx["external_ref"] == "BL-2026-001"
+    assert ctx["exporter"] == "OCEAN-SA"
+
+
 def test_lot_passport_pdf(client):
     h = _login(client, "lot.pdf@test.ci", coop="Coop PDF")
     p = _plantation(client, h)

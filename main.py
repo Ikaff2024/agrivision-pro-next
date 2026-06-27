@@ -78,6 +78,9 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS logo_plaque BOOLEAN DEFAULT TRUE NOT NULL"
                 ))
                 conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS managers JSON"
+                ))
+                conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
                 ))
                 # Sprint #0 - Phase 0.1.a-1 : entite Producer

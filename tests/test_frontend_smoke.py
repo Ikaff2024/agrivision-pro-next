@@ -148,6 +148,12 @@ PAGE_MARKERS = {
         "communityServices",  # accès aux services (Fiche A)
         "downloadFicheA",     # export PDF de la Fiche A
     ],
+    "admin.html": [
+        "loadCoopProfile",     # édition nom + responsables de la coopérative
+        "saveCoopProfile",
+        "addManagerRow",
+        "uploadLogo",          # logo coop (existant)
+    ],
     "complaints.html": [],  # existence suffit
     "owner.html": [
         "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative

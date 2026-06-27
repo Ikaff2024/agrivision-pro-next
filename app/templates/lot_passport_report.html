@@ -63,6 +63,8 @@
   <div class="cover-owner">
     Statut : {{ status }}{% if season and season != '—' %} · Campagne {{ season }}{% endif %}
     {% if certification %}<br>Certification : {{ certification }}{% endif %}
+    {% if exporter %}<br>Exportateur : {{ exporter }}{% endif %}
+    {% if external_ref %}<br>N° connaissement : {{ external_ref }}{% endif %}
   </div>
   <div class="cover-score">
     <div class="cover-score-label">Poids total du lot</div>
@@ -86,6 +88,8 @@
     <div class="card"><div class="card-label">Sacs</div><div class="card-value">{{ bag_count }}</div></div>
     <div class="card"><div class="card-label">Entrepôt</div><div class="card-value">{{ warehouse or "—" }}</div></div>
     <div class="card"><div class="card-label">Récoltes</div><div class="card-value">{{ harvests }}</div></div>
+    <div class="card"><div class="card-label">Exportateur</div><div class="card-value">{{ exporter or "—" }}</div></div>
+    <div class="card"><div class="card-label">N° connaissement</div><div class="card-value">{{ external_ref or "—" }}</div></div>
   </div>
 </div>
 
