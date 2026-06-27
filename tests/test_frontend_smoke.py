@@ -154,6 +154,11 @@ PAGE_MARKERS = {
         "addManagerRow",
         "uploadLogo",          # logo coop (existant)
     ],
+    "remediation.html": [
+        "submitCompleteAction",
+        "onCaFilesChange",       # pièce jointe de preuve à la clôture d'action
+        "ca-files",
+    ],
     "complaints.html": [],  # existence suffit
     "owner.html": [
         "loadAiCost",          # carte coût de revient IA (API Claude) par coopérative

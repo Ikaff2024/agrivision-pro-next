@@ -207,15 +207,18 @@
   <div class="modal">
     <div class="modal-title">Cloturer l'action</div>
     <p style="color:var(--muted);font-size:13px;margin-bottom:12px">
-      Une preuve est obligatoire (document, photo ou signature).
+      Une preuve est obligatoire : <strong>joignez un fichier</strong> (photo, acte, reçu, PDF) et/ou listez les documents.
     </p>
     <div class="form-group">
-      <label class="form-label">Document(s) de preuve (un par ligne)</label>
-      <textarea class="form-input" id="ca-documents" rows="2" placeholder="Acte d'inscription scolaire&#10;Recu kit scolaire"></textarea>
+      <label class="form-label">Joindre des fichiers de preuve</label>
+      <input class="form-input" type="file" id="ca-files" multiple accept="image/*,application/pdf"
+             onchange="onCaFilesChange()" style="padding:7px">
+      <div id="ca-files-list" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:2px">Images ou PDF · max ~3 Mo au total.</div>
     </div>
     <div class="form-group">
-      <label class="form-label">Photo(s) (un nom de fichier par ligne)</label>
-      <textarea class="form-input" id="ca-photos" rows="2" placeholder="photo_terrain_1.jpg"></textarea>
+      <label class="form-label">Documents de preuve par référence (optionnel, un par ligne)</label>
+      <textarea class="form-input" id="ca-documents" rows="2" placeholder="Acte d'inscription scolaire&#10;Recu kit scolaire"></textarea>
     </div>
     <div class="form-group">
       <label class="form-label">Evaluation d'impact</label>
@@ -531,20 +534,48 @@ function openCompleteAction(actionId) {
   _currentActionId = actionId;
   document.getElementById('ca-err').style.display='none';
   document.getElementById('ca-documents').value='';
-  document.getElementById('ca-photos').value='';
   document.getElementById('ca-impact').value='';
+  const f = document.getElementById('ca-files'); if (f) f.value='';
+  const fl = document.getElementById('ca-files-list'); if (fl) fl.innerHTML='';
   document.getElementById('m-complete-action').classList.add('active');
 }
 function closeCompleteAction() { document.getElementById('m-complete-action').classList.remove('active'); }
+const CA_MAX_BYTES = 3 * 1024 * 1024;   // ~3 Mo cumulés (stockés en base, audit)
+function onCaFilesChange() {
+  const inp = document.getElementById('ca-files');
+  const box = document.getElementById('ca-files-list');
+  const files = [...(inp.files || [])];
+  const total = files.reduce((s, f) => s + f.size, 0);
+  box.innerHTML = files.length
+    ? files.map(f => `• ${f.name} (${Math.round(f.size / 1024)} Ko)`).join('<br>') +
+      (total > CA_MAX_BYTES ? '<br><span style="color:var(--high)">Trop volumineux (max 3 Mo) — retirez un fichier.</span>' : '')
+    : '';
+}
+function _readFileAsDataUri(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve({ name: file.name, type: file.type || 'application/octet-stream', data: r.result });
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 async function submitCompleteAction() {
   const err = document.getElementById('ca-err'); err.style.display = 'none';
   const docs = document.getElementById('ca-documents').value.trim().split('\n').filter(Boolean);
-  const photos = document.getElementById('ca-photos').value.trim().split('\n').filter(Boolean);
+  const fileInputs = [...(document.getElementById('ca-files').files || [])];
+  const totalBytes = fileInputs.reduce((s, f) => s + f.size, 0);
+  if (totalBytes > CA_MAX_BYTES) {
+    err.textContent = 'Fichiers trop volumineux (max ~3 Mo au total).'; err.style.display = 'block'; return;
+  }
   const evidence = {};
   if (docs.length) evidence.documents = docs;
-  if (photos.length) evidence.photos = photos;
+  if (fileInputs.length) {
+    try { evidence.files = await Promise.all(fileInputs.map(_readFileAsDataUri)); }
+    catch (e) { err.textContent = 'Lecture des fichiers impossible.'; err.style.display = 'block'; return; }
+  }
   if (Object.keys(evidence).length === 0) {
-    err.textContent = 'Au moins une preuve (document ou photo) est obligatoire.'; err.style.display = 'block'; return;
+    err.textContent = 'Au moins une preuve est obligatoire : joignez un fichier ou listez un document.'; err.style.display = 'block'; return;
   }
   try {
     const res = await cgFetch(`/remediation/actions/${_currentActionId}/complete`, {
