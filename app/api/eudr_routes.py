@@ -495,7 +495,11 @@ def auto_deforestation_check(
     db.commit()
     db.refresh(check)
 
-    score = compute_eudr_score(plantation, db)
+    # Le contrôle déforestation change le score → on MET À JOUR LE CACHE (colonnes
+    # eudr_*), sinon la liste/résumé EUDR (qui lisent le cache) restent figés après
+    # une vérification satellite / NDVI. (Même correctif que le contrôle manuel.)
+    score = refresh_plantation_eudr(plantation, db)
+    db.commit()
     return {
         "check": _deforestation_check_to_dict(check),
         "deforestation": signal,

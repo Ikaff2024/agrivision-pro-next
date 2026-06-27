@@ -130,6 +130,24 @@ def test_auto_persists_check(client, monkeypatch):
         db.close()
 
 
+def test_auto_check_updates_eudr_cache(client, monkeypatch):
+    """Le contrôle auto met à jour le CACHE EUDR (colonnes eudr_*), sinon la liste
+    et le résumé EUDR (qui lisent le cache) restent figés après vérif satellite/NDVI."""
+    pid, auth = _seed()  # 5/6 au départ (R6 manquant)
+    _mock_signal(monkeypatch, loss_detected=False, source="global-forest-watch")
+    r = client.post(f"/plantations/{pid}/deforestation-check/auto", headers=auth)
+    assert r.status_code == 201, r.text
+    db = TestingSessionLocal()
+    try:
+        p = db.query(Plantation).filter(Plantation.id == pid).first()
+        assert p.eudr_computed_at is not None
+        assert p.eudr_score == 6                    # R6 désormais passé
+        assert p.eudr_status == "conforme"
+        assert "no_deforestation" not in (p.eudr_rules_failed or [])
+    finally:
+        db.close()
+
+
 def test_auto_viewer_forbidden_403(client, monkeypatch):
     pid, _ = _seed()
     db = TestingSessionLocal()
