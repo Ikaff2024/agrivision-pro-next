@@ -145,11 +145,15 @@ def retrieve(db: Session, topics: Optional[list] = None, limit: int = 40) -> lis
     return items[: max(1, limit)]
 
 
-def synthesize(items: list, llm=None) -> dict:
-    """Construit un prompt à partir des items et appelle le LLM AGNOSTIQUE pour une
-    synthèse structurée en français. `llm(prompt) -> {"text","model"}` injectable
-    (tests). Renvoie {summary, model, items}. Anti-hallucination : « uniquement
-    à partir des sources »."""
+def synthesize(items: list, llm=None, db=None) -> dict:
+    """Construit un prompt à partir des items et appelle le LLM (fournisseur choisi
+    par le propriétaire) pour une synthèse structurée en français.
+
+    `llm(prompt) -> {"text","model"}` injectable (tests). Si absent, on résout le
+    fournisseur via le sélecteur propriétaire (`db`) + variables d'env — le moteur
+    de veille est ainsi **alimenté par les mêmes fournisseurs** que la plateforme,
+    sans dépendre de Claude. Renvoie {summary, model, items}. Anti-hallucination :
+    « uniquement à partir des sources »."""
     if not items:
         return {"summary": "Aucun élément de veille récent.", "model": None, "items": []}
     lines = []
@@ -174,7 +178,7 @@ def synthesize(items: list, llm=None) -> dict:
         "N'invente rien qui ne figure pas dans les sources.\n\n"
         f"SOURCES :\n{corpus}"
     )
-    call = llm or _default_llm
+    call = llm or (lambda p: _default_llm(p, db=db))
     out = call(prompt) or {}
     return {
         "summary": out.get("text", ""),
@@ -186,30 +190,11 @@ def synthesize(items: list, llm=None) -> dict:
     }
 
 
-def _default_llm(prompt: str) -> dict:
-    """Appel LLM **open-source** via endpoint OpenAI-compatible (VPS Ollama ou API
-    hébergée open-weights). Lève si non configuré — on NE retombe PAS silencieusement
-    sur Claude (tout l'intérêt est l'indépendance). httpx (déjà une dépendance)."""
-    import httpx
-    base_url = (os.getenv("AI_OPENAI_BASE_URL") or "").rstrip("/")
-    model = os.getenv("AI_OPENAI_MODEL") or os.getenv("VEILLE_MODEL") or ""
-    api_key = os.getenv("AI_OPENAI_API_KEY") or os.getenv("OPENWEIGHTS_API_KEY") or ""
-    if not (base_url and model and api_key):
-        raise RuntimeError(
-            "Veille : modèle open non configuré (AI_OPENAI_BASE_URL / AI_OPENAI_MODEL / AI_OPENAI_API_KEY)."
-        )
-    r = httpx.post(
-        base_url + "/chat/completions",
-        headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2,
-            "max_tokens": 1200,
-        },
-        timeout=120.0,
-    )
-    r.raise_for_status()
-    data = r.json()
-    text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "")
-    return {"text": text, "model": data.get("model", model)}
+def _default_llm(prompt: str, db=None) -> dict:
+    """Synthèse via le client LLM partagé : fournisseur résolu par le sélecteur
+    propriétaire (`db`) puis variables d'env (presets DeepSeek/Qwen/OpenAI/
+    OpenRouter/open-weights/local). Le moteur de veille est donc **alimenté par
+    les mêmes fournisseurs** que la plateforme et reste indépendant de Claude.
+    Lève (RuntimeError) si le fournisseur n'est pas configuré."""
+    from app.services import llm_client
+    return llm_client.chat(db, prompt, max_tokens=1200, temperature=0.2)

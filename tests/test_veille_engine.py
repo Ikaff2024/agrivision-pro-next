@@ -126,17 +126,48 @@ def test_digest_stored_and_latest(client, auth_headers, monkeypatch):
     monkeypatch.setattr(veille_engine, "_fetch_feed", lambda url: [{"title": "Item", "link": "http://i"}])
     client.post("/veille/ingest", headers=auth_headers)
     monkeypatch.setattr(veille_engine, "synthesize",
-                        lambda items, llm=None: {"summary": "OK", "model": "qwen-test", "items": []})
+                        lambda items, llm=None, db=None: {"summary": "OK", "model": "qwen-test", "items": []})
     r = client.post("/veille/digest", headers=auth_headers)
     assert r.status_code == 200 and r.json()["model"] == "qwen-test"
     latest = client.get("/veille/digest", headers=auth_headers).json()
     assert latest["digest"]["payload"]["summary"] == "OK"
 
 
+def test_digest_uses_owner_selected_provider(client, auth_headers, monkeypatch):
+    """La synthèse veille est alimentée par le fournisseur choisi par le propriétaire
+    (sélecteur IA), pas par une config codée en dur — moteur agnostique de Claude."""
+    from app.services import platform_settings, llm_client
+    import app.ai_advisor as ai_advisor
+    monkeypatch.setattr(ai_advisor, "AI_PROVIDER", "anthropic")  # défaut ignoré : le sélecteur prime
+    monkeypatch.setattr(veille_engine, "_fetch_feed", lambda url: [{"title": "Item", "link": "http://i"}])
+    client.post("/veille/ingest", headers=auth_headers)
+
+    captured = {}
+    def fake_openai(provider, model, prompt, max_tokens, temperature):
+        captured["provider"] = provider
+        return {"text": "Synthèse open", "model": model or "open-model"}
+    monkeypatch.setattr(llm_client, "_openai_compatible_chat", fake_openai)
+
+    db = TestingSessionLocal()
+    try:
+        platform_settings.set_setting(db, platform_settings.AI_PROVIDER_KEY, "openrouter")
+        platform_settings.set_setting(db, platform_settings.AI_MODEL_KEY, "")
+    finally:
+        db.close()
+
+    r = client.post("/veille/digest", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert captured["provider"] == "openrouter"   # alimenté par le fournisseur sélectionné
+
+
 def test_digest_502_when_model_unconfigured(client, auth_headers, monkeypatch):
-    for v in ("AI_OPENAI_BASE_URL", "AI_OPENAI_MODEL", "AI_OPENAI_API_KEY", "OPENWEIGHTS_API_KEY", "VEILLE_MODEL"):
+    import app.ai_advisor as ai_advisor
+    # Fournisseur open sélectionné mais AUCUNE clé/URL configurée → 502 propre.
+    monkeypatch.setattr(ai_advisor, "AI_PROVIDER", "openweights")
+    for v in ("AI_OPENAI_BASE_URL", "AI_OPENAI_MODEL", "AI_OPENAI_API_KEY",
+              "OPENWEIGHTS_API_KEY", "VEILLE_MODEL", "ANTHROPIC_API_KEY"):
         monkeypatch.delenv(v, raising=False)
     monkeypatch.setattr(veille_engine, "_fetch_feed", lambda url: [{"title": "Item", "link": "http://i"}])
     client.post("/veille/ingest", headers=auth_headers)
-    # items présents + aucun modèle open configuré → synthèse échoue proprement (502), pas de repli Claude.
+    # items présents + fournisseur non configuré → synthèse échoue proprement (502), pas de repli Claude.
     assert client.post("/veille/digest", headers=auth_headers).status_code == 502

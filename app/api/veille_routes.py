@@ -77,9 +77,16 @@ def veille_make_digest(
         raise HTTPException(status_code=403, detail="Synthèse veille réservée à l'administrateur.")
     items = veille_engine.retrieve(db, topics=[topic] if topic else None)
     try:
-        result = veille_engine.synthesize(items)
+        # db transmis → la synthèse utilise le fournisseur choisi par le propriétaire
+        # (sélecteur IA), sinon les variables d'env. Moteur agnostique de Claude.
+        result = veille_engine.synthesize(items, db=db)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        import httpx as _httpx
+        if isinstance(e, _httpx.HTTPError):
+            raise HTTPException(status_code=502, detail=f"Fournisseur IA injoignable : {type(e).__name__}.")
+        raise
     dg = VeilleDigest(topic=topic, payload=result, model=result.get("model"), item_count=len(items))
     db.add(dg)
     db.commit()
