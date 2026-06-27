@@ -12,7 +12,7 @@
 
 | Brique | Fichier | Dépendance Claude aujourd'hui |
 |---|---|---|
-| **Conseil IA** (agronome) | `app/ai_advisor.py` | ✅ **Déjà agnostique** : `AI_PROVIDER` + `_OPENAI_PRESETS` (deepseek/qwen/openai), surcharge `AI_OPENAI_BASE_URL` / `_MODEL` / `_API_KEY`. Sortie normalisée + `usage` (suivi coût). |
+| **Conseil IA** (agronome) | `app/ai_advisor.py` | ✅ **Déjà agnostique** : `AI_PROVIDER` + `_OPENAI_PRESETS` (deepseek/qwen/openai/**openrouter**/openweights/local), surcharge `AI_OPENAI_BASE_URL` / `_MODEL` / `_API_KEY`. Sortie normalisée + `usage` (suivi coût). |
 | **Veille — prix** | `app/services/market_intel.py` | ✅ **Indépendant** : cours ICE NY via source publique gratuite (Yahoo). Ne dépend d'aucune IA. |
 | **Veille — actualités + synthèse** | `app/services/market_intel.py` | ❌ **Claude + recherche web** (`ANTHROPIC_API_KEY` + web search). **C'est LE point de couplage à casser.** |
 | Suivi du coût | `AiUsage` (modèle) | Déjà en place (tokens in/out par modèle). |

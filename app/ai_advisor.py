@@ -25,6 +25,11 @@ _OPENAI_PRESETS = {
     "deepseek": ("https://api.deepseek.com", "deepseek-chat", "DEEPSEEK_API_KEY"),
     "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "qwen-plus", "DASHSCOPE_API_KEY"),
     "openai": ("https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY"),
+    # 'openrouter' : passerelle multi-modèles compatible OpenAI (https://openrouter.ai).
+    #   Donne accès à des centaines de modèles (open-source ET propriétaires) via une
+    #   seule clé. Surcharger AI_OPENAI_MODEL pour choisir un autre modèle, ex :
+    #   'deepseek/deepseek-chat', 'qwen/qwen-2.5-72b-instruct', 'anthropic/claude-3.5-sonnet'.
+    "openrouter": ("https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct", "OPENROUTER_API_KEY"),
     # Modèles OPEN-SOURCE (indépendance vis-à-vis de Claude — cf. docs/PLAN_MOTEUR_IA_AGNOSTIQUE.md).
     # 'openweights' : API hébergée open-weights (Together/DeepInfra/Scaleway…). base_url VIDE →
     #   définir AI_OPENAI_BASE_URL avec l'URL du fournisseur. Modèle « meilleur open » par défaut.
@@ -198,11 +203,18 @@ async def _advice_openai_compatible(prompt: str, plantation: dict):
     if not base_url or not api_key or not model:
         logger.error("Fournisseur IA '%s' incomplet (base_url/clé/modèle manquant).", AI_PROVIDER)
         return {"error": "Fournisseur IA non configuré (clé/URL/modèle manquant). Contactez l'administrateur."}, None
+    headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+    # OpenRouter : en-têtes d'attribution facultatifs (classements + quotas appli).
+    if AI_PROVIDER == "openrouter":
+        referer = os.getenv("OPENROUTER_SITE_URL") or "https://agrivision.pro"
+        title = os.getenv("OPENROUTER_APP_NAME") or "AgriVision Pro"
+        headers["HTTP-Referer"] = referer
+        headers["X-Title"] = title
     try:
         async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
                 base_url + "/chat/completions",
-                headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
+                headers=headers,
                 json={
                     "model": model,
                     "max_tokens": 1500,

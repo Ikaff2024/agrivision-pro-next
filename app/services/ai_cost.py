@@ -47,6 +47,8 @@ _MODEL_PRICES = {
     "deepseek": (0.27, 1.10),
     "qwen": (0.40, 1.20),
     "gpt-4o-mini": (0.15, 0.60),
+    # Modèles open via OpenRouter (ids type 'meta-llama/llama-3.3-70b-instruct').
+    "llama": (0.12, 0.30),
 }
 
 
