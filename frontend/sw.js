@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.78-map-cap-zoom-19';
+const CACHE_VERSION = 'avp-v4.79-map-tiles-networkfirst';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -70,6 +70,10 @@ const NETWORK_FIRST_PATTERNS = [
   /config\.js$/,
   /avp-offline\.js$/,
 ];
+
+// Fonds de carte (tuiles) → Network First : on ne fige jamais une tuile grise
+// « Map data not yet available » d'Esri ; le cache ne sert qu'en secours hors ligne.
+const MAP_TILE_HOSTS = ['arcgisonline.com', 'cartocdn.com'];
 
 // Préfixes API Railway à mettre en cache pour le mode offline
 const API_ORIGIN = 'https://agrivision-api-production.up.railway.app';
@@ -187,7 +191,18 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. CDN externes (Leaflet, Chart.js, Google Fonts) → Cache First
+  // 3. Tuiles de fond de carte (satellite Esri / CARTO) → Network First.
+  //    Esri renvoie parfois une fausse tuile grise « Map data not yet available »
+  //    (transitoire ou zone non couverte). En cache-first, cette tuile grise
+  //    restait figée par parcelle. En network-first, on retente toujours le
+  //    réseau (image réelle dès qu'Esri l'a) ; le cache ne sert qu'en secours
+  //    hors ligne (terrain).
+  if (MAP_TILE_HOSTS.some(h => url.hostname.endsWith(h))) {
+    event.respondWith(networkFirstStatic(request));
+    return;
+  }
+
+  // 4. CDN externes (Leaflet, Chart.js, Google Fonts) → Cache First
   event.respondWith(cacheFirstStatic(request));
 });
 
