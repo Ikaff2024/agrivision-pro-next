@@ -207,7 +207,7 @@
      style="position:fixed;bottom:8px;right:10px;z-index:9999;font:11px/1.4 system-ui,sans-serif;
             color:#6a7d64;background:rgba(255,255,255,.85);border:1px solid #e6ddd0;
             border-radius:6px;padding:2px 8px;pointer-events:none;user-select:none">
-  build avp-v4.71-veille-clean-summary
+  build avp-v4.72-map-overzoom
 </div>
 <div class="avp-layout">
   <nav id="sidebar"></nav>
@@ -353,17 +353,23 @@ let boundaryModeActive = false; // Défini globalement pour focusPlantation
 const RC = { LOW:'#1a6b3a', MEDIUM:'#9a6200', HIGH:'#922b21' };
 const RL = { LOW:'Faible', MEDIUM:'Moyen', HIGH:'Élevé' };
 
-// Init map centered on Côte d'Ivoire
-map = L.map('map', { zoomControl: true }).setView([6.8, -5.5], 7);
+// Init map centered on Côte d'Ivoire.
+// maxZoom > maxNativeZoom des fonds → « overzoom » (façon Google Maps) : au-delà
+// du dernier niveau d'imagerie disponible, Leaflet AGRANDIT la dernière tuile au
+// lieu d'afficher des tuiles blanches. L'utilisateur peut donc zoomer à fond et
+// voir toujours le maximum d'imagerie disponible.
+map = L.map('map', { zoomControl: true, maxZoom: 21 }).setView([6.8, -5.5], 7);
 
 // Fonds de carte : « Carte » (claire, vue d'ensemble) et « Satellite » (Esri World
 // Imagery — gratuit, sans clé). L'imagerie satellite est précieuse pour tracer une
 // parcelle : on voit les arbres et les limites réelles.
+// maxNativeZoom = dernier niveau RÉELLEMENT servi par le fournisseur (au-delà →
+// agrandissement, jamais de blanc). Satellite Esri en zone rurale CI : ~18.
 const baseCarte = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap, © CARTO', maxZoom: 19
+  attribution: '© OpenStreetMap, © CARTO', maxNativeZoom: 20, maxZoom: 21
 });
 const baseSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Imagerie © Esri, Maxar, Earthstar Geographics', maxZoom: 19
+  attribution: 'Imagerie © Esri, Maxar, Earthstar Geographics', maxNativeZoom: 18, maxZoom: 21
 });
 baseCarte.addTo(map);  // fond par défaut
 
