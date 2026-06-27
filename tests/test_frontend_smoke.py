@@ -171,6 +171,7 @@ PAGE_MARKERS = {
         "loadRegister",        # registre certifié filtrable
         "exportRegisterCsv",   # export CSV du registre
         "bulkAssign",          # affectation en masse
+        "draftCorrectiveAction",  # rédaction IA de l'action corrective
     ],
     "complaints.html": [],  # existence suffit
     "owner.html": [

@@ -579,6 +579,58 @@ def bulk_remove_certification(
     return {"deleted": deleted, "certification_id": data.certification_id}
 
 
+class CorrectiveActionDraft(BaseModel):
+    description: str = Field(..., min_length=4, max_length=2000)
+    severity: Optional[str] = Field(None, max_length=20)
+    certification_code: Optional[str] = Field(None, max_length=40)
+
+
+@router.post("/certification/draft-corrective-action")
+def draft_corrective_action(
+    data: CorrectiveActionDraft,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Aide IA : rédige un BROUILLON d'action corrective pour une non-conformité, à
+    partir de sa description + sévérité. Sans état (sur la saisie en cours) ; le
+    responsable revoit avant d'enregistrer. Réservé admin/agronome/gestionnaire."""
+    _require_write(current_user)
+    sev = (data.severity or "").strip() or "non précisée"
+    std = (data.certification_code or "").strip() or "certification cacao"
+    prompt = (
+        "Tu es responsable qualité/certification dans une coopérative de cacao "
+        "(Côte d'Ivoire). Rédige une ACTION CORRECTIVE concrète, vérifiable et réaliste "
+        "(2 à 3 phrases : étapes + responsable type + délai indicatif) pour la "
+        f"non-conformité suivante (sévérité : {sev} ; standard : {std}). "
+        "Réponds UNIQUEMENT par le texte de l'action corrective, sans préambule.\n\n"
+        f"NON-CONFORMITÉ : {data.description.strip()}"
+    )
+    try:
+        from app.services import llm_client
+        out = llm_client.chat(db, prompt, max_tokens=350, temperature=0.3)
+    except llm_client.LLMNotConfigured as ex:
+        raise HTTPException(status_code=502, detail=str(ex))
+    except Exception as ex:  # noqa: BLE001
+        import httpx as _httpx
+        if isinstance(ex, _httpx.HTTPError):
+            raise HTTPException(status_code=502, detail=f"Fournisseur IA injoignable : {type(ex).__name__}.")
+        raise
+    try:
+        from app.db.models import AiUsage
+        from app.services.ai_cost import compute_cost_usd
+        it_, ot_ = out.get("input_tokens", 0), out.get("output_tokens", 0)
+        db.add(AiUsage(
+            cooperative_id=current_user.cooperative_id, user_id=current_user.id,
+            plantation_id=None, feature="certification_corrective_action",
+            model=out.get("model", ""), input_tokens=it_, output_tokens=ot_,
+            cost_usd=compute_cost_usd(it_, ot_, out.get("model")),
+        ))
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+    return {"text": (out.get("text") or "").strip(), "model": out.get("model")}
+
+
 @router.get("/certification/summary")
 def certification_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     aq = db.query(CertificationAudit)

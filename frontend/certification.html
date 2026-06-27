@@ -106,7 +106,15 @@
               <div class="form-group"><label class="form-label">Échéance</label><input class="form-input" type="date" id="n-due"></div>
             </div>
             <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="n-desc" rows="2"></textarea></div>
-            <div class="form-group"><label class="form-label">Action corrective</label><textarea class="form-input" id="n-action" rows="2"></textarea></div>
+            <div class="form-group">
+              <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                <span>Action corrective</span>
+                <button type="button" class="btn btn-sm btn-outline" id="n-ai-btn" onclick="draftCorrectiveAction()" title="Rédiger un brouillon avec l'IA">
+                  <span class="material-symbols-outlined" style="font-size:15px">auto_awesome</span> Rédiger (IA)
+                </button>
+              </label>
+              <textarea class="form-input" id="n-action" rows="2"></textarea>
+            </div>
             <div class="form-group"><label class="form-label">Responsable</label><input class="form-input" id="n-resp"></div>
             <button class="btn btn-primary" onclick="createNC()" style="width:100%;justify-content:center">Enregistrer la NC</button>
           </div>
@@ -314,6 +322,27 @@ async function completeAudit(id){
   const r = await authFetch(`/certification-audits/${id}/complete`,{method:'POST',body:JSON.stringify({result:result.trim(),score_pct:score?Number(score):null})});
   if(!r.ok){ const e=await r.json().catch(()=>({})); return toast('Clôture impossible : '+(e.detail||'')); }
   await loadAll();
+}
+
+async function draftCorrectiveAction(){
+  const desc = document.getElementById('n-desc').value.trim();
+  if(desc.length < 4) return toast('Saisissez d\'abord la description de la non-conformité.');
+  const btn = document.getElementById('n-ai-btn');
+  const field = document.getElementById('n-action');
+  if(btn) btn.disabled = true;
+  const prev = field.value; field.value = 'Rédaction IA en cours…';
+  const certSel = document.getElementById('a-cert');
+  const code = certSel.options[certSel.selectedIndex]?.text?.split(' — ')[0] || null;
+  try {
+    const r = await authFetch('/certification/draft-corrective-action', { method:'POST', body: JSON.stringify({
+      description: desc, severity: document.getElementById('n-sev').value, certification_code: code,
+    })});
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok){ field.value = prev; return toast(r.status===502?'Fournisseur IA non configuré côté serveur.':(d.detail||'Rédaction impossible.'), 'error'); }
+    field.value = d.text || prev;
+    toast('Brouillon généré — revoyez-le avant d\'enregistrer.');
+  } catch(e){ field.value = prev; toast('Serveur injoignable.', 'error'); }
+  finally { if(btn) btn.disabled = false; }
 }
 
 async function createNC(){

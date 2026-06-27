@@ -107,6 +107,33 @@ def test_cockpit_cross_coop_isolation(client):
     assert rb.status_code == 200 and rb.json()["applied"] == 0
 
 
+def test_draft_corrective_action(client, monkeypatch):
+    import app.services.llm_client as llmc
+    captured = {}
+    def _chat(db, prompt, **kw):
+        captured["prompt"] = prompt
+        return {"text": "Réaménager le local de stockage sous 30 jours ; responsable : magasinier.",
+                "model": "meta-llama/llama-3.3-70b-instruct", "input_tokens": 15, "output_tokens": 25}
+    monkeypatch.setattr(llmc, "chat", _chat)
+    h = _login(client, "cock.draft@test.ci", coop="Coop Draft")
+    r = client.post("/certification/draft-corrective-action", json={
+        "description": "Stockage des pesticides non conforme", "severity": "major", "certification_code": "RA",
+    }, headers=h)
+    assert r.status_code == 200, r.text
+    assert "Réaménager" in r.json()["text"]
+    assert "NON-CONFORMITÉ" in captured["prompt"] and "major" in captured["prompt"]
+
+
+def test_draft_corrective_action_502(client, monkeypatch):
+    import app.services.llm_client as llmc
+    def _chat(db, p, **k):
+        raise llmc.LLMNotConfigured("Fournisseur IA non configuré.")
+    monkeypatch.setattr(llmc, "chat", _chat)
+    h = _login(client, "cock.draft502@test.ci", coop="Coop Draft502")
+    r = client.post("/certification/draft-corrective-action", json={"description": "Test non conformité"}, headers=h)
+    assert r.status_code == 502
+
+
 def test_cockpit_requires_auth(client):
     assert client.get("/certification/coverage").status_code == 401
     assert client.get("/certification/register").status_code == 401
