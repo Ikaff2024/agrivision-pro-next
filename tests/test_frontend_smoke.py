@@ -133,6 +133,8 @@ PAGE_MARKERS = {
         "exportChildrenCsv",     # export CSV (Excel) de la sélection
         "setChildrenView",       # bascule vue cartes / liste
         "renderChildrenList",    # vue liste (tableau) filtrable
+        "populateParentFilter",  # filtre par parent (producteur)
+        "filter-parent",
     ],
     "ssrte.html": [
         "addMember",          # tableau membres du ménage (Fiche B)
