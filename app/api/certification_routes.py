@@ -602,12 +602,15 @@ def draft_corrective_action(
         "(Côte d'Ivoire). Rédige une ACTION CORRECTIVE concrète, vérifiable et réaliste "
         "(2 à 3 phrases : étapes + responsable type + délai indicatif) pour la "
         f"non-conformité suivante (sévérité : {sev} ; standard : {std}). "
+        "Ancre la réponse sur le PROBLÈME PRÉCIS décrit (reprends l'élément en cause) ; "
+        "évite les formules passe-partout applicables à n'importe quelle non-conformité. "
+        "Adapte le délai à la sévérité (critique = court). "
         "Réponds UNIQUEMENT par le texte de l'action corrective, sans préambule.\n\n"
         f"NON-CONFORMITÉ : {data.description.strip()}"
     )
     try:
         from app.services import llm_client
-        out = llm_client.chat(db, prompt, max_tokens=350, temperature=0.3)
+        out = llm_client.chat(db, prompt, max_tokens=350, temperature=0.6)
     except llm_client.LLMNotConfigured as ex:
         raise HTTPException(status_code=502, detail=str(ex))
     except Exception as ex:  # noqa: BLE001
