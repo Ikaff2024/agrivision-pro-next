@@ -38,6 +38,9 @@ Enregistrer les **achats bord champ** : pesée, bon d'achat, prix, montant — e
 4. **Enregistrer l'achat** → une **récolte de 1 000 kg** est créée sur la parcelle ; elle alimente les
    **volumes** et devient affectable à un **lot** (voir 5.B).
 
+> 💡 Comme l'achat **génère** déjà la récolte, **ne saisissez pas** en plus une récolte manuelle pour la
+> même livraison (chapitre 4.C, chemin A) — vous créeriez un **doublon** de volume.
+
 > ⚠️ Si Koffi Yao est sous **blocage social CacaoGuard** (cas travail des enfants), c'est **signalé**
 > mais cela **n'empêche pas** par défaut l'achat ni l'entrée en lot — le social est **dissocié de l'EUDR**.
 > Une coopérative peut activer un **blocage social à l'export** (Admin ▸ profil coopérative) si son acheteur l'exige.

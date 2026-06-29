@@ -6,8 +6,9 @@
 La page d'**accueil** après connexion : vue **opérationnelle** de votre coopérative.
 
 ### Ce qu'on y voit
-- **Cockpit « Vue 360° »** (Admin/Agronome) : 7 indicateurs **cliquables** — Producteurs actifs, Conformité
-  EUDR, Enfants à risque, Revenu vital atteint, Volume campagne, Volume certifié, Alertes ouvertes. Cliquer
+- **Cockpit « Vue 360° »** (Admin/Agronome) : indicateurs **cliquables** — Producteurs actifs, Conformité
+  EUDR, Enfants à risque, Revenu vital atteint, Volume campagne, **Volume non tracé** (récoltes pas encore
+  affectées à un lot — cliquer ouvre **Lots** pour les rattacher), Volume certifié, Alertes ouvertes. Cliquer
   une métrique **ouvre la page concernée pré-filtrée** sur ce sous-ensemble (ex. « X conformes » → liste EUDR
   filtrée sur les parcelles conformes).
 - **Compteurs agronomiques** : nombre de plantations, répartition du **risque agronomique** (faible/moyen/élevé).

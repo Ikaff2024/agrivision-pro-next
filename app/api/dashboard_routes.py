@@ -144,12 +144,20 @@ def direction_dashboard(
             Harvest.plantation_id.in_(plant_ids),
             (Harvest.certification_id.isnot(None)) | (Harvest.plantation_id.in_(certified_plant_ids or [-1])),
         ).scalar() or 0
+        # Volume non tracé = récoltes pas encore affectées à un lot physique (lot_id NULL).
+        vol_untracked = db.query(func.coalesce(func.sum(Harvest.quantity_kg), 0)).filter(
+            Harvest.plantation_id.in_(plant_ids),
+            Harvest.lot_id.is_(None),
+        ).scalar() or 0
     else:
         vol_total = 0
         vol_certified = 0
+        vol_untracked = 0
     vol_total = float(vol_total or 0)
     vol_certified = float(vol_certified or 0)
+    vol_untracked = float(vol_untracked or 0)
     certified_rate = round(vol_certified / vol_total * 100, 1) if vol_total else 0.0
+    untracked_rate = round(vol_untracked / vol_total * 100, 1) if vol_total else 0.0
 
     # ── Alertes ouvertes (globales : Alert est polymorphe, sans producer_id) ──
     open_alerts = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED).scalar() or 0
@@ -189,6 +197,8 @@ def direction_dashboard(
             "total_kg": round(vol_total, 1),
             "certified_kg": round(vol_certified, 1),
             "certified_rate_pct": certified_rate,
+            "untracked_kg": round(vol_untracked, 1),
+            "untracked_rate_pct": untracked_rate,
         },
         "alerts": {
             "open": open_alerts,

@@ -115,6 +115,11 @@
               <div class="v" id="v-rate">—</div><span class="l">Taux certifié</span>
               <div class="bar-bg"><div class="bar-fill" id="v-bar" style="width:0%"></div></div>
             </div>
+            <div class="card" title="Récoltes pas encore affectées à un lot physique">
+              <div class="v" id="v-untracked" style="font-size:22px;color:#9a6200">—</div>
+              <span class="l">Volume non tracé (kg)</span>
+              <div class="bar-bg"><div class="bar-fill" id="v-untracked-bar" style="width:0%"></div></div>
+            </div>
           </div>
         </div>
 
@@ -184,6 +189,12 @@ async function loadDirection() {
   document.getElementById('v-rate').textContent = v.certified_rate_pct + '%';
   document.getElementById('v-rate').style.color = pctColor(v.certified_rate_pct);
   setBar('v-bar', v.certified_rate_pct);
+  // Non tracé : un % élevé est DÉFAVORABLE → barre ambre (pas le code couleur "taux").
+  document.getElementById('v-untracked').textContent = fmt(v.untracked_kg)
+    + (v.untracked_rate_pct ? ` (${v.untracked_rate_pct}%)` : '');
+  const ub = document.getElementById('v-untracked-bar');
+  ub.style.width = Math.max(0, Math.min(100, v.untracked_rate_pct || 0)) + '%';
+  ub.style.background = '#9a6200';
 
   const dt = new Date(d.generated_at);
   document.getElementById('gen-at').textContent = 'Généré le ' + (isNaN(dt) ? d.generated_at : dt.toLocaleString('fr-FR'))
@@ -198,6 +209,7 @@ const DRILL = {
   'c-total': 'children.html', 'c-risk': 'children.html', 'c-school': 'children.html', 'c-block': 'cacaoguard.html',
   'li-rate': 'farmforce.html', 'li-count': 'farmforce.html', 'li-reached': 'farmforce.html', 'li-avg': 'farmforce.html',
   'v-total': 'harvests.html', 'v-cert': 'certification.html', 'v-rate': 'certification.html',
+  'v-untracked': 'lots.html',
 };
 function wireDrilldowns() {
   if (!document.getElementById('dd-style')) {

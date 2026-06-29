@@ -57,8 +57,15 @@ alimentent les **volumes**, la **traçabilité des lots** et les statistiques.
 
 1. **Agroforesterie** (optionnel) — Menu **Agroforesterie** → `Parcelle 1` → ajoutez une espèce d'ombrage
    (ex. `Gliricidia`, densité `80`/ha, âge `6` ans) → **Enregistrer**.
-2. **Récolte** — Menu **Récoltes** → `Parcelle 1` → **Date** `2026-01-15`, **Quantité** `1 000 kg`,
-   **Qualité** `Bonne`, **Prix/kg** `1 500`, **nb de sacs** `16`, **n° de reçu** `BA-2026-0042` → **Enregistrer**.
 
-> Cette récolte alimente les **volumes** et devient affectable à un **lot** (chapitre 5). Un **achat**
-> bord champ (5.A) peut aussi **générer automatiquement** cette récolte.
+> ⚠️ **Deux chemins possibles pour enregistrer la production — n'en choisissez qu'UN, sinon doublon :**
+>
+> - **Chemin A — Récolte directe** : Menu **Récoltes** → `Parcelle 1` → **Date** `2026-01-15`,
+>   **Quantité** `1 000 kg`, **Qualité** `Bonne`, **Prix/kg** `1 500`, **nb de sacs** `16`,
+>   **n° de reçu** `BA-2026-0042` → **Enregistrer**. *(À utiliser si vous ne passez pas par le module Achats.)*
+> - **Chemin B — Achat bord champ** : enregistrez plutôt un **achat** (chapitre 5.A) lié à `Parcelle 1` :
+>   il **génère automatiquement** la récolte correspondante. *(Recommandé si vous payez le producteur :
+>   un seul geste trace l'achat **et** la production.)*
+>
+> Dans les deux cas, la récolte alimente les **volumes** et devient affectable à un **lot** (chapitre 5).
+> Ne faites **pas** les deux pour la même livraison : vous créeriez deux récoltes identiques.
