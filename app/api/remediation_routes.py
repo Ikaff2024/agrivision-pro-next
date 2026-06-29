@@ -483,16 +483,25 @@ def suggest_plan_actions(
     prompt = (
         "Tu es travailleur social spécialiste de la lutte contre le travail des enfants "
         "dans le cacao en Côte d'Ivoire. À partir UNIQUEMENT du profil ci-dessous, propose "
-        "3 à 5 actions de remédiation CONCRÈTES et réalisables. Réponds STRICTEMENT en JSON : "
-        'une liste d\'objets {"action_type","description","timeframe_days"} où action_type est '
-        "l'un de : education, economic_support, awareness, legal, health, other ; description = "
-        "1 phrase actionnable ; timeframe_days = délai indicatif en jours (entier). "
-        "N'ajoute aucun texte hors du JSON.\n\n"
+        "3 à 5 actions de remédiation CONCRÈTES et réalisables.\n"
+        "EXIGENCES DE SPÉCIFICITÉ (importantes) :\n"
+        "- Chaque action doit s'appuyer sur un ÉLÉMENT PRÉCIS du profil (cite l'âge, le statut "
+        "scolaire, la fréquence de travail ou la tâche dangereuse concernée) — pas de conseil "
+        "passe-partout applicable à n'importe quel enfant.\n"
+        "- Si une tâche dangereuse est signalée, au moins une action doit la traiter directement.\n"
+        "- Adapte le délai (timeframe_days) à l'urgence : risque critique/élevé = délais courts.\n"
+        "- Varie les types d'action (n'empile pas 4 fois le même type) et évite les formulations "
+        "génériques type « sensibiliser la famille » sans objet précis.\n"
+        'Réponds STRICTEMENT en JSON : une liste d\'objets {"action_type","description",'
+        '"timeframe_days"} où action_type ∈ {education, economic_support, awareness, legal, '
+        "health, other} ; description = 1 phrase actionnable et SPÉCIFIQUE à cet enfant ; "
+        "timeframe_days = entier. N'ajoute aucun texte hors du JSON.\n\n"
         f"PROFIL ENFANT :\n{facts}"
     )
     try:
         from app.services import llm_client
-        out = llm_client.chat(db, prompt, max_tokens=700, temperature=0.3)
+        # Température plus haute : évite des brouillons quasi identiques d'un enfant à l'autre.
+        out = llm_client.chat(db, prompt, max_tokens=700, temperature=0.7)
     except llm_client.LLMNotConfigured as ex:
         raise HTTPException(status_code=502, detail=str(ex))
     except Exception as ex:  # noqa: BLE001
