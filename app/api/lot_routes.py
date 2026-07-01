@@ -453,10 +453,16 @@ def add_movement(
         _guard_social_export(db, lot)
         lot.status = "shipped"
 
+    # A l'entree en magasin, reporter le numero du lot dans le champ dedie
+    # (reference) si l'operateur n'a pas saisi de reference propre.
+    reference = data.reference
+    if mtype == "warehouse_in" and not (reference or "").strip():
+        reference = lot.code
+
     qty = data.quantity_kg if data.quantity_kg is not None else lot.total_weight_kg
     _movement(db, lot, mtype, qty, current_user,
               from_warehouse_id=data.from_warehouse_id, to_warehouse_id=data.to_warehouse_id,
-              reference=data.reference,
+              reference=reference,
               metadata={"export_waivers": waivers_used} if waivers_used else None)
     db.commit()
     db.refresh(lot)
@@ -717,6 +723,10 @@ def build_lot_passport(db: Session, lot: Lot) -> dict:
             "plantation_name": plantation.name if plantation else None,
             "producer_id": plantation.producer_id if plantation else None,
             "producer_name": producer.nom_complet if producer else None,
+            # Identification planteur, libelles agnostiques (pas de marque exportateur).
+            "producer_code_coop": producer.code_yeyasso if producer else None,
+            "producer_code_exportateur": producer.code_saco if producer else None,
+            "producer_recepisse": producer.recepisse if producer else None,
             "quantity_kg": float(h.quantity_kg or 0),
             "eudr_status": eudr_status,
             "deforestation": defo,
