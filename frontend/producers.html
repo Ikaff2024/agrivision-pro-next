@@ -15,10 +15,18 @@
 <script src="auth.js?v=producers1"></script>
   <style>
     .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
-    .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
     .kpi{border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);padding:12px}
     .kpi strong{display:block;font-family:'Fraunces',serif;font-size:24px;line-height:1}
     .kpi span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-top:6px}
+    .kpi .note{display:block;font-size:10.5px;font-weight:700;margin-top:4px}
+    .kpi.ok{border-color:#bbf7d0;background:#f0fdf4}
+    .kpi.ok strong,.kpi.ok .note{color:#166534}
+    .kpi.over{border-color:#fecaca;background:#fef2f2}
+    .kpi.over strong,.kpi.over .note{color:#b91c1c}
+    .cat-sel{padding:4px 7px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;outline:none}
+    .cat-sel.membre{color:#166534;background:#dcfce7;border-color:#bbf7d0}
+    .cat-sel.non_membre{color:#9a3412;background:#ffedd5;border-color:#fed7aa}
     .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
     .search{flex:1;min-width:220px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none}
     .search:focus{border-color:var(--accent)}
@@ -53,12 +61,18 @@
         <div class="kpi"><strong id="k-total">0</strong><span>Producteurs</span></div>
         <div class="kpi"><strong id="k-shown">0</strong><span>Affichés</span></div>
         <div class="kpi"><strong id="k-localites">0</strong><span>Localités</span></div>
+        <div class="kpi" id="k-achats-card"><strong id="k-achats">—</strong><span>Part achats (non-membres)</span><span class="note" id="k-achats-note">Seuil OHADA ≤ 20 %</span></div>
       </div>
 
       <div class="panel">
         <div class="toolbar">
           <input class="search" id="search" placeholder="Rechercher par nom, code ou téléphone…" oninput="onSearch()">
           <select class="search" id="cert-filter" onchange="onCertChange()" style="flex:0 0 auto;min-width:180px;max-width:230px;display:none" title="Filtrer par certification"></select>
+          <select class="search" id="cat-filter" onchange="onCatChange()" style="flex:0 0 auto;min-width:170px;max-width:220px" title="Filtrer par catégorie">
+            <option value="">Toutes catégories</option>
+            <option value="membre">Membres (récolte)</option>
+            <option value="non_membre">Non-membres (achat)</option>
+          </select>
           <span id="col-wrap" style="position:relative;flex:0 0 auto">
             <button class="btn btn-outline btn-sm" onclick="toggleColMenu(event)" title="Choisir les colonnes affichées"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_column</span> Colonnes</button>
             <div id="col-menu" style="display:none;position:absolute;right:0;top:112%;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);padding:8px;min-width:210px"></div>
@@ -98,7 +112,19 @@
       <div class="form-group"><label class="form-label">Localité</label><input class="form-input" id="p-localite" placeholder="Village"></div>
       <div class="form-group"><label class="form-label">Section</label><input class="form-input" id="p-section" placeholder="Section"></div>
     </div>
-    <div class="form-group"><label class="form-label">Sexe</label><select class="form-input" id="p-sexe"><option value="">—</option><option value="H">Homme</option><option value="F">Femme</option></select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Sexe</label><select class="form-input" id="p-sexe"><option value="">—</option><option value="H">Homme</option><option value="F">Femme</option></select></div>
+      <div class="form-group"><label class="form-label">Catégorie</label><select class="form-input" id="p-type"><option value="membre">Membre (récolte)</option><option value="non_membre">Non-membre (achat)</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">N° pièce d'identité</label><input class="form-input" id="p-piece-num" placeholder="Numéro de la pièce"></div>
+      <div class="form-group"><label class="form-label">Nature de la pièce</label><select class="form-input" id="p-piece-nat"><option value="">—</option><option>CNI</option><option>Passeport</option><option>Carte consulaire</option><option>Attestation</option><option>Autre</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Code exportateur</label><input class="form-input" id="p-code-exp" placeholder="Réf. exportateur"></div>
+      <div class="form-group"><label class="form-label">Récépissé</label><input class="form-input" id="p-recepisse" placeholder="Récépissé"></div>
+      <div class="form-group"><label class="form-label">Formateur interne</label><input class="form-input" id="p-formateur" placeholder="Nom du formateur"></div>
+    </div>
     <div id="p-err" style="color:var(--high);font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNewProducer()">Annuler</button>
@@ -112,6 +138,7 @@ initApp('producers');
 let _all = [];
 let _searchTimer = null;
 let certFilter = '';
+let catFilter = '';
 let _page = 0;            // page courante (0-based)
 let _total = 0;          // total filtré (pour le pager)
 const PAGE_SIZE = 50;    // on n'affiche jamais 7000 lignes d'un coup → pagination serveur
@@ -125,8 +152,9 @@ const COLUMNS = [
   { key:'localite', label:'Localité', def:true, val:p=>esc(p.localite||'—') },
   { key:'section', label:'Section', def:true, val:p=>esc(p.section||'—') },
   { key:'telephone', label:'Téléphone', def:true, cls:'muted', val:p=>esc(p.telephone||'—') },
+  { key:'type_producteur', label:'Catégorie', def:true, val:p=>catSelect(p) },
   { key:'sexe', label:'Sexe', val:p=> p.sexe==='H'?'Homme':(p.sexe==='F'?'Femme':'—') },
-  { key:'code_saco', label:'Code SACO', val:p=>esc(p.code_saco||'—') },
+  { key:'code_saco', label:'Code exportateur', val:p=>esc(p.code_exportateur||p.code_saco||'—') },
   { key:'recepisse', label:'Récépissé', val:p=>esc(p.recepisse||'—') },
   { key:'piece', label:"Pièce d'identité", val:p=> p.piece_identite_numero ? esc(((p.piece_identite_nature||'')+' '+p.piece_identite_numero).trim()) : '—' },
   { key:'date_naissance', label:'Naissance', val:p=> p.date_naissance ? esc(new Date(p.date_naissance).toLocaleDateString('fr-FR')) : '—' },
@@ -168,6 +196,7 @@ function _filterParams() {
   const q = document.getElementById('search').value.trim();
   if (q) params.set('search', q);
   if (certFilter) params.set('certification', certFilter);
+  if (catFilter) params.set('type_producteur', catFilter);
   return params;
 }
 
@@ -198,6 +227,50 @@ async function load(resetPage) {
   document.getElementById('k-shown').textContent = rows.length;
   document.getElementById('k-localites').textContent = new Set(rows.map(p => p.localite).filter(Boolean)).size;
   renderPager(rows.length);
+  loadMembershipStats();
+}
+
+// ── Catégorie membre / non-membre + KPI part achats (OHADA) ──────────────────
+function catSelect(p){
+  const cur = p.type_producteur || 'membre';
+  const o=(v,l)=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`;
+  return `<select class="cat-sel ${cur}" title="Catégorie du producteur" onclick="event.stopPropagation()" onchange="reclassifyProducer(${p.id}, this)">${o('membre','Membre')}${o('non_membre','Non-membre')}</select>`;
+}
+
+async function reclassifyProducer(id, sel){
+  const value = sel.value;
+  sel.disabled = true;
+  try {
+    const r = await authFetch('/producers/' + id + '/type', { method:'PATCH', body: JSON.stringify({ type_producteur: value }) });
+    if (!r || !r.ok) {
+      toast(r && r.status === 403 ? 'Reclassement réservé aux gestionnaires.' : 'Échec de la mise à jour.', 'error');
+      return;
+    }
+    const p = _all.find(x => x.id === id); if (p) p.type_producteur = value;
+    sel.className = 'cat-sel ' + value;
+    if (typeof toast === 'function') toast('Catégorie mise à jour.');
+    if (catFilter && catFilter !== value) { load(false); } else { loadMembershipStats(); }
+  } catch (e) {
+    toast('Serveur inaccessible. Réessayez.', 'error');
+  } finally { sel.disabled = false; }
+}
+
+function onCatChange(){ catFilter = document.getElementById('cat-filter').value || ''; load(true); }
+
+async function loadMembershipStats(){
+  const card = document.getElementById('k-achats-card');
+  const val = document.getElementById('k-achats');
+  const note = document.getElementById('k-achats-note');
+  if (!card) return;
+  let s = null;
+  try { const r = await authFetch('/producers/stats/membership'); s = r?.ok ? await r.json() : null; } catch { s = null; }
+  card.classList.remove('ok', 'over');
+  if (!s) { val.textContent = '—'; note.textContent = 'Seuil OHADA ≤ 20 %'; return; }
+  val.textContent = (s.part_achats_pct ?? 0).toFixed(1).replace('.', ',') + ' %';
+  const over = !s.ohada_compliant;
+  card.classList.add(over ? 'over' : 'ok');
+  note.textContent = over ? '⚠ Dépasse le seuil OHADA (20 %)' : 'OHADA ≤ 20 % — conforme';
+  card.title = 'Achats (non-membres) : ' + Math.round(s.volume_non_membres_kg) + ' kg\nStock total collecté : ' + Math.round(s.volume_total_kg) + ' kg';
 }
 
 async function exportProducersCsv() {
@@ -221,7 +294,8 @@ async function exportProducersCsv() {
       { key: 'localite', label: 'Localité' },
       { key: 'section', label: 'Section' },
       { key: 'telephone', label: 'Téléphone' },
-      { key: 'code_saco', label: 'Code SACO' },
+      { label: 'Catégorie', value: p => p.type_producteur==='non_membre'?'Non-membre':'Membre' },
+      { label: 'Code exportateur', value: p => p.code_exportateur || p.code_saco || '' },
       { key: 'recepisse', label: 'Récépissé' },
       { key: 'piece_identite_nature', label: "Nature pièce" },
       { key: 'piece_identite_numero', label: "N° pièce" },
@@ -311,6 +385,12 @@ function _fillProducerModal(p) {
   document.getElementById('p-localite').value = (p && p.localite) || '';
   document.getElementById('p-section').value = (p && p.section) || '';
   document.getElementById('p-sexe').value = (p && p.sexe) || '';
+  document.getElementById('p-type').value = (p && p.type_producteur) || 'membre';
+  document.getElementById('p-piece-num').value = (p && p.piece_identite_numero) || '';
+  document.getElementById('p-piece-nat').value = (p && p.piece_identite_nature) || '';
+  document.getElementById('p-code-exp').value = (p && (p.code_exportateur || p.code_saco)) || '';
+  document.getElementById('p-recepisse').value = (p && p.recepisse) || '';
+  document.getElementById('p-formateur').value = (p && p.formateur_interne_nom) || '';
 }
 
 function openNewProducer() {
@@ -348,6 +428,16 @@ async function submitProducer() {
     section: document.getElementById('p-section').value.trim() || null,
     sexe: document.getElementById('p-sexe').value || null,
   };
+  // Champs additionnels : pertinents surtout à l'édition (PUT). ProducerCreate
+  // ignore les clés inconnues, donc sans effet à la création.
+  if (_editId) {
+    payload.type_producteur = document.getElementById('p-type').value || 'membre';
+    payload.piece_identite_numero = document.getElementById('p-piece-num').value.trim() || null;
+    payload.piece_identite_nature = document.getElementById('p-piece-nat').value || null;
+    payload.code_exportateur = document.getElementById('p-code-exp').value.trim() || null;
+    payload.recepisse = document.getElementById('p-recepisse').value.trim() || null;
+    payload.formateur_interne_nom = document.getElementById('p-formateur').value.trim() || null;
+  }
   const btn = document.getElementById('p-btn'); btn.disabled = true; btn.textContent = '…';
   try {
     const r = await authFetch(_editId ? `/producers/${_editId}` : '/producers',

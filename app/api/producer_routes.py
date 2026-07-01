@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.cacaoguard_ops_routes import (
@@ -20,7 +21,7 @@ from app.api.cacaoguard_ops_routes import (
     visit_to_dict,
 )
 from app.db.database import get_db
-from app.db.models import Producer, User
+from app.db.models import Harvest, Plantation, Producer, PurchaseRecord, User
 from app.db.models_social import (
     BlockStatus,
     Child,
@@ -57,9 +58,16 @@ class ProducerResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     cooperative_id: Optional[int] = None
+    # Classification commerciale : "membre" (recolte) | "non_membre" (achat)
+    type_producteur: str = "membre"
+    # Code exportateur (agnostique) — alias lecture de code_saco
+    code_exportateur: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+VALID_PRODUCER_TYPES = {"membre", "non_membre"}
 
 
 class ProducerCreate(BaseModel):
@@ -80,16 +88,18 @@ class ProducerUpdate(BaseModel):
     section: Optional[str] = Field(None, max_length=120)
     sexe: Optional[str] = Field(None, pattern="^[HF]$")
     code_saco: Optional[str] = Field(None, max_length=100)
+    code_exportateur: Optional[str] = Field(None, max_length=100)
     recepisse: Optional[str] = Field(None, max_length=100)
     piece_identite_numero: Optional[str] = Field(None, max_length=100)
     piece_identite_nature: Optional[str] = Field(None, max_length=60)
     formateur_interne_nom: Optional[str] = Field(None, max_length=200)
+    type_producteur: Optional[str] = Field(None)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
 
 def _filtered_producers_query(db, current_user, search=None, localite=None,
-                              section=None, certification=None):
+                              section=None, certification=None, type_producteur=None):
     """Construit la requête producteurs filtrée (sans tri ni pagination).
 
     Partagée par la liste paginée ET le comptage, pour que le total du pager
@@ -112,6 +122,8 @@ def _filtered_producers_query(db, current_user, search=None, localite=None,
         query = query.filter(Producer.localite == localite)
     if section:
         query = query.filter(Producer.section == section)
+    if type_producteur in VALID_PRODUCER_TYPES:
+        query = query.filter(Producer.type_producteur == type_producteur)
     if certification and certification.strip():
         # Un producteur est "certifié X" si une de ses plantations porte le label X.
         from app.db.models import Certification, Plantation, PlantationCertification
@@ -140,6 +152,7 @@ def count_producers(
     localite: Optional[str] = None,
     section: Optional[str] = None,
     certification: Optional[str] = Query(None),
+    type_producteur: Optional[str] = Query(None, description="'membre' | 'non_membre'"),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
@@ -147,7 +160,7 @@ def count_producers(
 
     Défini AVANT /producers/{...} éventuels : « count » ne doit pas être pris pour un id.
     """
-    q = _filtered_producers_query(db, current_user, search, localite, section, certification)
+    q = _filtered_producers_query(db, current_user, search, localite, section, certification, type_producteur)
     return {"total": q.count()}
 
 
@@ -159,10 +172,11 @@ def list_producers(
     localite: Optional[str] = None,
     section: Optional[str] = None,
     certification: Optional[str] = Query(None, description="Filtre : producteurs ayant une plantation certifiée (code)"),
+    type_producteur: Optional[str] = Query(None, description="Filtre catégorie : 'membre' | 'non_membre'"),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    query = _filtered_producers_query(db, current_user, search, localite, section, certification)
+    query = _filtered_producers_query(db, current_user, search, localite, section, certification, type_producteur)
     return query.order_by(Producer.nom_complet.asc()).offset(skip).limit(limit).all()
 
 
@@ -241,8 +255,17 @@ def update_producer(
                 raise HTTPException(status_code=409, detail=f"Un producteur avec le code « {code} » existe déjà.")
         fields["code_yeyasso"] = code
 
+    if "type_producteur" in fields:
+        tp = (fields["type_producteur"] or "").strip()
+        if tp not in VALID_PRODUCER_TYPES:
+            raise HTTPException(
+                status_code=422, detail="type_producteur doit valoir 'membre' ou 'non_membre'."
+            )
+        fields["type_producteur"] = tp
+
     _STR = {"nom_complet", "telephone", "localite", "section", "sexe", "code_saco",
-            "recepisse", "piece_identite_numero", "piece_identite_nature", "formateur_interne_nom"}
+            "code_exportateur", "recepisse", "piece_identite_numero",
+            "piece_identite_nature", "formateur_interne_nom"}
     for key, value in fields.items():
         if key in _STR and isinstance(value, str):
             value = value.strip() or None
@@ -252,6 +275,108 @@ def update_producer(
     db.commit()
     db.refresh(producer)
     return producer
+
+
+class ProducerTypeUpdate(BaseModel):
+    type_producteur: str
+
+
+@router.patch("/producers/{producer_id:int}/type", response_model=ProducerResponse)
+def update_producer_type(
+    producer_id: int,
+    payload: ProducerTypeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Reclasse un producteur : membre (récolte) ou non-membre (achat).
+
+    Réservé aux rôles de gestion, cloisonné par coopérative.
+    """
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
+    value = (payload.type_producteur or "").strip()
+    if value not in VALID_PRODUCER_TYPES:
+        raise HTTPException(
+            status_code=422, detail="type_producteur doit valoir 'membre' ou 'non_membre'."
+        )
+    producer = _get_producer_or_404(db, producer_id, current_user)
+    if not producer.is_active:
+        raise HTTPException(status_code=404, detail="Producteur introuvable.")
+    producer.type_producteur = value
+    db.commit()
+    db.refresh(producer)
+    return producer
+
+
+# Seuil OHADA (Acte uniforme sur les societes cooperatives) : les operations
+# avec des non-membres ne doivent pas depasser 20 % de l'activite.
+OHADA_NON_MEMBER_THRESHOLD_PCT = 20.0
+
+
+@router.get("/producers/stats/membership")
+def producer_membership_stats(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Répartition membres / non-membres + part des achats dans le stock total.
+
+    Volume collecté par catégorie : récoltes (Harvest) + achats (PurchaseRecord)
+    sans récolte associée (harvest_id NULL, pour éviter le double comptage).
+    "Part achats" = volume des non-membres / volume total collecté ; le seuil
+    OHADA fixe cette part à 20 % maximum.
+    """
+    coop_id = current_user.cooperative_id if current_user else None
+    volume = {"membre": 0.0, "non_membre": 0.0}
+
+    harvest_q = (
+        db.query(
+            Producer.type_producteur.label("t"),
+            func.coalesce(func.sum(Harvest.quantity_kg), 0.0).label("kg"),
+        )
+        .join(Plantation, Plantation.producer_id == Producer.id)
+        .join(Harvest, Harvest.plantation_id == Plantation.id)
+    )
+    if coop_id is not None:
+        harvest_q = harvest_q.filter(Producer.cooperative_id == coop_id)
+    for t, kg in harvest_q.group_by(Producer.type_producteur).all():
+        volume[t if t in volume else "membre"] += float(kg or 0)
+
+    purchase_q = (
+        db.query(
+            Producer.type_producteur.label("t"),
+            func.coalesce(func.sum(PurchaseRecord.net_weight_kg), 0.0).label("kg"),
+        )
+        .join(Producer, Producer.id == PurchaseRecord.producer_id)
+        .filter(PurchaseRecord.harvest_id.is_(None))
+    )
+    if coop_id is not None:
+        purchase_q = purchase_q.filter(PurchaseRecord.cooperative_id == coop_id)
+    for t, kg in purchase_q.group_by(Producer.type_producteur).all():
+        volume[t if t in volume else "membre"] += float(kg or 0)
+
+    count = {"membre": 0, "non_membre": 0}
+    count_q = db.query(Producer.type_producteur, func.count(Producer.id)).filter(
+        Producer.is_active == True
+    )
+    if coop_id is not None:
+        count_q = count_q.filter(Producer.cooperative_id == coop_id)
+    for t, n in count_q.group_by(Producer.type_producteur).all():
+        count[t if t in count else "membre"] += int(n or 0)
+
+    vol_membre = round(volume["membre"], 2)
+    vol_non_membre = round(volume["non_membre"], 2)
+    vol_total = round(vol_membre + vol_non_membre, 2)
+    part_achats = round(vol_non_membre / vol_total * 100, 1) if vol_total > 0 else 0.0
+
+    return {
+        "count_membres": count["membre"],
+        "count_non_membres": count["non_membre"],
+        "volume_membres_kg": vol_membre,
+        "volume_non_membres_kg": vol_non_membre,
+        "volume_total_kg": vol_total,
+        "part_achats_pct": part_achats,
+        "ohada_threshold_pct": OHADA_NON_MEMBER_THRESHOLD_PCT,
+        "ohada_compliant": part_achats <= OHADA_NON_MEMBER_THRESHOLD_PCT,
+    }
 
 
 @router.get("/producers/{producer_id:int}", response_model=ProducerResponse)

@@ -331,6 +331,26 @@ async def lifespan(app: FastAPI):
                     conn.execute(text(col_ddl))
                 conn.commit()
                 logger.info("Migration Import batch : OK (producers/plantations.import_batch_id)")
+
+                # Classification producteur : membre (recolte) vs non-membre (achat)
+                conn.execute(text(
+                    "ALTER TABLE producers ADD COLUMN IF NOT EXISTS "
+                    "type_producteur VARCHAR DEFAULT 'membre' NOT NULL"
+                ))
+                conn.commit()
+                logger.info("Migration Producer : OK (type_producteur)")
+
+            elif engine.dialect.name == "sqlite":
+                # SQLite ne supporte pas ADD COLUMN IF NOT EXISTS : on verifie
+                # la presence de la colonne via PRAGMA avant de l'ajouter.
+                existing = {row[1] for row in conn.execute(text("PRAGMA table_info(producers)"))}
+                if "type_producteur" not in existing:
+                    conn.execute(text(
+                        "ALTER TABLE producers ADD COLUMN "
+                        "type_producteur VARCHAR NOT NULL DEFAULT 'membre'"
+                    ))
+                    conn.commit()
+                    logger.info("Migration Producer (sqlite) : OK (type_producteur)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

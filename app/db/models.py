@@ -314,6 +314,13 @@ class Producer(Base):
     piece_identite_numero   = Column(String, nullable=True)
     piece_identite_nature   = Column(String, nullable=True)               # CNI, passeport, ...
 
+    # Classification commerciale de la relation avec la cooperative :
+    #   "membre"     -> membre de la cooperative, on organise la recolte avec lui
+    #   "non_membre" -> non-membre, on achete simplement sa production (bord champ)
+    type_producteur         = Column(
+        String, default="membre", server_default="membre", nullable=False, index=True
+    )
+
     # Rattachement geographique / organisationnel
     section                 = Column(String, nullable=True)              # regroupement geographique niveau 2
     localite                = Column(String, nullable=True)              # village
@@ -347,6 +354,17 @@ class Producer(Base):
     complaints = relationship("Complaint", back_populates="producer", lazy="select")
     ssrte_household_profiles = relationship("SsrteHouseholdProfile", back_populates="producer", cascade="all, delete-orphan", lazy="select")
     ssrte_plantation_visits = relationship("SsrtePlantationVisit", back_populates="producer", cascade="all, delete-orphan", lazy="select")
+
+    # Alias agnostique : SACO n'est qu'un exportateur parmi d'autres. On expose
+    # le code sous un nom neutre "code_exportateur" tout en conservant la colonne
+    # historique `code_saco` (utilisee par l'import du registre).
+    @property
+    def code_exportateur(self):
+        return self.code_saco
+
+    @code_exportateur.setter
+    def code_exportateur(self, value):
+        self.code_saco = value
 
 
 class Certification(Base):
