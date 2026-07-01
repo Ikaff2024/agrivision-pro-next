@@ -738,12 +738,94 @@ def _upsert_operational_alert(
     return alert, created
 
 
+_ACTIVE_PLAN_STATUSES = {
+    RemediationStatus.DRAFT,
+    RemediationStatus.PENDING_APPROVAL,
+    RemediationStatus.APPROVED,
+    RemediationStatus.IN_PROGRESS,
+    RemediationStatus.ESCALATED,
+}
+
+
+def _alert_cause_cleared(db: Session, alert: Alert) -> bool:
+    """Vrai si la cause d'une alerte n'est plus d'actualite (issue reglee).
+
+    Permet de refermer automatiquement les alertes devenues obsoletes (visite
+    finalement faite, action terminee, blocage leve, risque enfant redescendu,
+    entite source supprimee).
+    """
+    today = date.today()
+    entity, sid = alert.source_entity, alert.source_id
+
+    if entity == "monitoring_visits":
+        v = db.query(MonitoringVisit).filter(MonitoringVisit.id == sid).first()
+        if not v:
+            return True
+        return (
+            v.status not in (VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS)
+            or v.scheduled_date is None
+            or v.scheduled_date >= today
+        )
+
+    if entity == "remediation_plans":
+        p = db.query(RemediationPlan).filter(RemediationPlan.id == sid).first()
+        if not p:
+            return True
+        return (
+            p.status not in _ACTIVE_PLAN_STATUSES
+            or p.expected_completion_date is None
+            or p.expected_completion_date >= today
+        )
+
+    if entity == "remediation_actions":
+        a = db.query(RemediationAction).filter(RemediationAction.id == sid).first()
+        if not a:
+            return True
+        return (
+            a.status not in (ActionStatus.PENDING, ActionStatus.IN_PROGRESS, ActionStatus.OVERDUE)
+            or a.planned_date is None
+            or a.planned_date >= today
+        )
+
+    if entity == "traceability_blocks":
+        b = db.query(TraceabilityBlock).filter(TraceabilityBlock.id == sid).first()
+        if not b:
+            return True
+        # Un blocage escalade reste ouvert : seule une resolution/expiration ferme.
+        return b.status in (BlockStatus.RESOLVED, BlockStatus.EXPIRED)
+
+    if entity == "children":
+        c = db.query(Child).filter(Child.id == sid).first()
+        if not c:
+            return True
+        return (not c.is_active) or c.risk_level not in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+
+    return False
+
+
+def _auto_resolve_stale_alerts(db: Session) -> int:
+    """Referme les alertes ouvertes dont la cause sous-jacente est reglee."""
+    open_alerts = db.query(Alert).filter(Alert.status != AlertStatus.RESOLVED).all()
+    resolved = 0
+    for alert in open_alerts:
+        if _alert_cause_cleared(db, alert):
+            alert.status = AlertStatus.RESOLVED
+            alert.resolved_at = datetime.utcnow()
+            if not alert.resolution_notes:
+                alert.resolution_notes = "Cloture automatique : cause resolue."
+            resolved += 1
+    return resolved
+
+
 def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> dict:
     today = date.today()
     created = 0
     escalated = 0
     reviewed = 0
     generated_alerts = []
+
+    # Referme d'abord les alertes devenues obsoletes depuis le dernier controle.
+    auto_resolved = _auto_resolve_stale_alerts(db)
 
     overdue_visits = db.query(MonitoringVisit).filter(
         MonitoringVisit.status.in_([VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS]),
@@ -858,6 +940,7 @@ def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> 
         "reviewed_items": reviewed,
         "created_alerts": created,
         "escalated_alerts": escalated,
+        "auto_resolved_alerts": auto_resolved,
         "alerts": [alert_to_dict(alert) for alert in generated_alerts],
     }
 
@@ -882,6 +965,42 @@ def list_operational_alerts(
         query = query.filter(Alert.source_entity == source_entity)
     alerts = query.order_by(Alert.created_at.desc()).limit(limit).all()
     return [alert_to_dict(alert) for alert in alerts]
+
+
+class AlertResolveRequest(BaseModel):
+    resolution_notes: Optional[str] = None
+
+
+@router.post("/alerts/{alert_id:int}/resolve")
+def resolve_operational_alert(
+    alert_id: int,
+    payload: Optional[AlertResolveRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Cloture (resout) une alerte CacaoGuard, avec note de resolution optionnelle.
+
+    Reserve aux roles de gestion terrain ; cloisonne par cooperative.
+    """
+    require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alerte introuvable.")
+
+    coop_id = _coop_id_of(current_user)
+    if coop_id is not None and alert.id not in coop_alert_ids(db, coop_id):
+        raise HTTPException(status_code=404, detail="Alerte introuvable.")
+
+    if alert.status != AlertStatus.RESOLVED:
+        alert.status = AlertStatus.RESOLVED
+        alert.resolved_by = current_user.id if current_user else None
+        alert.resolved_at = datetime.utcnow()
+        note = (payload.resolution_notes or "").strip() if payload else ""
+        if note:
+            alert.resolution_notes = note
+        db.commit()
+        db.refresh(alert)
+    return alert_to_dict(alert)
 
 
 @router.get("/privacy/access-logs")

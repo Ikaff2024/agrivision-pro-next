@@ -41,6 +41,8 @@
     .cg-alert-icon{width:32px;height:32px;border-radius:8px;background:var(--high-bg);color:var(--high);display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .cg-alert-title{font-size:13.5px;font-weight:700}
     .cg-alert-msg{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.35}
+    .cg-alert-btn{margin-left:auto;align-self:center;flex-shrink:0;padding:6px 12px;border:1.5px solid var(--border);background:var(--surface);border-radius:7px;font-size:12px;font-weight:700;font-family:inherit;color:var(--primary,#15803d);cursor:pointer;white-space:nowrap}
+    .cg-alert-btn:hover{background:var(--bg);border-color:var(--primary,#15803d)}
     @media(max-width:980px){
       .cg-hero,.cg-grid{grid-template-columns:1fr}
       .cg-kpis{grid-template-columns:1fr 1fr}
@@ -317,7 +319,7 @@ async function runAlertChecks() {
       return;
     }
     const data = await res.json();
-    toast(`${data.created_alerts} alerte(s) creee(s), ${data.escalated_alerts} escalade(s).`, 'success');
+    toast(`${data.created_alerts} alerte(s) créée(s), ${data.escalated_alerts} escalade(s), ${data.auto_resolved_alerts || 0} clôturée(s) automatiquement.`, 'success');
     await loadCacaoGuard();
   } catch (e) {
     toast('Controle alertes indisponible.', 'error');
@@ -374,8 +376,31 @@ function renderAlerts(alerts) {
         <div class="cg-alert-msg">${normalizeAlertText(a.message || '')}</div>
         <div class="cg-alert-msg" style="margin-top:3px;font-size:11px"><span style="font-weight:800;color:${prioColor};text-transform:uppercase">${normalizeAlertText(prio || '—')}</span>${when ? ' · ' + when : ''}${(a.status && a.status !== 'open') ? ' · ' + normalizeAlertText(a.status) : ''}</div>
       </div>
+      ${(a.id && a.status !== 'resolved') ? `<button class="cg-alert-btn" onclick="resolveAlert(${a.id})">Traiter</button>` : ''}
     </div>`;
   }).join('');
+}
+
+async function resolveAlert(id) {
+  const note = await avpPrompt(
+    'Clôturer cette alerte ?\nAssurez-vous que la cause est réglée (visite faite, action terminée, blocage levé…).\nNote de résolution (optionnel) :',
+    { multiline: true, okText: 'Traiter', placeholder: 'Ex. Visite effectuée le 02/07, RAS.' }
+  );
+  if (note === null) return; // annulé
+  try {
+    const res = await cgFetch('/alerts/' + id + '/resolve', {
+      method: 'POST',
+      body: JSON.stringify({ resolution_notes: note || null }),
+    });
+    if (!res || !res.ok) {
+      toast(res && res.status === 403 ? 'Clôture réservée aux gestionnaires.' : 'Échec de la clôture de l\'alerte.', 'error');
+      return;
+    }
+    toast('Alerte traitée.', 'success');
+    await loadCacaoGuard();
+  } catch (e) {
+    toast('Serveur inaccessible. Réessayez.', 'error');
+  }
 }
 
 const CG_API = window.CG_API_BASE || window.API_BASE || 'http://127.0.0.1:8010';
