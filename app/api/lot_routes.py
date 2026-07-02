@@ -364,6 +364,16 @@ def create_lot(
 ):
     _require_write(current_user)
     harvests = _load_scoped_harvests(db, current_user, data.harvest_ids)
+    # Integrite tracabilite : une recolte deja affectee a un lot (open, scelle ou
+    # EXPEDIE) ne peut pas etre reutilisee pour un nouveau lot — sinon on "vole"
+    # le stock d'un lot existant et on corrompt sa composition. Meme garde que
+    # affect-harvests (409).
+    already = [h.id for h in harvests if h.lot_id]
+    if already:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Recolte(s) deja affectee(s) a un lot : {sorted(already)}.",
+        )
     # Social dissocié de l'EUDR : on n'empêche PLUS la constitution du lot pour un
     # cas social (c'est signalé, pas bloquant). Le blocage social éventuel agit à
     # l'export, et seulement si la coopérative l'a activé.
