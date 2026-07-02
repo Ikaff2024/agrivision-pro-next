@@ -1078,3 +1078,14 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/* ── Service worker : enregistrement centralisé (offline garanti partout) ──────
+   auth.js étant chargé sur les 39 pages, on garantit l'installation du SW quelle
+   que soit la page d'entrée (avant, seules 4 pages l'enregistraient). Idempotent :
+   sans effet si le SW est déjà enregistré par une page. Enregistré au 'load' pour
+   ne pas concurrencer les ressources critiques du 1er rendu. */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* silencieux */ });
+  });
+}
+
