@@ -695,6 +695,12 @@ function renderCoopTable(coops) {
                 ${esc(c.name)} ${suspended?'<span style="font-size:10px;color:var(--muted)">(suspendue)</span>':''}
               </div>
               <div class="coop-country">${esc(c.country||'—')}</div>
+              ${(c.admin_emails && c.admin_emails.length)
+                ? `<div class="coop-admins" style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5">
+                     <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">mail</span>
+                     ${c.admin_emails.map(a => `<span title="Administrateur${a.is_active?'':' (suspendu)'}" style="${a.is_active?'':'text-decoration:line-through;opacity:.6'}">${esc(a.email)}</span>`).join(', ')}
+                   </div>`
+                : '<div class="coop-admins" style="font-size:11px;color:var(--faint);margin-top:3px">— aucun admin</div>'}
             </td>
             <td style="text-align:center">${c.users_count}</td>
             <td style="text-align:center">${c.plantations_count}</td>

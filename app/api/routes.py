@@ -1737,6 +1737,18 @@ def owner_stats(
     active_via_diag_set = {r[0] for r in active_via_diag if r[0]}
     inactive_coop_count = len(all_coop_ids_set - active_via_diag_set)
 
+    # Emails des administrateurs par cooperative (pour identifier avec quel
+    # compte se connecter a chaque coop). Une seule requete, groupee ensuite.
+    admins_by_coop: dict = {}
+    for cid, email, is_active in db.query(
+        User.cooperative_id, User.email, User.is_active
+    ).filter(User.role == "admin").order_by(User.email.asc()).all():
+        if cid is None:
+            continue
+        admins_by_coop.setdefault(cid, []).append(
+            {"email": email, "is_active": bool(is_active)}
+        )
+
     # Stats par cooperative
     coops = db.query(Cooperative).order_by(Cooperative.created_at.desc()).all()
     coop_stats = []
@@ -1769,6 +1781,7 @@ def owner_stats(
             "name": c.name,
             "country": c.country,
             "is_active": c.is_active,
+            "admin_emails": admins_by_coop.get(c.id, []),
             "plan": normalize_plan(getattr(c, "plan", None)),
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "users_count": n_users,
