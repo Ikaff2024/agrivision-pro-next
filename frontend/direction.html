@@ -120,6 +120,12 @@
               <span class="l">Volume non tracé (kg)</span>
               <div class="bar-bg"><div class="bar-fill" id="v-untracked-bar" style="width:0%"></div></div>
             </div>
+            <div class="card" title="Part de la production achetée aux non-membres dans le stock total. Règle OHADA : ≤ 20 % de l'activité.">
+              <div class="v" id="v-achats" style="font-size:22px">—</div>
+              <span class="l">Part achats (non-membres)</span>
+              <span class="s" id="v-achats-note">Seuil OHADA ≤ 20 %</span>
+              <div class="bar-bg"><div class="bar-fill" id="v-achats-bar" style="width:0%"></div></div>
+            </div>
           </div>
         </div>
 
@@ -209,7 +215,7 @@ const DRILL = {
   'c-total': 'children.html', 'c-risk': 'children.html', 'c-school': 'children.html', 'c-block': 'cacaoguard.html',
   'li-rate': 'farmforce.html', 'li-count': 'farmforce.html', 'li-reached': 'farmforce.html', 'li-avg': 'farmforce.html',
   'v-total': 'harvests.html', 'v-cert': 'certification.html', 'v-rate': 'certification.html',
-  'v-untracked': 'lots.html',
+  'v-untracked': 'lots.html', 'v-achats': 'producers.html',
 };
 function wireDrilldowns() {
   if (!document.getElementById('dd-style')) {
@@ -254,7 +260,29 @@ async function loadAiSummary() {
   }
 }
 
+// Part des achats (non-membres) dans le stock total — règle OHADA (≤ 20 %).
+async function loadMembershipStats() {
+  const v = document.getElementById('v-achats');
+  if (!v) return;
+  let s = null;
+  try {
+    const r = await authFetch('/producers/stats/membership');
+    s = r?.ok ? await r.json() : null;
+  } catch { s = null; }
+  const note = document.getElementById('v-achats-note');
+  const bar = document.getElementById('v-achats-bar');
+  if (!s) { v.textContent = '—'; return; }
+  const pct = Number(s.part_achats_pct || 0);
+  const over = !s.ohada_compliant;
+  const color = over ? '#922b21' : '#1a6b3a';
+  v.textContent = pct.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %';
+  v.style.color = color;
+  if (note) note.textContent = over ? '⚠ Dépasse le seuil OHADA (20 %)' : 'OHADA ≤ 20 % — conforme';
+  if (bar) { bar.style.width = Math.max(0, Math.min(100, pct)) + '%'; bar.style.background = color; }
+}
+
 loadDirection();
+loadMembershipStats();
 wireDrilldowns();
 </script>
 </body>
