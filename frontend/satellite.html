@@ -72,6 +72,7 @@
     </div>
 
     <div class="avp-content">
+      <div id="data-mode-banner" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600"></div>
       <div class="sat-grid">
 
         <!-- Form + result -->
@@ -570,6 +571,29 @@ function grabGPS() {
   );
 }
 
+async function loadDataModeBanner() {
+  const el = document.getElementById('data-mode-banner');
+  if (!el) return;
+  let s = null;
+  try { const r = await authFetch('/satellite/status'); s = r?.ok ? await r.json() : null; } catch { s = null; }
+  if (!s) return;
+  const veg = s.vegetation_configured, defo = s.deforestation_configured;
+  if (veg && defo) {
+    el.style.display = 'block';
+    el.style.background = '#f0fdf4'; el.style.border = '1px solid #bbf7d0'; el.style.color = '#166534';
+    el.innerHTML = '✓ Données réelles — Sentinel-2 (Copernicus) & Global Forest Watch activés.';
+  } else {
+    const missing = [];
+    if (!veg) missing.push('NDVI/Sentinel-2');
+    if (!defo) missing.push('déforestation/GFW');
+    el.style.display = 'block';
+    el.style.background = '#fef2f2'; el.style.border = '1px solid #fecaca'; el.style.color = '#b91c1c';
+    el.innerHTML = '⚠ Mode SIMULATION pour : ' + missing.join(' et ') +
+      '. Les valeurs affichées ne reflètent pas le terrain — configurez les clés satellite avant toute décision ou export EUDR.';
+  }
+}
+
+loadDataModeBanner();
 loadPlantations();
 </script>
 </body>

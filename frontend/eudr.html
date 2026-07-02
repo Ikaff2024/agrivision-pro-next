@@ -77,6 +77,7 @@
     </div>
 
     <div class="avp-content">
+      <div id="data-mode-banner" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600"></div>
       <div class="eudr-banner">
         <div class="eudr-banner-text">
           <h2>🛡 Module EUDR — Sprint 01a</h2>
@@ -224,7 +225,24 @@ async function loadAll() {
   // Drill-down depuis le cockpit : ?statut=conforme|non_conforme|a_verifier pré-filtre la liste.
   const ds = new URLSearchParams(location.search).get('statut');
   if (ds) { const sel = document.getElementById('f-status'); if (sel) sel.value = ds; }
-  await Promise.all([loadSummary(), loadReadiness(), reload()]);
+  await Promise.all([loadSummary(), loadReadiness(), reload(), loadDataModeBanner()]);
+}
+
+async function loadDataModeBanner() {
+  const el = document.getElementById('data-mode-banner');
+  if (!el) return;
+  let s = null;
+  try { const r = await authFetch('/satellite/status'); s = r?.ok ? await r.json() : null; } catch { s = null; }
+  if (!s) return;
+  if (s.deforestation_configured) {
+    el.style.display = 'block';
+    el.style.background = '#f0fdf4'; el.style.border = '1px solid #bbf7d0'; el.style.color = '#166534';
+    el.innerHTML = '✓ Contrôle déforestation en données réelles (Global Forest Watch activé).';
+  } else {
+    el.style.display = 'block';
+    el.style.background = '#fef2f2'; el.style.border = '1px solid #fecaca'; el.style.color = '#b91c1c';
+    el.innerHTML = '⚠ Global Forest Watch NON configuré : les contrôles automatiques de déforestation sont en SIMULATION (verdict « à vérifier », jamais « conforme »). L\'émission du DDS est bloquée tant que la preuve est simulée.';
+  }
 }
 
 async function loadReadiness() {

@@ -54,6 +54,23 @@ def _resolve_active_block_reason(plantation: Plantation, db: Session) -> tuple[b
     return True, reason
 
 
+def _resolve_deforestation_source(plantation: Plantation, db: Session) -> Optional[str]:
+    """Source du dernier controle de deforestation ('gfw', 'manual',
+    'gfw_simulation'...). None si aucun controle. Sert a detecter un DDS base
+    sur des donnees satellite SIMULEES (non valable pour la conformite EUDR)."""
+    try:
+        from app.db.models import DeforestationCheck
+    except ImportError:
+        return None
+    last = (
+        db.query(DeforestationCheck)
+        .filter(DeforestationCheck.plantation_id == plantation.id)
+        .order_by(DeforestationCheck.check_date.desc().nullslast(), DeforestationCheck.id.desc())
+        .first()
+    )
+    return last.source if last else None
+
+
 def _resolve_last_inspection_date(plantation: Plantation, db: Session) -> Optional[str]:
     last = (
         db.query(Inspection)
@@ -72,6 +89,13 @@ def build_dds_context(plantation: Plantation, db: Session, operator_name: Option
     boundary: Optional[PlantationBoundary] = plantation.boundary
     has_block, block_reason = _resolve_active_block_reason(plantation, db)
     last_inspection = _resolve_last_inspection_date(plantation, db)
+
+    # Detection de donnees satellite SIMULEES : un DDS ne doit pas attester la
+    # conformite sur une preuve de deforestation fictive (cle GFW absente).
+    deforestation_source = _resolve_deforestation_source(plantation, db)
+    data_simulation = bool(
+        deforestation_source and "simulation" in deforestation_source.lower()
+    )
 
     # DDS reference : DDS-{ANNEE}-{PLANTATION_ID padded 4}
     today = datetime.date.today()
@@ -110,6 +134,8 @@ def build_dds_context(plantation: Plantation, db: Session, operator_name: Option
         "last_inspection_date": last_inspection,
         "has_active_block": has_block,
         "active_block_reason": block_reason,
+        "deforestation_source": deforestation_source,
+        "data_simulation": data_simulation,
     }
 
 

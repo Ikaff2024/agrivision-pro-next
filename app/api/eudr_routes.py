@@ -534,6 +534,19 @@ def download_eudr_dds(
     _check_access(plantation, current_user)
 
     context = build_dds_context(plantation, db, operator_name=operator)
+    # Garde-fou EUDR : ne jamais emettre un DDS base sur des donnees satellite
+    # SIMULEES (cle Global Forest Watch absente). Sinon on attesterait une
+    # conformite sur une preuve de deforestation fictive.
+    if context.get("data_simulation"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "DDS bloqué : le contrôle de déforestation repose sur des données "
+                "SIMULÉES (Global Forest Watch non configuré). Configurez GFW_API_KEY "
+                "puis relancez le contrôle satellite, ou enregistrez un contrôle "
+                "terrain, avant d'émettre le Due Diligence Statement."
+            ),
+        )
     pdf_bytes = generate_dds_pdf(context)
     filename = dds_filename(plantation)
     # En-tete RFC5987 pour les noms de fichiers avec accents
