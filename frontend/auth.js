@@ -36,6 +36,25 @@ window.API_BASE = API_BASE;
     addLink({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block' });
   }
 
+  // Anti-flash des ligatures d'icônes : tant que la police Material Symbols n'est
+  // pas chargée (et sa classe appliquée), le navigateur afficherait le TEXTE de
+  // la ligature ("person_add", "dashboard"…). On masque les icônes jusqu'à ce que
+  // la police soit prête, puis on révèle. Filet de sécurité : révélation forcée
+  // après 3 s pour ne jamais rester masqué (police bloquée / hors ligne).
+  const markFontsReady = () => document.documentElement.classList.add('avp-fonts-ready');
+  try {
+    if (document.fonts && document.fonts.load) {
+      Promise.race([
+        document.fonts.load('24px "Material Symbols Outlined"').then(() => document.fonts.ready),
+        new Promise((r) => setTimeout(r, 3000)),
+      ]).then(markFontsReady).catch(markFontsReady);
+    } else {
+      markFontsReady();
+    }
+  } catch (e) {
+    markFontsReady();
+  }
+
   const style = document.createElement('style');
   style.id = 'avp-styles';
   style.textContent = `
@@ -56,6 +75,11 @@ window.API_BASE = API_BASE;
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{font-size:16px}
+    /* Anti-flash icones : masque les ligatures Material Symbols jusqu'au chargement
+       de la police d'icones (voir markFontsReady dans auth.js). visibility (et non
+       display) => aucun decalage de mise en page pendant le chargement. */
+    .material-symbols-outlined{visibility:hidden}
+    html.avp-fonts-ready .material-symbols-outlined{visibility:visible}
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
     a{text-decoration:none;color:inherit}
     button{font-family:'DM Sans',sans-serif}
