@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.91-volume-non-trace';
+const CACHE_VERSION = 'avp-v4.92-clean-urls-networkfirst';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -182,8 +182,15 @@ self.addEventListener('fetch', event => {
 
   // 2. Assets applicatifs (HTML + JS projet) → Network First
   if (url.origin === self.location.origin) {
+    // Pages : requetes de navigation / documents HTML — Y COMPRIS les URLs
+    // "propres" sans extension .html (Netlify sert /owner, /producers, /direction
+    // sans .html). Sans ceci, ces URLs tombaient en Cache First et restaient
+    // figees apres un deploiement. On force Network First pour tout document.
+    const isDocument = request.mode === 'navigate'
+      || request.destination === 'document'
+      || (request.headers.get('accept') || '').includes('text/html');
     const isAppAsset = NETWORK_FIRST_PATTERNS.some(p => p.test(url.pathname));
-    if (isAppAsset) {
+    if (isDocument || isAppAsset) {
       event.respondWith(networkFirstStatic(request));
       return;
     }

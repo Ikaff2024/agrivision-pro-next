@@ -15,3 +15,11 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+
+# Le service worker ne doit jamais etre mis en cache par le navigateur : sinon
+# les mises a jour du SW (et donc des strategies de cache des pages) tardent a
+# se propager. no-cache force une revalidation a chaque visite.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
