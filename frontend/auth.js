@@ -55,6 +55,31 @@ window.API_BASE = API_BASE;
     markFontsReady();
   }
 
+  // Anti-flash du SHELL : la page reste invisible (opacity 0, appliquée avant le
+  // 1er rendu via #avp-styles) jusqu'à ce que le DOM soit construit (sidebar
+  // comprise) ET les polices prêtes — puis on révèle d'un bloc, comme le montage
+  // d'un framework, au lieu du "pas net puis stabilise". Filet de sécurité :
+  // révélation forcée sous 1,2 s (jamais de page blanche si un chargement traîne).
+  (function revealAppShell() {
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
+      document.documentElement.classList.add('avp-ready');
+    };
+    setTimeout(reveal, 1200); // garde-fou absolu
+    const whenDom = (cb) => (document.readyState === 'loading'
+      ? document.addEventListener('DOMContentLoaded', cb, { once: true })
+      : cb());
+    const fontsReady = (document.fonts && document.fonts.ready)
+      ? document.fonts.ready : Promise.resolve();
+    whenDom(() => {
+      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 800))])
+        .then(() => requestAnimationFrame(reveal))
+        .catch(reveal);
+    });
+  })();
+
   const style = document.createElement('style');
   style.id = 'avp-styles';
   style.textContent = `
@@ -80,6 +105,11 @@ window.API_BASE = API_BASE;
        display) => aucun decalage de mise en page pendant le chargement. */
     .material-symbols-outlined{visibility:hidden}
     html.avp-fonts-ready .material-symbols-outlined{visibility:visible}
+    /* Anti-flash du shell : page invisible jusqu'a "avp-ready" (voir revealAppShell).
+       opacity (pas display) pour conserver la mise en page. Revelation sous 1,2 s max. */
+    body{opacity:0}
+    html.avp-ready body{opacity:1;transition:opacity .18s ease}
+    @media (prefers-reduced-motion: reduce){ html.avp-ready body{transition:none} }
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
     a{text-decoration:none;color:inherit}
     button{font-family:'DM Sans',sans-serif}
