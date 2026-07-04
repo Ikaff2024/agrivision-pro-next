@@ -64,8 +64,11 @@ def _fetch_ndvi_statistical(
     Retourne un JSON avec mean/min/max — pas de parsing raster.
     """
     delta     = 0.005   # ~500m
+    # Fenetre elargie a 120 j : en zone forestiere tres nuageuse (ex. Man/Tonkpi),
+    # 60 j ne contiennent parfois aucune scene claire. Plus de scenes = plus de
+    # chances d'en avoir une nette (voir compositing "pic de verdure" plus bas).
     date_to   = datetime.utcnow().strftime("%Y-%m-%dT00:00:00Z")
-    date_from = (datetime.utcnow() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00Z")
+    date_from = (datetime.utcnow() - timedelta(days=120)).strftime("%Y-%m-%dT00:00:00Z")
 
     evalscript = """
 //VERSION=3
@@ -106,7 +109,7 @@ function evaluatePixel(samples) {
                             "from": date_from,
                             "to":   date_to,
                         },
-                        "maxCloudCoverage": 70,
+                        "maxCloudCoverage": 40,
                         "mosaickingOrder": "leastCC",
                     },
                 }
@@ -142,29 +145,35 @@ function evaluatePixel(samples) {
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
 
-        # Extraire la valeur NDVI moyenne depuis la réponse Statistical
-        # Structure: data[0].outputs.ndvi.bands.B0.stats.mean
+        # Extraire la valeur NDVI depuis la réponse Statistical.
+        # Structure par intervalle: data[i].outputs.ndvi.bands.B0.stats.mean
         intervals = result.get("data", [])
         if not intervals:
             logger.warning("Sentinel Statistical: aucun intervalle retourné.")
             return None
 
-        # Prendre le dernier intervalle (le plus récent)
-        last = intervals[-1]
-        ndvi_band = (
-            last.get("outputs", {})
-                .get("ndvi", {})
-                .get("bands", {})
-                .get("B0", {})
-                .get("stats", {})
-        )
+        # Compositing "pic de verdure" : on retient le NDVI le PLUS ÉLEVÉ parmi
+        # les scènes de la fenêtre (la plus verte = la moins affectée par les
+        # nuages). Prendre le dernier intervalle laissait un mois récent nuageux
+        # faire passer une forêt dense pour du sol nu (cas Soapleu).
+        means = []
+        for itv in intervals:
+            stats = (
+                itv.get("outputs", {})
+                   .get("ndvi", {})
+                   .get("bands", {})
+                   .get("B0", {})
+                   .get("stats", {})
+            )
+            m = stats.get("mean")
+            if m is not None and m == m:   # exclut None / NaN
+                means.append(float(m))
 
-        mean = ndvi_band.get("mean")
-        if mean is None or mean != mean:   # None ou NaN
-            logger.warning("Sentinel Statistical: mean NDVI non disponible.")
+        if not means:
+            logger.warning("Sentinel Statistical: aucune moyenne NDVI exploitable.")
             return None
 
-        ndvi = round(float(mean), 3)
+        ndvi = round(max(means), 3)
         logger.info(
             "NDVI Sentinel-2 réel (Statistical): %.3f (lat=%.4f, lon=%.4f)",
             ndvi, latitude, longitude,
