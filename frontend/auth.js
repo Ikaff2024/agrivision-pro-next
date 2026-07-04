@@ -724,7 +724,7 @@ function renderSidebar(activePage) {
   // sont inchangés → le feature-gating (data-mod), l'état actif et navClick ne bougent pas.
   const links = [
     // 📊 Piloter — décider et prouver (Dashboard en tête = page d'accueil)
-    { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Dashboard', group: '📊 Piloter' },
+    { id: 'dashboard', href: 'index.html', icon: 'dashboard', label: 'Opérations', group: '📊 Piloter' },
     { id: 'direction', href: 'direction.html', icon: 'insights', label: 'Direction', group: '📊 Piloter' },
     { id: 'assistant', href: 'assistant.html', icon: 'forum', label: 'Assistant IA', group: '📊 Piloter' },
     { id: 'reports-cacaoguard', href: 'reports_cacaoguard.html', icon: 'summarize', label: 'Rapports', group: '📊 Piloter' },

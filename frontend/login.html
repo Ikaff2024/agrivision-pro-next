@@ -461,6 +461,22 @@
       document.getElementById('spin').style.display = isLoading ? 'inline-block' : 'none';
     }
 
+    // Décode le rôle depuis le JWT (payload base64url) pour choisir la page
+    // d'accueil. Sans dépendance : lecture du seul claim "role".
+    function _landingForRole(token) {
+      try {
+        let p = String(token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (p.length % 4) p += '=';
+        const role = JSON.parse(atob(p)).role;
+        // Technicien = travail de terrain -> ses parcelles.
+        if (role === 'technician') return 'plantations.html';
+        // admin / agronome / gestionnaire / viewer -> tableau de bord (Opérations).
+        return 'index.html';
+      } catch (e) {
+        return 'index.html';
+      }
+    }
+
     async function doLogin() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('pass').value;
@@ -483,7 +499,9 @@
 
         localStorage.setItem('avp_token', data.access_token);
         localStorage.setItem('avp_refresh_token', data.refresh_token);
-        window.location.href = 'plantations.html';
+        // Atterrissage selon le rôle (ERP-like) : le terrain arrive sur ses
+        // parcelles, le pilotage arrive sur le tableau de bord.
+        window.location.href = _landingForRole(data.access_token);
       } catch (error) {
         showError(error.message);
       } finally {
