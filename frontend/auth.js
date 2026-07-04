@@ -105,11 +105,30 @@ window.API_BASE = API_BASE;
        display) => aucun decalage de mise en page pendant le chargement. */
     .material-symbols-outlined{visibility:hidden}
     html.avp-fonts-ready .material-symbols-outlined{visibility:visible}
-    /* Anti-flash du shell : page invisible jusqu'a "avp-ready" (voir revealAppShell).
-       opacity (pas display) pour conserver la mise en page. Revelation sous 1,2 s max. */
-    body{opacity:0}
-    html.avp-ready body{opacity:1;transition:opacity .18s ease}
-    @media (prefers-reduced-motion: reduce){ html.avp-ready body{transition:none} }
+    /* ── Anti-flash du shell (voir revealAppShell dans auth.js) ──────────────
+       Pendant le chargement (avant "avp-ready"), on montre un SKELETON shimmer
+       (barres sans texte ni icones -> insensible aux polices, jamais de "pas
+       net") : sidebar en placeholder + contenu masque. Une fois le DOM construit
+       ET les polices pretes, la vraie UI apparait en fondu. Filet : <= 1,2 s. */
+    @keyframes avp-pulse{0%,100%{opacity:.45}50%{opacity:.85}}
+    /* Contenu principal : masque puis fondu */
+    html:not(.avp-ready) .avp-main{opacity:0}
+    html.avp-ready .avp-main{opacity:1;transition:opacity .22s ease}
+    /* Sidebar : on masque les vrais elements et on affiche des barres shimmer */
+    html:not(.avp-ready) #sidebar > *{opacity:0}
+    html.avp-ready #sidebar > *{opacity:1;transition:opacity .22s ease}
+    html:not(.avp-ready) #sidebar::after{
+      content:'';position:absolute;left:16px;right:16px;top:70px;height:320px;
+      border-radius:8px;
+      background:repeating-linear-gradient(to bottom,
+        rgba(255,255,255,.08) 0,rgba(255,255,255,.08) 13px,
+        transparent 13px,transparent 40px);
+      animation:avp-pulse 1.2s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce){
+      html.avp-ready .avp-main,html.avp-ready #sidebar > *{transition:none}
+      html:not(.avp-ready) #sidebar::after{animation:none}
+    }
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
     a{text-decoration:none;color:inherit}
     button{font-family:'DM Sans',sans-serif}
