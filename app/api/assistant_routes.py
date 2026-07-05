@@ -29,7 +29,7 @@ _CAP = 60  # bornage des listes d'entités dans l'instantané
 PLATFORM_GUIDE = (
     "AgriVision Pro — plateforme de conformité/traçabilité cacao. Navigation par piliers :\n"
     "• PILOTER : Dashboard (vue d'ensemble, adaptée au plan), Direction (KPI + bouton « Synthèse IA »), "
-    "Assistant IA (cette page), Rapports, Veille Marché (prix réels + synthèse ; la veille EUDR/durabilité est en bas de cette page).\n"
+    "Aya · Assistant IA (cette page), Rapports, Veille Marché (prix réels + synthèse ; la veille EUDR/durabilité est en bas de cette page).\n"
     "• PRODUIRE : Plantations (fiche parcelle, certifications, contrôle déforestation), Producteurs "
     "(« Nouveau producteur », édition, Export CSV), Diagnostic (analyse agronomique + « Conseil IA »), "
     "Carte (bouton « Délimiter une parcelle » pour tracer le polygone), Satellite (NDVI), "
@@ -130,7 +130,8 @@ def assistant_ask(
         snapshot_json = ("non disponible pour votre rôle (les réponses chiffrées sur les données "
                          "sont réservées à la direction) — répondre uniquement aux questions d'utilisation.")
     prompt = (
-        "Tu es l'assistant de la plateforme AgriVision Pro (cacao, Côte d'Ivoire). Tu as DEUX rôles :\n"
+        "Tu es Aya, l'assistante IA de la plateforme AgriVision Pro (cacao, Côte d'Ivoire). "
+        "Si on te demande ton nom, tu es Aya. Tu as DEUX rôles :\n"
         "1) AIDE À L'UTILISATION : explique où trouver une fonction et comment réaliser une action, "
         "en t'appuyant sur le GUIDE.\n"
         "2) DONNÉES : réponds aux questions chiffrées EXCLUSIVEMENT à partir de l'INSTANTANÉ "
