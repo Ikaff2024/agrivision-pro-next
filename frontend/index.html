@@ -80,6 +80,10 @@
 .form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;
   padding-top:16px;border-top:1px solid var(--border)}
+.lb-tabs{display:inline-flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:3px}
+.lb-tab{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;
+  color:var(--muted);padding:6px 14px;border-radius:99px;cursor:pointer;transition:.15s}
+.lb-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 </style>
 </head>
 <body>
@@ -92,10 +96,16 @@
         <div class="page-title">Opérations</div>
         <div class="page-sub" id="coop-name">Chargement…</div>
       </div>
-      <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
-        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-        Nouvelle plantation
-      </button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="openPrecheck()" title="Vérifier la déforestation d'une parcelle AVANT de l'acheter / l'enregistrer">
+          <span class="material-symbols-outlined" style="font-size:18px">travel_explore</span>
+          Pré-contrôle EUDR
+        </button>
+        <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
+          <span class="material-symbols-outlined" style="font-size:18px">add</span>
+          Nouvelle plantation
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -151,15 +161,21 @@
       </div>
 
       <div>
-        <div class="section-title">Parcelles à surveiller</div>
-        <div style="font-size:12px;color:var(--muted);margin:-4px 0 10px">Dernier diagnostic par parcelle — <b>scores les plus faibles d'abord</b> (à prioriser). Vue complète : <a href="plantations.html" style="color:var(--primary);font-weight:600">Plantations</a>.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div class="section-title" style="margin:0">Palmarès des parcelles</div>
+          <div class="lb-tabs">
+            <button class="lb-tab active" id="lb-tab-worst" onclick="setLeaderboard('worst',this)">⚠️ À redresser</button>
+            <button class="lb-tab" id="lb-tab-best" onclick="setLeaderboard('best',this)">🏆 Modèles</button>
+          </div>
+        </div>
+        <div id="lb-note" style="font-size:12px;color:var(--muted);margin:6px 0 10px">Dernier diagnostic par parcelle — <b>scores les plus faibles d'abord</b> (à prioriser). Vue complète : <a href="plantations.html" style="color:var(--primary);font-weight:600">Plantations</a>.</div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Plantation</th><th>Région</th><th>Score</th><th>Risque</th><th>Date</th></tr>
+              <tr><th style="width:34px">#</th><th>Plantation</th><th>Région</th><th>Score</th><th>Risque</th><th>Date</th></tr>
             </thead>
             <tbody id="diag-tbody">
-              <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Chargement…</td></tr>
+              <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Chargement…</td></tr>
             </tbody>
           </table>
         </div>
@@ -228,6 +244,30 @@
   </div>
 </div>
 
+<!-- Modal: pré-contrôle EUDR (déforestation) avant achat / intégration -->
+<div class="modal-overlay" id="pc-modal">
+  <div class="modal">
+    <div class="modal-title">🌍 Pré-contrôle EUDR</div>
+    <div style="font-size:13px;color:var(--muted);margin:-10px 0 16px;line-height:1.5">
+      Vérifiez la <b>déforestation</b> d'une parcelle <b>avant</b> de lui acheter sa production ou de l'enregistrer. C'est le critère décisif : une parcelle déforestée après le 31/12/2020 n'est pas vendable EUDR.
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="pc-lat" type="number" step="any" placeholder="5.78"></div>
+      <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="pc-lng" type="number" step="any" placeholder="-6.59"></div>
+    </div>
+    <button type="button" class="btn btn-outline" id="pc-geo-btn" onclick="pcGrabGPS()"
+      style="width:100%;justify-content:center;margin-bottom:12px">
+      <span class="material-symbols-outlined" style="font-size:16px">my_location</span>
+      <span id="pc-geo-txt">Utiliser ma position GPS</span>
+    </button>
+    <div id="pc-result" style="display:none;margin:4px 0 6px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePrecheck()">Fermer</button>
+      <button class="btn btn-primary" id="pc-btn" onclick="runPrecheck()">Vérifier</button>
+    </div>
+  </div>
+</div>
+
 <script>
 initApp('dashboard');
 
@@ -283,24 +323,53 @@ async function loadDashboard() {
     document.getElementById('s-high').textContent  = s.high_risk_plantations;
   } catch {}
 
-  // Parcelles à surveiller : dernier diagnostic par parcelle, scores les plus faibles d'abord.
+  // Palmarès des parcelles : dernier diagnostic par parcelle (worst = à redresser, best = modèles).
   try {
-    const r2 = await authFetch('/diagnostics?limit=500');
+    const r2 = await authFetch('/diagnostics?limit=1000');
     if (!r2 || !r2.ok) return;
     const diags = await r2.json();
-    const tb = document.getElementById('diag-tbody');
     // /diagnostics est trié par date décroissante → 1re occurrence = diagnostic le plus récent.
     const seen = new Set();
-    const latest = diags.filter(d => { if (seen.has(d.plantation_id)) return false; seen.add(d.plantation_id); return true; });
-    latest.sort((a, b) => (a.global_score ?? 999) - (b.global_score ?? 999));
-    const worst = latest.slice(0, 8);
-    if (!worst.length) {
-      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">Aucun diagnostic. <a href="diagnostic.html" style="color:var(--primary);font-weight:600">Lancer le premier →</a></td></tr>';
-      return;
-    }
-    tb.innerHTML = worst.map(d => `
+    _lbLatest = diags.filter(d => {
+      if (d.plantation_id == null || d.global_score == null) return false;
+      if (seen.has(d.plantation_id)) return false;
+      seen.add(d.plantation_id); return true;
+    });
+    renderLeaderboard();
+  } catch {}
+}
+
+/* ── Palmarès des parcelles (à redresser / modèles) ─────────────────── */
+let _lbLatest = [];
+let _lbMode = 'worst';
+const LB_LIMIT = 50;
+
+function setLeaderboard(mode, btn) {
+  _lbMode = mode;
+  document.getElementById('lb-tab-worst').classList.toggle('active', mode === 'worst');
+  document.getElementById('lb-tab-best').classList.toggle('active', mode === 'best');
+  document.getElementById('lb-note').innerHTML = mode === 'worst'
+    ? 'Dernier diagnostic par parcelle — <b>scores les plus faibles d\'abord</b> : à prioriser pour l\'appui technique.'
+    : 'Les <b>meilleures parcelles</b> — à ériger en modèle : visites d\'échange, champs-écoles, diffusion des bonnes pratiques.';
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const tb = document.getElementById('diag-tbody');
+  if (!tb) return;
+  if (!_lbLatest.length) {
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Aucun diagnostic. <a href="diagnostic.html" style="color:var(--primary);font-weight:600">Lancer le premier →</a></td></tr>';
+    return;
+  }
+  // global_score = score de RISQUE (≥70 = HIGH). À redresser = risque le plus ÉLEVÉ
+  // d'abord (desc) ; modèles = risque le plus FAIBLE d'abord (asc).
+  const sorted = [..._lbLatest].sort((a, b) =>
+    _lbMode === 'worst' ? (b.global_score - a.global_score) : (a.global_score - b.global_score));
+  const rows = sorted.slice(0, LB_LIMIT);
+  tb.innerHTML = rows.map((d, i) => `
       <tr>
-        <td style="font-weight:500;cursor:pointer" onclick="location.href='plantation_detail.html?id=${d.plantation_id}'">${_plantationNames[d.plantation_id] || (d.plantation_id ? 'Plantation #'+d.plantation_id : '—')}</td>
+        <td style="color:var(--faint);font-family:'Fraunces',serif;font-weight:600">${i + 1}</td>
+        <td style="font-weight:500;cursor:pointer" onclick="location.href='plantation_detail.html?id=${d.plantation_id}'">${_plantationNames[d.plantation_id] || ('Plantation #' + d.plantation_id)}</td>
         <td style="color:var(--muted)">${d.region || d.country || '—'}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
@@ -313,7 +382,6 @@ async function loadDashboard() {
         <td>${riskBadge(d.global_risk_level)}</td>
         <td style="color:var(--muted)">${fmtDate(d.created_at)}</td>
       </tr>`).join('');
-  } catch {}
 }
 
 loadDashboard();
@@ -466,6 +534,65 @@ function grabGPS() {
 function openModal() { document.getElementById('modal').style.display = 'flex'; }
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
 document.getElementById('modal').addEventListener('click', e => { if (e.target===e.currentTarget) closeModal(); });
+
+/* ── Pré-contrôle EUDR (déforestation) avant achat / intégration ─────── */
+function openPrecheck() {
+  document.getElementById('pc-result').style.display = 'none';
+  document.getElementById('pc-modal').style.display = 'flex';
+}
+function closePrecheck() { document.getElementById('pc-modal').style.display = 'none'; }
+document.getElementById('pc-modal').addEventListener('click', e => { if (e.target===e.currentTarget) closePrecheck(); });
+
+function pcGrabGPS() {
+  const txt = document.getElementById('pc-geo-txt');
+  if (!navigator.geolocation) { txt.textContent = 'Géolocalisation non supportée'; return; }
+  txt.textContent = 'Localisation en cours…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('pc-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('pc-lng').value = pos.coords.longitude.toFixed(6);
+      txt.textContent = 'Position capturée';
+      setTimeout(() => { txt.textContent = 'Utiliser ma position GPS'; }, 2500);
+    },
+    () => { txt.textContent = 'Localisation impossible — autorisez la position'; },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+async function runPrecheck() {
+  const lat = parseFloat(document.getElementById('pc-lat').value);
+  const lng = parseFloat(document.getElementById('pc-lng').value);
+  const box = document.getElementById('pc-result');
+  if (isNaN(lat) || isNaN(lng)) {
+    box.style.display = 'block';
+    box.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fbe9e7;color:#922b21;font-size:13px">Renseignez la latitude et la longitude (ou GPS).</div>';
+    return;
+  }
+  const btn = document.getElementById('pc-btn');
+  btn.disabled = true; btn.textContent = 'Analyse…';
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px">Interrogation des alertes de déforestation…</div>';
+  try {
+    const res = await authFetch('/satellite/precheck', { method: 'POST', body: JSON.stringify({ latitude: lat, longitude: lng }) });
+    if (!res || !res.ok) throw new Error('Service indisponible');
+    const d = await res.json();
+    const palette = {
+      low:    { bg: '#eaf6ee', bd: '#8fcea8', fg: '#1a6b3a', icon: '✅' },
+      medium: { bg: '#fdf3e3', bd: '#e8c98a', fg: '#7a4a00', icon: '⚠️' },
+      high:   { bg: '#fbe9e7', bd: '#e0a89f', fg: '#922b21', icon: '⛔' },
+    };
+    const p = palette[d.level] || palette.medium;
+    box.innerHTML =
+      '<div style="padding:14px 16px;border-radius:10px;background:' + p.bg + ';border:1px solid ' + p.bd + ';color:' + p.fg + '">' +
+        '<div style="font-weight:700;font-size:14px;margin-bottom:4px">' + p.icon + ' ' + escapeHtml(d.title) + '</div>' +
+        '<div style="font-size:12.5px;line-height:1.5">' + escapeHtml(d.message) + '</div>' +
+      '</div>';
+  } catch (e) {
+    box.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fbe9e7;color:#922b21;font-size:13px">Pré-contrôle impossible : ' + escapeHtml(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Vérifier';
+  }
+}
 
 async function createPlantation() {
   const name = document.getElementById('m-name').value.trim();

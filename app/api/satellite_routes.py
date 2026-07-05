@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
@@ -92,6 +93,82 @@ def deforestation(
 ):
     """Signal de déforestation (alertes) pour un point."""
     return get_deforestation_signal(latitude, longitude)
+
+
+class PrecheckRequest(BaseModel):
+    """Pré-contrôle EUDR d'une parcelle NON encore enregistrée."""
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    # Optionnel : polygone GeoJSON exact de la parcelle (plus precis que le point).
+    geometry: dict | None = None
+
+
+def _precheck_verdict(defo: dict) -> dict:
+    """Traduit un signal de déforestation en verdict d'éligibilité EUDR (GO/NO-GO)."""
+    simulated = (defo.get("source") == "simulation")
+    alerts = int(defo.get("alerts_count") or 0)
+    loss = bool(defo.get("loss_detected"))
+    if loss or alerts > 0:
+        return {
+            "eligible": False,
+            "verdict": "NON_ELIGIBLE",
+            "level": "high",
+            "title": "Achat déconseillé — déforestation détectée",
+            "message": (
+                f"{alerts} alerte(s) de déforestation depuis {defo.get('since', '2020-12-31')} "
+                "sur cette zone. La parcelle est à risque de non-conformité EUDR : "
+                "n'achetez pas / n'intégrez pas sans vérification terrain approfondie."
+            ),
+        }
+    if simulated:
+        return {
+            "eligible": None,
+            "verdict": "INDETERMINE",
+            "level": "medium",
+            "title": "Vérification réelle indisponible",
+            "message": (
+                "Le contrôle satellite de déforestation n'est pas activé (mode simulation). "
+                "Résultat non probant pour l'EUDR — configurez GFW_API_KEY pour un verdict réel."
+            ),
+        }
+    return {
+        "eligible": True,
+        "verdict": "ELIGIBLE",
+        "level": "low",
+        "title": "Feu vert — aucune déforestation détectée",
+        "message": (
+            f"Aucune alerte de déforestation depuis {defo.get('since', '2020-12-31')} "
+            "sur cette zone. Parcelle éligible à l'achat / à l'intégration (sous réserve "
+            "des autres critères EUDR : géolocalisation, traçabilité)."
+        ),
+    }
+
+
+@router.post("/precheck")
+def deforestation_precheck(
+    req: PrecheckRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pré-contrôle EUDR RAPIDE d'une parcelle *avant* de l'acheter ou de l'enregistrer.
+
+    Ne nécessite aucune plantation en base : on interroge directement la
+    déforestation (polygone exact si fourni, sinon zone ~1 km autour du point) et
+    on renvoie un verdict d'éligibilité clair (GO / NO-GO / indéterminé).
+    """
+    geom = req.geometry if isinstance(req.geometry, dict) else None
+    if geom and geom.get("type") == "Feature":
+        geom = geom.get("geometry")
+    if geom and geom.get("type") in ("Polygon", "MultiPolygon"):
+        defo = get_deforestation_for_geometry(geom)
+    else:
+        defo = get_deforestation_signal(req.latitude, req.longitude)
+    return {
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+        "deforestation": defo,
+        **_precheck_verdict(defo),
+    }
 
 
 def _accessible_plantation(plantation_id: int, db: Session, user: User) -> Plantation:
