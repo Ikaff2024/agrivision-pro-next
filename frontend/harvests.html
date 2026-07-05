@@ -118,9 +118,9 @@ tr:hover .row-actions{opacity:1}
     <div class="avp-content">
 
       <div class="toolbar">
-        <select class="tb-select" id="plantation-select" onchange="onPlantationChange()">
-          <option value="">Chargement des plantations...</option>
-        </select>
+        <div id="plantation-combo" style="min-width:300px;flex:1 1 300px">
+          <input class="tb-select" style="width:100%" disabled placeholder="Chargement des plantations…">
+        </div>
         <select class="tb-select" id="year-select" onchange="applyFilters()" style="min-width:130px">
           <option value="">Toutes ann&eacute;es</option>
         </select>
@@ -254,21 +254,31 @@ async function init() {
   }
 }
 
+let plantationCombo = null;
 function _renderPlantationsSelector() {
-  const sel = document.getElementById("plantation-select");
-  if (!sel) return;
+  const host = document.getElementById("plantation-combo");
+  if (!host) return;
   if (plantations.length === 0) {
-    sel.innerHTML = '<option value="">Aucune plantation</option>';
+    host.innerHTML = '<input class="tb-select" style="width:100%" disabled placeholder="Aucune plantation">';
     document.getElementById("page-sub").textContent = "Aucune plantation dans votre cooperative.";
     return;
   }
 
-  sel.innerHTML = '<option value="">-- S&eacute;lectionnez une plantation --</option>' +
-    plantations.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' &mdash; ' + esc(p.owner_name||'') + '</option>').join('');
+  const items = plantations.map(p => ({ value: p.id, label: p.name, sub: p.owner_name || '' }));
+  if (!plantationCombo) {
+    plantationCombo = AVPCombo.attach(host, {
+      items,
+      placeholder: 'Rechercher une plantation…',
+      value: initialPlantationId || '',
+      onChange: (val) => onPlantationChange(val),
+    });
+  } else {
+    plantationCombo.setItems(items);
+  }
 
   // Pre-selection si plantation_id en URL
   if (initialPlantationId) {
-    sel.value = initialPlantationId;
+    plantationCombo.setValue(initialPlantationId);
     currentPlantationId = parseInt(initialPlantationId);
     loadHarvests();
   }
@@ -276,9 +286,8 @@ function _renderPlantationsSelector() {
   document.getElementById("page-sub").textContent = plantations.length + " plantation(s) disponible(s)";
 }
 
-async function onPlantationChange() {
-  const sel = document.getElementById("plantation-select");
-  const val = sel.value;
+async function onPlantationChange(val) {
+  if (val === undefined && plantationCombo) val = plantationCombo.getValue();
   if (!val) {
     currentPlantationId = null;
     document.getElementById("content-area").innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">S&eacute;lectionnez une plantation pour voir ses r&eacute;coltes.</div>';

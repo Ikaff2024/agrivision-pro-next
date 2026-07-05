@@ -1127,6 +1127,105 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/* ── AVPCombo : liste déroulante AVEC recherche ───────────────────────────────
+   Remplace un <select> quand la liste est énorme (coops à des milliers de
+   parcelles/producteurs) : champ de recherche + filtrage instantané (insensible
+   aux accents), clavier (↑ ↓ Entrée Échap), plafond d'affichage pour rester fluide.
+   API : const h = AVPCombo.attach(hostEl|id, {items:[{value,label,sub}], value,
+         placeholder, onChange(value,item)});  puis h.setItems(...) / h.setValue(...)
+         / h.getValue(). */
+const AVPCombo = (function () {
+  let _stylesDone = false;
+  function ensureStyles() {
+    if (_stylesDone) return; _stylesDone = true;
+    const css = `
+.avp-combo{position:relative;display:block}
+.avp-combo-input{width:100%;box-sizing:border-box;padding:11px 58px 11px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
+.avp-combo-input::placeholder{color:var(--muted)}
+.avp-combo-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,140,90,.12)}
+.avp-combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:20px;pointer-events:none}
+.avp-combo-clear{position:absolute;right:33px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px;cursor:pointer;display:none}
+.avp-combo.has-val .avp-combo-clear{display:inline-flex}
+.avp-combo-panel{position:absolute;z-index:80;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:320px;overflow-y:auto;display:none}
+.avp-combo.open .avp-combo-panel{display:block}
+.avp-combo-opt{padding:9px 14px;cursor:pointer;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--border-l)}
+.avp-combo-opt:last-child{border-bottom:none}
+.avp-combo-opt.active,.avp-combo-opt:hover{background:var(--surface-warm,rgba(45,140,90,.08))}
+.avp-combo-opt.sel{background:rgba(45,140,90,.14)}
+.avp-combo-opt-l{font-size:13.5px;font-weight:500;color:var(--text)}
+.avp-combo-opt-s{font-size:12px;color:var(--muted)}
+.avp-combo-more,.avp-combo-empty{padding:11px 14px;font-size:12.5px;color:var(--muted);text-align:center}`;
+    const s = document.createElement('style'); s.id = 'avp-combo-styles'; s.textContent = css;
+    document.head.appendChild(s);
+  }
+  function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  const CAP = 80;
+  function attach(host, opts) {
+    ensureStyles();
+    host = (typeof host === 'string') ? document.getElementById(host) : host;
+    if (!host) return null;
+    opts = opts || {};
+    let items = opts.items || [];
+    let value = (opts.value != null && opts.value !== '') ? String(opts.value) : '';
+    let filtered = items, open = false, active = -1;
+    host.classList.add('avp-combo');
+    host.innerHTML =
+      '<input type="text" class="avp-combo-input" autocomplete="off" spellcheck="false" placeholder="' +
+        escapeHtml(opts.placeholder || 'Rechercher…') + '">' +
+      '<span class="avp-combo-clear material-symbols-outlined" title="Effacer">close</span>' +
+      '<span class="avp-combo-caret material-symbols-outlined">expand_more</span>' +
+      '<div class="avp-combo-panel"></div>';
+    const input = host.querySelector('.avp-combo-input');
+    const panel = host.querySelector('.avp-combo-panel');
+    const clear = host.querySelector('.avp-combo-clear');
+    function itemFor(v) { return items.find(i => String(i.value) === String(v)) || null; }
+    function labelFor(v) { const it = itemFor(v); return it ? it.label : ''; }
+    function syncField() { input.value = labelFor(value); host.classList.toggle('has-val', !!value); }
+    function render() {
+      const q = norm(input.value);
+      filtered = !q ? items : items.filter(i => norm(i.label).includes(q) || norm(i.sub).includes(q));
+      const shown = filtered.slice(0, CAP);
+      panel.innerHTML = shown.length
+        ? shown.map((i, idx) =>
+            '<div class="avp-combo-opt' + (idx === active ? ' active' : '') +
+              (String(i.value) === value ? ' sel' : '') + '" data-v="' + escapeHtml(String(i.value)) + '">' +
+              '<span class="avp-combo-opt-l">' + escapeHtml(i.label) + '</span>' +
+              (i.sub ? '<span class="avp-combo-opt-s">' + escapeHtml(i.sub) + '</span>' : '') +
+            '</div>').join('') +
+            (filtered.length > CAP ? '<div class="avp-combo-more">… ' + (filtered.length - CAP) +
+              ' autre(s) — affinez la recherche</div>' : '')
+        : '<div class="avp-combo-empty">Aucun résultat</div>';
+    }
+    function openPanel() { open = true; host.classList.add('open'); input.value = ''; active = -1; render(); }
+    function closePanel() { open = false; host.classList.remove('open'); syncField(); }
+    function choose(v) {
+      value = (v != null && v !== '') ? String(v) : '';
+      closePanel();
+      if (opts.onChange) opts.onChange(value, itemFor(value));
+    }
+    function scrollActive() { const el = panel.querySelector('.avp-combo-opt.active'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+    input.addEventListener('focus', openPanel);
+    input.addEventListener('input', () => { if (!open) { open = true; host.classList.add('open'); } active = 0; render(); });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (!open) openPanel(); active = Math.min(active + 1, Math.min(filtered.length, CAP) - 1); render(); scrollActive(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); scrollActive(); }
+      else if (e.key === 'Enter') { e.preventDefault(); const it = filtered[active]; if (it) choose(it.value); }
+      else if (e.key === 'Escape') { closePanel(); input.blur(); }
+    });
+    panel.addEventListener('mousedown', e => { const opt = e.target.closest('.avp-combo-opt'); if (opt) { e.preventDefault(); choose(opt.getAttribute('data-v')); } });
+    clear.addEventListener('mousedown', e => { e.preventDefault(); choose(''); });
+    document.addEventListener('mousedown', e => { if (open && !host.contains(e.target)) closePanel(); });
+    syncField();
+    return {
+      setItems(newItems) { items = newItems || []; if (open) render(); else syncField(); },
+      setValue(v) { value = (v != null && v !== '') ? String(v) : ''; syncField(); },
+      getValue() { return value; },
+      focus() { input.focus(); },
+    };
+  }
+  return { attach };
+})();
+
 /* ── Service worker : enregistrement centralisé (offline garanti partout) ──────
    auth.js étant chargé sur les 39 pages, on garantit l'installation du SW quelle
    que soit la page d'entrée (avant, seules 4 pages l'enregistraient). Idempotent :
