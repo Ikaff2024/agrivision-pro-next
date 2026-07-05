@@ -1223,7 +1223,67 @@ const AVPCombo = (function () {
       focus() { input.focus(); },
     };
   }
-  return { attach };
+
+  /* enhance(select) : « habille » un <select> existant d'une recherche SANS toucher
+     au code de la page. Le <select> natif reste la source de vérité (.value,
+     onchange) ; on le masque, on affiche le combo par-dessus, et on resynchronise
+     automatiquement quand les options sont peuplées (souvent en async) ou changent.
+     Un simple attribut data-searchable sur le <select> suffit (auto-enhance). */
+  function _readSelect(select) {
+    let placeholder = 'Rechercher…';
+    const items = [];
+    Array.from(select.options).forEach(o => {
+      if (o.value === '') { if (o.textContent.trim()) placeholder = o.textContent.trim(); return; }
+      items.push({ value: o.value, label: o.textContent.trim(), sub: o.getAttribute('data-sub') || '' });
+    });
+    return { items, placeholder };
+  }
+  function enhance(select) {
+    ensureStyles();
+    select = (typeof select === 'string') ? document.getElementById(select) : select;
+    if (!select || select.tagName !== 'SELECT' || select.multiple) return null;
+    if (select._avpCombo) { select._avpCombo.refresh(); return select._avpCombo; }
+    const host = document.createElement('div');
+    if (select.style.minWidth) host.style.minWidth = select.style.minWidth;
+    if (select.style.flex) host.style.flex = select.style.flex;
+    select.style.display = 'none';
+    select.setAttribute('aria-hidden', 'true');
+    select.parentNode.insertBefore(host, select.nextSibling);
+    const first = _readSelect(select);
+    let syncing = false;
+    const handle = attach(host, {
+      items: first.items, placeholder: first.placeholder, value: select.value,
+      onChange: (v) => {
+        if (select.value === v) return;
+        syncing = true;
+        select.value = v;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncing = false;
+      },
+    });
+    handle.refresh = () => {
+      if (syncing) return;
+      const r = _readSelect(select);
+      handle.setItems(r.items);
+      handle.setValue(select.value);
+    };
+    // Re-sync quand les options sont (re)peuplées : populate = mutation childList.
+    try { new MutationObserver(() => handle.refresh()).observe(select, { childList: true }); } catch (e) {}
+    // Re-sync quand la page change la valeur par code et émet un 'change' (le guard
+    // `syncing` ignore l'événement que nous venons nous-mêmes de déclencher).
+    select.addEventListener('change', () => handle.refresh());
+    select._avpCombo = handle;
+    return handle;
+  }
+  function autoEnhance(root) {
+    (root || document).querySelectorAll('select[data-searchable]').forEach(s => { try { enhance(s); } catch (e) {} });
+  }
+  if (typeof document !== 'undefined') {
+    if (document.readyState !== 'loading') autoEnhance();
+    else document.addEventListener('DOMContentLoaded', () => autoEnhance());
+  }
+
+  return { attach, enhance, autoEnhance };
 })();
 
 /* ── Service worker : enregistrement centralisé (offline garanti partout) ──────
