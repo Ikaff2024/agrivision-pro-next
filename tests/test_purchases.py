@@ -11,10 +11,15 @@ def _login(client, email, password="pass1234", role="admin", coop="Coop Buy"):
 
 
 def _plantation(client, h, name="P1", owner="Kouassi"):
-    return client.post("/plantations", json={
+    p = client.post("/plantations", json={
         "name": name, "owner_name": owner, "country": "Côte d'Ivoire",
         "region": "Yeyasso", "hectares": 3.0,
     }, headers=h).json()
+    # Regle metier : on n'ACHETE qu'aux NON-MEMBRES -> le producteur d'un test d'achat l'est.
+    if p.get("producer_id"):
+        client.patch(f"/producers/{p['producer_id']}/type",
+                     json={"type_producteur": "non_membre"}, headers=h)
+    return p
 
 
 def test_purchase_requires_auth(client):

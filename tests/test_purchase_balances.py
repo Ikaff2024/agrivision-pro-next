@@ -12,12 +12,16 @@ def _admin(client, email, coop):
 
 
 def _producer_id(client, headers):
-    """Crée une plantation (auto-crée un producteur) et renvoie son id."""
+    """Crée une plantation (auto-crée un producteur NON-MEMBRE) et renvoie son id."""
     client.post("/plantations", json={
         "name": "Parcelle Pay", "owner_name": "Producteur Pay",
         "country": "CI", "region": "Yeyasso", "hectares": 2.0,
     }, headers=headers)
-    return client.get("/producers?limit=50", headers=headers).json()[0]["id"]
+    pid = client.get("/producers?limit=50", headers=headers).json()[0]["id"]
+    # On n'ACHETE qu'aux NON-MEMBRES -> reclasse le producteur du test d'achat.
+    client.patch(f"/producers/{pid}/type",
+                 json={"type_producteur": "non_membre"}, headers=headers)
+    return pid
 
 
 def _purchase(client, headers, producer_id, net, price, status="pending"):

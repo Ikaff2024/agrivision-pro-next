@@ -2554,7 +2554,22 @@ def create_harvest(
     if current_user.role not in ("admin", "agronomist", "gestionnaire"):
         raise HTTPException(status_code=403, detail="Role agronome, gestionnaire ou admin requis.")
 
-    _check_plantation_access(plantation_id, db, current_user)
+    plantation = _check_plantation_access(plantation_id, db, current_user)
+
+    # Regle statut cooperatif : la RECOLTE ne concerne que les MEMBRES. Pour une
+    # parcelle d'un NON-MEMBRE, sa production s'enregistre en ACHAT (bord champ),
+    # pas en recolte -> on bloque (l'achat cree lui-meme la trace de volume).
+    if plantation.producer_id is not None:
+        _owner = db.query(Producer).filter(Producer.id == plantation.producer_id).first()
+        if _owner is not None and (_owner.type_producteur or "membre") == "non_membre":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{_owner.nom_complet} est un producteur NON-MEMBRE : sa production "
+                    "se saisit en achat (bord champ), pas en récolte. Utilisez le module "
+                    "Achats, ou reclassez-le en « membre » si la coop organise sa récolte."
+                ),
+            )
 
     if harvest.quality not in VALID_QUALITIES:
         raise HTTPException(

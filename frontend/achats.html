@@ -53,9 +53,12 @@
       <div class="buy-grid">
         <div class="panel">
           <div class="section-title">Nouvel achat</div>
-          <div class="form-group"><label class="form-label">Producteur</label><select class="form-input" id="b-producer" onchange="onProducer()"></select></div>
+          <div style="background:#f2f7f3;border:1px solid #cfe3d6;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12.5px;color:#33604a;line-height:1.4">
+            🧾 L'achat concerne les producteurs <strong>non-membres</strong> (on achète leur production bord champ). Pour un <strong>membre</strong>, saisissez plutôt une <a href="harvests.html" style="color:#1a6b3a;font-weight:600">récolte</a>.
+          </div>
+          <div class="form-group"><label class="form-label">Producteur (non-membre)</label><div id="b-producer-combo"></div></div>
           <div id="b-blocked" class="warn" style="display:none;margin-bottom:8px">🚫 Producteur sous blocage CacaoGuard — vente non traçable vers un lot.</div>
-          <div class="form-group"><label class="form-label">Plantation (génère une récolte traçable)</label><select class="form-input" id="b-plantation" onchange="checkDup()"><option value="">— Aucune —</option></select></div>
+          <div class="form-group"><label class="form-label">Plantation (génère une récolte traçable)</label><div id="b-plantation-combo"></div></div>
           <div class="mini-row">
             <div class="form-group"><label class="form-label">N° bon d'achat</label><input class="form-input" id="b-receipt"></div>
             <div class="form-group"><label class="form-label">Campagne</label><input class="form-input" id="b-season" placeholder="2025-2026" onchange="checkDup()"></div>
@@ -108,24 +111,44 @@
 <script>
 initApp('purchases');
 let _producers = [], _plantations = [];
+let producerCombo = null, plantationCombo = null;
+let _selProducerId = 0, _selPlantationId = 0;
 
 function fmt(n){ return Number(n||0).toLocaleString('fr-FR'); }
 function payBadge(s){ return {paid:'b-paid',pending:'b-pending',cancelled:'b-cancelled'}[s]||'b-pending'; }
 
 async function loadAll(){
-  const rp = await authFetch('/producers?limit=5000'); _producers = rp?.ok ? await rp.json() : [];
-  document.getElementById('b-producer').innerHTML = _producers.map(p=>`<option value="${p.id}">${p.nom_complet}${p.localite?' - '+p.localite:''}</option>`).join('');
+  // Regle #4 : on n'ACHETE qu'aux NON-MEMBRES -> filtre serveur + garde-fou client.
+  const rp = await authFetch('/producers?limit=5000&type_producteur=non_membre'); const all = rp?.ok ? await rp.json() : [];
+  _producers = all.filter(p => (p.type_producteur || 'membre') === 'non_membre');
+  const items = _producers.map(p => ({ value: p.id, label: p.nom_complet, sub: p.localite || '' }));
+  const host = document.getElementById('b-producer-combo');
+  if(!items.length){
+    host.innerHTML = '<div style="padding:11px 14px;color:var(--muted);border:1px solid var(--border);border-radius:var(--r);font-size:13px">Aucun producteur non-membre. Classez d\'abord un producteur en « non-membre ».</div>';
+    producerCombo = null;
+  } else if(!producerCombo){
+    producerCombo = AVPCombo.attach(host, { items, placeholder:'Rechercher un non-membre…', onChange:(v)=>onProducer(v) });
+  } else {
+    producerCombo.setItems(items);
+  }
   const rpl = await authFetch('/plantations?limit=5000'); _plantations = rpl?.ok ? await rpl.json() : [];
-  onProducer();
+  onProducer(_selProducerId ? String(_selProducerId) : '');
   await Promise.all([loadSummary(), loadList(), loadBalances()]);
 }
 
-function onProducer(){
-  const pid = Number(document.getElementById('b-producer').value);
+function onProducer(val){
+  _selProducerId = Number(val) || 0;
+  _selPlantationId = 0;
   // plantations du producteur
-  const mine = _plantations.filter(p=>p.producer_id===pid);
-  document.getElementById('b-plantation').innerHTML = '<option value="">— Aucune —</option>' +
-    mine.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const mine = _plantations.filter(p=>p.producer_id===_selProducerId);
+  const items = mine.map(p => ({ value: p.id, label: p.name, sub: p.region || '' }));
+  const host = document.getElementById('b-plantation-combo');
+  if(!plantationCombo){
+    plantationCombo = AVPCombo.attach(host, { items, placeholder:'— Aucune parcelle —', onChange:(v)=>{ _selPlantationId = Number(v)||0; checkDup(); } });
+  } else {
+    plantationCombo.setValue('');
+    plantationCombo.setItems(items);
+  }
   checkDup();
 }
 
@@ -136,7 +159,7 @@ function _escDup(s){ const d=document.createElement('div'); d.textContent=(s==nu
 async function checkDup(){
   _linkHarvestId = null; _dupAck = false; _dupHarvests = [];
   const box = document.getElementById('b-dup-alert');
-  const plid = Number(document.getElementById('b-plantation').value)||0;
+  const plid = _selPlantationId || 0;
   if(!plid){ box.style.display='none'; box.innerHTML=''; return; }
   const season = document.getElementById('b-season').value.trim();
   try{
@@ -243,15 +266,15 @@ async function loadList(){
 }
 
 async function createPurchase(){
-  const pid = Number(document.getElementById('b-producer').value);
-  if(!pid) return toast('Choisissez un producteur.');
+  const pid = _selProducerId || 0;
+  if(!pid) return toast('Choisissez un producteur non-membre.');
   if(_dupHarvests.length && !_linkHarvestId && !_dupAck){
     const ok = await avpConfirm('Une récolte existe déjà pour cette parcelle/campagne. Un achat non lié va DOUBLER le volume. Continuer quand même ?', {danger:true, okText:'Créer quand même'});
     if(!ok) return;
   }
   const body = {
     producer_id: pid,
-    plantation_id: Number(document.getElementById('b-plantation').value)||null,
+    plantation_id: _selPlantationId || null,
     harvest_id: _linkHarvestId || null,
     receipt_number: document.getElementById('b-receipt').value.trim()||null,
     season: document.getElementById('b-season').value.trim()||null,

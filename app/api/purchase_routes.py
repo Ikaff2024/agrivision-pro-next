@@ -314,6 +314,18 @@ def create_purchase(
     if _coop_id(current_user) is not None and producer.cooperative_id != _coop_id(current_user):
         raise HTTPException(status_code=403, detail="Producteur d'une autre cooperative.")
 
+    # Regle OHADA / statut cooperatif : on ACHETE la production des NON-MEMBRES.
+    # Pour un MEMBRE, la coop organise la RECOLTE (pas d'achat) -> l'achat est bloque.
+    if (producer.type_producteur or "membre") == "membre":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{producer.nom_complet} est un producteur MEMBRE : sa production se "
+                "saisit en récolte, pas en achat. Enregistrez une récolte, ou "
+                "reclassez-le en « non-membre » si vous lui achetez sa production."
+            ),
+        )
+
     plantation = None
     if data.plantation_id is not None:
         plantation = db.query(Plantation).filter(Plantation.id == data.plantation_id).first()

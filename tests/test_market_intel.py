@@ -141,6 +141,8 @@ def test_coop_price_from_purchases(client):
         "name": "P", "owner_name": "O", "country": "CI", "region": "Y", "hectares": 2.0,
     }, headers=h)
     pid = client.get("/producers?limit=50", headers=h).json()[0]["id"]
+    # On n'ACHETE qu'aux NON-MEMBRES -> reclasse le producteur du test d'achat.
+    client.patch(f"/producers/{pid}/type", json={"type_producteur": "non_membre"}, headers=h)
     client.post("/purchases", json={
         "producer_id": pid, "net_weight_kg": 100, "price_per_kg_fcfa": 1500, "payment_status": "pending",
     }, headers=h)

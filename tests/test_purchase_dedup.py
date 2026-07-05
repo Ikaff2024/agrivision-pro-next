@@ -26,6 +26,9 @@ def _plantation(client, h, name="P-Dedup", owner="Yao Dedup"):
 def _producer_id(client, h, owner):
     for p in client.get("/producers?limit=5000", headers=h).json():
         if p.get("nom_complet") == owner:
+            # On n'ACHETE qu'aux NON-MEMBRES -> reclasse le producteur du test d'achat.
+            client.patch(f"/producers/{p['id']}/type",
+                         json={"type_producteur": "non_membre"}, headers=h)
             return p["id"]
     return None
 
