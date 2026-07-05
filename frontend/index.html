@@ -217,6 +217,15 @@
       <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="m-name" placeholder="Plantation Soubré"></div>
       <div class="form-group"><label class="form-label">Propriétaire</label><input class="form-input" id="m-owner" placeholder="Konan Kouassi"></div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Catégorie du propriétaire *</label>
+      <select class="form-input" id="m-owner-type">
+        <option value="" disabled selected>— Choisir la catégorie —</option>
+        <option value="membre">Membre (récolte)</option>
+        <option value="non_membre">Non-membre (achat)</option>
+      </select>
+      <div style="font-size:11.5px;color:var(--faint);margin-top:4px">Appliquée si le propriétaire est nouveau. Membre → récolte ; non-membre → achat.</div>
+    </div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Pays</label>
         <select class="form-input" id="m-country">
@@ -602,10 +611,12 @@ async function createPlantation() {
   const lat  = parseFloat(document.getElementById('m-lat').value);
   const lng  = parseFloat(document.getElementById('m-lng').value);
   const ha   = parseFloat(document.getElementById('m-ha').value);
+  const ownerType = document.getElementById('m-owner-type').value;
   const errEl= document.getElementById('m-err');
   errEl.style.display='none';
 
   if (!name || !owner) { errEl.textContent='Nom et propriétaire requis.'; errEl.style.display='block'; return; }
+  if (!ownerType) { errEl.textContent='Choisissez la catégorie du propriétaire (membre ou non-membre).'; errEl.style.display='block'; return; }
 
   const btn = document.getElementById('m-btn');
   btn.disabled=true; btn.textContent='Création…';
@@ -614,7 +625,8 @@ async function createPlantation() {
     const res = await authFetch('/plantations', {
       method:'POST',
       body: JSON.stringify({ name, owner_name:owner, country, region: region||null,
-        latitude: isNaN(lat)?null:lat, longitude: isNaN(lng)?null:lng, hectares: isNaN(ha)?null:ha })
+        latitude: isNaN(lat)?null:lat, longitude: isNaN(lng)?null:lng, hectares: isNaN(ha)?null:ha,
+        owner_type_producteur: ownerType })
     });
     if (!res || !res.ok) {
       const e = await res?.json().catch(()=>({}));

@@ -51,6 +51,7 @@
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="openNewProducer()"><span class="material-symbols-outlined" style="font-size:18px">person_add</span> Nouveau producteur</button>
+        <button class="btn btn-outline" id="bulk-btn" style="display:none" onclick="openBulkClassify()" title="Reclasser en masse les producteurs correspondant au filtre actuel"><span class="material-symbols-outlined" style="font-size:18px">category</span> Classer en masse</button>
         <button class="btn btn-outline" id="export-btn" onclick="exportProducersCsv()" title="Exporter en CSV (Excel) — tous les producteurs filtrés"><span class="material-symbols-outlined" style="font-size:18px">download</span> Export CSV</button>
         <button class="btn btn-outline" onclick="load()"><span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualiser</button>
       </div>
@@ -114,7 +115,7 @@
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group"><label class="form-label">Sexe</label><select class="form-input" id="p-sexe"><option value="">—</option><option value="H">Homme</option><option value="F">Femme</option></select></div>
-      <div class="form-group"><label class="form-label">Catégorie</label><select class="form-input" id="p-type"><option value="membre">Membre (récolte)</option><option value="non_membre">Non-membre (achat)</option></select></div>
+      <div class="form-group"><label class="form-label">Catégorie *</label><select class="form-input" id="p-type"><option value="" disabled selected>— Choisir la catégorie —</option><option value="membre">Membre (récolte)</option><option value="non_membre">Non-membre (achat)</option></select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group"><label class="form-label">N° pièce d'identité</label><input class="form-input" id="p-piece-num" placeholder="Numéro de la pièce"></div>
@@ -129,6 +130,30 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNewProducer()">Annuler</button>
       <button class="btn btn-primary" id="p-btn" onclick="submitProducer()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: reclassement en masse -->
+<div class="modal-overlay" id="modal-bulk">
+  <div class="modal">
+    <div class="modal-title">Classer en masse</div>
+    <div id="bulk-scope" style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">…</div>
+    <div class="form-group">
+      <label class="form-label">Nouvelle catégorie à appliquer</label>
+      <select class="form-input" id="bulk-target">
+        <option value="non_membre">Non-membre (achat)</option>
+        <option value="membre">Membre (récolte)</option>
+      </select>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:4px;cursor:pointer">
+      <input type="checkbox" id="bulk-only-default" checked>
+      Ne toucher que les producteurs restés dans l'<b>autre</b> catégorie (ne réécrit pas ceux déjà classés)
+    </label>
+    <div id="bulk-err" style="color:var(--high);font-size:13px;margin-top:10px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeBulk()">Annuler</button>
+      <button class="btn btn-primary" id="bulk-apply" onclick="applyBulkClassify()">Appliquer</button>
     </div>
   </div>
 </div>
@@ -385,7 +410,7 @@ function _fillProducerModal(p) {
   document.getElementById('p-localite').value = (p && p.localite) || '';
   document.getElementById('p-section').value = (p && p.section) || '';
   document.getElementById('p-sexe').value = (p && p.sexe) || '';
-  document.getElementById('p-type').value = (p && p.type_producteur) || 'membre';
+  document.getElementById('p-type').value = (p && p.type_producteur) || '';
   document.getElementById('p-piece-num').value = (p && p.piece_identite_numero) || '';
   document.getElementById('p-piece-nat').value = (p && p.piece_identite_nature) || '';
   document.getElementById('p-code-exp').value = (p && (p.code_exportateur || p.code_saco)) || '';
@@ -420,8 +445,11 @@ async function submitProducer() {
   const err = document.getElementById('p-err'); err.style.display = 'none';
   const nom = document.getElementById('p-nom').value.trim();
   if (nom.length < 2) { err.textContent = 'Le nom et prénoms est obligatoire.'; err.style.display = 'block'; return; }
+  const type = document.getElementById('p-type').value;
+  if (!type) { err.textContent = 'Choisissez la catégorie : Membre (récolte) ou Non-membre (achat).'; err.style.display = 'block'; return; }
   const payload = {
     nom_complet: nom,
+    type_producteur: type,   // OBLIGATOIRE des la creation
     code_yeyasso: document.getElementById('p-code').value.trim() || null,
     telephone: document.getElementById('p-tel').value.trim() || null,
     localite: document.getElementById('p-localite').value.trim() || null,
@@ -431,7 +459,6 @@ async function submitProducer() {
   // Champs additionnels : pertinents surtout à l'édition (PUT). ProducerCreate
   // ignore les clés inconnues, donc sans effet à la création.
   if (_editId) {
-    payload.type_producteur = document.getElementById('p-type').value || 'membre';
     payload.piece_identite_numero = document.getElementById('p-piece-num').value.trim() || null;
     payload.piece_identite_nature = document.getElementById('p-piece-nat').value || null;
     payload.code_exportateur = document.getElementById('p-code-exp').value.trim() || null;
@@ -449,6 +476,73 @@ async function submitProducer() {
     load(false);
   } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
   finally { btn.disabled = false; btn.textContent = _editId ? 'Enregistrer' : 'Créer'; }
+}
+
+/* ── Reclassement en masse (admin / gestionnaire) ─────────────────────────── */
+(function initBulkBtn(){
+  try {
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    if (u && (u.role === 'admin' || u.role === 'gestionnaire')) {
+      const b = document.getElementById('bulk-btn'); if (b) b.style.display = '';
+    }
+  } catch (e) {}
+})();
+
+function _bulkFromType(){
+  const target = document.getElementById('bulk-target').value;
+  const opposite = target === 'membre' ? 'non_membre' : 'membre';
+  return document.getElementById('bulk-only-default').checked ? opposite : '';
+}
+async function _updateBulkPreview(){
+  const target = document.getElementById('bulk-target').value;
+  const fromType = _bulkFromType();
+  const scope = document.getElementById('bulk-scope');
+  const params = new URLSearchParams();
+  const q = document.getElementById('search').value.trim();
+  if (q) params.set('search', q);
+  if (certFilter) params.set('certification', certFilter);
+  if (fromType) params.set('type_producteur', fromType);
+  let n = '…';
+  try { const r = await authFetch('/producers/count?' + params.toString()); if (r?.ok) n = (await r.json()).total; } catch (e) {}
+  const lbl = target === 'membre' ? 'Membre (récolte)' : 'Non-membre (achat)';
+  const filtre = q ? ` correspondant à « ${esc(q)} »` : (certFilter ? ` certifiés ${esc(certFilter)}` : '');
+  scope.innerHTML = `<b>${n}</b> producteur(s)${filtre}` +
+    (fromType ? ` actuellement « ${fromType === 'membre' ? 'Membre' : 'Non-membre'} »` : '') +
+    ` seront classés en <b>${lbl}</b>.`;
+}
+function openBulkClassify(){
+  document.getElementById('bulk-err').style.display = 'none';
+  document.getElementById('bulk-target').value = 'non_membre';
+  document.getElementById('bulk-only-default').checked = true;
+  document.getElementById('modal-bulk').style.display = 'flex';
+  _updateBulkPreview();
+}
+function closeBulk(){ document.getElementById('modal-bulk').style.display = 'none'; }
+document.getElementById('modal-bulk').addEventListener('click', e => { if (e.target === e.currentTarget) closeBulk(); });
+document.getElementById('bulk-target').addEventListener('change', _updateBulkPreview);
+document.getElementById('bulk-only-default').addEventListener('change', _updateBulkPreview);
+
+async function applyBulkClassify(){
+  const err = document.getElementById('bulk-err'); err.style.display = 'none';
+  const target = document.getElementById('bulk-target').value;
+  const fromType = _bulkFromType();
+  const q = document.getElementById('search').value.trim();
+  const body = { type_producteur: target };
+  if (fromType) body.from_type = fromType;
+  if (q) body.search = q;
+  if (certFilter) body.certification = certFilter;
+  const ok = await avpConfirm('Confirmer le reclassement en masse ? Cette action modifie plusieurs producteurs à la fois.', { okText: 'Reclasser', danger: true });
+  if (!ok) return;
+  const btn = document.getElementById('bulk-apply'); btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await authFetch('/producers/bulk-type', { method: 'POST', body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r || !r.ok) throw new Error(d.detail || 'Reclassement impossible.');
+    closeBulk();
+    toast(`${d.updated} producteur(s) reclassé(s).`);
+    load(true); loadMembershipStats();
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+  finally { btn.disabled = false; btn.textContent = 'Appliquer'; }
 }
 
 renderHeader();

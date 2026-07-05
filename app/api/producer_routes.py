@@ -72,6 +72,9 @@ VALID_PRODUCER_TYPES = {"membre", "non_membre"}
 
 class ProducerCreate(BaseModel):
     nom_complet: str = Field(..., min_length=2, max_length=200)
+    # Categorisation OBLIGATOIRE des la creation (plus de defaut silencieux "membre") :
+    # 'membre' -> recolte ; 'non_membre' -> achat. Conditionne toute la chaine metier.
+    type_producteur: str = Field(..., description="'membre' | 'non_membre' (obligatoire)")
     code_yeyasso: Optional[str] = Field(None, max_length=100)
     telephone: Optional[str] = Field(None, max_length=50)
     localite: Optional[str] = Field(None, max_length=120)
@@ -193,6 +196,12 @@ def create_producer(
     et par l'import de registre.
     """
     require_role(current_user, {"admin", "agronomist", "technician", "gestionnaire"})
+    type_prod = (data.type_producteur or "").strip()
+    if type_prod not in VALID_PRODUCER_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="La catégorie est obligatoire : 'membre' (récolte) ou 'non_membre' (achat).",
+        )
     coop_id = current_user.cooperative_id if current_user else None
     code = (data.code_yeyasso or "").strip() or None
     if code:
@@ -210,6 +219,7 @@ def create_producer(
         localite=(data.localite or "").strip() or None,
         section=(data.section or "").strip() or None,
         sexe=data.sexe or None,
+        type_producteur=type_prod,
         cooperative_id=coop_id,
         is_active=True,
     )
@@ -305,6 +315,53 @@ def update_producer_type(
     db.commit()
     db.refresh(producer)
     return producer
+
+
+class ProducerBulkType(BaseModel):
+    """Reclassement EN MASSE par catégorie, sur les producteurs correspondant aux
+    filtres (mêmes filtres que la liste). Optionnellement limité à ceux d'un type
+    donné (`from_type`, ex. ne basculer que les 'membre' par défaut)."""
+    type_producteur: str
+    from_type: Optional[str] = None
+    search: Optional[str] = None
+    localite: Optional[str] = None
+    section: Optional[str] = None
+    certification: Optional[str] = None
+
+
+@router.post("/producers/bulk-type")
+def bulk_set_producer_type(
+    payload: ProducerBulkType,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Reclasse en masse (membre/non-membre) tous les producteurs correspondant aux
+    filtres. Réservé admin/gestionnaire (action de masse). Cloisonné coopérative."""
+    require_role(current_user, {"admin", "gestionnaire"})
+    value = (payload.type_producteur or "").strip()
+    if value not in VALID_PRODUCER_TYPES:
+        raise HTTPException(
+            status_code=422, detail="type_producteur doit valoir 'membre' ou 'non_membre'."
+        )
+    from_type = (payload.from_type or "").strip() or None
+    if from_type and from_type not in VALID_PRODUCER_TYPES:
+        raise HTTPException(
+            status_code=422, detail="from_type doit valoir 'membre' ou 'non_membre'."
+        )
+    q = _filtered_producers_query(
+        db, current_user, payload.search, payload.localite,
+        payload.section, payload.certification, from_type,
+    )
+    ids = [row[0] for row in q.with_entities(Producer.id).all()]
+    if not ids:
+        return {"updated": 0, "matched": 0, "type_producteur": value}
+    updated = (
+        db.query(Producer)
+        .filter(Producer.id.in_(ids), Producer.type_producteur != value)
+        .update({Producer.type_producteur: value}, synchronize_session=False)
+    )
+    db.commit()
+    return {"updated": updated, "matched": len(ids), "type_producteur": value}
 
 
 # Seuil OHADA (Acte uniforme sur les societes cooperatives) : les operations

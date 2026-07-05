@@ -47,6 +47,9 @@ class PlantationCreate(BaseModel):
                     "(toits, cours, jardins) ; le maximum exclut les saisies absurdes.",
     )
     plant_count: Optional[int] = None
+    # Catégorie du propriétaire, appliquée SI un nouveau producteur est créé
+    # (proprietaire inconnu). Sans effet si le propriétaire existe déjà.
+    owner_type_producteur: Optional[str] = None
 
 
 class PlantationUpdate(BaseModel):
@@ -123,7 +126,8 @@ def health_check():
 
 # ─── Plantations ─────────────────────────────────────────────────────────────
 
-def _find_or_create_producer(db: Session, owner_name: Optional[str], cooperative_id: int):
+def _find_or_create_producer(db: Session, owner_name: Optional[str], cooperative_id: int,
+                             type_producteur: Optional[str] = None):
     """Trouve (ou crée) le Producteur correspondant au propriétaire d'une
     plantation dans la coopérative donnée. Retourne le Producer ou None si
     owner_name est vide.
@@ -145,11 +149,14 @@ def _find_or_create_producer(db: Session, owner_name: Optional[str], cooperative
         .first()
     )
     if not producer:
+        tp = (type_producteur or "").strip()
         producer = Producer(
             nom_complet=owner,
             cooperative_id=cooperative_id,
             is_active=True,
         )
+        if tp in ("membre", "non_membre"):
+            producer.type_producteur = tp   # catégorie appliquée uniquement au NOUVEAU producteur
         db.add(producer)
         db.flush()  # obtenir producer.id avant de lier la plantation
     return producer
@@ -170,7 +177,10 @@ def create_plantation(
             detail="Votre compte n'est associé à aucune coopérative.",
         )
 
-    producer = _find_or_create_producer(db, plantation.owner_name, current_user.cooperative_id)
+    producer = _find_or_create_producer(
+        db, plantation.owner_name, current_user.cooperative_id,
+        type_producteur=plantation.owner_type_producteur,
+    )
 
     new_plantation = Plantation(
         name=plantation.name,
