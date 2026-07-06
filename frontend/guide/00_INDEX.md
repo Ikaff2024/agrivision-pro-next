@@ -4,6 +4,10 @@
 > Aucune compétence technique n'est nécessaire. Si vous savez ouvrir un site web et cliquer,
 > vous savez utiliser AgriVision Pro.
 
+## Par où commencer ?
+> 👉 Nouveau sur la plateforme ? Suivez le **[Scénario de prise en main « du planteur au lot conforme »](15_prise_en_main.md)** :
+> un parcours guidé de bout en bout (avec exercices) qui couvre l'essentiel en une seule séance.
+
 ## Comment lire ce guide
 - Chaque fichier traite **un sujet**. Lisez d'abord le **Démarrage**, puis le module qui vous intéresse.
 - Dans chaque fiche : **À quoi ça sert**, **Qui peut l'utiliser**, **Pas à pas**, **Astuces**, **En cas de problème**.
