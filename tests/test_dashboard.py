@@ -73,6 +73,34 @@ def test_direction_dashboard_untracked_volume(client):
     assert data["volume"]["untracked_rate_pct"] == 100.0
 
 
+def test_direction_dashboard_blocked_volume_breakdown(client):
+    """Le volume non tracé distingue la part RETENUE (blocage social) de l'attente."""
+    h = _register_login(client, "dir.blk@test.ci", "pass1234", coop="Coop Blk")
+    created = client.post("/plantations", json={
+        "name": "Parcelle Blk", "owner_name": "Koffi Blk",
+        "country": "Côte d'Ivoire", "region": "Méagui", "hectares": 3.0,
+    }, headers=h)
+    pid = created.json()["id"]
+    producer_id = created.json()["producer_id"]
+    client.post(f"/plantations/{pid}/harvests", json={
+        "harvest_date": "2026-01-15T08:00:00", "quantity_kg": 400.0, "quality": "Bonne",
+    }, headers=h)
+
+    # Sans blocage : tout est simplement en attente d'affectation.
+    v0 = client.get("/dashboard/direction", headers=h).json()["volume"]
+    assert v0["untracked_kg"] == 400.0 and v0["blocked_kg"] == 0.0 and v0["pending_kg"] == 400.0
+
+    # Blocage social actif sur le producteur -> son volume hors lot devient « retenu ».
+    r = client.post("/compliance/blocks", json={
+        "producer_id": producer_id, "block_description": "Cas travail enfant",
+    }, headers=h)
+    assert r.status_code == 201, r.text
+    v1 = client.get("/dashboard/direction", headers=h).json()["volume"]
+    assert v1["untracked_kg"] == 400.0
+    assert v1["blocked_kg"] == 400.0
+    assert v1["pending_kg"] == 0.0
+
+
 def test_direction_dashboard_forbidden_for_technician(client):
     h_admin = _register_login(client, "dir.founder@test.ci", "pass1234", coop="Coop Tech")
     h_tech = create_member_headers(client, h_admin, "dir.tech@test.ci", "technician")

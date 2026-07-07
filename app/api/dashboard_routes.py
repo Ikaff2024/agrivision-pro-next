@@ -111,6 +111,16 @@ def direction_dashboard(
         block_q = block_q.filter(Producer.cooperative_id == coop_id)
     active_blocks = block_q.scalar() or 0
 
+    # Producteurs sous blocage ACTIF (ex. travail des enfants) : leur volume ne peut
+    # pas etre affecte a un lot -> on distinguera plus bas le volume RETENU (bloque)
+    # du volume simplement EN ATTENTE d'affectation.
+    bp_q = db.query(TraceabilityBlock.producer_id).join(
+        Producer, TraceabilityBlock.producer_id == Producer.id
+    ).filter(TraceabilityBlock.status == BlockStatus.ACTIVE)
+    if coop_id is not None:
+        bp_q = bp_q.filter(Producer.cooperative_id == coop_id)
+    blocked_producer_ids = {row[0] for row in bp_q.distinct().all()}
+
     # ── Revenu vital (FarmForce) ──────────────────────────────────────────────
     ff_q = db.query(FarmForceAssessment).join(Producer, FarmForceAssessment.producer_id == Producer.id)
     if coop_id is not None:
@@ -149,13 +159,26 @@ def direction_dashboard(
             Harvest.plantation_id.in_(plant_ids),
             Harvest.lot_id.is_(None),
         ).scalar() or 0
+        # Dont volume RETENU : récoltes hors lot d'un producteur sous blocage social
+        # actif (ex. travail des enfants). Ce n'est pas « en attente » mais bloqué.
+        blocked_plant_ids = [p.id for p in plantations if p.producer_id in blocked_producer_ids]
+        if blocked_plant_ids:
+            vol_blocked = db.query(func.coalesce(func.sum(Harvest.quantity_kg), 0)).filter(
+                Harvest.plantation_id.in_(blocked_plant_ids),
+                Harvest.lot_id.is_(None),
+            ).scalar() or 0
+        else:
+            vol_blocked = 0
     else:
         vol_total = 0
         vol_certified = 0
         vol_untracked = 0
+        vol_blocked = 0
     vol_total = float(vol_total or 0)
     vol_certified = float(vol_certified or 0)
     vol_untracked = float(vol_untracked or 0)
+    vol_blocked = float(vol_blocked or 0)
+    vol_pending = max(0.0, vol_untracked - vol_blocked)   # simplement en attente d'affectation
     certified_rate = round(vol_certified / vol_total * 100, 1) if vol_total else 0.0
     untracked_rate = round(vol_untracked / vol_total * 100, 1) if vol_total else 0.0
 
@@ -199,6 +222,8 @@ def direction_dashboard(
             "certified_rate_pct": certified_rate,
             "untracked_kg": round(vol_untracked, 1),
             "untracked_rate_pct": untracked_rate,
+            "blocked_kg": round(vol_blocked, 1),      # retenu : producteur sous blocage social actif
+            "pending_kg": round(vol_pending, 1),      # simplement en attente d'affectation à un lot
         },
         "alerts": {
             "open": open_alerts,

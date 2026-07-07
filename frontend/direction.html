@@ -119,6 +119,7 @@
               <div class="v" id="v-untracked" style="font-size:22px;color:#9a6200">—</div>
               <span class="l">Volume non tracé (kg)</span>
               <div class="bar-bg"><div class="bar-fill" id="v-untracked-bar" style="width:0%"></div></div>
+              <div id="v-untracked-blocked" style="display:none;font-size:11.5px;color:#922b21;margin-top:4px"></div>
             </div>
             <div class="card" title="Part de la production achetée aux non-membres dans le stock total. Règle OHADA : ≤ 20 % de l'activité.">
               <div class="v" id="v-achats" style="font-size:22px">—</div>
@@ -201,6 +202,16 @@ async function loadDirection() {
   const ub = document.getElementById('v-untracked-bar');
   ub.style.width = Math.max(0, Math.min(100, v.untracked_rate_pct || 0)) + '%';
   ub.style.background = '#9a6200';
+  // Précision : part RETENUE (producteur sous blocage social) vs simple attente d'affectation.
+  const blk = document.getElementById('v-untracked-blocked');
+  if (blk) {
+    if ((v.blocked_kg || 0) > 0) {
+      blk.style.display = '';
+      blk.innerHTML = '🚫 dont ' + fmt(v.blocked_kg) + ' kg bloqués (cas social) · ' + fmt(v.pending_kg != null ? v.pending_kg : 0) + ' kg à affecter';
+    } else {
+      blk.style.display = 'none';
+    }
+  }
 
   const dt = new Date(d.generated_at);
   document.getElementById('gen-at').textContent = 'Généré le ' + (isNaN(dt) ? d.generated_at : dt.toLocaleString('fr-FR'))

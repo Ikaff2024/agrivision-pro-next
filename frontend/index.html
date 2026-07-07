@@ -430,8 +430,18 @@ async function loadCockpit() {
 
   document.getElementById('k-vol').textContent = num(d.volume.total_kg);
   document.getElementById('k-untracked').textContent = num(d.volume.untracked_kg);
-  document.getElementById('k-untracked-sub').textContent =
-    (d.volume.untracked_rate_pct || 0) + '% à affecter à un lot';
+  const blockedKg = d.volume.blocked_kg || 0;
+  const pendingKg = d.volume.pending_kg != null ? d.volume.pending_kg : d.volume.untracked_kg;
+  const untrackedSub = document.getElementById('k-untracked-sub');
+  if (blockedKg > 0) {
+    // Précision : distinguer le volume RETENU (blocage social, ex. travail des enfants)
+    // du volume simplement en attente d'affectation à un lot.
+    untrackedSub.innerHTML =
+      '<a href="cacaoguard.html?alertes=ouvertes" onclick="event.stopPropagation()" style="color:#922b21;font-weight:600;text-decoration:underline" title="Volume retenu car le producteur est sous blocage CacaoGuard — traiter via la remédiation">🚫 ' +
+      num(blockedKg) + ' kg bloqués (cas social)</a> · ' + num(pendingKg) + ' kg à affecter';
+  } else {
+    untrackedSub.textContent = (d.volume.untracked_rate_pct || 0) + '% à affecter à un lot';
+  }
   const kc = document.getElementById('k-cert');
   kc.textContent = pct(d.volume.certified_rate_pct); kc.style.color = col(d.volume.certified_rate_pct);
   document.getElementById('k-cert-sub').textContent = num(d.volume.certified_kg) + ' kg (parcelles certifiées)';
