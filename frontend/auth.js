@@ -1286,6 +1286,78 @@ const AVPCombo = (function () {
   return { attach, enhance, autoEnhance };
 })();
 
+/* ── Aya · Interprétation IA par module (bouton réutilisable) ─────────────────
+   Usage : <button onclick="avpInterpretModule('agroforestry', this)">…</button>
+   Le résultat s'affiche dans un panneau inséré juste après le bouton. Le backend
+   met en cache (coût maîtrisé) ; la 2ᵉ ouverture est quasi instantanée. */
+function _avpMiniMarkdown(md) {
+  const esc = s => String(s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  const lines = String(md || '').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  for (let raw of lines) {
+    let l = raw.trim();
+    if (!l) { closeList(); continue; }
+    l = esc(l).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>');
+    if (/^#{1,6}\s+/.test(l)) { closeList(); html += '<div style="font-weight:700;margin:8px 0 2px">' + l.replace(/^#{1,6}\s+/, '') + '</div>'; }
+    else if (/^[-*]\s+/.test(l)) { if (!inList) { html += '<ul style="margin:4px 0;padding-left:18px">'; inList = true; } html += '<li>' + l.replace(/^[-*]\s+/, '') + '</li>'; }
+    else if (/^\d+[.)]\s+/.test(l)) { closeList(); html += '<div>' + l + '</div>'; }
+    else { closeList(); html += '<div>' + l + '</div>'; }
+  }
+  closeList();
+  return html;
+}
+
+function _avpAiPanel(btn) {
+  // Monte le panneau en tête de la zone de contenu (pleine largeur, bien placé),
+  // sinon juste après le bouton en dernier recours.
+  const host = (btn && btn.closest && btn.closest('.avp-main')?.querySelector('.avp-content')) || null;
+  let panel = document.getElementById('avp-ai-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'avp-ai-panel';
+    panel.className = 'avp-ai-panel';
+    panel.style.cssText = 'margin:0 0 18px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid #2D8C5A;border-radius:10px;background:var(--surface);font-size:13px;line-height:1.55;display:none';
+    if (host) host.insertBefore(panel, host.firstChild);
+    else btn.parentNode.insertBefore(panel, btn.nextSibling);
+  }
+  return panel;
+}
+
+async function avpInterpretModule(module, btn) {
+  const panel = _avpAiPanel(btn);
+  panel.style.display = 'block';
+  panel.innerHTML = '<span style="color:var(--muted)">✨ Aya analyse les données…</span>';
+  const prev = btn.disabled; btn.disabled = true;
+  try {
+    const r = await authFetch('/ai/interpret', { method: 'POST', body: JSON.stringify({ module }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r || !r.ok) throw new Error(d.detail || 'Interprétation indisponible.');
+    panel.innerHTML = '<div style="font-weight:700;color:#1a6b3a;margin-bottom:6px">✨ Lecture d\'Aya' +
+      (d.cached ? ' <span style="font-weight:400;font-size:11px;color:var(--muted)">(en cache)</span>' : '') + '</div>' +
+      _avpMiniMarkdown(d.text);
+  } catch (e) {
+    panel.innerHTML = '<span style="color:#922b21">' + (e.message || 'Erreur') + '</span>';
+  } finally { btn.disabled = prev; }
+}
+
+async function avpTrainingSuggestions(btn) {
+  const panel = _avpAiPanel(btn);
+  panel.style.display = 'block';
+  panel.innerHTML = '<span style="color:var(--muted)">✨ Aya prépare un plan de formation…</span>';
+  const prev = btn.disabled; btn.disabled = true;
+  try {
+    const r = await authFetch('/ai/training-suggestions');
+    const d = await r.json().catch(() => ({}));
+    if (!r || !r.ok) throw new Error(d.detail || 'Suggestions indisponibles.');
+    panel.innerHTML = '<div style="font-weight:700;color:#1a6b3a;margin-bottom:6px">🎓 Plan de formation proposé par Aya' +
+      (d.cached ? ' <span style="font-weight:400;font-size:11px;color:var(--muted)">(en cache)</span>' : '') + '</div>' +
+      _avpMiniMarkdown(d.text);
+  } catch (e) {
+    panel.innerHTML = '<span style="color:#922b21">' + (e.message || 'Erreur') + '</span>';
+  } finally { btn.disabled = prev; }
+}
+
 /* ── Service worker : enregistrement centralisé (offline garanti partout) ──────
    auth.js étant chargé sur les 39 pages, on garantit l'installation du SW quelle
    que soit la page d'entrée (avant, seules 4 pages l'enregistraient). Idempotent :

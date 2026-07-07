@@ -26,6 +26,7 @@ from app.api.weather_routes import router as weather_router
 from app.api.certification_routes import router as certification_router
 from app.api.plan_routes import router as plan_router
 from app.api.assistant_routes import router as assistant_router
+from app.api.ai_insights_routes import router as ai_insights_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
@@ -445,3 +446,4 @@ app.include_router(weather_router)
 app.include_router(certification_router)
 app.include_router(plan_router)
 app.include_router(assistant_router)
+app.include_router(ai_insights_router)
