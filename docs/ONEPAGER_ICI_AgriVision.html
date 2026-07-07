@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 14mm 14mm 12mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #1c2b24; font-size: 10.4px; line-height: 1.5;
+  }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; margin: 0; }
+  .brandbar { display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 3px solid #1a4231; padding-bottom: 8px; margin-bottom: 12px; }
+  .brand { font-family: Georgia, serif; font-size: 20px; font-weight: 700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:10px; font-weight:400; color:#5c6b62; letter-spacing:.04em; }
+  .doctag { text-align:right; font-size:9.5px; color:#5c6b62; }
+  .doctag b { color:#1a4231; font-size:11px; }
+  h1 { font-size: 17px; color:#123227; margin-bottom: 3px; }
+  .lede { font-size: 11px; color:#2f4438; margin: 0 0 12px; }
+  .lede b { color:#1a6b3a; }
+  h2 { font-size: 12.5px; color:#1a4231; margin: 14px 0 6px; padding-left:8px; border-left:3px solid #2D8C5A; }
+  table { width:100%; border-collapse: collapse; margin-top: 2px; }
+  th, td { text-align:left; padding: 5px 8px; vertical-align: top; border-bottom:1px solid #e3ded0; }
+  th { background:#f2f7f3; color:#1a4231; font-size:9.6px; text-transform:uppercase; letter-spacing:.03em; }
+  td.pillar { font-weight:700; color:#123227; width:42%; }
+  td.module { color:#1a6b3a; font-weight:600; }
+  .cols { display:flex; gap:16px; }
+  .col { flex:1; }
+  ul { margin:4px 0 0; padding-left:16px; }
+  li { margin-bottom:3px; }
+  .ask { background:#f7f4ea; border:1px solid #e6dcbf; border-radius:6px; padding:8px 11px; }
+  .ask li { margin-bottom:4px; }
+  .steps { font-size:9.8px; color:#33463c; margin-top:4px; }
+  .steps b { color:#1a4231; }
+  .honesty { margin-top:12px; background:#fbf3ee; border:1px solid #e6c9b6; border-radius:6px; padding:8px 11px; font-size:9.4px; color:#7a4a2f; }
+  .honesty b { color:#8a3d1a; }
+  .footer { margin-top:12px; display:flex; justify-content:space-between; font-size:9px; color:#7a887f; border-top:1px solid #e3ded0; padding-top:6px; }
+  .kbadge { display:inline-block; background:#1a4231; color:#fff; border-radius:4px; padding:1px 6px; font-size:9px; font-weight:600; }
+</style>
+</head>
+<body>
+
+  <div class="brandbar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Plateforme de conformité & traçabilité cacao — Côte d'Ivoire</small></div>
+    <div class="doctag"><b>Note de partenariat</b><br>Préparée pour l'entretien avec la Direction des partenariats — <b>ICI</b><br>08 juillet 2026 · confidentiel</div>
+  </div>
+
+  <h1>Digitaliser le CLMRS à l'échelle, sur le terrain</h1>
+  <p class="lede">
+    AgriVision Pro est la plateforme numérique qui <b>exécute un système de suivi et de remédiation du travail des enfants (CLMRS)</b> —
+    de l'<b>identification</b> à la <b>preuve d'audit</b> — <b>hors-ligne</b>, intégré à la traçabilité du cacao et à la conformité EUDR.
+    ICI définit la méthode ; <b>AgriVision est l'outil qui la met en œuvre</b> dans les coopératives ivoiriennes.
+  </p>
+
+  <h2>Le CLMRS, module par module</h2>
+  <table>
+    <thead><tr><th>Pilier CLMRS (méthodologie ICI)</th><th>Fonction AgriVision Pro</th></tr></thead>
+    <tbody>
+      <tr><td class="pillar">Sensibilisation des communautés</td><td class="module">Module <b>Formation</b> (sessions, participants, suivi)</td></tr>
+      <tr><td class="pillar">Identification — profilage ménage & enfant</td><td class="module"><b>Fiches SSRTE A / B / C</b> + registre <b>Enfants</b> + évaluation du risque</td></tr>
+      <tr><td class="pillar">Remédiation — actions & suivi</td><td class="module">Module <b>Remédiation</b> (plans, responsables, échéances, statuts)</td></tr>
+      <tr><td class="pillar">Suivi / monitoring des cas</td><td class="module">Module <b>Monitoring terrain</b> (visites géolocalisées, hors-ligne)</td></tr>
+      <tr><td class="pillar">Reporting & preuve d'auditabilité</td><td class="module"><b>Rapport de due diligence</b> (PDF) + <b>blocage de traçabilité</b> + journaux d'accès</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cols">
+    <div class="col">
+      <h2>Ce que nous apportons</h2>
+      <ul>
+        <li><b>Échelle</b> : un CLMRS numérique déployable sur des milliers de producteurs.</li>
+        <li><b>Temps réel</b> : détection → alerte → remédiation tracées en continu.</li>
+        <li><b>Offline-first</b> : les agents saisissent sans réseau, synchronisation au retour.</li>
+        <li><b>Deux exigences, un outil</b> : travail des enfants <i>et</i> EUDR dans la même plateforme.</li>
+        <li><b>Protection des données enfants</b> : consentement, confidentialité, journaux d'accès.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h2>Ce que nous proposons</h2>
+      <div class="ask"><ul>
+        <li><b>Validation d'alignement</b> de notre modèle de données au <b>standard CLMRS</b> et à votre cadre d'indicateurs.</li>
+        <li><b>Un pilote</b> avec une coopérative que vous accompagnez en Côte d'Ivoire.</li>
+        <li>À terme : <b>reconnaissance</b> comme outil compatible CLMRS.</li>
+      </ul></div>
+    </div>
+  </div>
+
+  <h2>La preuve en un cas concret <span class="kbadge">démo live</span></h2>
+  <p class="steps">
+    <b>Awa Kouassi, 14 ans, déscolarisée, observée à la machette</b> — parcours de bout en bout dans la plateforme :
+    <br><b>1.</b> Recenser l'enfant → <b>2.</b> Enquête SSRTE (fiches A/B/C) → <b>3.</b> Évaluer le risque (score critique) →
+    <b>4.</b> Alerte automatique → <b>5.</b> <b>Blocage de traçabilité</b> du producteur → <b>6.</b> Plan de remédiation
+    (réinscription scolaire, retrait des tâches dangereuses) → <b>7.</b> Signalement → <b>8.</b> <b>Rapport de due diligence (PDF)</b> : la preuve pour l'acheteur.
+  </p>
+
+  <div class="honesty">
+    <b>Transparence (posture assumée).</b> AgriVision Pro est au stade <b>MVP prêt pour pilote</b>, pas déployé à large échelle.
+    Le volet <b>social (travail des enfants)</b> est <b>dissocié de l'EUDR</b> : par défaut il est <i>signalé</i> et ne bloque l'export
+    que si la coopérative/l'acheteur l'active. L'indicateur carbone (agroforesterie) est une <b>estimation</b>, non un inventaire certifié.
+    Nous privilégions la <b>rigueur</b> à la sur-promesse — comme ICI.
+  </div>
+
+  <div class="footer">
+    <div>AgriVision Pro — IKAFFANAN LTD · plateforme cacao (CacaoGuard · SSRTE · FarmForce · EUDR)</div>
+    <div>Document de travail — v1 · 07/2026</div>
+  </div>
+
+</body>
+</html>
