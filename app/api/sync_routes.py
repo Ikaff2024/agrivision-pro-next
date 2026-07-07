@@ -27,6 +27,7 @@ from app.api.cacaoguard_ops_routes import (
 )
 from app.db.database import get_db
 from app.db.models import Plantation, Producer, User
+from app.services.social_scope import coop_alert_ids
 from app.db.models_social import (
     ActionStatus,
     Alert,
@@ -319,7 +320,14 @@ def sync_pull(
         result["counts"]["remediation_actions"] = len(items)
 
     if "alerts" in requested:
-        q = db.query(Alert).filter(Alert.status != AlertStatus.RESOLVED)
+        # CLOISONNEMENT : Alert n'a pas de cooperative_id -> périmètre via
+        # coop_alert_ids (sinon la synchro hors-ligne renvoyait les alertes de
+        # TOUTES les coopératives). Fail-closed si aucun périmètre.
+        allowed = coop_alert_ids(db, user.cooperative_id)
+        q = db.query(Alert).filter(
+            Alert.status != AlertStatus.RESOLVED,
+            Alert.id.in_(allowed if allowed else [-1]),
+        )
         if since:
             q = q.filter(Alert.created_at >= since)
         items = [_serialize_alert(a) for a in q.all()]

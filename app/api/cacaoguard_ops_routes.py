@@ -1558,9 +1558,12 @@ def build_due_diligence_report(db: Session, cooperative_id: int | None = None) -
         TraceabilityBlock.status == BlockStatus.ACTIVE,
         *block_f,
     ).scalar() or 0
-    alerts_open = db.query(func.count(Alert.id)).filter(
-        Alert.status != AlertStatus.RESOLVED,
-    ).scalar() or 0
+    # Alertes ouvertes CLOISONNÉES par coopérative (via coop_alert_ids).
+    alerts_open_q = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED)
+    if cooperative_id is not None:
+        _allowed_alerts = coop_alert_ids(db, cooperative_id)
+        alerts_open_q = alerts_open_q.filter(Alert.id.in_(_allowed_alerts if _allowed_alerts else [-1]))
+    alerts_open = alerts_open_q.scalar() or 0
     privacy_logs_total = db.query(func.count(PrivacyAccessLog.id)).scalar() or 0
     inconsistencies = detect_cacaoguard_inconsistencies(db)
     critical_inconsistencies = len([item for item in inconsistencies if item["severity"] == "critical"])

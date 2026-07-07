@@ -38,6 +38,7 @@ from app.db.models_social import (
 from app.eudr.scoring import compute_eudr_score
 from app.eudr.score_cache import ensure_scores
 from app.services.farmforce_reports import living_income_assessment
+from app.services.social_scope import coop_alert_ids
 
 router = APIRouter(prefix="/dashboard", tags=["Tableau de bord direction"])
 
@@ -182,8 +183,14 @@ def direction_dashboard(
     certified_rate = round(vol_certified / vol_total * 100, 1) if vol_total else 0.0
     untracked_rate = round(vol_untracked / vol_total * 100, 1) if vol_total else 0.0
 
-    # ── Alertes ouvertes (globales : Alert est polymorphe, sans producer_id) ──
-    open_alerts = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED).scalar() or 0
+    # ── Alertes ouvertes — CLOISONNÉES par coopérative. Alert n'a pas de
+    # cooperative_id : on résout le périmètre via coop_alert_ids (source_entity →
+    # producteur → coop). Sans ce filtre, le compteur fuitait entre coopératives.
+    alert_q = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED)
+    if coop_id is not None:
+        allowed_alert_ids = coop_alert_ids(db, coop_id)
+        alert_q = alert_q.filter(Alert.id.in_(allowed_alert_ids if allowed_alert_ids else [-1]))
+    open_alerts = alert_q.scalar() or 0
 
     return {
         "generated_at": datetime.utcnow().isoformat(),

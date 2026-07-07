@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.auth_service import decode_token
 from app.db.database import get_db
 from app.db.models import FarmForceAssessment, Plantation, Producer, User
+from app.services.social_scope import coop_alert_ids
 from app.db.models_social import (
     Alert,
     AlertStatus,
@@ -96,7 +97,13 @@ def get_cacaoguard_summary(
         Child.is_working_on_farm == True,
         *child_filter,
     ).scalar() or 0
-    active_alerts = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED).scalar() or 0
+    # Alertes ouvertes CLOISONNÉES : Alert n'a pas de cooperative_id, on résout le
+    # périmètre via coop_alert_ids (sinon le compteur fuite entre coopératives).
+    alert_q = db.query(func.count(Alert.id)).filter(Alert.status != AlertStatus.RESOLVED)
+    if coop_id is not None:
+        allowed_alert_ids = coop_alert_ids(db, coop_id)
+        alert_q = alert_q.filter(Alert.id.in_(allowed_alert_ids if allowed_alert_ids else [-1]))
+    active_alerts = alert_q.scalar() or 0
     traceability_blocks = db.query(func.count(TraceabilityBlock.id)).filter(
         TraceabilityBlock.status == BlockStatus.ACTIVE,
         *block_filter,
