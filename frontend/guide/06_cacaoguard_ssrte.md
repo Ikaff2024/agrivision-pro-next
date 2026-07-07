@@ -73,6 +73,9 @@ Remplir les **3 questionnaires officiels** du dispositif SSRTE, exportables en *
 
 ## 6.D — Scénario guidé de prise en main (cas concret)
 
+> 🎓 **Version pas à pas complète (formation)** : voir le chapitre [16 — Scénario Protection de l'enfant](16_protection_enfant.md).
+> Ci-dessous, la version condensée.
+
 > Un cas complet pour s'exercer, du terrain à la due diligence. **Cas fil rouge** : producteur
 > **Koffi Yao N'Guessan** (Gnamangui / Méagui) ; **Awa Kouassi, 14 ans, déscolarisée**, observée à la
 > machette ; son frère **Yao, 8 ans**, scolarisé. Rôle nécessaire : **admin / agronome / technicien**.
