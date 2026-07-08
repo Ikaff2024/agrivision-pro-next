@@ -53,6 +53,19 @@ def test_interpret_reserved_to_management(client, monkeypatch):
     assert r.status_code == 403
 
 
+def test_interpret_agroforestry_injects_module_data(client, monkeypatch):
+    """Régression : l'interprétation agroforesterie doit inclure les données du
+    module (sinon Aya répond « pas de données » alors que la page en est pleine)."""
+    captured = {}
+    monkeypatch.setattr(llmc, "chat", lambda db, p, **k: (captured.update(prompt=p) or {"text": "ok", "model": "m"}))
+    h = _admin(client, "ai.agro@test.ci", "Coop AI Agro")
+    r = client.post("/ai/interpret", json={"module": "agroforestry"}, headers=h)
+    assert r.status_code == 200, r.text
+    # Le prompt doit contenir la section de données propres au module.
+    assert "module_detail" in captured["prompt"]
+    assert "agroforesterie" in captured["prompt"]
+
+
 def test_training_suggestions_ok(client, monkeypatch):
     monkeypatch.setattr(llmc, "chat", lambda db, p, **k: {"text": "**Protection de l'enfant**\n- ...", "model": "m", "input_tokens": 3, "output_tokens": 9})
     h = _admin(client, "ai.train@test.ci", "Coop AI Train")

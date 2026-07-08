@@ -46,9 +46,30 @@ def _require(user: User):
         raise HTTPException(status_code=403, detail="Interprétation IA réservée à la direction (admin/agronome/gestionnaire).")
 
 
-def _snapshot_json(db: Session, user: User) -> str:
+def _module_extra(db: Session, user: User, module: str) -> dict:
+    """Données SPÉCIFIQUES au module demandé, absentes de l'instantané générique.
+
+    Sans ceci, Aya interprétait l'agroforesterie à partir d'un instantané qui ne
+    contenait aucune donnée agroforestière -> elle répondait « pas de données »
+    alors que la page en est pleine. On injecte donc le vrai bilan du module.
+    """
+    try:
+        if module == "agroforestry":
+            from app.api.routes import get_agroforestry_summary
+            return {"agroforesterie": get_agroforestry_summary(db, user)}
+    except Exception:  # noqa: BLE001
+        return {}
+    return {}
+
+
+def _snapshot_json(db: Session, user: User, module: str | None = None) -> str:
     from app.api.assistant_routes import _build_snapshot
-    return json.dumps(_build_snapshot(db, user), ensure_ascii=False, default=str)
+    payload: dict = {"coop": _build_snapshot(db, user)}
+    if module:
+        extra = _module_extra(db, user, module)
+        if extra:
+            payload["module_detail"] = extra
+    return json.dumps(payload, ensure_ascii=False, default=str)
 
 
 def _cache_get(key: str, sig: str):
@@ -101,7 +122,7 @@ def interpret_module(
     if module not in _MODULES:
         raise HTTPException(status_code=400, detail=f"Module inconnu. Valeurs : {sorted(_MODULES)}.")
 
-    snap = _snapshot_json(db, current_user)
+    snap = _snapshot_json(db, current_user, module)
     sig = hashlib.sha256((module + "|" + snap).encode("utf-8")).hexdigest()
     key = f"interpret:{current_user.cooperative_id}:{module}"
     cached = _cache_get(key, sig)
@@ -111,6 +132,9 @@ def interpret_module(
     prompt = (
         "Tu es Aya, l'assistante IA d'AgriVision Pro (cacao, Côte d'Ivoire). "
         f"Interprète pour un décideur de coopérative le module : {_MODULES[module]}.\n"
+        "L'INSTANTANÉ contient les données générales de la coopérative sous « coop » ET, "
+        "quand elles existent, les données PROPRES au module sous « module_detail » : "
+        "concentre-toi en priorité sur « module_detail » pour ce module.\n"
         "À partir UNIQUEMENT de l'INSTANTANÉ (déjà cloisonné à cette coopérative), rends :\n"
         "1) « En bref » : 2-3 phrases de lecture claire des chiffres (pas de jargon) ;\n"
         "2) « Points d'attention » : 2-3 puces sur ce qui cloche ou est à surveiller ;\n"
