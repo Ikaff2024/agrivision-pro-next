@@ -507,7 +507,13 @@ class TrainingSession(Base):
     # Évaluation
     pre_test_scores = Column(JSON, nullable=True)  # Scores avant formation
     post_test_scores = Column(JSON, nullable=True)  # Scores après formation
-    effectiveness_rating = Column(Float, nullable=True)  # Note efficacité 0-5
+    effectiveness_rating = Column(Float, nullable=True)  # Note efficacité 0-5 (jugement formateur)
+
+    # Satisfaction ANONYME des participants (collecte sans compte via QR/URL).
+    # Jeton public non devinable + liste [{rating:0-5, comment, at}] — chaque
+    # participant note SANS voir les autres (pas d'influence entre pairs).
+    feedback_token = Column(String, nullable=True, unique=True, index=True)
+    participant_feedback = Column(JSON, nullable=True)
 
     # Statut
     status = Column(SQLEnum(TrainingStatus), default=TrainingStatus.PLANNED, index=True)

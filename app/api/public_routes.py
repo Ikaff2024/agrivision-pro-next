@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from datetime import datetime
+
 from app.api.complaint_routes import _maybe_create_alert, _next_reference
 from app.db.database import get_db
 from app.db.models import Cooperative
@@ -18,6 +20,7 @@ from app.db.models_social import (
     ComplaintSeverity,
     ComplaintStatus,
     ComplaintType,
+    TrainingSession,
 )
 
 router = APIRouter(prefix="/public", tags=["Signalement public"])
@@ -85,3 +88,46 @@ def public_create_complaint(payload: PublicComplaint, db: Session = Depends(get_
     db.commit()
     # Réponse minimale : ne jamais renvoyer le contenu à un client public.
     return {"reference": reference, "message": "Signalement reçu. Merci — il sera traité en confidentialité."}
+
+
+# ── Avis de formation ANONYMES (chaque participant note sans voir les autres) ──
+
+def _session_by_feedback_token(db: Session, token: str | None) -> TrainingSession | None:
+    t = (token or "").strip()
+    if len(t) < 8:
+        return None
+    return db.query(TrainingSession).filter(TrainingSession.feedback_token == t).first()
+
+
+@router.get("/training-info")
+def public_training_info(s: str = Query(..., description="Jeton d'avis de la session"),
+                         db: Session = Depends(get_db)):
+    """Titre de la session pour la page d'avis publique."""
+    session = _session_by_feedback_token(db, s)
+    if not session:
+        raise HTTPException(status_code=404, detail="Lien d'avis invalide ou expiré.")
+    return {"title": session.title, "scheduled_date": session.scheduled_date}
+
+
+class PublicFeedback(BaseModel):
+    feedback_token: str = Field(..., min_length=8, max_length=100)
+    rating: int = Field(..., ge=0, le=5)
+    comment: str | None = Field(None, max_length=1000)
+
+
+@router.post("/training-feedback", status_code=201)
+def public_training_feedback(payload: PublicFeedback, db: Session = Depends(get_db)):
+    """Enregistre un avis ANONYME de participant (note 0-5 + commentaire) — aucune
+    identité, aucun compte. Chaque avis est indépendant : pas d'influence entre pairs."""
+    session = _session_by_feedback_token(db, payload.feedback_token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Lien d'avis invalide ou expiré.")
+    fb = list(session.participant_feedback or [])
+    fb.append({
+        "rating": int(payload.rating),
+        "comment": (payload.comment or "").strip() or None,
+        "at": datetime.utcnow().isoformat(),
+    })
+    session.participant_feedback = fb          # réassignation -> déclenche l'update JSON
+    db.commit()
+    return {"message": "Merci pour votre avis !", "count": len(fb)}

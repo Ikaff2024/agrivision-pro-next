@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Votre avis — Formation AgriVision Pro</title>
+<style>
+  :root { --green:#1a4231; --green2:#2D8C5A; --bg:#f4f1ea; --surface:#fff; --border:#e2dccd; --text:#1c2b24; --muted:#6a7d64; --high:#922b21; --gold:#e0a800; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:480px; margin:0 auto; padding:22px 16px 40px; }
+  .head { background:var(--green); color:#fff; border-radius:16px; padding:20px; margin-bottom:16px; text-align:center; }
+  .head h1 { margin:0 0 4px; font-size:19px; }
+  .head p { margin:0; font-size:13px; color:rgba(255,255,255,.8); line-height:1.45; }
+  .session { display:inline-block; margin-top:10px; background:rgba(255,255,255,.15); border-radius:999px; padding:4px 12px; font-size:12.5px; font-weight:600; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px 18px; text-align:center; }
+  .q { font-size:15px; font-weight:600; margin-bottom:14px; }
+  .stars { display:flex; justify-content:center; gap:6px; margin:6px 0 4px; }
+  .star { font-size:42px; cursor:pointer; color:#d9d2c2; transition:transform .08s, color .1s; user-select:none; line-height:1; }
+  .star.on { color:var(--gold); }
+  .star:active { transform:scale(1.15); }
+  .rating-lbl { font-size:13px; color:var(--muted); min-height:18px; margin-bottom:12px; }
+  textarea { width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; min-height:80px; resize:vertical; }
+  label { display:block; text-align:left; font-size:13px; font-weight:600; margin:12px 0 5px; color:var(--text); }
+  .btn { width:100%; margin-top:18px; padding:14px; border:none; border-radius:12px; background:var(--green2); color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn:disabled { opacity:.6; }
+  .msg { padding:12px 14px; border-radius:10px; font-size:13.5px; margin-top:14px; }
+  .msg.err { background:#fbe9e7; color:var(--high); }
+  .ok-box { padding:20px 8px; }
+  .ok-box .big { font-size:44px; }
+  .foot { text-align:center; font-size:11.5px; color:var(--muted); margin-top:16px; line-height:1.5; }
+  .anon { display:inline-block; margin-top:8px; font-size:11.5px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🌟 Votre avis compte</h1>
+    <p>Aidez-nous à améliorer les formations. C'est <b>anonyme</b> et ça prend 10 secondes.</p>
+    <div class="session" id="session-badge" style="display:none"></div>
+  </div>
+
+  <div class="card" id="card">
+    <div id="loading" style="color:var(--muted);font-size:14px;padding:10px">Chargement…</div>
+
+    <div id="form" style="display:none">
+      <div class="q">Cette formation vous a-t-elle été utile ?</div>
+      <div class="stars" id="stars"></div>
+      <div class="rating-lbl" id="rating-lbl">Touchez une étoile</div>
+      <label>Un commentaire ? (facultatif)</label>
+      <textarea id="comment" placeholder="Ce qui vous a plu, ou ce qui pourrait être amélioré…"></textarea>
+      <div id="err" class="msg err" style="display:none"></div>
+      <button class="btn" id="submit" onclick="submitFeedback()">Envoyer mon avis</button>
+      <div class="anon">🔒 Anonyme — votre nom n'est pas demandé.</div>
+    </div>
+
+    <div id="success" style="display:none">
+      <div class="ok-box">
+        <div class="big">🙏</div>
+        <div style="font-weight:700;font-size:17px;margin-top:8px">Merci pour votre avis !</div>
+        <div style="font-size:13.5px;color:var(--muted);margin-top:6px">Il nous aide à améliorer les prochaines formations.</div>
+      </div>
+    </div>
+
+    <div id="invalid" class="msg err" style="display:none">Ce lien d'avis n'est pas valide. Demandez le bon lien à votre formateur.</div>
+  </div>
+
+  <div class="foot">AgriVision Pro — évaluation anonyme des formations.</div>
+</div>
+
+<script>
+const API_BASE = window.AGRIVISION_API_BASE || 'https://agrivision-api-production.up.railway.app';
+const TOKEN = new URLSearchParams(location.search).get('s') || '';
+let _rating = 0;
+const RATING_WORDS = ['', 'Pas du tout', 'Un peu', 'Moyennement', 'Beaucoup', 'Énormément'];
+
+function buildStars() {
+  const el = document.getElementById('stars');
+  el.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const s = document.createElement('span');
+    s.className = 'star'; s.textContent = '★'; s.dataset.v = i;
+    s.onclick = () => setRating(i);
+    el.appendChild(s);
+  }
+}
+function setRating(v) {
+  _rating = v;
+  document.querySelectorAll('.star').forEach(s => s.classList.toggle('on', Number(s.dataset.v) <= v));
+  document.getElementById('rating-lbl').textContent = RATING_WORDS[v] || '';
+}
+
+async function init() {
+  const loading = document.getElementById('loading');
+  if (!TOKEN) { loading.style.display = 'none'; document.getElementById('invalid').style.display = 'block'; return; }
+  try {
+    const r = await fetch(`${API_BASE}/public/training-info?s=${encodeURIComponent(TOKEN)}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('invalid');
+    const d = await r.json();
+    const b = document.getElementById('session-badge');
+    b.textContent = '📚 ' + (d.title || 'Formation');
+    b.style.display = 'inline-block';
+    loading.style.display = 'none';
+    buildStars();
+    document.getElementById('form').style.display = 'block';
+  } catch (e) {
+    loading.style.display = 'none';
+    document.getElementById('invalid').style.display = 'block';
+  }
+}
+
+async function submitFeedback() {
+  const err = document.getElementById('err'); err.style.display = 'none';
+  if (!_rating) { err.textContent = 'Touchez une étoile pour donner votre note.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('submit'); btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch(`${API_BASE}/public/training-feedback`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback_token: TOKEN, rating: _rating, comment: document.getElementById('comment').value.trim() || null }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || 'Envoi impossible.');
+    document.getElementById('form').style.display = 'none';
+    document.getElementById('success').style.display = 'block';
+  } catch (e) {
+    err.textContent = e.message || 'Envoi impossible. Réessayez.'; err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Envoyer mon avis';
+  }
+}
+init();
+</script>
+</body>
+</html>

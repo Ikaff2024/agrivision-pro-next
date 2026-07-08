@@ -410,6 +410,14 @@ def training_to_dict(session: TrainingSession) -> dict:
         "effectiveness_rating": float(session.effectiveness_rating or 0),
         "status": session.status.value,
         "created_at": session.created_at,
+        # Satisfaction ANONYME des participants (agrégée) + jeton pour l'URL/QR.
+        "feedback_token": session.feedback_token,
+        "feedback_count": len(session.participant_feedback or []),
+        "feedback_avg": (
+            round(sum(float(f.get("rating") or 0) for f in (session.participant_feedback or []))
+                  / len(session.participant_feedback), 2)
+            if session.participant_feedback else None
+        ),
     }
 
 
@@ -1374,6 +1382,28 @@ def update_training_attendance(
     db.commit()
     db.refresh(session)
     return training_to_dict(session)
+
+
+@router.post("/training/sessions/{session_id:int}/feedback-token")
+def training_feedback_token(
+    session_id: int,
+    regenerate: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Génère (ou régénère) le jeton d'avis ANONYME d'une session — pour l'URL/QR
+    que chaque participant utilise pour noter la formation sans se voir influencer."""
+    require_role(current_user, {"admin", "agronomist", "technician"})
+    session = db.query(TrainingSession).filter(TrainingSession.id == session_id).first()
+    coop_id = _coop_id_of(current_user)
+    if not session or (coop_id is not None and session.cooperative_id != coop_id):
+        raise HTTPException(status_code=404, detail="Session de formation non trouvee.")
+    if not session.feedback_token or regenerate:
+        import secrets
+        session.feedback_token = secrets.token_urlsafe(10)
+        db.commit()
+        db.refresh(session)
+    return {"session_id": session.id, "feedback_token": session.feedback_token}
 
 
 @router.get("/compliance/traceability")

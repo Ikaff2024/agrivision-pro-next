@@ -96,6 +96,12 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE complaints ADD COLUMN IF NOT EXISTS cooperative_id INTEGER REFERENCES cooperatives(id)"
                 ))
                 conn.execute(text(
+                    "ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS feedback_token VARCHAR"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS participant_feedback JSON"
+                ))
+                conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
                 ))
                 # Sprint #0 - Phase 0.1.a-1 : entite Producer
@@ -378,6 +384,15 @@ async def lifespan(app: FastAPI):
                     conn.execute(text("ALTER TABLE complaints ADD COLUMN cooperative_id INTEGER"))
                     conn.commit()
                     logger.info("Migration Complaint (sqlite) : OK (cooperative_id)")
+                ts_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(training_sessions)"))}
+                if "feedback_token" not in ts_cols:
+                    conn.execute(text("ALTER TABLE training_sessions ADD COLUMN feedback_token VARCHAR"))
+                    conn.commit()
+                    logger.info("Migration TrainingSession (sqlite) : OK (feedback_token)")
+                if "participant_feedback" not in ts_cols:
+                    conn.execute(text("ALTER TABLE training_sessions ADD COLUMN participant_feedback JSON"))
+                    conn.commit()
+                    logger.info("Migration TrainingSession (sqlite) : OK (participant_feedback)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
