@@ -193,7 +193,7 @@
             </div>
             <div class="carbon-stat">
               <div class="carbon-stat-val" id="cb-conf">—</div>
-              <div class="carbon-stat-lbl">Score conformité moy.</div>
+              <div class="carbon-stat-lbl" title="Score de durabilité agroforestière /100. Plus élevé = mieux.">Score conformité moy. <span style="opacity:.7">(↑ mieux)</span></div>
             </div>
           </div>
           <button onclick="exportReport()" class="btn btn-outline btn-sm"
@@ -542,18 +542,22 @@ function renderInventory(data) {
 
   const html = `
     <!-- Métriques -->
+    <div style="font-size:12px;color:var(--muted);margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="color:#1a6b3a;font-weight:700">↑ Plus le score est élevé, mieux c'est</span>
+      <span>· 🟢 bon &nbsp; 🟠 moyen &nbsp; 🔴 à améliorer · échelle /100</span>
+    </div>
     <div class="metrics-grid">
-      <div class="metric-card">
+      <div class="metric-card" title="Couverture d'ombrage de la parcelle (idéal 20–75 %). Plus le score est élevé, mieux c'est.">
         ${gauge(m.shade_score, conformityColor(m.shade_score))}
         <div class="metric-lbl">Score ombrage</div>
         <div class="metric-sub">${m.total_trees_per_ha} arbres/ha</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card" title="Nombre d'espèces d'ombrage associées. Plus divers = mieux.">
         ${gauge(m.diversity_score, conformityColor(m.diversity_score))}
         <div class="metric-lbl">Diversité floristique</div>
         <div class="metric-sub">${m.species_count} espèce${m.species_count > 1 ? 's' : ''}</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card" title="Stock carbone estimé de la parcelle. Plus élevé = mieux.">
         ${gauge(m.carbon_score || 0, conformityColor(m.carbon_score || 0))}
         <div class="metric-lbl">Score carbone</div>
         <div class="metric-sub">${m.carbon_stock_tco2_ha} tCO₂/ha</div>

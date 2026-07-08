@@ -172,7 +172,7 @@
             <button class="lb-tab" id="lb-tab-best" onclick="setLeaderboard('best',this)">🏆 Modèles</button>
           </div>
         </div>
-        <div id="lb-note" style="font-size:12px;color:var(--muted);margin:6px 0 10px">Dernier diagnostic par parcelle — <b>scores les plus faibles d'abord</b> (à prioriser). Vue complète : <a href="plantations.html" style="color:var(--primary);font-weight:600">Plantations</a>.</div>
+        <div id="lb-note" style="font-size:12px;color:var(--muted);margin:6px 0 10px">Le <b>Score</b> est un <b>risque</b> (↑ élevé = moins bon). « À redresser » = <b>risque le plus élevé d'abord</b>. Vue complète : <a href="plantations.html" style="color:var(--primary);font-weight:600">Plantations</a>.</div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -362,8 +362,8 @@ function setLeaderboard(mode, btn) {
   document.getElementById('lb-tab-worst').classList.toggle('active', mode === 'worst');
   document.getElementById('lb-tab-best').classList.toggle('active', mode === 'best');
   document.getElementById('lb-note').innerHTML = mode === 'worst'
-    ? 'Dernier diagnostic par parcelle — <b>scores les plus faibles d\'abord</b> : à prioriser pour l\'appui technique.'
-    : 'Les <b>meilleures parcelles</b> — à ériger en modèle : visites d\'échange, champs-écoles, diffusion des bonnes pratiques.';
+    ? 'Le <b>Score</b> est un <b>risque</b> (↑ élevé = moins bon) — <b>risque le plus élevé d\'abord</b> : à prioriser pour l\'appui technique.'
+    : 'Les <b>meilleures parcelles</b> (risque le plus faible) — à ériger en modèle : visites d\'échange, champs-écoles, diffusion des bonnes pratiques.';
   renderLeaderboard();
 }
 
