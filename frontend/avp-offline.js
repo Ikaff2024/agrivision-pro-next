@@ -92,10 +92,27 @@
 
   // ─── Cache GET (Stale While Revalidate) ───────────────────────────
 
+  // CLOISONNEMENT MULTI-TENANT : la clé de cache est préfixée par le COMPTE
+  // connecté (coopérative + email). Sans ce préfixe, sur un appareil partagé, le
+  // cache de « /plantations » de la coop A s'affichait quelques secondes pour la
+  // coop B avant le rafraîchissement réseau. Le préfixe garantit qu'un compte ne
+  // lit jamais le cache d'un autre. Les entrées d'un autre compte deviennent
+  // simplement des « miss » (re-fetch), aucune fuite.
+  function _scope() {
+    try {
+      if (typeof window.getCurrentUser === 'function') {
+        const u = window.getCurrentUser();
+        if (u) return 'c' + (u.coop_id == null ? 'x' : u.coop_id) + ':' + (u.email || '');
+      }
+    } catch (e) { /* ignore */ }
+    return 'anon';
+  }
+  function _nsKey(endpoint) { return _scope() + '§' + endpoint; }
+
   async function cacheGet(endpoint) {
     try {
       const store = await tx(STORES.CACHE_GET, 'readonly');
-      const entry = await reqAsPromise(store.get(endpoint));
+      const entry = await reqAsPromise(store.get(_nsKey(endpoint)));
       return entry ? entry.data : null;
     } catch (err) {
       console.warn('[AVPOffline] cacheGet failed:', err);
@@ -107,7 +124,7 @@
     try {
       const store = await tx(STORES.CACHE_GET, 'readwrite');
       await reqAsPromise(store.put({
-        endpoint: endpoint,
+        endpoint: _nsKey(endpoint),
         data: data,
         cached_at: Date.now(),
       }));

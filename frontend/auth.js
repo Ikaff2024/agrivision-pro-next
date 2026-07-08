@@ -412,7 +412,13 @@ function requireAuth() {
   return false;
 }
 
-function logout() { localStorage.clear(); window.location.replace('login.html'); }
+function logout() {
+  // Vide le cache de LECTURE hors-ligne (cloisonnement sur appareil partagé) —
+  // on ne touche PAS la file d'écritures en attente (pas de perte de saisie terrain).
+  try { if (window.AVPOffline && AVPOffline.cacheClear) AVPOffline.cacheClear(); } catch (e) { /* best-effort */ }
+  localStorage.clear();
+  window.location.replace('login.html');
+}
 
 /* ── Modale maison (remplace confirm()/prompt() natifs) ─────────────────────
    avpConfirm(message, opts) -> Promise<bool>
