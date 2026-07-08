@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 13mm 14mm 11mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:10.2px; line-height:1.45; }
+  h1,h2,h3 { font-family:Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:7px; margin-bottom:10px; }
+  .brand { font-family:Georgia,serif; font-size:18px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:9.5px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:9.5px; color:#5c6b62; } .tag b { color:#1a4231; font-size:10.5px; }
+  h1 { font-size:15.5px; color:#123227; margin-bottom:4px; }
+  .lede { font-size:10.6px; color:#2f4438; margin:0 0 11px; } .lede b { color:#1a6b3a; }
+  h2 { font-size:11.5px; color:#1a4231; margin:12px 0 5px; padding-left:8px; border-left:3px solid #2D8C5A; }
+  ul { margin:3px 0 0; padding-left:16px; } li { margin-bottom:3px; }
+  table { width:100%; border-collapse:collapse; margin-top:3px; }
+  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid #e3ded0; vertical-align:top; }
+  th { background:#f2f7f3; color:#1a4231; font-size:9.4px; text-transform:uppercase; letter-spacing:.02em; }
+  td.p { font-weight:700; color:#123227; width:26%; }
+  td.s { width:14%; }
+  .st-done { color:#1a6b3a; font-weight:700; } .st-todo { color:#8a6a2f; font-weight:700; }
+  .cols { display:flex; gap:16px; } .col { flex:1; }
+  .quote { margin-top:11px; background:#f2f7f3; border:1px solid #cfe3d6; border-radius:6px; padding:9px 12px; font-style:italic; color:#1a4231; }
+  .warn { margin-top:6px; background:#fbf3ee; border:1px solid #e6c9b6; border-radius:6px; padding:8px 11px; font-size:9.6px; color:#7a4a2f; } .warn b { color:#8a3d1a; }
+  .foot { margin-top:10px; border-top:1px solid #e3ded0; padding-top:6px; font-size:8.6px; color:#7a887f; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Vision produit</small></div>
+    <div class="tag"><b>Le Jumeau numérique de la parcelle</b><br>Projection & feuille de route · 07/2026</div>
+  </div>
+
+  <h1>Du jumeau qui <span style="color:#1a6b3a">décrit</span> au jumeau qui <span style="color:#1a6b3a">anticipe</span></h1>
+  <p class="lede">
+    Aujourd'hui, le jumeau numérique est <b>descriptif</b> : il réunit au même endroit tout ce qui est saisi sur une parcelle
+    (diagnostic, EUDR, déforestation, blocages sociaux, récoltes, revenu vital, certification) et en tire des <b>alertes par règles</b>.
+    <b>Cap à terme</b> : passer de <b>réagir</b> (remédier un cas constaté) à <b>anticiper</b> — cibler les ménages à risque de
+    travail d'enfant <b>avant</b> qu'il ne survienne. C'est la direction de prévention que porte le CLMRS.
+  </p>
+
+  <h2>Ce que le jumeau permettra</h2>
+  <div class="cols">
+    <div class="col">
+      <ul>
+        <li><b>Prévenir le travail des enfants</b> : détecter les signaux précoces (déscolarisation + pic de charge en récolte + revenu sous seuil + école éloignée) pour <b>cibler les visites en amont</b>.</li>
+        <li><b>Anticiper la chaîne agricole</b> : rendement & fenêtres de récolte, risque de maladie, pression de déforestation (EUDR).</li>
+      </ul>
+    </div>
+    <div class="col">
+      <ul>
+        <li><b>Simuler « what-if »</b> : impact projeté d'une formation, d'un appui revenu, de l'agroforesterie — avant de décider.</li>
+        <li><b>Élargir l'objet</b> : jumeau du <b>ménage</b> (le vrai objet CLMRS) et de la <b>coopérative</b> (trajectoire vers « zéro travail d'enfant » et conformité EUDR).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Comment y arriver — par paliers</h2>
+  <table>
+    <thead><tr><th>Palier</th><th>Statut</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td class="p">1 · Descriptif</td><td class="s"><span class="st-done">Fait</span></td><td>Unifier les données + alertes par règles + parcelles à risque.</td></tr>
+      <tr><td class="p">2 · Prédictif léger</td><td class="s"><span class="st-todo">Court terme</span></td><td>Modèles simples et <b>explicables</b> : risque enfant précoce, tendance NDVI, rendement.</td></tr>
+      <tr><td class="p">3 · Simulation « what-if »</td><td class="s"><span class="st-todo">Moyen terme</span></td><td>Moteur de scénarios (le CacaoEngine déterministe est déjà à moitié là).</td></tr>
+      <tr><td class="p">4 · Prédictif avancé</td><td class="s"><span class="st-todo">Selon données</span></td><td>ML multi-campagnes + météo/satellite temps réel, calibré terrain.</td></tr>
+      <tr><td class="p">5 · Prescriptif / temps réel</td><td class="s"><span class="st-todo">Vision</span></td><td>Recommandations priorisées, jumeau ménage & coop, boucle continue.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Conditions de réussite (posture assumée)</h2>
+  <div class="warn">
+    <b>La donnée est le vrai goulot, pas l'algorithme</b> : le prédictif exige des données <b>longitudinales et propres</b>
+    (plusieurs campagnes). • <b>Explicabilité & éthique</b> : sur des enfants, tout modèle est <b>explicable et auditable</b> —
+    le jumeau aide à cibler, <b>l'humain tranche</b>, jamais de décision automatique. • <b>Validation terrain</b> systématique.
+    • <b>Protection des données</b> renforcée à mesure qu'on prédit sur des ménages.
+  </div>
+
+  <div class="quote">
+    « Le jumeau numérique fait passer le CLMRS de la remédiation à l'anticipation — par paliers, avec validation terrain
+    et des modèles explicables, jamais une boîte noire sur des enfants. »
+  </div>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · CacaoGuard · SSRTE · FarmForce · EUDR</div>
+    <div>Vision — Jumeau numérique · v1 · 07/2026</div>
+  </div>
+</body>
+</html>
