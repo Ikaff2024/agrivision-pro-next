@@ -131,6 +131,12 @@
 
       <!-- Stats agronomiques (tous rôles) -->
       <div class="stats-row">
+        <div class="stat-card" title="Santé agronomique globale de la coopérative : 100 − risque moyen des derniers diagnostics. ↑ élevé = meilleure santé.">
+          <div class="stat-icon">❤️</div>
+          <div class="stat-val" id="s-health">—</div>
+          <div class="stat-lbl">Santé globale coopérative</div>
+          <div class="stat-sub" id="s-health-sub">/100 · ↑ = meilleure santé</div>
+        </div>
         <div class="stat-card">
           <div class="stat-icon">🌱</div>
           <div class="stat-val" id="s-total">—</div>
@@ -348,6 +354,20 @@ async function loadDashboard() {
       if (seen.has(d.plantation_id)) return false;
       seen.add(d.plantation_id); return true;
     });
+    // Santé globale de la coopérative = 100 − risque moyen (global_score est un RISQUE).
+    const hEl = document.getElementById('s-health');
+    if (hEl) {
+      if (_lbLatest.length) {
+        const avgRisk = _lbLatest.reduce((s, d) => s + (d.global_score || 0), 0) / _lbLatest.length;
+        const health = Math.max(0, Math.min(100, Math.round(100 - avgRisk)));
+        hEl.textContent = health;
+        hEl.style.color = health >= 65 ? '#1a6b3a' : health >= 35 ? '#9a6200' : '#922b21';
+        document.getElementById('s-health-sub').textContent = _lbLatest.length + ' parcelle(s) diagnostiquée(s) · /100';
+      } else {
+        hEl.textContent = '—';
+        document.getElementById('s-health-sub').textContent = 'Aucun diagnostic — lancez-en un';
+      }
+    }
     renderLeaderboard();
   } catch {}
 }
