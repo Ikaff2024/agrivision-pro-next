@@ -220,6 +220,8 @@
       body: body,
       label: label || endpoint,
       meta: meta || {},
+      owner: _scope(),                      // COMPTE createur : on ne synchronisera JAMAIS
+                                            // cette ecriture sous un autre compte (appareil partage)
       status: 'pending',                    // pending | syncing | error
       error_message: null,
       created_at: Date.now(),
@@ -272,15 +274,23 @@
     return reqAsPromise(store.getAll());
   }
 
+  // Une écriture appartient au compte courant si son `owner` correspond, ou si elle
+  // est ANTÉRIEURE à cette fonctionnalité (pas d'`owner`) — dans ce cas elle a été
+  // créée par l'unique session locale d'alors, on l'adopte.
+  function _ownedByMe(entry) {
+    return !entry.owner || entry.owner === _scope();
+  }
+
   async function getQueueByEndpoint(prefix) {
     const queue = await getQueue();
     return queue
-      .filter((entry) => !prefix || String(entry.endpoint || '').startsWith(prefix))
+      .filter((entry) => _ownedByMe(entry) && (!prefix || String(entry.endpoint || '').startsWith(prefix)))
       .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }
 
   async function getQueueStats() {
-    const queue = await getQueue();
+    // Compteur cloisonné : on n'affiche que les écritures du compte courant.
+    const queue = (await getQueue()).filter(_ownedByMe);
     return {
       pending: queue.filter((e) => e.status === 'pending').length,
       syncing: queue.filter((e) => e.status === 'syncing').length,
@@ -319,7 +329,10 @@
     syncInProgress = true;
     try {
       const queue = await getQueue();
-      const pending = queue.filter((e) => e.status === 'pending' || e.status === 'error');
+      // On ne synchronise QUE les écritures du compte courant : une saisie faite
+      // hors-ligne par un autre compte (appareil partagé) reste en attente jusqu'à
+      // ce que SON auteur se reconnecte — jamais envoyée sous le mauvais compte.
+      const pending = queue.filter((e) => (e.status === 'pending' || e.status === 'error') && _ownedByMe(e));
 
       if (pending.length === 0) {
         return { synced: 0, errors: 0, skipped: false };
