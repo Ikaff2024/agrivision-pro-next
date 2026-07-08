@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 12mm 13mm; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:9.6px; line-height:1.4; }
+  h1,h2,h3 { font-family:Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:6px; margin-bottom:8px; }
+  .brand { font-family:Georgia,serif; font-size:16px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:9px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:9px; color:#5c6b62; } .tag b { color:#1a4231; }
+  h1 { font-size:13.5px; color:#123227; margin-bottom:3px; }
+  .intro { font-size:9.4px; color:#3a463c; margin:0 0 8px; }
+  .intro b { color:#1a6b3a; }
+  .obj { border:1px solid #e3ded0; border-radius:7px; padding:8px 10px; margin-bottom:7px; break-inside:avoid; }
+  .obj .q { font-weight:700; color:#8a3d1a; font-size:9.8px; margin-bottom:2px; }
+  .obj .mean { font-style:italic; color:#6a7d64; font-size:9px; margin-bottom:4px; }
+  .obj .rep { background:#f2f7f3; border-left:3px solid #2D8C5A; padding:5px 8px; border-radius:4px; color:#20342b; }
+  .obj .key { font-size:9px; color:#5c6b62; margin-top:4px; }
+  .obj .key b { color:#1a4231; }
+  .fix { display:inline-block; background:#1a4231; color:#fff; border-radius:3px; padding:0 5px; font-size:8px; font-weight:700; margin-left:6px; }
+  .posture { background:#f7f4ea; border:1px solid #e6dcbf; border-radius:7px; padding:8px 11px; margin-top:6px; }
+  .posture ol { margin:4px 0 0; padding-left:16px; } .posture li { margin-bottom:2px; }
+  .foot { margin-top:8px; border-top:1px solid #e3ded0; padding-top:5px; font-size:8.4px; color:#7a887f; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Réponses aux objections — version honnête</small></div>
+    <div class="tag"><b>RDV ICI — 08/07/2026</b><br>aide-mémoire · confidentiel</div>
+  </div>
+
+  <h1>7 objections probables — répondre avec rigueur, pas avec des promesses</h1>
+  <p class="intro">
+    Méthode pour chaque objection : <b>1) Valider</b> (« question légitime ») · <b>2) Répondre</b> (factuel) · <b>3) Retourner</b> (en faveur du partenariat).
+    Règle d'or avec ICI : <b>l'honnêteté est l'argument le plus fort</b>. Ne jamais affirmer ce qui n'est pas vérifiable — un « MVP rigoureux et transparent » bat un « produit parfait ».
+  </p>
+
+  <div class="obj">
+    <div class="q">1 · « Nous avons déjà des outils SSRTE (CocoaConnect…). »</div>
+    <div class="mean">Il teste si vous venez en concurrent ou en complémentaire.</div>
+    <div class="rep">« Vous avez raison, et c'est une bonne nouvelle. Ces outils gèrent la méthodologie SSRTE et le reporting vers les bailleurs, au niveau ONG. AgriVision opère un cran en dessous : dans la coopérative, avec les agents terrain, au quotidien. Deux couches complémentaires. Nous pouvons exposer une <b>API</b> pour que vos systèmes récupèrent nos données — sans ressaisie ni Excel intermédiaire. »</div>
+    <div class="key"><b>Clé :</b> « nos outils sont terrain, les vôtres sont stratégiques — ils ont besoin l'un de l'autre ».</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">2 · « Comment les données (enfants) sont-elles sécurisées ? » <span class="fix">corrigé</span></div>
+    <div class="mean">Objection non négociable. À rater = fin du RDV.</div>
+    <div class="rep">« C'est une priorité d'architecture. Chaque coopérative a un <b>espace de données cloisonné</b>, avec des <b>tests automatiques de non-fuite</b>. Les données enfants ne sont accessibles qu'aux rôles <b>Admin/Agronome</b> désignés par la coopérative. Chaque accès est inscrit dans un <b>journal horodaté</b>. Hébergement cloud managé, <b>chiffrement en transit</b> ; la <b>résidence des données en Europe</b> est [confirmée / en cours selon la région d'hébergement] — un point qu'on cale dès le pilote. Vous restez <b>propriétaires</b> ; côté éditeur, nous ne voyons que des indicateurs techniques agrégés, <b>jamais de données nominatives d'enfants</b>. »</div>
+    <div class="key"><b>À vérifier avant :</b> la région d'hébergement (Railway). Si USA, ne dites pas « européenne » — dites « prévue, à caler ». Ne dites pas « impossible » ni « immuable » : dites « cloisonné et testé », « journal horodaté ».</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">3 · « Vos agents ont-ils de bons smartphones ? La connectivité rurale… »</div>
+    <div class="mean">ICI connaît le terrain — test de crédibilité.</div>
+    <div class="rep">« Conçu pour ce contexte. C'est une <b>PWA</b> : s'installe sur n'importe quel Android d'entrée de gamme, sans Play Store. Toutes les saisies fonctionnent <b>hors-ligne</b> ; synchro automatique au retour du réseau — un agent tient une journée entière sans réseau et remonte tout le soir. Un <b>indicateur de stockage</b> et un <b>avertissement avant déconnexion</b> évitent toute perte. Nous avons déjà <b>importé et structuré un registre d'environ 6 800 producteurs</b> en zone rurale — pas un cas théorique. »</div>
+    <div class="key"><b>Clé :</b> parlez de « registre importé », pas de « déploiement pilote » si ce n'est pas encore actif.</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">4 · « Vous êtes une jeune startup — pérennité ? Si vous disparaissez… »</div>
+    <div class="mean">Risque réel : ICI s'engage sur 3–5 ans avec ses coops.</div>
+    <div class="rep">« Question légitime, trois réponses. <b>Un :</b> toutes les données sont <b>exportables</b> (CSV/JSON) — aucun verrouillage. <b>Deux :</b> le code source peut faire l'objet d'un <b>accord d'escrow</b> pour un partenaire de la taille d'ICI — continuité garantie même au pire scénario. <b>Trois :</b> nous cherchons précisément des partenaires comme ICI pour bâtir cette pérennité — votre partenariat est le signal de crédibilité qui attire bailleurs et investisseurs. »</div>
+    <div class="key"><b>Retournement :</b> transformer la fragilité en raison de s'associer.</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">5 · « Votre outil a-t-il été validé par des agronomes / experts protection ? » <span class="fix">corrigé</span></div>
+    <div class="mean">ICI ne met pas son nom sur un outil non validé (réputation bailleurs).</div>
+    <div class="rep">« Le moteur agronomique repose sur des <b>seuils agronomiques standards</b> de la cacaoculture (humidité, pluviométrie, ombrage, âge, maladies). Le module CacaoGuard <b>structure la logique SSRTE</b> : fiche de risque, plan de remédiation individuel, suivi de cas, blocage de traçabilité. Ce que nous n'avons <b>pas encore</b>, en toute honnêteté, c'est une <b>validation formelle par un expert ICI</b> — c'est exactement ce qu'un <b>pilote</b> nous permettrait d'obtenir, et nous intégrerons vos retours dans la plateforme. »</div>
+    <div class="key"><b>Correction :</b> évitez de citer CIRAD/CNRA/Conseil Café-Cacao sans source écrite. La reconnaissance honnête de la limite est un atout, pas une faiblesse.</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">6 · « Quel est votre modèle économique ? Qui paie ? »</div>
+    <div class="mean">Il veut savoir si vous cherchez son argent ou son réseau.</div>
+    <div class="rep">« Modèle de base : abonnement SaaS payé par la coopérative (~100 €/mois pour le plan complet). Mais avec ICI, plusieurs montages : les <b>bailleurs</b> (AFD, GIZ, IDH) intègrent souvent l'outil digital en ligne budgétaire ; les <b>exportateurs</b> partenaires (intérêt direct à la conformité EUDR de leurs fournisseurs) peuvent co-financer. Aujourd'hui, l'objectif n'est pas de vous vendre un abonnement, mais de trouver ensemble le montage pour déployer sur <b>5 à 10 coopératives</b> de votre réseau. »</div>
+  </div>
+
+  <div class="obj">
+    <div class="q">7 · « On utilise déjà KoboToolbox / ODK pour la collecte. »</div>
+    <div class="mean">Confort de l'existant, coût de migration.</div>
+    <div class="rep">« Excellents outils de collecte générique — nous les respectons. La différence est de nature : <b>Kobo collecte des données ; AgriVision les transforme en décisions</b>. Après une saisie, Kobo donne un Excel ; AgriVision donne un <b>score de risque par enfant</b>, un <b>plan de remédiation</b> pré-rempli, un <b>rapport de due diligence</b> prêt pour l'audit, et un <b>passeport EUDR</b> pour l'acheteur — automatiquement. Et la migration est simple : <b>import Excel</b> de milliers de fiches en quelques minutes. »</div>
+  </div>
+
+  <div class="posture">
+    <b>Posture générale</b> — pour chaque objection :
+    <ol>
+      <li><b>Valider</b> (« question légitime », « vous avez raison »).</li>
+      <li><b>Répondre</b> — factuel, concret, chiffré, et <b>honnête</b> (ne jamais affirmer l'invérifiable).</li>
+      <li><b>Retourner</b> — faire de l'objection une raison de nouer le partenariat.</li>
+    </ol>
+    Jamais défensif. Votre force : une solution qui <b>tourne réellement</b>, cloisonnée et testée, et une <b>transparence assumée</b> sur ce qui reste à faire.
+  </div>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · aide-mémoire objections (version honnête)</div>
+    <div>v1 · 07/2026</div>
+  </div>
+</body>
+</html>
