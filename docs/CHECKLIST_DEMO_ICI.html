@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 12mm 13mm 10mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:10px; line-height:1.42; }
+  h1,h2,h3 { font-family: Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:6px; margin-bottom:9px; }
+  .brand { font-family:Georgia,serif; font-size:17px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:9px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:9px; color:#5c6b62; } .tag b { color:#1a4231; font-size:10.5px; }
+  h1 { font-size:14.5px; color:#123227; margin-bottom:6px; }
+  h2 { font-size:11px; color:#1a4231; margin:9px 0 4px; padding-left:7px; border-left:3px solid #2D8C5A; text-transform:uppercase; letter-spacing:.02em; }
+  .grid { display:flex; gap:12px; }
+  .col { flex:1; }
+  table { width:100%; border-collapse:collapse; }
+  td { vertical-align:top; padding:3px 5px; border-bottom:1px solid #ece7db; }
+  td.n { width:16px; color:#2D8C5A; font-weight:700; font-family:Georgia,serif; }
+  td.scr { width:34%; font-weight:600; color:#123227; }
+  td.say { color:#3a463c; font-style:italic; }
+  .say b { font-style:normal; color:#1a6b3a; }
+  ul { margin:3px 0 0; padding-left:15px; } li { margin-bottom:2.5px; }
+  .prep { background:#f2f7f3; border:1px solid #cfe3d6; border-radius:6px; padding:7px 10px; }
+  .warn { background:#fbf3ee; border:1px solid #e6c9b6; border-radius:6px; padding:7px 10px; color:#7a4a2f; }
+  .warn b { color:#8a3d1a; }
+  .ask { background:#f7f4ea; border:1px solid #e6dcbf; border-radius:6px; padding:7px 10px; }
+  .foot { margin-top:9px; border-top:1px solid #ece7db; padding-top:5px; font-size:8.5px; color:#7a887f; display:flex; justify-content:space-between; }
+  .kbadge { display:inline-block; background:#1a4231; color:#fff; border-radius:4px; padding:0 5px; font-size:8.5px; font-weight:600; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Check-list de démonstration</small></div>
+    <div class="tag"><b>RDV ICI — Direction des partenariats</b><br>08 juillet 2026 · à garder sous les yeux</div>
+  </div>
+
+  <h1>« ICI définit le standard CLMRS ; AgriVision est l'outil qui l'exécute sur le terrain. »</h1>
+
+  <div class="grid">
+    <div class="col">
+      <h2>Avant de commencer (5 min)</h2>
+      <div class="prep"><ul>
+        <li>Lancer le <b>seed social</b> sur la coop démo (enfants, alertes, formations, revenu vital).</li>
+        <li>Se connecter sur <b>« Coopérative Démo Cacao 2026 »</b> — <b>Ctrl+Maj+R</b> une fois.</li>
+        <li>Pré-ouvrir : <b>CacaoGuard</b>, <b>Protection enfant</b>, <b>Fiches SSRTE</b>, <b>Remédiation</b>, <b>Rapports</b>, <b>Direction</b>.</li>
+        <li>Vérifier que le <b>fournisseur IA</b> répond (sinon montrer une capture).</li>
+      </ul></div>
+    </div>
+    <div class="col">
+      <h2>Vos 3 demandes (les formuler)</h2>
+      <div class="ask"><ul>
+        <li><b>Valider l'alignement</b> de notre modèle de données au <b>standard CLMRS</b>.</li>
+        <li>Un <b>pilote</b> avec une coopérative que vous accompagnez.</li>
+        <li>À terme : <b>reconnaissance</b> comme outil compatible CLMRS.</li>
+      </ul></div>
+    </div>
+  </div>
+
+  <h2>Le parcours de démo — Awa Kouassi <span class="kbadge">≈ 12 min · suivre l'ordre</span></h2>
+  <table>
+    <tr><td class="n">1</td><td class="scr">CacaoGuard (vue d'ensemble)</td><td class="say">« Voici le tableau de bord social : enfants suivis, à risque, alertes, blocages, formations — <b>tout cloisonné à la coopérative</b>. »</td></tr>
+    <tr><td class="n">2</td><td class="scr">Protection enfant → cas Awa</td><td class="say">« Awa, 14 ans, déscolarisée, vue à la machette. On la <b>recense</b> et on l'<b>évalue</b> : le score bascule en <b>critique</b>. »</td></tr>
+    <tr><td class="n">3</td><td class="scr">Fiches SSRTE (A / B / C)</td><td class="say">« L'enquête terrain structurée : localité, ménage, parcelle. Une <b>tâche dangereuse cochée crée une alerte</b> automatiquement. »</td></tr>
+    <tr><td class="n">4</td><td class="scr">CacaoGuard → Blocage traçabilité</td><td class="say">« Cas grave → on <b>bloque le producteur</b> : son cacao <b>ne peut plus partir en lot</b> tant que ce n'est pas remédié. C'est le cœur du dispositif. »</td></tr>
+    <tr><td class="n">5</td><td class="scr">Remédiation</td><td class="say">« Plan d'action : réinscription scolaire, retrait des tâches dangereuses, appui revenu — avec <b>responsable et échéance</b>. »</td></tr>
+    <tr><td class="n">6</td><td class="scr">Rapports → Due diligence (PDF)</td><td class="say">« Et voici la <b>preuve pour l'acheteur</b> : un rapport de due diligence généré, auditable, chiffres à l'appui. »</td></tr>
+    <tr><td class="n">7</td><td class="scr">Direction + « Interpréter avec l'IA »</td><td class="say">« Le pilotage consolidé, et <b>Aya</b> qui lit les chiffres et propose des actions — y compris un <b>plan de formation</b> selon les risques. »</td></tr>
+  </table>
+
+  <div class="grid">
+    <div class="col">
+      <h2>Le mapping à montrer (CLMRS ⇄ modules)</h2>
+      <ul>
+        <li><b>Sensibilisation</b> → Formation</li>
+        <li><b>Identification</b> → SSRTE A/B/C + Registre enfants + Évaluation</li>
+        <li><b>Remédiation</b> → Remédiation (plans + suivi)</li>
+        <li><b>Monitoring</b> → Visites terrain (hors-ligne)</li>
+        <li><b>Preuve</b> → Rapport de due diligence + Blocage</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h2>À NE PAS surclamer (posture)</h2>
+      <div class="warn"><ul>
+        <li>Stade <b>MVP prêt pour pilote</b>, pas déployé partout.</li>
+        <li>Social <b>dissocié de l'EUDR</b> : <i>signalé</i>, bloque l'export seulement si activé.</li>
+        <li>Carbone = <b>estimation</b>, non certifié.</li>
+        <li>Insister sur la <b>protection des données enfants</b> (consentement, journaux d'accès).</li>
+      </ul></div>
+    </div>
+  </div>
+
+  <h2>Questions ouvertes à leur poser</h2>
+  <ul>
+    <li>« Quels <b>indicateurs CLMRS</b> considérez-vous comme non négociables ? »</li>
+    <li>« Auriez-vous une <b>coopérative pilote</b> pour tester l'outil sur le terrain ? »</li>
+    <li>« Comment évaluez-vous la <b>compatibilité</b> d'un outil numérique avec votre méthodologie ? »</li>
+  </ul>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · CacaoGuard · SSRTE · FarmForce · EUDR</div>
+    <div>Check-list démo v1 · 07/2026</div>
+  </div>
+</body>
+</html>
