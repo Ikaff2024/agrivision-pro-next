@@ -155,6 +155,8 @@ def seed_ssrte(pmap, plants):
         "respondent_name": "Kouadio N'Dri", "respondent_role": "Chef de communauté",
         "collection_agent_name": "Agent SSRTE Démo", "collection_agent_code": "AG-014",
         "nearest_school_distance_km": 4,
+        "school_available": True,                       # coche le résumé « école : oui »
+        "has_child_protection_committee": True,         # coche le résumé « comité : oui »
         "services_available": {"electricite": True, "eau_potable": False, "centre_sante": True,
                                 "transport": False, "marche": True},
         "schools": [
@@ -331,22 +333,37 @@ def seed_social_compliance():
             "responsible": "Responsable conformité",
         }, "non_conformities")
 
-    # ── Revenu vital (FarmForce) : un ménage SOUS le seuil (risky) + un AU-DESSUS (safe) ──
+    # ── Revenu vital (FarmForce) — ANTI-DOUBLON : un seul bilan par producteur/campagne.
     # net = revenus − coûts − dépenses ménage. Seuil par défaut = 2 360 000 FCFA.
-    post("/farmforce/assessments", {
-        "producer_id": risky_pid, "campaign_label": "2025-2026", "localite": "Soubré",
+    _ff_seen = set()   # (producer_id, campaign) déjà évalués (existants + créés ici)
+    try:
+        for a in (client.get(f"{API}/farmforce/assessments", headers=h()).json() or []):
+            _ff_seen.add((a.get("producer_id"), a.get("campaign_label")))
+    except Exception:
+        pass
+
+    def ff_once(producer_id, payload):
+        key = (producer_id, payload.get("campaign_label"))
+        if producer_id is None or key in _ff_seen:
+            return
+        payload["producer_id"] = producer_id
+        post("/farmforce/assessments", payload, "farmforce")
+        _ff_seen.add(key)
+
+    ff_once(risky_pid, {
+        "campaign_label": "2025-2026", "localite": "Gnamangui",
         "revenue_items": [{"label": "Vente cacao", "revenue_cfa": 1800000}],
         "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": 600000}],
         "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": 500000}],
         "notes": "Revenu net sous le seuil vital — accompagnement requis.",
-    }, "farmforce")   # net = 700 000 → « écart »
-    post("/farmforce/assessments", {
-        "producer_id": safe_pid, "campaign_label": "2025-2026", "localite": "Méagui",
+    })   # net = 700 000 → « écart »
+    ff_once(safe_pid, {
+        "campaign_label": "2025-2026", "localite": "Méagui",
         "revenue_items": [{"label": "Vente cacao", "revenue_cfa": 4500000}],
         "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": 1000000}],
         "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": 600000}],
         "notes": "Revenu net au-dessus du seuil vital.",
-    }, "farmforce")   # net = 2 900 000 → « atteint »
+    })   # net = 2 900 000 → « atteint »
 
     # ── VOLUME DÉMO ICI : population d'enfants sur TOUS les niveaux de risque ──
     # Pour que la « Distribution risque enfant » et le rapport de due diligence
@@ -415,23 +432,24 @@ def seed_social_compliance():
             "topics_covered": [title],
         }, "training_sessions")
 
-    # ── Revenu vital : plus de ménages (mélange réaliste sous/au-dessus du seuil) ──
+    # ── Revenu vital : d'autres ménages (mélange réaliste) — sur des producteurs
+    # DISTINCTS (jamais risky/safe) et jamais déjà évalués (anti-doublon via ff_once).
     li_mix = [
-        (2200000, 700000, 500000),   # écart
-        (3200000, 700000, 600000),   # atteint (net 1 900 000 -> écart en fait) -> ajuste
-        (5200000, 1100000, 700000),  # atteint
-        (2600000, 800000, 500000),   # écart
-        (4800000, 900000, 600000),   # atteint
+        (2200000, 700000, 500000),   # net 1 000 000 → écart
+        (5200000, 1100000, 700000),  # net 3 400 000 → atteint
+        (2600000, 800000, 500000),   # net 1 300 000 → écart
+        (4800000, 900000, 600000),   # net 3 300 000 → atteint
+        (3600000, 800000, 500000),   # net 2 300 000 → écart (proche du seuil)
     ]
-    for i, (rev, cost, hh) in enumerate(li_mix):
-        owner = names[(i + 2) % len(names)]
-        post("/farmforce/assessments", {
-            "producer_id": pmap[owner], "campaign_label": "2025-2026",
-            "localite": "Soubré" if i % 2 else "Méagui",
+    li_candidates = [n for n in names if n not in (risky, safe)]
+    for (rev, cost, hh), owner in zip(li_mix, li_candidates):
+        ff_once(pmap[owner], {
+            "campaign_label": "2025-2026",
+            "localite": "Méagui",
             "revenue_items": [{"label": "Vente cacao", "revenue_cfa": rev}],
             "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": cost}],
             "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": hh}],
-        }, "farmforce")
+        })
 
     print(f"  • Protection enfant : {2 + extra_children} enfants sur tous les niveaux de risque")
     print(f"  • Revenu vital : 7 ménages (mix atteint/écart) · SSRTE + Certification + blocage ({risky})")
@@ -500,13 +518,71 @@ def seed_xl_parcels(n: int):
     print(f"  • {created} parcelle(s) XL créée(s) — sans délimitation (à générer en masse)")
 
 
+def cleanup_demo(apply: bool = False):
+    """Nettoie la coop : 1 seul livret revenu vital par (producteur, campagne) — le
+    1er non vide — et supprime les fiches SSRTE VIDES (anciens passages). Ne touche
+    JAMAIS aux fiches finalisées. En dry-run (apply=False) : n'affiche que le compte."""
+    from collections import defaultdict
+    tag = "APPLIQUÉ" if apply else "SIMULATION (dry-run)"
+    print(f"— Nettoyage démo : {tag} —")
+
+    def _del(ep, rid):
+        if not apply:
+            return True
+        r = client.delete(f"{API}{ep}/{rid}", headers=h())
+        return r.status_code in (200, 204)
+
+    # FarmForce : garder le 1er livret NON VIDE par (producteur, campagne).
+    try:
+        assessments = client.get(f"{API}/farmforce/assessments", headers=h()).json() or []
+    except Exception:
+        assessments = []
+    groups = defaultdict(list)
+    for a in assessments:
+        groups[(a.get("producer_id"), a.get("campaign_label"))].append(a)
+    keep = set()
+    for lst in groups.values():
+        nonzero = [a for a in lst if float(a.get("net_income_cfa") or 0) > 0]
+        if nonzero:
+            keep.add(min(nonzero, key=lambda a: a["id"])["id"])
+    ff_del = [a for a in assessments if a["id"] not in keep]
+    for a in ff_del:
+        _del("/farmforce/assessments", a["id"])
+
+    # SSRTE : supprimer les fiches VIDES (draft) — celles sans contenu réel.
+    ssrte_del = 0
+    for d in (client.get(f"{API}/ssrte/communities", headers=h()).json() or []):
+        if d.get("status") == "draft" and not d.get("risks_identified") and not d.get("services_available"):
+            if _del("/ssrte/communities", d["id"]):
+                ssrte_del += 1
+    for d in (client.get(f"{API}/ssrte/households", headers=h()).json() or []):
+        if d.get("status") == "draft" and d.get("household_size") in (None, 0):
+            if _del("/ssrte/households", d["id"]):
+                ssrte_del += 1
+    for d in (client.get(f"{API}/ssrte/plantation-visits", headers=h()).json() or []):
+        if d.get("status") == "draft" and d.get("adults_count") is None and not d.get("dangerous_tasks_observed"):
+            if _del("/ssrte/plantation-visits", d["id"]):
+                ssrte_del += 1
+
+    print(f"  • Revenu vital : {len(ff_del)} livret(s) en doublon/vide {'supprimés' if apply else 'à supprimer'}")
+    print(f"  • SSRTE : {ssrte_del} fiche(s) vide(s) {'supprimées' if apply else 'à supprimer'}")
+    if not apply:
+        print("  → Relancez avec AVP_SEED_CLEANUP=apply pour appliquer.")
+
+
 def main():
     social_only = os.getenv("AVP_SEED_SOCIAL_ONLY", "").lower() in ("1", "true", "yes")
+    cleanup_mode = os.getenv("AVP_SEED_CLEANUP", "").lower()
     certs_only = os.getenv("AVP_SEED_CERTS_ONLY", "").lower() in ("1", "true", "yes")
     xl_only = os.getenv("AVP_SEED_XL_ONLY", "").lower() in ("1", "true", "yes")
     ssrte_only = os.getenv("AVP_SEED_SSRTE_ONLY", "").lower() in ("1", "true", "yes")
     print(f"=== Seed démo AgriVision Pro → {API} ===")
     login_or_register()
+
+    if cleanup_mode in ("1", "true", "yes", "dry", "apply"):
+        cleanup_demo(apply=(cleanup_mode == "apply"))
+        print(f"\n✓ Nettoyage terminé. Connexion : {EMAIL} / {PASSWORD}")
+        return
 
     if ssrte_only:
         print("Mode : fiches SSRTE A/B/C uniquement (coop existante, sans duplication du reste).")

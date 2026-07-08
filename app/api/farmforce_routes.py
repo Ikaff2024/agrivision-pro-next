@@ -347,6 +347,22 @@ def update_assessment(
     return _serialize(assessment)
 
 
+@router.delete("/assessments/{assessment_id}", status_code=204)
+def delete_assessment(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime un livret FarmForce (saisie erronée / doublon). Réservé admin/gestionnaire."""
+    if current_user.role not in ("admin", "gestionnaire"):
+        raise HTTPException(status_code=403, detail="Suppression réservée admin/gestionnaire.")
+    assessment = db.query(FarmForceAssessment).filter(FarmForceAssessment.id == assessment_id).first()
+    _assert_assessment_in_coop(assessment, db, current_user)
+    db.delete(assessment)
+    db.commit()
+    return None
+
+
 @router.get("/assessments/{assessment_id}/livret.pdf")
 def download_farmforce_livret(
     assessment_id: int,
