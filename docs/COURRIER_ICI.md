@@ -10,15 +10,15 @@ Direction des partenariats — International Cocoa Initiative (ICI)
 
 [Ville], le [date]
 
-**Objet : Suite à notre entretien du 8 juillet 2026 — proposition de collaboration pilote**
+**Objet : Présentation d'AgriVision Pro et proposition de collaboration**
 
 Madame, Monsieur [Nom],
 
-Je tiens tout d'abord à vous remercier pour la qualité de notre échange du 8 juillet dernier. Votre écoute et la pertinence de vos remarques ont conforté ma conviction : la mission d'ICI et l'outil que nous développons poursuivent le même but — protéger les enfants dans la filière cacao — à deux niveaux complémentaires.
+C'est à la faveur d'une mise en relation par [notre contact commun], que je remercie, que j'ai eu le plaisir d'un premier échange avec vos services. Cet échange m'a conforté dans l'idée d'une convergence forte entre la mission d'ICI et la solution que nous développons ; aussi je me permets de vous adresser la présente afin de vous présenter formellement AgriVision Pro et de vous proposer une collaboration.
 
-Pour rappel, AgriVision Pro se veut l'outil numérique de terrain qui opère le CLMRS au quotidien, au sein même de la coopérative : identification des cas, enquête SSRTE, remédiation, blocage de traçabilité et production de la preuve de due diligence. Là où ICI définit et porte la méthode, nous en assurons l'exécution, hors-ligne, à l'échelle, avec traçabilité d'audit.
+AgriVision Pro se veut l'outil numérique de terrain qui opère le CLMRS au quotidien, au sein même de la coopérative : identification des cas, enquête SSRTE, remédiation, blocage de traçabilité et production de la preuve de due diligence. Là où ICI définit et porte la méthode, nous en assurons l'exécution — hors-ligne, à l'échelle, avec traçabilité d'audit. Nos deux approches nous semblent ainsi profondément complémentaires.
 
-J'ai pris bonne note de vos trois recommandations, que je fais miennes et pour lesquelles j'ai déjà engagé des démarches concrètes : (1) nous avons établi un référentiel de conformité reliant chaque donnée collectée à son standard de référence, que je souhaiterais faire valider avec vos équipes ; (2) nous engageons la protection de la propriété intellectuelle (dépôt de marque, droits d'auteur) ; et (3) nous finalisons la formalisation administrative de la société et la mise en conformité relative aux données personnelles.
+Soucieux d'aborder un éventuel partenariat avec toute la rigueur qu'il mérite, nous avons d'ores et déjà engagé plusieurs démarches : (1) l'établissement d'un référentiel de conformité reliant chaque donnée collectée à son standard de référence, que nous souhaiterions faire valider avec vos équipes ; (2) la protection de la propriété intellectuelle (dépôt de marque, droits d'auteur) ; et (3) la formalisation administrative de la société ainsi que la mise en conformité relative aux données personnelles.
 
 Dans cet esprit, et en toute transparence sur notre stade de maturité — un produit fonctionnel, prêt pour un déploiement pilote —, je souhaiterais vous proposer une collaboration pilote autour de deux volets :
 
