@@ -416,6 +416,15 @@ function logout() {
   // Vide le cache de LECTURE hors-ligne (cloisonnement sur appareil partagé) —
   // on ne touche PAS la file d'écritures en attente (pas de perte de saisie terrain).
   try { if (window.AVPOffline && AVPOffline.cacheClear) AVPOffline.cacheClear(); } catch (e) { /* best-effort */ }
+  // Vide aussi le cache API du service worker (réponses tenant : /plantations,
+  // /producers, /children… servies en repli hors-ligne) — sinon un autre compte
+  // sur le même appareil pourrait les voir en mode hors-ligne. On ne touche pas
+  // au cache statique (app shell) pour ne pas re-télécharger l'appli.
+  try {
+    if (window.caches && caches.keys) {
+      caches.keys().then(keys => keys.forEach(k => { if (k.endsWith('-api')) caches.delete(k); }));
+    }
+  } catch (e) { /* best-effort */ }
   localStorage.clear();
   window.location.replace('login.html');
 }
