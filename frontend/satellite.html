@@ -67,7 +67,7 @@
     <div class="avp-header">
       <div>
         <div class="page-title">Analyse Satellite</div>
-        <div class="page-sub">Indice NDVI — Santé de la végétation</div>
+        <div class="page-sub">Santé de la végétation (NDVI) & humidité du couvert (NDMI) — par satellite Sentinel-2</div>
       </div>
     </div>
 
@@ -134,6 +134,14 @@
           </div>
 
           <div id="result-section" style="display:none">
+            <!-- Explication en clair -->
+            <div style="background:#eef5f0;border:1px solid #cfe3d6;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#33604a;line-height:1.55">
+              <b>Le NDVI</b> mesure par satellite la <b>vigueur du couvert végétal</b> de la parcelle (0 à 1) :
+              <b>plus il est élevé, plus la végétation est dense et en bonne santé</b>. Repères cacao :
+              <b>≤ 0,35</b> sol nu/eau (indéterminé) · <b>0,35–0,50</b> stressée · <b>0,50–0,70</b> moyenne · <b>&gt; 0,70</b> saine.
+              Le <b>NDMI</b> (plus bas) mesure la <b>teneur en eau</b> du couvert (stress hydrique). Ces indices s'appuient sur
+              <b>Sentinel-2</b> — utile pour repérer une parcelle à inspecter sans se déplacer.
+            </div>
             <!-- NDVI display -->
             <div class="card" style="margin-bottom:20px">
               <div class="ndvi-display">
