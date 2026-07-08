@@ -43,10 +43,21 @@ progrès mensuels, jusqu'à la résolution.
 Recueillir et traiter les **signalements** (mécanisme de plainte), un attendu des standards
 de durabilité.
 
-### Pas à pas
-1. Menu **Signalements**.
-2. **Enregistrer** un signalement (catégorie, description, anonymat éventuel).
-3. **Suivre** son traitement jusqu'à clôture.
+### Pas à pas (enregistrement par un agent)
+1. Menu **Signalements ▸ Nouveau signalement**.
+2. **Enregistrer** : catégorie, gravité, description, producteur visé (facultatif), source (**anonyme** ou nommée).
+3. **Suivre** le traitement jusqu'à clôture. Les cas graves déclenchent une **alerte** automatique.
+
+> Le **déclarant n'a PAS besoin de compte** : un agent consigne le cas au nom de la personne (qui peut rester **anonyme**).
+
+### Lien public de signalement (sans compte) — mécanisme de grievance
+Pour permettre à **la communauté** de signaler elle-même, sans compte :
+1. Menu **Signalements ▸ 🔗 Lien public** → génère (une fois) un **QR + une URL** propres à votre coopérative.
+2. **Affichez / imprimez** le QR ou l'URL dans les villages.
+3. Toute personne l'ouvre sur son téléphone → un **formulaire mobile sans compte** (anonyme par défaut). Le signalement arrive **directement dans votre coopérative** et apparaît dans votre liste.
+4. **« Régénérer »** invalide l'ancien lien (en cas de fuite).
+
+> C'est un **canal de plainte accessible aux communautés** — un attendu fort des standards (ICI / CLMRS, certification).
 
 ---
 
@@ -59,7 +70,11 @@ et enregistrer la **participation**.
 ### Pas à pas
 1. Menu **Formation**.
 2. **Créer** une session : titre, type, date, lieu, formateur, participants attendus, thèmes.
-3. Après la session : **saisir la présence** (participants, signatures, scores), marquer **Terminée**.
+3. **Émarger** (après la session) : sur une session planifiée, bouton **✍️ Émarger** →
+   - **recherchez** un producteur puis **« + Ajouter »** pour chaque **présent** (l'ajout vaut **signature**),
+   - saisissez un **score** post-test facultatif par personne,
+   - donnez une **note d'efficacité** de la session, puis **Enregistrer**.
+   L'émargement fonctionne **hors ligne** : gardé en local, synchronisé au retour du réseau.
 
 > ✨ **« Aya : proposer un plan de formation »** (bouton en haut) : Aya analyse les **risques réels** de votre coopérative (enfants à risque, agroforesterie, écarts EUDR, revenu vital…) et propose **3 à 5 modules de formation priorisés** — chacun avec sa justification, son public cible et sa priorité.
 

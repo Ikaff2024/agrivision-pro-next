@@ -12,11 +12,14 @@ Recenser les **arbres d'ombrage** d'une parcelle (espèces, densité, âge) pour
 3. Ajoutez une ou plusieurs **espèces** d'arbres avec :
    - **densité** (nombre d'arbres par hectare),
    - **âge moyen** des arbres (utilisé pour le calcul carbone).
-4. Enregistrez. Un **score de conformité agroforestière** est calculé et s'affiche sur le Dashboard.
+4. Enregistrez. Quatre scores /100 sont calculés : **ombrage**, **diversité**, **carbone**, **conformité**.
+
+> ✅ **Sens des scores (agroforesterie)** : **plus le score est élevé, MIEUX c'est** (🟢 bon · 🟠 moyen · 🔴 à améliorer). C'est **l'inverse** du diagnostic agronomique (où le score est un *risque*). Le **stock carbone** est une **estimation** (non certifié).
 
 ### Astuces
 - Renseignez **l'âge** : sans lui, le calcul carbone est incomplet.
 - La densité doit être **> 0** pour être prise en compte.
+- Ombrage : la plage **idéale** est **20–75 %** (trop d'ombrage retient l'humidité).
 
 ---
 

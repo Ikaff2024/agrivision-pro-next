@@ -13,6 +13,8 @@ et obtenir un **score** + un **niveau de risque** (Faible / Moyen / Élevé).
 4. Lancez l'analyse → vous obtenez un **score sur 100** et un **niveau de risque**.
 5. Le diagnostic est **enregistré** et apparaît dans l'historique (et sur le Dashboard).
 
+> ⚠️ **Sens du score** : c'est un **score de RISQUE**. **Plus il est élevé, MOINS c'est bon** (0 = sain, 100 = critique). Sur le Palmarès « À redresser » = les parcelles au **risque le plus élevé** d'abord.
+
 > Le « **risque** » du diagnostic est **agronomique** (santé des arbres) — à ne pas confondre
 > avec le risque « travail des enfants » (CacaoGuard) ni la conformité EUDR.
 

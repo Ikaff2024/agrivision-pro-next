@@ -66,7 +66,15 @@ PLATFORM_GUIDE = (
     "• Opérations : bouton « Pré-contrôle EUDR » (déforestation AVANT achat), « Palmarès des parcelles » "
     "(à redresser / modèles), et le volume non tracé distingue le volume RETENU pour cas social.\n"
     "• IA : bouton « Interpréter avec l'IA » sur plusieurs modules + « Aya : proposer un plan de formation » "
-    "(menu Formation). Recherche cherchable (taper quelques lettres) sur les grandes listes."
+    "(menu Formation). Recherche cherchable (taper quelques lettres) sur les grandes listes.\n"
+    "• Signalements : le déclarant n'a PAS besoin de compte. Un agent consigne le cas (anonyme possible) ; "
+    "et un LIEN/QR PUBLIC (Signalements ▸ Lien public) permet à la communauté de signaler elle-même SANS "
+    "compte — le signalement arrive dans la bonne coopérative.\n"
+    "• Formation : émargement réel — rechercher les producteurs PRÉSENTS (présence = signature), score "
+    "post-test facultatif, note d'efficacité ; fonctionne hors ligne.\n"
+    "• SENS DES SCORES : en agroforesterie (ombrage, diversité, carbone, conformité) plus le score est élevé "
+    "MIEUX c'est ; au diagnostic agronomique le « score global » est un RISQUE : plus il est élevé MOINS c'est "
+    "bon (0 sain, 100 critique). Le carbone agroforestier est une ESTIMATION (non certifié)."
 )
 
 
