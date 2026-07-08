@@ -120,6 +120,31 @@
   </div>
 </div>
 
+<!-- Modale d'émargement -->
+<div id="emarge-overlay" style="position:fixed;inset:0;background:rgba(12,32,24,.55);display:none;align-items:center;justify-content:center;z-index:900;padding:20px">
+  <div style="background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:24px">
+    <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700">✍️ Émargement</div>
+    <div id="emarge-session-title" style="font-size:13px;color:var(--muted);margin:2px 0 16px"></div>
+    <div class="form-group">
+      <label class="form-label">Ajouter un participant présent</label>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div id="emarge-combo" style="flex:1"></div>
+        <button class="btn btn-outline btn-sm" onclick="emargeAdd()" style="white-space:nowrap">+ Ajouter</button>
+      </div>
+    </div>
+    <div id="emarge-list" style="margin:6px 0 12px"></div>
+    <div class="form-group">
+      <label class="form-label">Note d'efficacité de la session (0 à 5)</label>
+      <input class="form-input" id="emarge-rating" type="number" min="0" max="5" step="0.5" value="4" style="max-width:120px">
+    </div>
+    <div id="emarge-err" style="display:none;color:var(--high);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">
+      <button class="btn btn-outline" onclick="emargeClose()">Annuler</button>
+      <button class="btn btn-primary" id="emarge-submit" onclick="emargeSubmit()">Enregistrer l'émargement</button>
+    </div>
+  </div>
+</div>
+
 <script>
 initApp('training');
 
@@ -190,6 +215,7 @@ async function loadSessions() {
     return;
   }
   const sessions = await res.json();
+  _sessions = sessions;
   if (!sessions.length) {
     el.innerHTML = '<div class="empty-state" style="padding:32px">Aucune session planifiee.</div>';
     return;
@@ -205,31 +231,85 @@ async function loadSessions() {
       </div>
       <div class="session-meta">${labels[s.training_type] || s.training_type} - ${s.actual_participants}/${s.expected_participants} participants</div>
       <div class="topic-list">${(s.topics_covered || []).map(t => `<span class="topic">${t}</span>`).join('')}</div>
-      ${s.status !== 'completed' ? `<button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="completeSession(${s.id})">Emarger demo</button>` : `<div class="session-meta" style="margin-top:10px">Note efficacite: ${s.effectiveness_rating}/5</div>`}
+      ${s.status !== 'completed' ? `<button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="openEmargement(${s.id})">✍️ Émarger</button>` : `<div class="session-meta" style="margin-top:10px">Note efficacite: ${s.effectiveness_rating}/5 · ${s.actual_participants} présents</div>`}
     </div>
   `).join('');
 }
 
-async function completeSession(id) {
+/* ── Émargement réel : sélection des producteurs présents + signature + score ── */
+let _sessions = [];
+let _emargeSessionId = null;
+let _emargeProducers = [];      // {value,label,sub}
+let _emargeCombo = null;
+let _emargeAttendees = [];       // {producer_id, name, score}
+function _esc(s){ return (typeof escapeHtml==='function') ? escapeHtml(String(s==null?'':s)) : String(s==null?'':s); }
+
+async function openEmargement(id) {
+  _emargeSessionId = id;
+  _emargeAttendees = [];
+  const s = _sessions.find(x => x.id === id) || {};
+  document.getElementById('emarge-session-title').textContent = (s.title || ('Session #' + id)) + (s.scheduled_date ? ' · ' + s.scheduled_date : '');
+  document.getElementById('emarge-err').style.display = 'none';
+  document.getElementById('emarge-rating').value = '4';
+  document.getElementById('emarge-overlay').style.display = 'flex';
+  if (!_emargeProducers.length) {
+    try {
+      const r = await authFetch('/producers?limit=5000');
+      const list = r && r.ok ? await r.json() : [];
+      _emargeProducers = list.map(p => ({ value: p.id, label: p.nom_complet, sub: p.localite || '' }));
+    } catch (e) {}
+  }
+  const host = document.getElementById('emarge-combo');
+  host.innerHTML = '';
+  _emargeCombo = AVPCombo.attach(host, { items: _emargeProducers, placeholder: 'Rechercher un producteur…' });
+  emargeRender();
+}
+function emargeClose() { document.getElementById('emarge-overlay').style.display = 'none'; }
+function emargeAdd() {
+  const v = _emargeCombo ? _emargeCombo.getValue() : '';
+  if (!v) { toast('Choisissez un producteur.'); return; }
+  if (_emargeAttendees.some(a => String(a.producer_id) === String(v))) { toast('Déjà dans la liste.'); return; }
+  const it = _emargeProducers.find(p => String(p.value) === String(v));
+  _emargeAttendees.push({ producer_id: Number(v), name: it ? it.label : ('#' + v), score: '' });
+  _emargeCombo.setValue('');
+  emargeRender();
+}
+function emargeRemove(pid) { _emargeAttendees = _emargeAttendees.filter(a => a.producer_id !== pid); emargeRender(); }
+function emargeScore(pid, val) { const a = _emargeAttendees.find(x => x.producer_id === pid); if (a) a.score = val; }
+function emargeRender() {
+  const el = document.getElementById('emarge-list');
+  if (!_emargeAttendees.length) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:10px 0">Aucun présent. Recherchez un producteur puis « + Ajouter » — sa présence vaut signature.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + _emargeAttendees.length + ' présent(s) — score facultatif (post-test /100)</div>' +
+    _emargeAttendees.map(a => `<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-l)">
+      <span style="flex:1;font-size:13px">✍️ ${_esc(a.name)}</span>
+      <input type="number" min="0" max="100" placeholder="score" value="${a.score}" oninput="emargeScore(${a.producer_id}, this.value)" style="width:76px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;font-size:12.5px">
+      <button onclick="emargeRemove(${a.producer_id})" title="Retirer" style="border:none;background:none;cursor:pointer;color:var(--high);font-size:18px;line-height:1">×</button>
+    </div>`).join('');
+}
+async function emargeSubmit() {
+  const err = document.getElementById('emarge-err'); err.style.display = 'none';
+  if (!_emargeAttendees.length) { err.textContent = 'Ajoutez au moins un participant présent.'; err.style.display = 'block'; return; }
+  const scores = _emargeAttendees.map(a => Number(a.score)).filter(n => !isNaN(n) && n > 0);
+  const avg = scores.length ? Math.round(scores.reduce((s, n) => s + n, 0) / scores.length) : null;
   const payload = {
-    participants: [
-      { producer_id: 1, name: 'Kouassi Demo CacaoGuard', signature: true, evaluation_score: 82 }
-    ],
-    post_test_scores: { average: 82 },
-    effectiveness_rating: 4.2,
-    status: 'completed'
+    participants: _emargeAttendees.map(a => ({
+      producer_id: a.producer_id, name: a.name, signature: true,
+      evaluation_score: (a.score !== '' && !isNaN(Number(a.score))) ? Number(a.score) : null,
+    })),
+    post_test_scores: avg != null ? { average: avg } : null,
+    effectiveness_rating: Number(document.getElementById('emarge-rating').value) || null,
+    status: 'completed',
   };
-  const res = await submitOffline(`/training/sessions/${id}/attendance`, payload, `Emargement session ${id}`);
-  if (res.queued) {
-    toast('Emargement garde en local. Synchronisation au retour du reseau.', 'success');
-    await refreshQueueStatus();
-    return;
-  }
-  if (!res.response.ok) {
-    toast('Emargement impossible.', 'error');
-    return;
-  }
-  toast('Presence enregistree.');
+  const btn = document.getElementById('emarge-submit'); btn.disabled = true;
+  const res = await submitOffline(`/training/sessions/${_emargeSessionId}/attendance`, payload, `Emargement session ${_emargeSessionId}`);
+  btn.disabled = false;
+  if (res.queued) { toast('Émargement gardé en local. Synchronisation au retour du réseau.', 'success'); emargeClose(); await refreshQueueStatus(); return; }
+  if (!res.response || !res.response.ok) { err.textContent = 'Émargement impossible.'; err.style.display = 'block'; return; }
+  toast('Émargement enregistré — ' + _emargeAttendees.length + ' présent(s).');
+  emargeClose();
   await refreshQueueStatus();
   await loadSessions();
 }
