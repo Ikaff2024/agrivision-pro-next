@@ -74,7 +74,11 @@ PLATFORM_GUIDE = (
     "post-test facultatif, note d'efficacité ; fonctionne hors ligne.\n"
     "• SENS DES SCORES : en agroforesterie (ombrage, diversité, carbone, conformité) plus le score est élevé "
     "MIEUX c'est ; au diagnostic agronomique le « score global » est un RISQUE : plus il est élevé MOINS c'est "
-    "bon (0 sain, 100 critique). Le carbone agroforestier est une ESTIMATION (non certifié)."
+    "bon (0 sain, 100 critique). Le carbone agroforestier est une ESTIMATION (non certifié).\n"
+    "• PROTECTION ENFANT vs FICHES SSRTE : les fiches SSRTE sont la MÉTHODE d'enquête (formulaires officiels "
+    "A localité / B ménage / C visite, auditables, cycle brouillon→clôture) — elles COLLECTENT. La Protection "
+    "de l'enfant (CacaoGuard) est le SUIVI vivant : registre des enfants + calcul du risque + remédiation + "
+    "blocage — elle AGIT. SSRTE alimente → Protection de l'enfant agit (l'un mesure, l'autre traite)."
 )
 
 

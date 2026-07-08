@@ -4,6 +4,13 @@
 > avec **blocage de traçabilité automatique** en cas de cas critique. C'est un argument fort
 > pour les acheteurs internationaux.
 
+### Protection de l'enfant vs Fiches SSRTE — quelle différence ?
+> **Les fiches SSRTE = la MÉTHODE d'enquête** (les formulaires officiels A/B/C) ; **la Protection de l'enfant = le SUIVI vivant** qui exploite ces données pour agir.
+>
+> - **Fiches SSRTE — collecter** : les 3 questionnaires normalisés et **auditables** (Fiche A localité, Fiche B/F1 ménage, Fiche C visite de plantation), avec cycle **brouillon → clôture définitive** (une fois clôturée = figée, valeur de preuve).
+> - **Protection de l'enfant — suivre & agir** : le **registre vivant des enfants**, avec **calcul automatique du risque** (aucun → critique) qui **déclenche** plan de remédiation, alerte et blocage de traçabilité.
+> - **Articulation** : *SSRTE alimente → Protection de l'enfant agit*. L'un **mesure**, l'autre **traite**. Ensemble ils couvrent la boucle CLMRS : **identifier → évaluer → remédier → prouver**.
+
 ## 6.A — CacaoGuard (vue d'ensemble)
 
 ### À quoi ça sert
