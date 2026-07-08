@@ -412,7 +412,28 @@ function requireAuth() {
   return false;
 }
 
-function logout() {
+async function logout(force) {
+  // Garde-fou terrain : prévenir s'il reste des saisies non synchronisées.
+  if (!force && window.AVPOffline && AVPOffline.getQueueStats && typeof avpConfirm === 'function') {
+    try {
+      const s = await AVPOffline.getQueueStats();
+      const pend = (s.pending || 0) + (s.errors || 0);
+      if (pend > 0) {
+        if (navigator.onLine) {
+          const doSync = await avpConfirm(
+            `Vous avez ${pend} saisie(s) non synchronisée(s). Les synchroniser avant de vous déconnecter ?`,
+            { okText: 'Synchroniser puis déconnexion', cancelText: 'Se déconnecter sans synchroniser' });
+          if (doSync) { try { await AVPOffline.syncQueue(); } catch (e) { /* on part quand même, saisies conservées */ } }
+        } else {
+          const ok = await avpConfirm(
+            `Vous avez ${pend} saisie(s) non synchronisée(s). Hors ligne, elles resteront sur cet appareil ` +
+            `jusqu'à votre prochaine connexion sur CE compte. Se déconnecter quand même ?`,
+            { okText: 'Se déconnecter', cancelText: 'Annuler', danger: true });
+          if (!ok) return;   // annulation : on ne déconnecte pas
+        }
+      }
+    } catch (e) { /* best-effort, ne bloque pas la déconnexion */ }
+  }
   // Vide le cache de LECTURE hors-ligne (cloisonnement sur appareil partagé) —
   // on ne touche PAS la file d'écritures en attente (pas de perte de saisie terrain).
   try { if (window.AVPOffline && AVPOffline.cacheClear) AVPOffline.cacheClear(); } catch (e) { /* best-effort */ }
@@ -733,12 +754,53 @@ function avpAdjustBannerText() {
   banner.style.fontSize = isMobile ? '13px' : '13.5px';
 }
 
+// Indicateur de stockage hors-ligne : pastille discrète « X à envoyer · N photos · Y Mo »
+// visible uniquement s'il reste des données en attente. Aide l'agent terrain à
+// savoir ce qui n'est pas encore synchronisé et l'espace occupé.
+async function avpUpdateStorageIndicator() {
+  if (!window.AVPOffline || !AVPOffline.getStats) return;
+  let s;
+  try { s = await AVPOffline.getStats(); } catch (e) { return; }
+  const pend = s.queue_pending || 0, err = s.queue_errors || 0, photos = s.photos_stored || 0;
+  let el = document.getElementById('avp-storage-pill');
+  if (pend + err + photos === 0) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'avp-storage-pill';
+    el.setAttribute('role', 'status');
+    el.title = 'Données en attente de synchronisation sur cet appareil';
+    el.style.cssText = 'position:fixed;left:10px;bottom:12px;z-index:9998;color:#fff;border-radius:999px;' +
+      'padding:6px 12px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.2);' +
+      'font-family:"DM Sans",sans-serif;cursor:pointer';
+    el.onclick = () => { if (navigator.onLine && AVPOffline.syncQueue) { AVPOffline.syncQueue().then(avpUpdateStorageIndicator); } };
+    document.body.appendChild(el);
+  }
+  let mb = '';
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      if (est && est.usage) mb = ' · ' + Math.round(est.usage / 1048576) + ' Mo';
+    }
+  } catch (e) { /* estimate indispo */ }
+  const parts = [];
+  if (pend) parts.push(pend + ' à envoyer');
+  if (err) parts.push(err + ' en erreur');
+  if (photos) parts.push(photos + ' photo' + (photos > 1 ? 's' : ''));
+  el.style.background = err ? '#922b21' : '#1a4231';
+  el.textContent = (err ? '⚠️ ' : '☁️ ') + parts.join(' · ') + mb;
+  el.style.bottom = document.getElementById('avp-offline-banner') ? '56px' : '12px';
+}
+
 function setupNetworkBanner() {
   // Etat initial au chargement
   avpUpdateNetworkBanner();
+  avpUpdateStorageIndicator();
   // Reagir aux changements de connectivite
-  window.addEventListener('online', avpUpdateNetworkBanner);
-  window.addEventListener('offline', avpUpdateNetworkBanner);
+  window.addEventListener('online', () => { avpUpdateNetworkBanner(); avpUpdateStorageIndicator(); });
+  window.addEventListener('offline', () => { avpUpdateNetworkBanner(); avpUpdateStorageIndicator(); });
+  // Rafraîchir quand la file d'écritures change, + filet périodique.
+  window.addEventListener('avp-queue-changed', avpUpdateStorageIndicator);
+  setInterval(avpUpdateStorageIndicator, 30000);
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
