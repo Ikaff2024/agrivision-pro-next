@@ -27,6 +27,7 @@ from app.api.certification_routes import router as certification_router
 from app.api.plan_routes import router as plan_router
 from app.api.assistant_routes import router as assistant_router
 from app.api.ai_insights_routes import router as ai_insights_router
+from app.api.public_routes import router as public_router
 from app.api.import_routes import router as import_router
 from app.api.notification_routes import router as notification_router
 from app.api.producer_routes import router as producer_router
@@ -87,6 +88,12 @@ async def lifespan(app: FastAPI):
                 ))
                 conn.execute(text(
                     "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS living_income_benchmark_cfa DOUBLE PRECISION"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS public_report_token VARCHAR"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE complaints ADD COLUMN IF NOT EXISTS cooperative_id INTEGER REFERENCES cooperatives(id)"
                 ))
                 conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
@@ -362,6 +369,15 @@ async def lifespan(app: FastAPI):
                     ))
                     conn.commit()
                     logger.info("Migration Cooperative (sqlite) : OK (living_income_benchmark_cfa)")
+                if "public_report_token" not in coop_cols:
+                    conn.execute(text("ALTER TABLE cooperatives ADD COLUMN public_report_token VARCHAR"))
+                    conn.commit()
+                    logger.info("Migration Cooperative (sqlite) : OK (public_report_token)")
+                comp_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(complaints)"))}
+                if "cooperative_id" not in comp_cols:
+                    conn.execute(text("ALTER TABLE complaints ADD COLUMN cooperative_id INTEGER"))
+                    conn.commit()
+                    logger.info("Migration Complaint (sqlite) : OK (cooperative_id)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")
@@ -457,3 +473,4 @@ app.include_router(certification_router)
 app.include_router(plan_router)
 app.include_router(assistant_router)
 app.include_router(ai_insights_router)
+app.include_router(public_router)

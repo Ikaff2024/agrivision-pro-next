@@ -232,9 +232,16 @@ def create_complaint(
         if prod and prod.cooperative_id != current_user.cooperative_id:
             raise HTTPException(status_code=404, detail="Producteur non trouve.")
 
+    # Coop de rattachement : celle de l'utilisateur, sinon celle du producteur visé.
+    coop_id = current_user.cooperative_id if current_user else None
+    if coop_id is None and payload.producer_id is not None:
+        _prod = db.query(Producer).filter(Producer.id == payload.producer_id).first()
+        coop_id = _prod.cooperative_id if _prod else None
+
     reference = _next_reference(db)
     complaint = Complaint(
         complaint_reference=reference,
+        cooperative_id=coop_id,
         source=payload.source or ("anonymous" if current_user is None else "field_agent"),
         complaint_type=payload.complaint_type,
         severity=payload.severity,

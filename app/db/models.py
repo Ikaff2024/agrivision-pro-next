@@ -36,6 +36,10 @@ class Cooperative(Base):
     # varie par pays/année. NULL => on retombe sur le défaut serveur
     # (LIVING_INCOME_BENCHMARK_CFA). Sert au verdict « revenu vital atteint ».
     living_income_benchmark_cfa = Column(Float, nullable=True)
+    # Jeton PUBLIC (non devinable) pour la page de signalement sans compte : l'URL/QR
+    # affichée dans les villages contient ce jeton -> le signalement anonyme est
+    # rattaché à LA BONNE coopérative. NULL tant que l'admin ne l'a pas généré.
+    public_report_token = Column(String, nullable=True, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

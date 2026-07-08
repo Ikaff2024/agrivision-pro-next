@@ -43,16 +43,21 @@ def coop_alert_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
     jusqu'au producteur, puis ne garde que celles d'un producteur de la coop.
     FAIL-CLOSED : toute alerte non rattachable est exclue.
     """
-    pids = coop_producer_ids(db, coop_id)
-    if not pids:
+    if coop_id is None:
         return set()
+    pids = coop_producer_ids(db, coop_id)
     pid_list = list(pids)
 
     def ids_by_producer(model) -> Set[int]:
         col = getattr(model, "producer_id", None)
-        if col is None:
+        if col is None or not pid_list:
             return set()
         return {i for (i,) in db.query(model.id).filter(col.in_(pid_list)).all()}
+
+    # Signalements de la coop : liés à un producteur OU rattachés directement
+    # (signalements PUBLICS anonymes via jeton coop, sans producteur).
+    complaint_ids = ids_by_producer(Complaint)
+    complaint_ids |= {i for (i,) in db.query(Complaint.id).filter(Complaint.cooperative_id == coop_id).all()}
 
     # source_entity → ensemble des source_id valides pour cette coop
     valid: dict[str, Set[int]] = {
@@ -62,7 +67,7 @@ def coop_alert_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
         "monitoring_visits": ids_by_producer(MonitoringVisit),
         "remediation_plans": ids_by_producer(RemediationPlan),
         "traceability_blocks": ids_by_producer(TraceabilityBlock),
-        "complaints": ids_by_producer(Complaint),
+        "complaints": complaint_ids,
         "ssrte_plantation_visits": ids_by_producer(SsrtePlantationVisit),
     }
     # remediation_actions → via le plan → producteur
@@ -109,4 +114,6 @@ def coop_complaint_ids(db: Session, coop_id: Optional[int]) -> Set[int]:
     user_ids = [i for (i,) in db.query(User.id).filter(User.cooperative_id == coop_id).all()]
     if user_ids:
         result |= {i for (i,) in db.query(Complaint.id).filter(Complaint.created_by.in_(user_ids)).all()}
+    # Rattachement DIRECT (signalements publics anonymes via jeton coop).
+    result |= {i for (i,) in db.query(Complaint.id).filter(Complaint.cooperative_id == coop_id).all()}
     return result

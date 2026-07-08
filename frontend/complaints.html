@@ -55,10 +55,28 @@
         <div class="page-title">Signalements</div>
         <div class="page-sub">Module CacaoGuard - Hotline EUDR / Fairtrade / Rainforest Alliance</div>
       </div>
-      <button class="btn btn-primary" onclick="openNewModal()">
-        <span class="material-symbols-outlined" style="font-size:18px">add_alert</span>
-        Nouveau signalement
-      </button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="openPublicLink()" title="Lien/QR public pour que la communauté signale sans compte">
+          <span class="material-symbols-outlined" style="font-size:18px">qr_code_2</span>
+          Lien public
+        </button>
+        <button class="btn btn-primary" onclick="openNewModal()">
+          <span class="material-symbols-outlined" style="font-size:18px">add_alert</span>
+          Nouveau signalement
+        </button>
+      </div>
+    </div>
+
+    <!-- Modale : lien public de signalement -->
+    <div class="modal-overlay" id="pub-overlay" style="display:none;position:fixed;inset:0;background:rgba(12,32,24,.55);align-items:center;justify-content:center;z-index:900;padding:20px">
+      <div style="background:var(--surface);border-radius:14px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:24px">
+        <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700">🔗 Lien public de signalement</div>
+        <div style="font-size:13px;color:var(--muted);margin:6px 0 14px;line-height:1.5">Affichez ce lien (ou son QR) dans les villages : n'importe qui peut signaler <b>sans compte</b>, et le signalement arrive <b>directement dans votre coopérative</b>.</div>
+        <div id="pub-body" style="font-size:13px;color:var(--muted)">Chargement…</div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+          <button class="btn btn-outline" onclick="document.getElementById('pub-overlay').style.display='none'">Fermer</button>
+        </div>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -372,6 +390,58 @@ function renderTable() {
     : 'Aucun signalement ne correspond aux filtres.';
   document.getElementById('rows').innerHTML = rows ||
     `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:36px">${emptyMsg}</td></tr>`;
+}
+
+/* ========== Lien public de signalement (sans compte) ========== */
+let _pubCoopId = null;
+async function openPublicLink() {
+  const ov = document.getElementById('pub-overlay');
+  const body = document.getElementById('pub-body');
+  ov.style.display = 'flex';
+  body.innerHTML = 'Chargement…';
+  const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+  _pubCoopId = u && u.coop_id;
+  if (!_pubCoopId) { body.innerHTML = '<span style="color:var(--high)">Aucune coopérative associée à ce compte.</span>'; return; }
+  try {
+    let token = null;
+    const r = await authFetch('/cooperatives/' + _pubCoopId + '/profile');
+    if (r && r.ok) token = (await r.json()).public_report_token;
+    if (!token) {
+      const g = await authFetch('/cooperatives/' + _pubCoopId + '/public-report-token', { method: 'POST' });
+      if (g && g.ok) token = (await g.json()).public_report_token;
+    }
+    if (!token) throw new Error('Impossible de générer le lien (rôle admin requis).');
+    renderPublicLink(token);
+  } catch (e) { body.innerHTML = '<span style="color:var(--high)">' + (e.message || 'Erreur') + '</span>'; }
+}
+function renderPublicLink(token) {
+  const url = location.origin + '/signalement.html?c=' + token;
+  const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=' + encodeURIComponent(url);
+  document.getElementById('pub-body').innerHTML =
+    '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">' +
+      '<img src="' + qr + '" alt="QR de signalement" width="150" height="150" style="border:1px solid var(--border);border-radius:10px;background:#fff" onerror="this.style.display=\'none\'">' +
+      '<div style="flex:1;min-width:210px">' +
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Lien public (à afficher / imprimer) :</div>' +
+        '<input id="pub-url" value="' + url + '" readonly onclick="this.select()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--text);background:var(--surface)">' +
+        '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+          '<button class="btn btn-sm btn-primary" onclick="copyPublicLink()">Copier le lien</button>' +
+          '<button class="btn btn-sm btn-outline" onclick="regeneratePublicLink()">Régénérer</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5">Le QR renvoie vers un formulaire <b>sans compte</b> ; le signalement arrive dans <b>votre</b> coopérative. « Régénérer » invalide l\'ancien lien (en cas de fuite).</div>';
+}
+function copyPublicLink() {
+  const el = document.getElementById('pub-url'); if (!el) return;
+  el.select();
+  navigator.clipboard ? navigator.clipboard.writeText(el.value).then(() => toast('Lien copié.')) : document.execCommand('copy');
+}
+async function regeneratePublicLink() {
+  if (!_pubCoopId) return;
+  if (typeof avpConfirm === 'function' && !(await avpConfirm('Régénérer le lien ? L\'ancien QR/lien ne fonctionnera plus.', { okText: 'Régénérer', danger: true }))) return;
+  const g = await authFetch('/cooperatives/' + _pubCoopId + '/public-report-token?regenerate=true', { method: 'POST' });
+  if (g && g.ok) { renderPublicLink((await g.json()).public_report_token); toast('Nouveau lien généré.'); }
+  else toast('Régénération impossible.', 'error');
 }
 
 /* ========== Modale Nouveau ========== */

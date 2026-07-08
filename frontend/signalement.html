@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Signalement — AgriVision Pro</title>
+<style>
+  :root { --green:#1a4231; --green2:#2D8C5A; --bg:#f4f1ea; --surface:#fff; --border:#e2dccd; --text:#1c2b24; --muted:#6a7d64; --high:#922b21; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:520px; margin:0 auto; padding:18px 16px 40px; }
+  .head { background:var(--green); color:#fff; border-radius:16px; padding:20px; margin-bottom:16px; }
+  .head h1 { margin:0 0 4px; font-size:19px; }
+  .head p { margin:0; font-size:13px; color:rgba(255,255,255,.8); line-height:1.45; }
+  .coop { display:inline-block; margin-top:10px; background:rgba(255,255,255,.15); border-radius:999px; padding:4px 12px; font-size:12.5px; font-weight:600; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  label { display:block; font-size:13px; font-weight:600; margin:14px 0 5px; }
+  .req::after { content:" *"; color:var(--high); }
+  select, textarea, input { width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; background:#fff; color:var(--text); }
+  textarea { min-height:110px; resize:vertical; }
+  .hint { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4; }
+  .btn { width:100%; margin-top:20px; padding:14px; border:none; border-radius:12px; background:var(--green2); color:#fff; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn:disabled { opacity:.6; }
+  .msg { padding:12px 14px; border-radius:10px; font-size:13.5px; margin-top:14px; line-height:1.5; }
+  .msg.err { background:#fbe9e7; color:var(--high); }
+  .ok-box { text-align:center; padding:24px 16px; }
+  .ok-box .big { font-size:44px; }
+  .ok-box .ref { display:inline-block; margin-top:10px; background:#eaf6ee; color:#1a6b3a; border-radius:8px; padding:6px 12px; font-weight:700; font-size:15px; letter-spacing:.02em; }
+  .foot { text-align:center; font-size:11.5px; color:var(--muted); margin-top:18px; line-height:1.5; }
+  .reporter { display:none; border-top:1px dashed var(--border); margin-top:14px; padding-top:6px; }
+  .toggle { display:flex; align-items:center; gap:8px; margin-top:16px; font-size:13px; color:var(--text); cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🛡️ Signaler en toute confidentialité</h1>
+    <p>Vous pouvez signaler un cas de <b>travail d'enfant</b> ou d'abus. C'est <b>gratuit</b>, <b>sans compte</b>, et vous pouvez rester <b>anonyme</b>.</p>
+    <div class="coop" id="coop-badge" style="display:none"></div>
+  </div>
+
+  <div class="card" id="form-card">
+    <div id="loading" style="text-align:center;color:var(--muted);font-size:14px;padding:10px">Chargement…</div>
+
+    <div id="form" style="display:none">
+      <label class="req">Nature du signalement</label>
+      <select id="type">
+        <option value="child_labor">Travail d'un enfant</option>
+        <option value="abuse">Abus / maltraitance</option>
+        <option value="exploitation">Exploitation</option>
+        <option value="trafficking">Trafic / traite</option>
+        <option value="other">Autre</option>
+      </select>
+
+      <label class="req">Gravité</label>
+      <select id="severity">
+        <option value="medium">Moyenne</option>
+        <option value="high" selected>Élevée</option>
+        <option value="critical">Très grave (urgent)</option>
+        <option value="low">Faible</option>
+      </select>
+
+      <label class="req">Décrivez ce que vous avez constaté</label>
+      <textarea id="description" placeholder="Que s'est-il passé ? Où ? Qui est concerné ? (au moins quelques mots)"></textarea>
+      <div class="hint">Ne mettez pas votre propre nom ici si vous voulez rester anonyme.</div>
+
+      <label>Lieu (village, quartier…)</label>
+      <input id="location" placeholder="Ex. campement près de Soubré">
+
+      <div class="toggle"><input type="checkbox" id="leave-contact" style="width:auto"> Je souhaite laisser mes coordonnées (facultatif)</div>
+      <div class="reporter" id="reporter">
+        <label>Votre nom</label>
+        <input id="reporter-name" placeholder="Nom (facultatif)">
+        <label>Votre contact (téléphone ou email)</label>
+        <input id="reporter-contact" placeholder="Pour être recontacté si besoin">
+      </div>
+
+      <div id="err" class="msg err" style="display:none"></div>
+      <button class="btn" id="submit" onclick="submitReport()">Envoyer le signalement</button>
+    </div>
+
+    <div id="success" style="display:none">
+      <div class="ok-box">
+        <div class="big">✅</div>
+        <div style="font-weight:700;font-size:17px;margin-top:8px">Signalement bien reçu</div>
+        <div style="font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5">Merci. Il sera traité en toute confidentialité par la coopérative.</div>
+        <div class="ref" id="ref"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px">Notez cette référence si vous souhaitez faire un suivi.</div>
+      </div>
+    </div>
+
+    <div id="invalid" class="msg err" style="display:none">Ce lien de signalement n'est pas valide. Rapprochez-vous de votre coopérative pour obtenir le bon lien.</div>
+  </div>
+
+  <div class="foot">AgriVision Pro — mécanisme de signalement communautaire.<br>Vos informations sont confidentielles.</div>
+</div>
+
+<script>
+const API_BASE = window.AGRIVISION_API_BASE || 'https://agrivision-api-production.up.railway.app';
+const TOKEN = new URLSearchParams(location.search).get('c') || '';
+
+document.getElementById('leave-contact').addEventListener('change', function () {
+  document.getElementById('reporter').style.display = this.checked ? 'block' : 'none';
+});
+
+async function init() {
+  const loading = document.getElementById('loading');
+  if (!TOKEN) { loading.style.display = 'none'; document.getElementById('invalid').style.display = 'block'; return; }
+  try {
+    const r = await fetch(`${API_BASE}/public/report-info?c=${encodeURIComponent(TOKEN)}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('invalid');
+    const d = await r.json();
+    const b = document.getElementById('coop-badge');
+    b.textContent = '📍 ' + (d.cooperative_name || 'Coopérative');
+    b.style.display = 'inline-block';
+    loading.style.display = 'none';
+    document.getElementById('form').style.display = 'block';
+  } catch (e) {
+    loading.style.display = 'none';
+    document.getElementById('invalid').style.display = 'block';
+  }
+}
+
+async function submitReport() {
+  const err = document.getElementById('err'); err.style.display = 'none';
+  const description = document.getElementById('description').value.trim();
+  if (description.length < 10) { err.textContent = 'Merci de décrire la situation (au moins quelques mots).'; err.style.display = 'block'; return; }
+  const payload = {
+    coop_token: TOKEN,
+    complaint_type: document.getElementById('type').value,
+    severity: document.getElementById('severity').value,
+    description,
+    location_description: document.getElementById('location').value.trim() || null,
+  };
+  if (document.getElementById('leave-contact').checked) {
+    payload.reporter_name = document.getElementById('reporter-name').value.trim() || null;
+    payload.reporter_contact = document.getElementById('reporter-contact').value.trim() || null;
+  }
+  const btn = document.getElementById('submit'); btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch(`${API_BASE}/public/complaints`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || 'Envoi impossible.');
+    document.getElementById('form').style.display = 'none';
+    document.getElementById('ref').textContent = d.reference || '';
+    document.getElementById('success').style.display = 'block';
+  } catch (e) {
+    err.textContent = e.message || 'Envoi impossible. Réessayez.'; err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Envoyer le signalement';
+  }
+}
+init();
+</script>
+</body>
+</html>

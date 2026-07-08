@@ -653,6 +653,10 @@ class Complaint(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    # Rattachement direct à la coopérative (indispensable pour les signalements
+    # PUBLICS anonymes sans producteur lié : sans ceci ils seraient orphelins).
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+
     # Identification
     complaint_reference = Column(String(50), unique=True, nullable=False)  # Ex: CMP-2024-001
     source = Column(String(50), nullable=False, index=True)  # hotline, field_agent, community, anonymous, audit

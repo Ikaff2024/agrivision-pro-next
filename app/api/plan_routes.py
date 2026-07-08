@@ -13,6 +13,7 @@ rester non-cassant tant que tout le monde est en 'enterprise').
 from __future__ import annotations
 
 import base64
+import secrets
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -119,6 +120,7 @@ def get_cooperative_profile(
         "managers": _managers_list(coop),
         "enforce_social_export_block": bool(coop.enforce_social_export_block),
         "living_income_benchmark_cfa": coop.living_income_benchmark_cfa,
+        "public_report_token": coop.public_report_token,
     }
 
 
@@ -167,7 +169,29 @@ def update_cooperative_profile(
         "managers": _managers_list(coop),
         "enforce_social_export_block": bool(coop.enforce_social_export_block),
         "living_income_benchmark_cfa": coop.living_income_benchmark_cfa,
+        "public_report_token": coop.public_report_token,
     }
+
+
+@router.post("/cooperatives/{cooperative_id:int}/public-report-token")
+def generate_public_report_token(
+    cooperative_id: int,
+    regenerate: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Génère (ou régénère) le jeton public de signalement de la coopérative.
+
+    Le jeton alimente l'URL/QR affichée dans les villages : un signalement fait
+    depuis cette URL est rattaché à CETTE coopérative. Régénérer invalide l'ancien.
+    """
+    _assert_coop_admin(current_user, cooperative_id)
+    coop = _get_coop_or_404(db, cooperative_id)
+    if not coop.public_report_token or regenerate:
+        coop.public_report_token = secrets.token_urlsafe(12)
+        db.commit()
+        db.refresh(coop)
+    return {"cooperative_id": coop.id, "public_report_token": coop.public_report_token}
 
 
 # ── Logo de la coopérative (affiché sur les PDF) ──────────────────────────────
