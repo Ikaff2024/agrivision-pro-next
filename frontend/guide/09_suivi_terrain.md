@@ -78,6 +78,16 @@ et enregistrer la **participation**.
 
 > ✨ **« Aya : proposer un plan de formation »** (bouton en haut) : Aya analyse les **risques réels** de votre coopérative (enfants à risque, agroforesterie, écarts EUDR, revenu vital…) et propose **3 à 5 modules de formation priorisés** — chacun avec sa justification, son public cible et sa priorité.
 
+### Recueillir l'avis des participants — **anonyme** (🌟 Avis QR)
+Deux mesures **distinctes** et honnêtes de l'efficacité :
+- **Note du formateur** (0–5) : le jugement de l'animateur, saisi une fois à l'émargement.
+- **Satisfaction des participants** : sur une session, bouton **🌟 Avis (QR)** → un **QR / lien** par session.
+  1. Chaque participant scanne le QR sur **son** téléphone et note (★ 0–5 + commentaire), **sans compte**.
+  2. Il **ne voit pas** les avis des autres → **aucune influence entre pairs** (contrairement à une note à main levée).
+  3. Les avis sont **agrégés automatiquement** : la carte affiche « 🌟 Avis participants : X/5 · N réponses ».
+
+> Bonne pratique d'évaluation : la satisfaction se recueille **individuellement et anonymement**, jamais collectivement.
+
 ### En cas de problème
 | Problème | Solution |
 |---|---|
