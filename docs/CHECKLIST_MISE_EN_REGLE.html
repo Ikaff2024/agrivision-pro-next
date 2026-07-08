@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 12mm 13mm; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:9.6px; line-height:1.42; }
+  h1,h2,h3 { font-family:Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:6px; margin-bottom:8px; }
+  .brand { font-family:Georgia,serif; font-size:16px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:9px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:9px; color:#5c6b62; } .tag b { color:#1a4231; }
+  h1 { font-size:13.5px; color:#123227; margin-bottom:6px; }
+  h2 { font-size:11px; color:#1a4231; margin:11px 0 4px; padding-left:8px; border-left:3px solid #2D8C5A; }
+  .row { display:flex; gap:8px; padding:4px 0; border-bottom:1px solid #eee7d8; break-inside:avoid; }
+  .box { flex:0 0 14px; font-size:12px; color:#2D8C5A; line-height:1; }
+  .what { flex:1; }
+  .what b { color:#123227; }
+  .what .meta { color:#5c6b62; font-size:8.8px; }
+  .prio { flex:0 0 58px; text-align:right; font-size:8px; font-weight:700; }
+  .p1 { color:#922b21; } .p2 { color:#8a5a00; } .p3 { color:#5c6b62; }
+  .warn { margin-top:8px; background:#fbf3ee; border:1px solid #e6c9b6; border-radius:6px; padding:8px 11px; font-size:9px; color:#7a4a2f; } .warn b { color:#8a3d1a; }
+  .foot { margin-top:8px; border-top:1px solid #e3ded0; padding-top:5px; font-size:8.4px; color:#7a887f; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Check-list « mise en règle »</small></div>
+    <div class="tag"><b>IKAFFANAN LTD</b><br>feuille de route · 07/2026</div>
+  </div>
+
+  <h1>Protéger la création & finaliser la société — étapes concrètes</h1>
+
+  <h2>1 · Propriété intellectuelle</h2>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Dépôt de marque OAPI</b> — « AgriVision Pro » (nom) + logo. <span class="meta">Un seul dépôt couvre 17 pays dont la Côte d'Ivoire. Où : OAPI via un mandataire agréé / conseil en PI. Pièces : logo vectoriel, libellé, classes de produits/services (logiciel = cl. 9 & 42).</span></div><div class="prio p1">URGENT</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Droit d'auteur sur le code</b> — protégé automatiquement, mais <b>prouver l'antériorité</b>. <span class="meta">Dépôt horodaté (organisme droits d'auteur ivoirien / huissier / horodatage). Atout déjà en place : historique Git horodaté + dépôt GitHub privé daté.</span></div><div class="prio p2">Important</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Contrats</b> — pour tout prestataire/freelance : <b>clause de cession de droits</b> + NDA (sinon ils gardent des droits). Côté clients : <b>CGU/CGV</b> + <b>politique de confidentialité</b>.</div><div class="prio p2">Important</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Nom de domaine & comptes</b> — sécuriser les domaines (.com/.ci) et les comptes officiels au nom de la société.</div><div class="prio p3">À faire</div></div>
+
+  <h2>2 · Entité société (Côte d'Ivoire)</h2>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Clarifier l'entité</b> — « IKAFFANAN LTD » (étrangère ?) vs une <b>société ivoirienne</b> (SARL / SAS). <span class="meta">Décider qui contracte/facture ICI, bailleurs et coops. Une entité ivoirienne facilite tout.</span></div><div class="prio p1">URGENT</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Immatriculation via le CEPICI</b> (guichet unique) — statuts, capital, <b>RCCM</b>, <b>numéro contribuable (DFE)</b>, déclaration <b>CNPS</b>.</div><div class="prio p1">URGENT</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Compte bancaire professionnel</b> au nom de la société (nécessaire pour encaisser abonnements / financements).</div><div class="prio p2">Important</div></div>
+
+  <h2>3 · Données personnelles & hébergement</h2>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Déclaration ARTCI</b> (traitement de données personnelles) — <b>indispensable</b> : tu traites des <b>données d'enfants</b>. <span class="meta">Rassure ICI/UE sur le RGPD. Où : ARTCI (autorité ivoirienne de protection des données).</span></div><div class="prio p1">URGENT</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Résidence des données / hébergement</b> — confirmer la région (Railway) ; viser l'<b>UE</b> si les partenaires l'exigent. <span class="meta">Point soulevé lors du RDV ICI.</span></div><div class="prio p2">Important</div></div>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Politique de confidentialité & consentement</b> — déjà : consentement capturé dans les fiches SSRTE + journal d'accès. Formaliser la politique publique.</div><div class="prio p3">À faire</div></div>
+
+  <h2>4 · Conformité aux standards (recommandation ICI)</h2>
+  <div class="row"><div class="box">☐</div><div class="what"><b>Référentiel de conformité des données</b> (document dédié) — faire <b>valider</b> chaque ligne « à valider » par sa structure : ICI (CLMRS/SSRTE), CNRA/CIRAD (agronomie), LICOP (revenu vital), ARTCI (données).</div><div class="prio p2">Important</div></div>
+
+  <div class="warn">
+    <b>Ordre conseillé (2 semaines) :</b> ① dépôt <b>marque OAPI</b> (se « vole » vite) → ② déclaration <b>ARTCI</b> (bloquant pour un partenariat sérieux sur des données d'enfants) → ③ finaliser l'<b>entité ivoirienne</b> (pour contracter/facturer) → ④ lancer les <b>validations de conformité</b> avec les structures.
+    <br>Les actes juridiques (OAPI, statuts, contrats) passent par un <b>avocat / conseil en PI / notaire</b> — cette liste sert à préparer et cadrer.
+  </div>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · check-list mise en règle</div>
+    <div>v1 · 07/2026</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 12mm 12mm; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:9.4px; line-height:1.4; }
+  h1,h2,h3 { font-family:Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:6px; margin-bottom:8px; }
+  .brand { font-family:Georgia,serif; font-size:16px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:9px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:9px; color:#5c6b62; } .tag b { color:#1a4231; }
+  h1 { font-size:13.5px; color:#123227; margin-bottom:3px; }
+  .intro { font-size:9.2px; color:#3a463c; margin:0 0 8px; } .intro b { color:#1a6b3a; }
+  table { width:100%; border-collapse:collapse; margin-top:2px; }
+  th,td { text-align:left; padding:4px 6px; border-bottom:1px solid #e3ded0; vertical-align:top; }
+  th { background:#f2f7f3; color:#1a4231; font-size:8.8px; text-transform:uppercase; letter-spacing:.02em; }
+  td.mod { font-weight:700; color:#123227; width:26%; }
+  td.std { width:34%; }
+  td.org { width:26%; color:#1a6b3a; }
+  .st { display:inline-block; border-radius:3px; padding:0 5px; font-size:8px; font-weight:700; }
+  .st-a { background:#eaf6ee; color:#1a6b3a; }     /* aligné */
+  .st-v { background:#fdf3e3; color:#8a5a00; }     /* à valider */
+  .st-e { background:#fbe9e7; color:#922b21; }     /* estimation / limite */
+  .note { margin-top:8px; background:#f7f4ea; border:1px solid #e6dcbf; border-radius:6px; padding:8px 11px; font-size:9px; color:#5c4a1f; }
+  .foot { margin-top:8px; border-top:1px solid #e3ded0; padding-top:5px; font-size:8.4px; color:#7a887f; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>Référentiel de conformité des données</small></div>
+    <div class="tag"><b>IKAFFANAN LTD</b><br>document de travail · 07/2026</div>
+  </div>
+
+  <h1>Chaque donnée collectée → son standard → sa structure de référence</h1>
+  <p class="intro">
+    Objectif (recommandation ICI) : pour chaque module, savoir sur <b>quel standard</b> la donnée s'appuie et
+    <b>quelle structure</b> le définit — afin d'engager la <b>validation formelle</b>.
+    <b>Statut</b> : <span class="st st-a">aligné</span> = construit selon le cadre · <span class="st st-v">à valider</span> = alignement à faire confirmer par la structure · <span class="st st-e">limite</span> = à ne pas surclamer.
+  </p>
+
+  <table>
+    <thead><tr><th>Module / donnée</th><th>Standard ou cadre de référence</th><th>Structure de référence</th><th>Statut</th></tr></thead>
+    <tbody>
+      <tr><td class="mod">Fiches SSRTE A / B / C</td><td class="std">Dispositif SSRTE (enquête localité / ménage / plantation), logique CLMRS</td><td class="org">ICI · Conseil Café-Cacao (SSRTE national)</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">Registre enfants + score de risque</td><td class="std">CLMRS « identifier & remédier » ; facteurs de risque (scolarité, travail, tâches dangereuses)</td><td class="org">ICI · Rainforest Alliance 2020</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">Remédiation (plans, suivi)</td><td class="std">Volet remédiation du CLMRS (action, responsable, échéance)</td><td class="org">ICI</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">Signalements (grievance)</td><td class="std">Mécanisme de plainte accessible & anonyme</td><td class="org">ICI · Rainforest Alliance · Fairtrade</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Revenu vital (seuil, écart)</td><td class="std">Living Income Benchmark (revenu vital de référence, par pays/année)</td><td class="org">Living Income Community of Practice</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">EUDR (polygone, superficie, GPS zone cacao, inspection &lt; 12 mois, pas de déforestation post-2020)</td><td class="std">Règlement (UE) 2023/1115 — 5 critères environnementaux</td><td class="org">Commission européenne</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Diagnostic agronomique</td><td class="std">Seuils cacaoculture (humidité, pluviométrie, température, ombrage, âge, risque fongique)</td><td class="org">Conseil Café-Cacao · CNRA · CIRAD</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">Diagnostic par photo (maladies cabosse)</td><td class="std">Modèle IA — pourriture noire, moniliose, phytophthora + sain</td><td class="org">CNRA / phytopathologue</td><td><span class="st st-v">à valider</span></td></tr>
+      <tr><td class="mod">Agroforesterie (ombrage, diversité)</td><td class="std">Bonnes pratiques agroforestières (diversité, ombrage 20–75 %)</td><td class="org">Rainforest Alliance</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Stock carbone (agroforesterie)</td><td class="std">Estimation allométrique simplifiée (FAO/IPCC) — <b>non certifié</b> (pas de niveau MRV / crédit carbone)</td><td class="org">FAO / IPCC (méthode)</td><td><span class="st st-e">limite</span></td></tr>
+      <tr><td class="mod">Satellite (NDVI / NDMI / déforestation)</td><td class="std">Indices Sentinel-2 (Copernicus) ; alertes déforestation GFW</td><td class="org">ESA Copernicus · Global Forest Watch</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Traçabilité lots · Passeport / DDS EUDR</td><td class="std">Chaîne producteur→parcelle→récolte→lot ; due diligence EUDR</td><td class="org">Commission européenne · exportateurs</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Certification (couverture, audits)</td><td class="std">Référentiels de certification (critères, échéances, non-conformités)</td><td class="org">Rainforest Alliance · Fairtrade</td><td><span class="st st-a">aligné</span></td></tr>
+      <tr><td class="mod">Données personnelles (enfants, producteurs)</td><td class="std">Protection des données · consentement · journal d'accès</td><td class="org">ARTCI (Côte d'Ivoire) · RGPD (UE)</td><td><span class="st st-v">à valider</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>Comment l'utiliser.</b> Ce référentiel est un <b>état déclaratif</b> : « aligné » signifie que le module est construit selon le cadre,
+    pas qu'une structure l'a certifié. La démarche recommandée par ICI = <b>faire confirmer</b> chaque ligne « à valider » par la structure concernée
+    (ICI pour le CLMRS/SSRTE, CNRA/CIRAD pour l'agronomie, LICOP pour le revenu vital, ARTCI pour les données). Assumer les <b>limites</b> (carbone estimé)
+    est un gage de crédibilité, pas une faiblesse.
+  </div>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · Référentiel de conformité des données</div>
+    <div>v1 · 07/2026 — à faire évoluer avec chaque structure</div>
+  </div>
+</body>
+</html>
