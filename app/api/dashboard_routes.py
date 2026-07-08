@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import (
+    Cooperative,
     FarmForceAssessment,
     Harvest,
     Plantation,
@@ -128,12 +129,17 @@ def direction_dashboard(
         ff_q = ff_q.filter(Producer.cooperative_id == coop_id)
     assessments = ff_q.all()
     ff_total = len(assessments)
+    # Seuil de revenu vital PROPRE a la coop (editable admin) ; None => defaut serveur.
+    coop_bench = None
+    if coop_id is not None:
+        _coop = db.query(Cooperative).filter(Cooperative.id == coop_id).first()
+        coop_bench = getattr(_coop, "living_income_benchmark_cfa", None) if _coop else None
     reached = 0
     net_sum = 0.0
     for a in assessments:
         net = float(a.net_income_cfa or 0)
         net_sum += net
-        if living_income_assessment(net).get("living_income_status") == "atteint":
+        if living_income_assessment(net, coop_bench).get("living_income_status") == "atteint":
             reached += 1
     living_income_reached_rate = round(reached / ff_total * 100, 1) if ff_total else 0.0
     avg_net_income = round(net_sum / ff_total, 0) if ff_total else 0.0

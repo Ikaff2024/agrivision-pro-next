@@ -172,7 +172,10 @@ def _serialize(assessment: FarmForceAssessment) -> dict:
         "profit_cfa": assessment.profit_cfa,
         "total_household_expenses_cfa": assessment.total_household_expenses_cfa or 0,
         "net_income_cfa": assessment.net_income_cfa or 0,
-        **_living_income(assessment.net_income_cfa or 0),
+        **_living_income(
+            assessment.net_income_cfa or 0,
+            getattr(getattr(getattr(assessment, "producer", None), "cooperative", None), "living_income_benchmark_cfa", None),
+        ),
         "family_labor_days": assessment.family_labor_days,
         "hired_labor_days": assessment.hired_labor_days,
         "return_per_family_day_cfa": assessment.return_per_family_day_cfa,

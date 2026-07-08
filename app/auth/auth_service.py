@@ -23,7 +23,9 @@ if not SECRET_KEY:
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
-REFRESH_TOKEN_EXPIRE_DAYS    = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+# 60 j par defaut : autonomie hors-ligne terrain (coops en zone enclavee) avant
+# re-login au retour du reseau. Surchargeable (ex. 90) par variable d'environnement.
+REFRESH_TOKEN_EXPIRE_DAYS    = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "60"))
 RESET_TOKEN_EXPIRE_MINUTES   = int(os.getenv("RESET_TOKEN_EXPIRE_MINUTES", "60"))
 
 pwd_context   = CryptContext(schemes=["sha256_crypt"], deprecated="auto")

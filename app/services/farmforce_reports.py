@@ -22,13 +22,15 @@ from app.services.reports import _jinja_env, _pdf_escape, slugify
 LIVING_INCOME_BENCHMARK_CFA = float(os.getenv("LIVING_INCOME_BENCHMARK_CFA", "2360000"))
 
 
-def living_income_assessment(net_income_cfa) -> dict:
+def living_income_assessment(net_income_cfa, benchmark_cfa=None) -> dict:
     """Verdict revenu vital : compare le revenu net au seuil de reference.
 
+    `benchmark_cfa` : seuil PROPRE a la cooperative (editable par l'admin) ; s'il
+    est absent/nul on retombe sur le defaut serveur (LIVING_INCOME_BENCHMARK_CFA).
     Calcule a la lecture (jamais stocke) pour rester ajustable si le seuil change.
     Retourne benchmark, ecart, pourcentage et statut (atteint | ecart).
     """
-    bench = LIVING_INCOME_BENCHMARK_CFA
+    bench = _num(benchmark_cfa) if (benchmark_cfa not in (None, "") and _num(benchmark_cfa) > 0) else LIVING_INCOME_BENCHMARK_CFA
     net = _num(net_income_cfa)
     if not bench or bench <= 0:
         return {
@@ -63,7 +65,10 @@ def build_farmforce_context(assessment: FarmForceAssessment) -> dict:
     """Construit le contexte Jinja2 pour le template Livret."""
     producer_name = assessment.producer.nom_complet if assessment.producer else "Producteur"
     coop = assessment.producer.cooperative if assessment.producer else None
-    li = living_income_assessment(assessment.net_income_cfa)
+    li = living_income_assessment(
+        assessment.net_income_cfa,
+        getattr(coop, "living_income_benchmark_cfa", None) if coop else None,
+    )
     return {
         "generation_date": datetime.date.today().isoformat(),
         "producer_name": producer_name,

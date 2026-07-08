@@ -158,6 +158,10 @@
           <label style="flex:1;min-width:150px;font-size:13px">Pays
             <input id="coop-country" type="text" style="width:100%;padding:8px 10px;margin-top:4px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:14px">
           </label>
+          <label style="flex:1;min-width:200px;font-size:13px">Seuil de revenu vital (FCFA/an)
+            <input id="coop-living-income" type="number" min="0" step="10000" placeholder="défaut : 2 360 000" style="width:100%;padding:8px 10px;margin-top:4px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font-size:14px">
+            <span style="display:block;font-size:11px;color:var(--muted,#6a7d64);margin-top:3px">Sert au verdict « revenu vital atteint ». Laisser vide = seuil par défaut serveur.</span>
+          </label>
         </div>
         <div style="font-size:13px;color:var(--muted,#6a7d64);margin:16px 0 6px">Responsables de la coopérative <span style="opacity:.8">(président, directeur, gérant…)</span></div>
         <div id="managers-rows"></div>
@@ -303,6 +307,7 @@ async function loadCoopProfile() {
     document.getElementById('coop-name').value = d.name || '';
     document.getElementById('coop-country').value = d.country || '';
     const enf = document.getElementById('coop-enforce-social'); if (enf) enf.checked = !!d.enforce_social_export_block;
+    const li = document.getElementById('coop-living-income'); if (li) li.value = (d.living_income_benchmark_cfa != null ? d.living_income_benchmark_cfa : '');
     const box = document.getElementById('managers-rows');
     box.innerHTML = '';
     (d.managers || []).forEach(m => box.appendChild(_mgrRow(m)));
@@ -327,6 +332,7 @@ async function saveCoopProfile() {
         country: document.getElementById('coop-country').value.trim(),
         managers,
         enforce_social_export_block: document.getElementById('coop-enforce-social').checked,
+        living_income_benchmark_cfa: (function(){ const v = document.getElementById('coop-living-income').value.trim(); return v === '' ? 0 : Number(v); })(),
       }),
     });
     if (r && r.ok) { toast('Profil de la coopérative enregistré.'); loadCoopProfile(); }

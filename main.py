@@ -86,6 +86,9 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS enforce_social_export_block BOOLEAN DEFAULT FALSE NOT NULL"
                 ))
                 conn.execute(text(
+                    "ALTER TABLE cooperatives ADD COLUMN IF NOT EXISTS living_income_benchmark_cfa DOUBLE PRECISION"
+                ))
+                conn.execute(text(
                     "ALTER TABLE plantations ADD COLUMN IF NOT EXISTS plant_count INTEGER"
                 ))
                 # Sprint #0 - Phase 0.1.a-1 : entite Producer
@@ -352,6 +355,13 @@ async def lifespan(app: FastAPI):
                     ))
                     conn.commit()
                     logger.info("Migration Producer (sqlite) : OK (type_producteur)")
+                coop_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(cooperatives)"))}
+                if "living_income_benchmark_cfa" not in coop_cols:
+                    conn.execute(text(
+                        "ALTER TABLE cooperatives ADD COLUMN living_income_benchmark_cfa FLOAT"
+                    ))
+                    conn.commit()
+                    logger.info("Migration Cooperative (sqlite) : OK (living_income_benchmark_cfa)")
     except Exception as e:
         logger.warning("Migration colonnes (ignorée si déjà présente) : %s", e)
     logger.info("AgriVision Pro API démarrée — CacaoEngine v1.0.0")

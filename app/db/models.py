@@ -32,6 +32,10 @@ class Cooperative(Base):
     # AVERTIT mais ne bloque pas l'export. Une coop dont l'acheteur l'exige peut
     # ACTIVER le blocage social à l'export (dérogation admin possible).
     enforce_social_export_block = Column(Boolean, default=False, nullable=False)
+    # Seuil de REVENU VITAL de la coopérative (FCFA/an). Editable par l'admin ;
+    # varie par pays/année. NULL => on retombe sur le défaut serveur
+    # (LIVING_INCOME_BENCHMARK_CFA). Sert au verdict « revenu vital atteint ».
+    living_income_benchmark_cfa = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users      = relationship("User", back_populates="cooperative")

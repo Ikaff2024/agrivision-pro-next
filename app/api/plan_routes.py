@@ -95,6 +95,7 @@ class CoopProfileUpdate(BaseModel):
     country: str | None = None
     managers: list[CoopManager] | None = None
     enforce_social_export_block: bool | None = None
+    living_income_benchmark_cfa: float | None = None
 
 
 def _managers_list(coop: Cooperative) -> list:
@@ -117,6 +118,7 @@ def get_cooperative_profile(
         "country": coop.country,
         "managers": _managers_list(coop),
         "enforce_social_export_block": bool(coop.enforce_social_export_block),
+        "living_income_benchmark_cfa": coop.living_income_benchmark_cfa,
     }
 
 
@@ -150,6 +152,12 @@ def update_cooperative_profile(
         ]
     if data.enforce_social_export_block is not None:
         coop.enforce_social_export_block = bool(data.enforce_social_export_block)
+    if data.living_income_benchmark_cfa is not None:
+        b = float(data.living_income_benchmark_cfa)
+        if b < 0:
+            raise HTTPException(status_code=400, detail="Le seuil de revenu vital ne peut pas être négatif.")
+        # 0 (ou vide) => on revient au défaut serveur (NULL en base).
+        coop.living_income_benchmark_cfa = b if b > 0 else None
     db.commit()
     db.refresh(coop)
     return {
@@ -158,6 +166,7 @@ def update_cooperative_profile(
         "country": coop.country,
         "managers": _managers_list(coop),
         "enforce_social_export_block": bool(coop.enforce_social_export_block),
+        "living_income_benchmark_cfa": coop.living_income_benchmark_cfa,
     }
 
 
