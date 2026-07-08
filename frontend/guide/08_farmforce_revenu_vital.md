@@ -28,9 +28,10 @@
 - Le résumé montre le **nombre d'évaluations**, le **profit total**, le **rendement moyen par jour de travail familial**.
 - Le **Dashboard direction** affiche le **taux de ménages au seuil vital** et le **revenu net moyen**.
 
-### Astuces
-- Le **seuil de revenu vital** est un réglage serveur (`LIVING_INCOME_BENCHMARK_CFA`, défaut 2 360 000 FCFA).
-  Il peut être ajusté par l'administrateur sans toucher aux données déjà saisies.
+### Régler le seuil de revenu vital (admin)
+- Le **seuil de revenu vital** est **modifiable par l'administrateur** dans **Administration ▸ Profil de la coopérative ▸ « Seuil de revenu vital (FCFA/an) »**.
+- Il varie selon le **pays** et l'**année** (source Living Income Community of Practice) — d'où la possibilité de l'ajuster par coopérative.
+- **Laisser vide** = seuil par défaut serveur (**2 360 000 FCFA/an**). Le changement ne touche pas aux données déjà saisies (le verdict est recalculé à la lecture).
 
 ### Scénario guidé (cas concret)
 

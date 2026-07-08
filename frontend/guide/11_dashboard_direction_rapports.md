@@ -12,8 +12,12 @@ La page d'**accueil** après connexion : vue **opérationnelle** de votre coopé
   une métrique **ouvre la page concernée pré-filtrée** sur ce sous-ensemble (ex. « X conformes » → liste EUDR
   filtrée sur les parcelles conformes).
 - **Compteurs agronomiques** : nombre de plantations, répartition du **risque agronomique** (faible/moyen/élevé).
-- **Parcelles à surveiller** : les parcelles aux **scores agronomiques les plus faibles** (à traiter en priorité).
+- **Palmarès des parcelles** : deux onglets — **⚠️ À redresser** (les 50 au risque le plus élevé, à prioriser) et **🏆 Modèles** (les 50 meilleures, à ériger en champs-écoles).
+- **Volume non tracé** : distingue désormais le volume **RETENU** (producteur sous **blocage social**, ex. travail des enfants) du volume simplement **en attente** d'affectation à un lot.
+- **Pré-contrôle EUDR** (bouton en haut) : vérifier la **déforestation** d'une parcelle **avant** de l'acheter / l'enregistrer (verdict GO / NO-GO / indéterminé).
 - **Analyse agronomique** (graphiques) : répartition des risques, distribution des scores, scores par région.
+
+> ✨ **« Interpréter avec l'IA »** : sur plusieurs modules (Agroforesterie, EUDR, CacaoGuard…), Aya lit les chiffres en langage clair et propose **3 actions prioritaires**.
 
 > Le mot **« risque »** ici = **agronomique** (santé des parcelles, issu des diagnostics).
 

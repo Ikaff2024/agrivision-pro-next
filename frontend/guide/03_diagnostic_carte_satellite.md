@@ -16,6 +16,12 @@ et obtenir un **score** + un **niveau de risque** (Faible / Moyen / Élevé).
 > Le « **risque** » du diagnostic est **agronomique** (santé des arbres) — à ne pas confondre
 > avec le risque « travail des enfants » (CacaoGuard) ni la conformité EUDR.
 
+### Diagnostic par **photo** (détection de maladies par IA)
+- Dans **Diagnostic**, un agent (**admin/technicien**) peut envoyer une **photo de cabosse**.
+- Un modèle IA (EfficientNet-B0, **spécifique cacao**) reconnaît **3 maladies de la cabosse** — **pourriture noire** (black pod), **moniliose**, **phytophthora** (pourriture brune) — plus l'état **sain**.
+- Un **pré-filtre** vérifie d'abord que la photo est bien du **cacao** (sinon il le signale).
+- Résultat : maladie probable + **niveau de confiance** + recommandation. *(Nuance : le diagnostic agronomique ci-dessus, lui, évalue un **risque** de maladies fongiques selon l'environnement — il n'identifie pas la maladie ; la photo, oui.)*
+
 ---
 
 ## 3.B — Carte & délimitation des parcelles

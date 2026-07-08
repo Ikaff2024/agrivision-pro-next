@@ -41,8 +41,13 @@ section, téléphone — avec un accès direct à leur **fiche détaillée** (pr
 4. Cliquez sur **Profil →** au bout d'une ligne pour ouvrir la fiche complète du producteur
    (parcelles, enfants suivis, évaluations, statut de traçabilité…).
 
+### Catégorie **membre / non-membre** (obligatoire)
+- À la création, chaque producteur doit être classé : **Membre** (la coop organise sa **récolte**) ou **Non-membre** (on **achète** sa production bord champ). Sans catégorie, la création est **refusée**.
+- Conséquence : un **membre** ne peut pas être en **achat**, un **non-membre** pas en **récolte** (la plateforme bloque l'erreur). Cela alimente aussi le **seuil OHADA** (≤ 20 % d'achats).
+- **Reclassement en masse** : bouton **« Classer en masse »** (admin/gestionnaire) pour basculer d'un coup tous les producteurs d'un filtre (ex. après un import où tout est « membre » par défaut).
+
 ### D'où viennent les producteurs ?
-- De la **création de plantations** (le propriétaire devient producteur), ou
+- De la **création de plantations** (le propriétaire devient producteur — sa catégorie est demandée), ou
 - De l'**import d'un registre Excel** (voir fiche *Import d'un registre*).
 
 ### Astuces

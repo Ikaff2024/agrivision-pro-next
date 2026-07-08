@@ -61,6 +61,8 @@ et enregistrer la **participation**.
 2. **Créer** une session : titre, type, date, lieu, formateur, participants attendus, thèmes.
 3. Après la session : **saisir la présence** (participants, signatures, scores), marquer **Terminée**.
 
+> ✨ **« Aya : proposer un plan de formation »** (bouton en haut) : Aya analyse les **risques réels** de votre coopérative (enfants à risque, agroforesterie, écarts EUDR, revenu vital…) et propose **3 à 5 modules de formation priorisés** — chacun avec sa justification, son public cible et sa priorité.
+
 ### En cas de problème
 | Problème | Solution |
 |---|---|

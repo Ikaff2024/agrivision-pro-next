@@ -13,6 +13,7 @@ Gérer les **membres** de **votre** coopérative et les outils d'admin. Réserv�
 - **Attribuer les parcelles** à un technicien (bouton **Parcelles**).
 - **Retirer** un membre.
 - **Importer un registre** (voir fiche dédiée).
+- **Profil de la coopérative** : nom, pays, **responsables**, logo (sur les PDF), blocage social à l'export (optionnel), et **seuil de revenu vital (FCFA/an)** — laisser vide = seuil par défaut serveur (2 360 000).
 
 ### Pas à pas (réinitialiser un mot de passe)
 1. Menu **Administration**.
