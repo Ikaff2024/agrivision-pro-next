@@ -138,6 +138,103 @@ def _plantations() -> list:
     return rows
 
 
+def seed_ssrte(pmap, plants):
+    """Fiches SSRTE A/B/C RENSEIGNÉES (réutilisable ; AVP_SEED_SSRTE_ONLY=1)."""
+    if not pmap:
+        print("   ⚠ Aucun producteur — lancez d'abord le seed principal.")
+        return
+    names = list(pmap)
+    risky = "Kouassi Yao" if "Kouassi Yao" in pmap else names[0]
+    safe = "Konan Aka" if "Konan Aka" in pmap else (names[1] if len(names) > 1 else names[0])
+    risky_pid, safe_pid = pmap[risky], pmap[safe]
+    # ── SSRTE : fiches A / B / C RENSEIGNÉES (démo ICI = fiches complètes) ──
+    # Fiche A — profil de la LOCALITÉ (services, écoles, comité, risques).
+    post("/ssrte/communities", {
+        "locality": "Gnamangui", "section": "Méagui-Centre", "sub_prefecture": "Méagui",
+        "supplier": "Coopérative Démo Cacao 2026",
+        "respondent_name": "Kouadio N'Dri", "respondent_role": "Chef de communauté",
+        "collection_agent_name": "Agent SSRTE Démo", "collection_agent_code": "AG-014",
+        "nearest_school_distance_km": 4,
+        "services_available": {"electricite": True, "eau_potable": False, "centre_sante": True,
+                                "transport": False, "marche": True},
+        "schools": [
+            {"nom": "EPP Gnamangui", "niveau": "primaire", "distance_km": 4, "cantine": False},
+            {"nom": "Collège de Méagui", "niveau": "secondaire", "distance_km": 18, "cantine": True},
+        ],
+        "committee_members": [
+            {"name": "Kouadio N'Dri", "role": "Président du comité de protection"},
+            {"name": "Aya Traoré", "role": "Enseignante / point focal enfants"},
+        ],
+        "risks_identified": ["déscolarisation", "travail des enfants en récolte", "éloignement du collège"],
+        "section_notes": {"general": "Absence de classes secondaires à proximité — facteur de déscolarisation."},
+    }, "ssrte_communities")
+
+    # Fiche B — profil du MÉNAGE (un cas à risque détaillé + un cas sain).
+    post("/ssrte/households", {
+        "producer_id": risky_pid, "locality": "Gnamangui", "sub_prefecture": "Méagui",
+        "interviewer_name": "Agent SSRTE Démo", "survey_type": "complet",
+        "household_size": 7, "children_count": 4, "school_age_children_count": 3, "enrolled_children_count": 1,
+        "housing_type": "traditionnel",
+        "household_assets": ["moto", "télévision", "téléphone"],
+        "vulnerabilities": ["revenu sous le seuil vital", "déscolarisation", "éloignement école"],
+        "farm_info": {"parcelles": 2, "superficie_ha": 4.5, "production_kg_an": 1800},
+        "household_members": [
+            {"nom": "Kouassi Yao", "relation": "chef de ménage", "age": 44, "activite": "cacaoculteur"},
+            {"nom": "Awa Kouassi", "relation": "fille", "age": 14, "scolarise": False, "travaille": True},
+            {"nom": "Yao Kouassi", "relation": "fils", "age": 8, "scolarise": True, "travaille": False},
+        ],
+        "child_work_declarations": [
+            {"enfant": "Awa Kouassi", "tache": "usage de machette", "frequence": "régulière"},
+        ],
+        "school_constraints": ["éloignement du collège", "coût de la scolarité"],
+        "external_workers_count": 2, "daily_workers_count": 1,
+        "consent_given": True,
+    }, "ssrte_households")
+    post("/ssrte/households", {
+        "producer_id": safe_pid, "locality": "Méagui", "sub_prefecture": "Méagui",
+        "interviewer_name": "Agent SSRTE Démo", "survey_type": "complet",
+        "household_size": 5, "children_count": 3, "school_age_children_count": 2, "enrolled_children_count": 2,
+        "housing_type": "en dur",
+        "household_assets": ["moto", "réfrigérateur", "téléphone"],
+        "vulnerabilities": [],
+        "farm_info": {"parcelles": 3, "superficie_ha": 6.0, "production_kg_an": 3200},
+        "household_members": [
+            {"nom": "Konan Aka", "relation": "chef de ménage", "age": 39, "activite": "cacaoculteur"},
+            {"nom": "Adjoua Konan", "relation": "fille", "age": 10, "scolarise": True, "travaille": False},
+        ],
+        "school_constraints": [], "external_workers_count": 3,
+        "consent_given": True,
+    }, "ssrte_households")
+
+    # Fiche C — VISITE de plantation (un cas avec suspicion + un cas conforme).
+    if plants:
+        risky_plant = next((p for p in plants if p.get("producer_id") == risky_pid), plants[0])
+        post("/ssrte/plantation-visits", {
+            "plantation_id": risky_plant["id"], "producer_id": risky_pid,
+            "interviewer_name": "Agent SSRTE Démo", "locality": risky_plant.get("region"),
+            "adults_count": 2, "daily_workers_count": 1,
+            "children_present_count": 1, "non_household_children_count": 0,
+            "children_observed": [{"prenom": "Awa", "age": 14, "tache": "usage de machette",
+                                    "lien": "fille du producteur"}],
+            "dangerous_tasks_observed": ["usage de machette", "port de charges lourdes"],
+            "suspected_child_labor": True,
+            "checklist_data": {"equipement_protection": False, "eau_potable_sur_site": False},
+            "consent_given": True,
+        }, "ssrte_visits")
+    if len(plants) > 1:
+        safe_plant = next((p for p in plants if p.get("producer_id") == safe_pid), plants[1])
+        post("/ssrte/plantation-visits", {
+            "plantation_id": safe_plant["id"], "producer_id": safe_pid,
+            "interviewer_name": "Agent SSRTE Démo", "locality": safe_plant.get("region"),
+            "adults_count": 3, "daily_workers_count": 2,
+            "children_present_count": 0, "dangerous_tasks_observed": [],
+            "suspected_child_labor": False,
+            "checklist_data": {"equipement_protection": True, "eau_potable_sur_site": True},
+            "consent_given": True,
+        }, "ssrte_visits")
+
+
+
 def seed_social_compliance():
     """CacaoGuard (protection enfant + ops terrain), SSRTE et Certification.
 
@@ -216,21 +313,7 @@ def seed_social_compliance():
         "expected_resolution_date": (today + timedelta(days=60)).isoformat(),
     }, "traceability_blocks")
 
-    # ── SSRTE : profil communauté, ménages, visites de plantation ──
-    post("/ssrte/communities", {
-        "locality": "Soubré", "section": "Soubré-Centre", "sub_prefecture": "Soubré",
-        "respondent_name": "Notable du village", "respondent_role": "Chef de communauté",
-    }, "ssrte_communities")
-    for owner in (risky, safe):
-        post("/ssrte/households", {
-            "producer_id": pmap[owner], "locality": "Soubré",
-            "interviewer_name": "Agent SSRTE Démo",
-        }, "ssrte_households")
-    for pl in plants[:2]:
-        post("/ssrte/plantation-visits", {
-            "plantation_id": pl["id"], "producer_id": pl.get("producer_id"),
-            "interviewer_name": "Agent SSRTE Démo", "locality": pl.get("region"),
-        }, "ssrte_visits")
+    seed_ssrte(pmap, plants)
 
     # ── Certification : audit interne complété + non-conformité ──
     audit = post("/certification-audits", {
@@ -421,8 +504,18 @@ def main():
     social_only = os.getenv("AVP_SEED_SOCIAL_ONLY", "").lower() in ("1", "true", "yes")
     certs_only = os.getenv("AVP_SEED_CERTS_ONLY", "").lower() in ("1", "true", "yes")
     xl_only = os.getenv("AVP_SEED_XL_ONLY", "").lower() in ("1", "true", "yes")
+    ssrte_only = os.getenv("AVP_SEED_SSRTE_ONLY", "").lower() in ("1", "true", "yes")
     print(f"=== Seed démo AgriVision Pro → {API} ===")
     login_or_register()
+
+    if ssrte_only:
+        print("Mode : fiches SSRTE A/B/C uniquement (coop existante, sans duplication du reste).")
+        seed_ssrte(_producer_map(), _plantations())
+        print("\n=== Résumé du seed ===")
+        for k in sorted(_count):
+            print(f"  {k:18}: {_count[k]}")
+        print(f"\n✓ Fiches SSRTE ajoutées. Connexion : {EMAIL} / {PASSWORD}")
+        return
 
     if certs_only:
         print("Mode : certifications uniquement (coop existante, idempotent).")
