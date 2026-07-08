@@ -265,8 +265,94 @@ def seed_social_compliance():
         "notes": "Revenu net au-dessus du seuil vital.",
     }, "farmforce")   # net = 2 900 000 → « atteint »
 
-    print(f"  • Protection enfant : cas à risque ({risky}) + cas sain ({safe})")
-    print(f"  • Revenu vital : 1 ménage en écart + 1 atteint · SSRTE + Certification + blocage ({risky})")
+    # ── VOLUME DÉMO ICI : population d'enfants sur TOUS les niveaux de risque ──
+    # Pour que la « Distribution risque enfant » et le rapport de due diligence
+    # soient réalistes (pas 2 enfants). Répartis sur les producteurs existants.
+    child_profiles = [
+        # (prénom, âge, sexe, scolarité, travaille, fréquence, tâches dangereuses)
+        ("Awa", 15, "F", "dropped_out", True, "regular", ["usage de machette", "épandage de pesticides"]),   # critique/élevé
+        ("Sékou", 14, "M", "dropped_out", True, "regular", ["port de charges lourdes"]),                        # élevé
+        ("Fatou", 12, "F", "enrolled", True, "occasional", ["port de charges lourdes"]),                         # moyen
+        ("Ibrahim", 13, "M", "never_enrolled", True, "occasional", []),                                          # moyen/élevé
+        ("Mariam", 10, "F", "enrolled", True, "occasional", []),                                                 # faible/moyen
+        ("Yaya", 11, "M", "enrolled", False, "never", []),                                                       # faible
+        ("Aïcha", 8, "F", "enrolled", False, "never", []),                                                       # aucun/faible
+        ("Moussa", 9, "M", "enrolled", False, "never", []),                                                      # aucun
+        ("Salif", 16, "M", "dropped_out", True, "regular", ["usage de machette"]),                              # élevé
+        ("Rokia", 13, "F", "enrolled", True, "occasional", ["épandage de pesticides"]),                          # moyen/élevé
+    ]
+    extra_children = 0
+    for i, (fn, age, sex, school, working, freq, tasks) in enumerate(child_profiles):
+        owner = names[i % len(names)]
+        payload = {
+            "producer_id": pmap[owner], "first_name": fn, "last_name": owner.split()[0],
+            "date_of_birth": yrs_ago(age), "gender": sex,
+            "school_status": school, "is_working_on_farm": working, "work_frequency": freq,
+        }
+        if school == "enrolled":
+            payload["school_name"] = "EPP du village"
+        if tasks:
+            payload["dangerous_tasks_performed"] = tasks
+        cc = post("/children", payload, "children")
+        if cc and cc.get("id"):
+            post(f"/children/{cc['id']}/calculate-risk", {}, "child_risk_calc")
+            extra_children += 1
+
+    # ── Signalements (griefs) : un cas grave (crée une alerte) + un cas moyen ──
+    post("/complaints", {
+        "complaint_type": "child_labor", "severity": "high",
+        "description": "Signalement d'un enfant aperçu à la machette sur une parcelle, par un agent de terrain.",
+        "producer_id": risky_pid, "source": "field_agent",
+    }, "complaints")
+    post("/complaints", {
+        "complaint_type": "other", "severity": "medium",
+        "description": "Conditions de travail à vérifier lors de la prochaine visite de suivi.",
+        "producer_id": safe_pid, "source": "anonymous",
+    }, "complaints")
+
+    # ── Visites de monitoring supplémentaires (planifiées) ──
+    for i, owner in enumerate(names[:4]):
+        post("/monitoring/visits", {
+            "producer_id": pmap[owner],
+            "scheduled_date": (today + timedelta(days=7 * (i + 1))).isoformat(),
+            "visit_type": "routine", "priority": "medium",
+            "observations": "Visite de suivi planifiée (tournée de sensibilisation).",
+        }, "monitoring_visits")
+
+    # ── Sessions de formation supplémentaires (types variés) ──
+    for title, ttype in [
+        ("Bonnes pratiques agroforestières", "economic_empowerment"),
+        ("Sécurité d'usage des pesticides", "other"),
+        ("Scolarisation et retrait du travail dangereux", "child_protection"),
+    ]:
+        post("/training/sessions", {
+            "title": title, "training_type": ttype,
+            "scheduled_date": today.isoformat(), "location": "Méagui", "village": "Méagui",
+            "trainer_organization": "ICI", "expected_participants": 20,
+            "topics_covered": [title],
+        }, "training_sessions")
+
+    # ── Revenu vital : plus de ménages (mélange réaliste sous/au-dessus du seuil) ──
+    li_mix = [
+        (2200000, 700000, 500000),   # écart
+        (3200000, 700000, 600000),   # atteint (net 1 900 000 -> écart en fait) -> ajuste
+        (5200000, 1100000, 700000),  # atteint
+        (2600000, 800000, 500000),   # écart
+        (4800000, 900000, 600000),   # atteint
+    ]
+    for i, (rev, cost, hh) in enumerate(li_mix):
+        owner = names[(i + 2) % len(names)]
+        post("/farmforce/assessments", {
+            "producer_id": pmap[owner], "campaign_label": "2025-2026",
+            "localite": "Soubré" if i % 2 else "Méagui",
+            "revenue_items": [{"label": "Vente cacao", "revenue_cfa": rev}],
+            "cost_items": [{"label": "Intrants + main-d'œuvre", "cost_cfa": cost}],
+            "household_expense_items": [{"label": "Alimentation/éducation/santé", "amount_cfa": hh}],
+        }, "farmforce")
+
+    print(f"  • Protection enfant : {2 + extra_children} enfants sur tous les niveaux de risque")
+    print(f"  • Revenu vital : 7 ménages (mix atteint/écart) · SSRTE + Certification + blocage ({risky})")
+    print(f"  • Signalements, visites planifiées et formations supplémentaires ajoutés")
 
 
 def seed_certifications():
