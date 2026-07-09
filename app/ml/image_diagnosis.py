@@ -56,17 +56,27 @@ def analyze_leaf_image(image_path: str) -> dict:
             "source":         "huggingface",
         }
 
+    # Un Space HF gratuit se met en veille et renvoie 503 / timeout au réveil
+    # (démarrage à froid) : on le dit clairement pour inviter à réessayer.
     except httpx.TimeoutException:
-        logger.warning("ML timeout")
+        logger.warning("ML timeout (Space probablement en cours de démarrage)")
+        return _fallback("Le modèle d'analyse démarre (Space en veille). Réessayez dans ~30 secondes.")
     except httpx.HTTPStatusError as e:
-        logger.warning("ML HTTP %s — %s", e.response.status_code, e.response.text[:300])
-    except Exception as e:
+        code = e.response.status_code
+        logger.warning("ML HTTP %s — %s", code, e.response.text[:300])
+        if code in (503, 502, 504):
+            return _fallback("Le modèle d'analyse démarre (Space en veille). Réessayez dans ~30 secondes.")
+        return _fallback("Service d'analyse d'image momentanément indisponible. Réessayez plus tard.")
+    except Exception as e:  # noqa: BLE001
         logger.warning("ML erreur : %s", e)
+        return _fallback("Service d'analyse d'image momentanément indisponible. Réessayez plus tard.")
 
+
+def _fallback(reason: str) -> dict:
     return {
         "disease":        "Analyse indisponible",
         "confidence":     0.0,
         "severity":       "MEDIUM",
-        "recommendation": "Service temporairement indisponible. Réessayez dans quelques instants.",
+        "recommendation": reason,
         "source":         "fallback",
     }

@@ -943,6 +943,20 @@ let _lastAnalysis = null;
 function showImageResult(d) {
   document.getElementById('img-result-empty').style.display = 'none';
   document.getElementById('img-result-card').style.display = '';
+
+  // Modèle indisponible (Space HF en veille/panne) : message honnête, pas un faux résultat.
+  if (d && (d.source === 'fallback' || d.disease === 'Analyse indisponible')) {
+    _lastAnalysis = null;
+    document.getElementById('img-disease').textContent = '⏳ Modèle indisponible';
+    document.getElementById('img-confidence').textContent = '—';
+    document.getElementById('img-conf-bar').style.width = '0%';
+    document.getElementById('img-rec').textContent =
+      (d && d.recommendation) || "Le service d'analyse d'image est momentanément indisponible (modèle en cours de démarrage). Réessayez dans ~30 secondes.";
+    document.getElementById('img-sev').innerHTML = '';
+    var w0 = document.getElementById('conf-warning'); if (w0) w0.classList.remove('show');
+    return;
+  }
+
   document.getElementById('img-disease').textContent = d.disease || '—';
   const conf = Math.round((d.confidence||0)*100);
   document.getElementById('img-confidence').textContent = conf + '%';
