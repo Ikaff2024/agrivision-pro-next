@@ -328,6 +328,9 @@ function getRefreshToken() { return localStorage.getItem('avp_refresh_token'); }
 function saveTokens(access, refresh) {
   localStorage.setItem('avp_token', access);
   if (refresh) localStorage.setItem('avp_refresh_token', refresh);
+  // Fournit au Service Worker le jeton + le compte courant pour la synchro
+  // d'arrière-plan (Background Sync) : il ne rejouera QUE les écritures de ce compte.
+  try { if (window.AVPOffline && AVPOffline.setAuthContext) AVPOffline.setAuthContext(access); } catch (e) { /* ignore */ }
 }
 
 function getCurrentUser() {
@@ -446,6 +449,9 @@ async function logout(force) {
       caches.keys().then(keys => keys.forEach(k => { if (k.endsWith('-api')) caches.delete(k); }));
     }
   } catch (e) { /* best-effort */ }
+  // Coupe le contexte d'auth du Service Worker : plus aucune synchro d'arrière-plan
+  // ne partira tant qu'un compte ne s'est pas reconnecté (sécurité appareil partagé).
+  try { if (window.AVPOffline && AVPOffline.clearAuthContext) AVPOffline.clearAuthContext(); } catch (e) { /* best-effort */ }
   localStorage.clear();
   window.location.replace('login.html');
 }
@@ -791,6 +797,82 @@ async function avpUpdateStorageIndicator() {
   el.style.bottom = document.getElementById('avp-offline-banner') ? '56px' : '12px';
 }
 
+// ── « Préparer le hors-ligne » (prefetch) ─────────────────────────────────
+// Réchauffe volontairement les caches AVANT une tournée sans réseau : on télécharge
+// les écrans essentiels (producteurs, plantations, enfants, achats, signalements…)
+// pendant qu'on a du réseau. Deux caches sont remplis : le Service Worker (lectures
+// authFetch offline) et AVPOffline.cacheSet (pages en Stale-While-Revalidate).
+const AVP_PREFETCH_ENDPOINTS = [
+  ['/producers?limit=5000', 'Producteurs'],
+  ['/plantations?limit=5000', 'Plantations'],
+  ['/plantations/filters-options', 'Filtres plantations'],
+  ['/children', 'Protection enfant'],
+  ['/monitoring/visits', 'Monitoring'],
+  ['/cacaoguard/summary', 'CacaoGuard'],
+  ['/agroforestry/summary', 'Agroforesterie'],
+  ['/remediation/plans', 'Remédiation'],
+  ['/training/sessions', 'Formations'],
+  ['/purchases', 'Achats'],
+  ['/purchases/summary', 'Synthèse achats'],
+  ['/complaints', 'Signalements'],
+  ['/compliance/traceability', 'Traçabilité'],
+  ['/ssrte/communities', 'Localités SSRTE'],
+  ['/map/plantations', 'Carte'],
+];
+
+async function avpPrepareOffline() {
+  if (typeof authFetch !== 'function') return;
+  if (!navigator.onLine) {
+    if (typeof toast === 'function') toast('Connexion requise pour préparer le hors-ligne.', 'error');
+    return;
+  }
+  const btn = document.getElementById('avp-prep-offline');
+  if (btn) { btn.disabled = true; }
+  const total = AVP_PREFETCH_ENDPOINTS.length;
+
+  const ov = document.createElement('div');
+  ov.id = 'avp-prefetch-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(10,20,15,.55);display:flex;align-items:center;justify-content:center;font-family:"DM Sans",sans-serif';
+  ov.innerHTML = '<div style="background:#fff;border-radius:14px;padding:22px 26px;max-width:340px;width:88%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center">'
+    + '<div style="font-size:15px;font-weight:700;color:#1a4231;margin-bottom:6px">☁️⤓ Préparation du hors-ligne</div>'
+    + '<div id="avp-pf-lbl" style="font-size:12.5px;color:#5c6b62;margin-bottom:12px">Téléchargement des données…</div>'
+    + '<div style="height:8px;background:#e6ede8;border-radius:99px;overflow:hidden"><div id="avp-pf-bar" style="height:100%;width:0;background:#2D8C5A;transition:width .2s"></div></div>'
+    + '<div id="avp-pf-cnt" style="font-size:11px;color:#7a887f;margin-top:8px">0 / ' + total + '</div></div>';
+  document.body.appendChild(ov);
+  const bar = ov.querySelector('#avp-pf-bar'), lbl = ov.querySelector('#avp-pf-lbl'), cnt = ov.querySelector('#avp-pf-cnt');
+
+  let done = 0, ok = 0;
+  for (const [path, name] of AVP_PREFETCH_ENDPOINTS) {
+    if (lbl) lbl.textContent = name + '…';
+    try {
+      const res = await authFetch(path);
+      if (res && res.ok) {
+        ok++;
+        try {
+          const data = await res.clone().json();
+          if (window.AVPOffline && AVPOffline.cacheSet) {
+            await AVPOffline.cacheSet(path, data);
+            const base = path.split('?')[0];
+            if (base !== path) await AVPOffline.cacheSet(base, data);
+          }
+        } catch (e) { /* réponse non-JSON : le cache SW suffit */ }
+      }
+    } catch (e) { /* endpoint indispo : on continue */ }
+    done++;
+    if (bar) bar.style.width = Math.round((done / total) * 100) + '%';
+    if (cnt) cnt.textContent = done + ' / ' + total;
+  }
+
+  if (lbl) lbl.textContent = 'Prêt pour le terrain ✔';
+  if (bar) bar.style.background = '#2D8C5A';
+  setTimeout(() => {
+    ov.remove();
+    if (btn) btn.disabled = false;
+    if (typeof toast === 'function') toast(ok + ' écran(s) prêt(s) — vous pouvez travailler sans réseau.', 'success');
+  }, 750);
+}
+window.avpPrepareOffline = avpPrepareOffline;
+
 function setupNetworkBanner() {
   // Etat initial au chargement
   avpUpdateNetworkBanner();
@@ -942,7 +1024,22 @@ function renderSidebar(activePage) {
         }).join('');
       })()}
     </nav>
+    ${user ? `
+    <button id="avp-prep-offline" class="sb-prep-offline" onclick="avpPrepareOffline()" title="Télécharge les données pour travailler sans réseau (tournée terrain)">
+      <span class="material-symbols-outlined ms">cloud_download</span>Préparer le hors-ligne
+    </button>` : ''}
     ${userBlock}`;
+
+  if (user && !document.getElementById('avp-prep-offline-style')) {
+    const st = document.createElement('style');
+    st.id = 'avp-prep-offline-style';
+    st.textContent = '.sb-prep-offline{display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:6px 12px;padding:10px 12px;'
+      + 'border:1px solid rgba(82,183,136,.4);background:rgba(82,183,136,.10);color:#a7e0c0;border-radius:10px;cursor:pointer;'
+      + 'font-family:"DM Sans",sans-serif;font-size:13px;font-weight:600;transition:background .15s}'
+      + '.sb-prep-offline:hover{background:rgba(82,183,136,.20)}.sb-prep-offline .ms{font-size:19px}'
+      + '.sb-prep-offline:disabled{opacity:.6;cursor:progress}';
+    document.head.appendChild(st);
+  }
 }
 // Masque les modules de menu hors plan de la cooperative (feature-gating).
 // Non-bloquant : si l'appel echoue ou plan inconnu, on n'enleve rien.
@@ -1443,6 +1540,21 @@ async function avpTrainingSuggestions(btn) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* silencieux */ });
+    // Rafraîchit le contexte d'auth du SW pour la session en cours (token déjà présent).
+    try {
+      const t = getToken();
+      if (t && window.AVPOffline && AVPOffline.setAuthContext) AVPOffline.setAuthContext(t);
+    } catch (e) { /* ignore */ }
+  });
+  // Le SW nous prévient quand il a rejoué la file en arrière-plan (Background Sync) :
+  // on rafraîchit la pastille « à envoyer » et on peut informer l'utilisateur.
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    if (ev.data && ev.data.type === 'avp-queue-synced') {
+      window.dispatchEvent(new CustomEvent('avp-queue-changed'));
+      if (ev.data.synced > 0 && typeof toast === 'function') {
+        toast(ev.data.synced + ' saisie(s) synchronisée(s) en arrière-plan.', 'success');
+      }
+    }
   });
 }
 

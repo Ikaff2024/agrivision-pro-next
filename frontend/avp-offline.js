@@ -191,6 +191,47 @@
     };
   }
 
+  // ─── Meta (clé/valeur) ────────────────────────────────────────────
+  async function metaSet(key, value) {
+    try {
+      const store = await tx(STORES.META, 'readwrite');
+      await reqAsPromise(store.put({ key, value }));
+      return true;
+    } catch (err) { return false; }
+  }
+  async function metaGet(key) {
+    try {
+      const store = await tx(STORES.META, 'readonly');
+      const entry = await reqAsPromise(store.get(key));
+      return entry ? entry.value : null;
+    } catch (err) { return null; }
+  }
+
+  // Contexte d'authentification partagé avec le Service Worker (Background Sync).
+  // Le SW rejoue la file hors-ligne même APP FERMÉE, mais UNIQUEMENT les écritures
+  // du compte dont le jeton+scope sont ici stockés → aucune fuite multi-tenant sur
+  // un appareil partagé (le SW n'a pas de « session courante », on la lui fournit).
+  function setAuthContext(token) {
+    metaSet('auth_token', token || null);
+    metaSet('auth_scope', _scope());
+  }
+  function clearAuthContext() {
+    metaSet('auth_token', null);
+    metaSet('auth_scope', null);
+  }
+
+  // Demande au navigateur de re-synchroniser dès le retour du réseau (même app fermée).
+  // Chromium uniquement ; ailleurs on retombe sur l'event 'online' (déjà géré).
+  function registerBackgroundSync() {
+    try {
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        navigator.serviceWorker.ready
+          .then((reg) => reg.sync && reg.sync.register('avp-sync-queue'))
+          .catch(() => { /* Background Sync indispo : pas grave */ });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   // ─── Queue des ecritures offline ──────────────────────────────────
 
   function generateUUID() {
@@ -232,6 +273,10 @@
 
     // Notifier l'UI (pour mettre a jour le compteur)
     window.dispatchEvent(new CustomEvent('avp-queue-changed'));
+
+    // Programmer une synchro d'arrière-plan (rejouée par le SW au retour du réseau,
+    // même si l'app est fermée). Complémentaire de la synchro immédiate ci-dessous.
+    registerBackgroundSync();
 
     // Tenter une synchro immediate si on est en ligne (best effort)
     if (navigator.onLine) {
@@ -521,6 +566,13 @@
     savePhoto: savePhoto,
     getPhoto: getPhoto,
     deletePhoto: deletePhoto,
+
+    // Meta + contexte d'auth (Background Sync)
+    metaSet: metaSet,
+    metaGet: metaGet,
+    setAuthContext: setAuthContext,
+    clearAuthContext: clearAuthContext,
+    registerBackgroundSync: registerBackgroundSync,
 
     // Utilitaires
     getStats: getStats,

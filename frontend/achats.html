@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#1a4231">
   <title>AgriVision Pro — Achats producteurs</title>
   <script src="config.js?v=staging1"></script>
+  <script src="avp-offline.js"></script>
     <!-- Polices de marque : préchargées tôt (évite le flash de typographie au chargement) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,15 +288,28 @@ async function createPurchase(){
     buyer_name: document.getElementById('b-buyer').value.trim()||null,
     payment_status: document.getElementById('b-pay').value,
   };
-  const r = await authFetch('/purchases',{method:'POST',body:JSON.stringify(body)});
+  // Écriture tolérante au hors-ligne : si le réseau manque, l'achat est mis en
+  // file locale (chiffré au compte) et envoyé automatiquement au retour du réseau.
+  const label = 'Achat ' + (body.net_weight_kg || body.gross_weight_kg || '?') + ' kg';
+  const result = await AVPOffline.offlineFetch('/purchases', {method:'POST', body:JSON.stringify(body)}, label, {module:'achats'});
+  if (result.queued) {
+    clearPurchaseForm();
+    toast('Achat enregistré hors-ligne — il sera envoyé au serveur dès le retour du réseau.', 'success');
+    return;
+  }
+  const r = result.response;
   const d = await r.json().catch(()=>({}));
   if(!r.ok) return toast('Enregistrement impossible : '+(d.detail||''));
+  clearPurchaseForm();
+  await loadAll();
+  toast('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
+}
+
+function clearPurchaseForm(){
   ['b-receipt','b-gross','b-net','b-bags','b-price','b-total','b-buyer'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('b-tare').value='0';
   _linkHarvestId=null; _dupHarvests=[]; _dupAck=false;
   const dupBox=document.getElementById('b-dup-alert'); if(dupBox){ dupBox.style.display='none'; dupBox.innerHTML=''; }
-  await loadAll();
-  toast('Achat enregistré'+(d.harvest_id?' (récolte traçable générée).':'.'));
 }
 
 async function markPaid(id){

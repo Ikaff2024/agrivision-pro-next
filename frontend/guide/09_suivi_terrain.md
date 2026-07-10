@@ -107,3 +107,30 @@ Deux mesures **distinctes** et honnêtes de l'efficacité :
 3. Si une **tâche dangereuse** est observée → un **plan de remédiation** s'ouvre automatiquement (chapitre 6).
 
 > ⚠️ Une visite terminée **sans GPS**, ou des **photos sans consentement**, génère une **incohérence** signalée.
+
+---
+
+## 9.F — Travailler sans réseau (mode hors-ligne)
+
+> AgriVision Pro est conçu pour une **journée entière de tournée sans réseau**. Trois réflexes suffisent.
+
+### 1. Avant de partir : **« Préparer le hors-ligne »**
+Au bureau ou au village, tant que vous avez du réseau (wifi/4G), ouvrez le **menu latéral** et cliquez sur **☁️⤓ Préparer le hors-ligne**.
+La plateforme **télécharge sur l'appareil** les écrans essentiels — producteurs, plantations, enfants, achats, signalements, monitoring, etc.
+Une barre de progression s'affiche, puis **« X écrans prêts »**. Vous pouvez maintenant consulter ces données **même sans réseau**.
+
+### 2. Sur le terrain : **saisir normalement**
+Vous pouvez **enregistrer** hors-ligne : **achats**, **recensement d'enfants**, **signalements**, **récoltes**, **visites de monitoring**, **fiches SSRTE**, **diagnostics**…
+Le message *« enregistré hors-ligne — envoi au serveur dès le retour du réseau »* confirme la mise en file locale.
+Une **pastille ☁️ « X à envoyer »** (en bas à gauche) indique ce qui reste à synchroniser.
+
+### 3. Au retour du réseau : **synchronisation automatique**
+Dès que la connexion revient, les saisies partent **toutes seules** — y compris **si l'application est fermée** (synchronisation en arrière-plan, sur téléphones compatibles).
+Vous pouvez aussi **toucher la pastille ☁️** pour forcer l'envoi immédiatement.
+
+### En cas de problème
+| Situation | Ce qui se passe |
+|---|---|
+| Un écran est vide hors-ligne | Il n'a pas été préparé : rebranchez-vous et cliquez **Préparer le hors-ligne**. |
+| Pastille rouge « ⚠️ en erreur » | Une saisie a été refusée par le serveur (ex. doublon) : rouvrez le module concerné pour corriger. |
+| Appareil **partagé** entre agents | Chaque saisie reste **rattachée à son auteur** : elle n'est **jamais** envoyée sous un autre compte. Déconnectez-vous pour cloisonner les données. |

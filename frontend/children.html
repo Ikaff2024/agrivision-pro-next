@@ -497,7 +497,15 @@ async function createChild() {
   btn.disabled = true;
   btn.textContent = 'Creation...';
   try {
-    const res = await cgFetch('/children', { method: 'POST', body: JSON.stringify(body) });
+    // Tolérant au hors-ligne : recensement enfant mis en file locale si pas de réseau.
+    const label = 'Enfant ' + body.first_name + ' ' + body.last_name;
+    const result = await AVPOffline.offlineFetch('/children', { method: 'POST', body: JSON.stringify(body) }, label, { module: 'children' });
+    if (result.queued) {
+      closeModal();
+      toast('Enfant enregistré hors-ligne — synchronisation au retour du réseau.', 'success');
+      return;
+    }
+    const res = result.response;
     if (!res || !res.ok) {
       const e = await res?.json().catch(() => ({}));
       throw new Error(e.detail || 'Erreur creation.');

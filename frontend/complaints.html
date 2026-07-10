@@ -477,7 +477,15 @@ async function submitNew() {
     location_description: document.getElementById('n-location').value.trim() || null,
   };
   try {
-    const res = await cgFetch('/complaints', { method: 'POST', body: JSON.stringify(payload) });
+    // Tolérant au hors-ligne : signalement mis en file locale si pas de réseau.
+    const label = 'Signalement — ' + (payload.complaint_type || 'incident');
+    const result = await AVPOffline.offlineFetch('/complaints', { method: 'POST', body: JSON.stringify(payload) }, label, { module: 'complaints' });
+    if (result.queued) {
+      toast('Signalement enregistré hors-ligne — envoi au serveur dès le retour du réseau.', 'success');
+      closeNewModal();
+      return;
+    }
+    const res = result.response;
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.detail || 'Enregistrement impossible — réessayez.');
     toast(`Signalement ${body.reference} enregistré.`);

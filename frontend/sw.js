@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.92-clean-urls-networkfirst';
+const CACHE_VERSION = 'avp-v4.93-offline-prefetch';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -96,6 +96,10 @@ const CACHEABLE_API_PATHS = [
   '/compliance/report',
   '/remediation/plans',
   '/training/sessions',
+  '/purchases',
+  '/complaints',
+  '/ssrte',
+  '/farmforce',
 ];
 
 // ── Helper : mise en cache silencieuse (v3.0 fix #2) ──────────────────────
@@ -283,3 +287,98 @@ async function networkFirstAPI(request) {
     );
   }
 }
+
+// ── Background Sync : rejouer la file d'écritures même APP FERMÉE ──────────────
+// Déclenché par le navigateur (Chromium) au retour du réseau, après que la page a
+// appelé registration.sync.register('avp-sync-queue'). On lit directement la même
+// base IndexedDB que avp-offline.js et on rejoue les écritures — mais UNIQUEMENT
+// celles du compte dont le jeton+scope ont été stockés (sécurité multi-tenant sur
+// appareil partagé). Le jeton d'accès dure ~2 h : au-delà, l'écriture reste en file
+// et sera renvoyée à la réouverture de l'app (aucune perte).
+const OFFLINE_DB_NAME = 'avp_offline_db';
+const OFFLINE_DB_VERSION = 1;
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbReq(r) {
+  return new Promise((resolve, reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+}
+async function idbGetAll(db, storeName) {
+  const store = db.transaction(storeName, 'readonly').objectStore(storeName);
+  return idbReq(store.getAll());
+}
+async function idbGet(db, storeName, key) {
+  const store = db.transaction(storeName, 'readonly').objectStore(storeName);
+  return idbReq(store.get(key));
+}
+async function idbPut(db, storeName, value) {
+  const store = db.transaction(storeName, 'readwrite').objectStore(storeName);
+  return idbReq(store.put(value));
+}
+async function idbDelete(db, storeName, key) {
+  const store = db.transaction(storeName, 'readwrite').objectStore(storeName);
+  return idbReq(store.delete(key));
+}
+
+async function replayQueue() {
+  let db;
+  try { db = await idbOpen(); } catch (e) { return; }
+
+  let scopeEntry, tokenEntry;
+  try {
+    scopeEntry = await idbGet(db, 'meta', 'auth_scope');
+    tokenEntry = await idbGet(db, 'meta', 'auth_token');
+  } catch (e) { return; }
+  const scope = scopeEntry && scopeEntry.value;
+  const token = tokenEntry && tokenEntry.value;
+  if (!scope) return;   // aucun compte connecté : on ne rejoue rien (sécurité)
+
+  let queue;
+  try { queue = await idbGetAll(db, 'queue_writes'); } catch (e) { return; }
+  // On ne rejoue QUE les écritures du compte courant (owner === scope stocké).
+  const pending = (queue || []).filter(e =>
+    (e.status === 'pending' || e.status === 'error') && e.owner === scope);
+  if (pending.length === 0) return;
+
+  let synced = 0;
+  for (const entry of pending) {
+    try {
+      const op_id = entry.op_id || ('sw-' + (self.crypto && crypto.randomUUID ? crypto.randomUUID() : entry.local_id));
+      if (!entry.op_id) { entry.op_id = op_id; try { await idbPut(db, 'queue_writes', entry); } catch (e) {} }
+      const url = /^https?:/i.test(entry.endpoint) ? entry.endpoint : (API_ORIGIN + entry.endpoint);
+      const res = await fetch(url, {
+        method: entry.method,
+        headers: Object.assign(
+          { 'Content-Type': 'application/json', 'Idempotency-Key': op_id },
+          token ? { 'Authorization': 'Bearer ' + token } : {}
+        ),
+        body: entry.body ? JSON.stringify(entry.body) : undefined,
+      });
+      if (!res || !res.ok) throw new Error('HTTP ' + (res ? res.status : 'none'));
+      await idbDelete(db, 'queue_writes', entry.local_id);
+      synced++;
+    } catch (err) {
+      entry.status = 'error';
+      entry.error_message = (err && err.message) || String(err);
+      entry.attempts = (entry.attempts || 0) + 1;
+      try { await idbPut(db, 'queue_writes', entry); } catch (e) {}
+    }
+  }
+
+  // Prévenir les pages ouvertes pour rafraîchir la pastille « à envoyer ».
+  try {
+    const clis = await self.clients.matchAll({ includeUncontrolled: true });
+    clis.forEach(c => c.postMessage({ type: 'avp-queue-synced', synced }));
+  } catch (e) { /* ignore */ }
+}
+
+self.addEventListener('sync', event => {
+  if (event.tag === 'avp-sync-queue') {
+    event.waitUntil(replayQueue());
+  }
+});
