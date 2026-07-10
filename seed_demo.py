@@ -147,92 +147,214 @@ def seed_ssrte(pmap, plants):
     risky = "Kouassi Yao" if "Kouassi Yao" in pmap else names[0]
     safe = "Konan Aka" if "Konan Aka" in pmap else (names[1] if len(names) > 1 else names[0])
     risky_pid, safe_pid = pmap[risky], pmap[safe]
-    # ── SSRTE : fiches A / B / C RENSEIGNÉES (démo ICI = fiches complètes) ──
-    # Fiche A — profil de la LOCALITÉ (services, écoles, comité, risques).
+    # ── SSRTE : fiches A / B / C INTÉGRALEMENT RENSEIGNÉES ──────────────────────
+    # Objectif : des fiches « spécimen » complètes (tous les champs), exportables en
+    # PDF pour démontrer la couverture des sections SSRTE. Données 100 % FICTIVES.
+    SPEC = "SPÉCIMEN — données fictives à des fins de démonstration (aucune personne réelle)."
+    AGENT, AGENT_CODE = "Agent SSRTE Démo", "AG-014"
+    COOP = "Coopérative Démo Cacao 2026"
+    today_s = date.today().isoformat()
+
+    def sig(name, role):
+        return {"signed_by": name, "role": role, "signed_at": datetime.utcnow().isoformat(),
+                "method": "typed_name", "device_id": "demo-tablette-01"}
+
+    # Fiche A — profil de la LOCALITÉ (A.01 → A.20).
     post("/ssrte/communities", {
         "locality": "Gnamangui", "section": "Méagui-Centre", "sub_prefecture": "Méagui",
-        "supplier": "Coopérative Démo Cacao 2026",
+        "supplier": COOP, "interview_date": today_s,
         "respondent_name": "Kouadio N'Dri", "respondent_role": "Chef de communauté",
-        "collection_agent_name": "Agent SSRTE Démo", "collection_agent_code": "AG-014",
+        "collection_agent_name": AGENT, "collection_agent_code": AGENT_CODE,
+        "gps_start": "5.621500,-6.780100", "time_start": "08:15",
+        "gps_end": "5.621700,-6.780400", "time_end": "10:05",
+        "school_available": True,
         "nearest_school_distance_km": 4,
-        "school_available": True,                       # coche le résumé « école : oui »
-        "has_child_protection_committee": True,         # coche le résumé « comité : oui »
-        "services_available": {"electricite": True, "eau_potable": False, "centre_sante": True,
-                                "transport": False, "marche": True},
+        "has_child_protection_committee": True,
+        "services_available": {
+            "electricite": True, "electricity_origin": "réseau national (CIE)",
+            "eau_potable": False, "water_distance": "1,2 km (forage villageois)",
+            "centre_sante": True, "transport": False, "marche": True,
+            "secondary_classes_count": 0, "secondary_school_distance_km": 18,
+            "org_state": "Direction régionale de l'Éducation",
+            "org_ngo": "ONG locale de protection de l'enfance",
+            "org_other": "Comité villageois de veille",
+        },
         "schools": [
-            {"nom": "EPP Gnamangui", "niveau": "primaire", "distance_km": 4, "cantine": False},
-            {"nom": "Collège de Méagui", "niveau": "secondaire", "distance_km": 18, "cantine": True},
+            {"nom": "EPP Gnamangui", "niveau": "primaire", "distance_km": 4, "cantine": False,
+             "effectif": 240, "enseignants": 6},
+            {"nom": "Collège de Méagui", "niveau": "secondaire", "distance_km": 18, "cantine": True,
+             "effectif": 900, "enseignants": 28},
         ],
         "committee_members": [
-            {"name": "Kouadio N'Dri", "role": "Président du comité de protection"},
-            {"name": "Aya Traoré", "role": "Enseignante / point focal enfants"},
+            {"name": "Kouadio N'Dri", "role": "Président du comité de protection", "contact": "07 00 00 00 01"},
+            {"name": "Aya Traoré", "role": "Enseignante / point focal enfants", "contact": "07 00 00 00 02"},
+            {"name": "Yao Brou", "role": "Représentant des jeunes", "contact": "07 00 00 00 03"},
         ],
-        "risks_identified": ["déscolarisation", "travail des enfants en récolte", "éloignement du collège"],
-        "section_notes": {"general": "Absence de classes secondaires à proximité — facteur de déscolarisation."},
+        "risks_identified": ["déscolarisation", "travail des enfants en récolte",
+                              "éloignement du collège", "absence d'état civil pour certains enfants"],
+        "section_notes": {
+            "services": "Pas de classes secondaires sur place ; le collège le plus proche est à 18 km.",
+            "protection": "Comité de protection actif, réunions mensuelles.",
+            "general": "L'éloignement du collège est le principal facteur de déscolarisation.",
+        },
+        "notes": SPEC,
     }, "ssrte_communities")
 
-    # Fiche B — profil du MÉNAGE (un cas à risque détaillé + un cas sain).
+    # Fiche B — profil du MÉNAGE (B.01 → B.29) : cas À RISQUE, entièrement renseigné.
     post("/ssrte/households", {
-        "producer_id": risky_pid, "locality": "Gnamangui", "sub_prefecture": "Méagui",
-        "interviewer_name": "Agent SSRTE Démo", "survey_type": "complet",
-        "household_size": 7, "children_count": 4, "school_age_children_count": 3, "enrolled_children_count": 1,
-        "housing_type": "traditionnel",
-        "household_assets": ["moto", "télévision", "téléphone"],
-        "vulnerabilities": ["revenu sous le seuil vital", "déscolarisation", "éloignement école"],
-        "farm_info": {"parcelles": 2, "superficie_ha": 4.5, "production_kg_an": 1800},
+        "producer_id": risky_pid, "interview_date": today_s, "interviewer_name": AGENT,
+        "supplier": COOP, "sub_prefecture": "Méagui", "locality": "Gnamangui",
+        "collection_agent_code": AGENT_CODE, "producer_ssrte_code": "SSRTE-PR-0148",
+        "gps_start": "5.621900,-6.779800", "time_start": "10:20", "time_end": "11:35",
+        "survey_type": "complet", "producer_available": True, "unavailable_reason": None,
+        "visited_person_status": "chef de ménage",
+        "household_size": 7, "children_count": 4,
+        "school_age_children_count": 3, "enrolled_children_count": 1,
         "household_members": [
-            {"nom": "Kouassi Yao", "relation": "chef de ménage", "age": 44, "activite": "cacaoculteur"},
-            {"nom": "Awa Kouassi", "relation": "fille", "age": 14, "scolarise": False, "travaille": True},
-            {"nom": "Yao Kouassi", "relation": "fils", "age": 8, "scolarise": True, "travaille": False},
+            {"nom": "Kouassi Yao", "relation": "chef de ménage", "sexe": "M", "age": 44,
+             "scolarise": False, "travaille": True, "activite": "cacaoculteur"},
+            {"nom": "Affoué Kouassi", "relation": "épouse", "sexe": "F", "age": 38,
+             "scolarise": False, "travaille": True, "activite": "vivrier / commerce"},
+            {"nom": "Awa Kouassi", "relation": "fille", "sexe": "F", "age": 14,
+             "scolarise": False, "travaille": True, "activite": "travaux de plantation"},
+            {"nom": "Yao Kouassi", "relation": "fils", "sexe": "M", "age": 8,
+             "scolarise": True, "travaille": False, "activite": "élève (CE1)"},
+            {"nom": "Akissi Kouassi", "relation": "fille", "sexe": "F", "age": 5,
+             "scolarise": False, "travaille": False, "activite": "non scolarisable"},
         ],
         "child_work_declarations": [
-            {"enfant": "Awa Kouassi", "tache": "usage de machette", "frequence": "régulière"},
+            {"enfant": "Awa Kouassi", "age": 14, "tache": "usage de machette",
+             "frequence": "régulière", "moment": "après-midi et week-end", "remuneree": False},
         ],
-        "school_constraints": ["éloignement du collège", "coût de la scolarité"],
+        "vulnerabilities": ["revenu sous le seuil vital", "déscolarisation d'un enfant",
+                             "éloignement de l'école secondaire"],
+        "school_constraints": ["éloignement du collège", "coût de la scolarité",
+                                "besoin de main-d'œuvre familiale"],
+        "farm_info": {"parcelles": 2, "superficie_ha": 4.5, "production_kg_an": 1800,
+                       "culture_principale": "cacao", "cultures_secondaires": ["vivrier", "banane plantain"]},
+        "housing_type": "traditionnel",
+        "household_assets": ["moto", "télévision", "téléphone portable"],
         "external_workers_count": 2, "daily_workers_count": 1,
-        "consent_given": True,
-    }, "ssrte_households")
-    post("/ssrte/households", {
-        "producer_id": safe_pid, "locality": "Méagui", "sub_prefecture": "Méagui",
-        "interviewer_name": "Agent SSRTE Démo", "survey_type": "complet",
-        "household_size": 5, "children_count": 3, "school_age_children_count": 2, "enrolled_children_count": 2,
-        "housing_type": "en dur",
-        "household_assets": ["moto", "réfrigérateur", "téléphone"],
-        "vulnerabilities": [],
-        "farm_info": {"parcelles": 3, "superficie_ha": 6.0, "production_kg_an": 3200},
-        "household_members": [
-            {"nom": "Konan Aka", "relation": "chef de ménage", "age": 39, "activite": "cacaoculteur"},
-            {"nom": "Adjoua Konan", "relation": "fille", "age": 10, "scolarise": True, "travaille": False},
+        "non_daily_workers": [
+            {"nom": "Traoré Sidiki", "origine": "hors localité", "type": "saisonnier",
+             "duree": "campagne", "remuneration": "à la tâche"},
         ],
-        "school_constraints": [], "external_workers_count": 3,
+        "allow_worker_interview": True,
+        "section_notes": {
+            "menage": "Un enfant de 14 ans déscolarisé, déclaré participant aux travaux.",
+            "exploitation": "2 parcelles, 4,5 ha, production 1 800 kg/an.",
+            "economie": "Revenu net estimé sous le seuil de revenu vital.",
+        },
         "consent_given": True,
+        "signature_data": sig("Kouassi Yao", "chef de ménage"),
+        "notes": SPEC,
     }, "ssrte_households")
 
-    # Fiche C — VISITE de plantation (un cas avec suspicion + un cas conforme).
+    # Fiche B — cas SAIN (contrôle), également renseigné.
+    post("/ssrte/households", {
+        "producer_id": safe_pid, "interview_date": today_s, "interviewer_name": AGENT,
+        "supplier": COOP, "sub_prefecture": "Méagui", "locality": "Méagui",
+        "collection_agent_code": AGENT_CODE, "producer_ssrte_code": "SSRTE-PR-0152",
+        "gps_start": "5.615200,-6.771300", "time_start": "13:40", "time_end": "14:35",
+        "survey_type": "complet", "producer_available": True, "visited_person_status": "chef de ménage",
+        "household_size": 5, "children_count": 3,
+        "school_age_children_count": 2, "enrolled_children_count": 2,
+        "household_members": [
+            {"nom": "Konan Aka", "relation": "chef de ménage", "sexe": "M", "age": 39,
+             "scolarise": False, "travaille": True, "activite": "cacaoculteur"},
+            {"nom": "Adjoua Konan", "relation": "fille", "sexe": "F", "age": 10,
+             "scolarise": True, "travaille": False, "activite": "élève (CM1)"},
+            {"nom": "Kouamé Konan", "relation": "fils", "sexe": "M", "age": 7,
+             "scolarise": True, "travaille": False, "activite": "élève (CP2)"},
+        ],
+        "child_work_declarations": [],
+        "vulnerabilities": [],
+        "school_constraints": [],
+        "farm_info": {"parcelles": 3, "superficie_ha": 6.0, "production_kg_an": 3200,
+                       "culture_principale": "cacao", "cultures_secondaires": ["hévéa"]},
+        "housing_type": "en dur",
+        "household_assets": ["moto", "réfrigérateur", "téléphone portable", "télévision"],
+        "external_workers_count": 3, "daily_workers_count": 2,
+        "non_daily_workers": [],
+        "allow_worker_interview": True,
+        "section_notes": {"menage": "Tous les enfants en âge scolaire sont scolarisés.",
+                           "economie": "Revenu net au-dessus du seuil de revenu vital."},
+        "consent_given": True,
+        "signature_data": sig("Konan Aka", "chef de ménage"),
+        "notes": SPEC,
+    }, "ssrte_households")
+
+    # Fiche C — VISITE de plantation (C.01 → C.12) : cas avec SUSPICION, complet.
     if plants:
         risky_plant = next((p for p in plants if p.get("producer_id") == risky_pid), plants[0])
         post("/ssrte/plantation-visits", {
             "plantation_id": risky_plant["id"], "producer_id": risky_pid,
-            "interviewer_name": "Agent SSRTE Démo", "locality": risky_plant.get("region"),
-            "adults_count": 2, "daily_workers_count": 1,
-            "children_present_count": 1, "non_household_children_count": 0,
-            "children_observed": [{"prenom": "Awa", "age": 14, "tache": "usage de machette",
-                                    "lien": "fille du producteur"}],
+            "visit_date": today_s, "interviewer_name": AGENT,
+            "supplier": COOP, "section": "Méagui-Centre", "sub_prefecture": "Méagui",
+            "locality": risky_plant.get("region") or "Gnamangui",
+            "collection_agent_code": AGENT_CODE, "producer_ssrte_code": "SSRTE-PR-0148",
+            "gps_location": "5.622400,-6.781900", "gps_accuracy": 6.0,
+            "captured_latitude": 5.6224, "captured_longitude": -6.7819, "captured_accuracy_m": 6.0,
+            "client_reported_at": datetime.utcnow().isoformat(),
+            "time_start": "15:05", "time_end": "16:10",
+            "adults_count": 2, "daily_workers_count": 1, "allow_worker_interview": True,
+            "children_present_count": 1, "non_household_children_count": 0, "non_household_children": [],
+            "children_observed": [
+                {"prenom": "Awa", "age": 14, "sexe": "F", "lien": "fille du producteur",
+                 "tache": "usage de machette", "scolarise": False, "equipement_protection": False},
+            ],
+            "adults_observed": [
+                {"nom": "Kouassi Yao", "role": "producteur", "age": 44},
+                {"nom": "Affoué Kouassi", "role": "conjointe", "age": 38},
+            ],
+            "workers_present": [
+                {"nom": "Traoré Sidiki", "type": "journalier", "origine": "hors localité", "age": 27},
+            ],
             "dangerous_tasks_observed": ["usage de machette", "port de charges lourdes"],
             "suspected_child_labor": True,
-            "checklist_data": {"equipement_protection": False, "eau_potable_sur_site": False},
+            "immediate_actions_taken": ("Retrait immédiat de l'enfant de la tâche dangereuse ; "
+                                         "sensibilisation du chef de ménage ; ouverture d'un plan de remédiation "
+                                         "et signalement au comité de protection."),
+            "checklist_data": {"equipement_protection": False, "eau_potable_sur_site": False,
+                                "trousse_premiers_secours": False, "pesticides_stockes_securise": False,
+                                "panneau_interdiction_enfants": False},
+            "section_notes": {"observations": "Enfant de 14 ans observé maniant une machette.",
+                               "suites": "Cas transmis à la remédiation ; blocage de traçabilité déclenché."},
+            "photos": [],
             "consent_given": True,
+            "producer_signature_data": sig("Kouassi Yao", "producteur"),
+            "assessor_signature_data": sig(AGENT, "agent SSRTE"),
+            "notes": SPEC,
         }, "ssrte_visits")
+
+    # Fiche C — cas CONFORME (contrôle).
     if len(plants) > 1:
         safe_plant = next((p for p in plants if p.get("producer_id") == safe_pid), plants[1])
         post("/ssrte/plantation-visits", {
             "plantation_id": safe_plant["id"], "producer_id": safe_pid,
-            "interviewer_name": "Agent SSRTE Démo", "locality": safe_plant.get("region"),
-            "adults_count": 3, "daily_workers_count": 2,
-            "children_present_count": 0, "dangerous_tasks_observed": [],
-            "suspected_child_labor": False,
-            "checklist_data": {"equipement_protection": True, "eau_potable_sur_site": True},
+            "visit_date": today_s, "interviewer_name": AGENT,
+            "supplier": COOP, "section": "Méagui-Centre", "sub_prefecture": "Méagui",
+            "locality": safe_plant.get("region") or "Méagui",
+            "collection_agent_code": AGENT_CODE, "producer_ssrte_code": "SSRTE-PR-0152",
+            "gps_location": "5.615900,-6.772400", "gps_accuracy": 5.0,
+            "captured_latitude": 5.6159, "captured_longitude": -6.7724, "captured_accuracy_m": 5.0,
+            "client_reported_at": datetime.utcnow().isoformat(),
+            "time_start": "16:40", "time_end": "17:30",
+            "adults_count": 3, "daily_workers_count": 2, "allow_worker_interview": True,
+            "children_present_count": 0, "non_household_children_count": 0, "non_household_children": [],
+            "children_observed": [], "adults_observed": [{"nom": "Konan Aka", "role": "producteur", "age": 39}],
+            "workers_present": [{"nom": "Koffi Bini", "type": "journalier", "origine": "localité", "age": 31}],
+            "dangerous_tasks_observed": [], "suspected_child_labor": False,
+            "immediate_actions_taken": "Aucune action requise — situation conforme.",
+            "checklist_data": {"equipement_protection": True, "eau_potable_sur_site": True,
+                                "trousse_premiers_secours": True, "pesticides_stockes_securise": True,
+                                "panneau_interdiction_enfants": True},
+            "section_notes": {"observations": "Aucun enfant présent ; équipements de protection disponibles."},
+            "photos": [],
             "consent_given": True,
+            "producer_signature_data": sig("Konan Aka", "producteur"),
+            "assessor_signature_data": sig(AGENT, "agent SSRTE"),
+            "notes": SPEC,
         }, "ssrte_visits")
 
 
