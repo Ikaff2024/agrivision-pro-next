@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 20mm 20mm; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:#1c2b24; font-size:11px; line-height:1.5; }
+  h1,h2,h3 { font-family:Georgia,"Times New Roman",serif; margin:0; }
+  .bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1a4231; padding-bottom:8px; margin-bottom:14px; }
+  .brand { font-family:Georgia,serif; font-size:18px; font-weight:700; color:#1a4231; }
+  .brand small { display:block; font-family:"Segoe UI",sans-serif; font-size:10px; font-weight:400; color:#5c6b62; }
+  .tag { text-align:right; font-size:10px; color:#5c6b62; } .tag b { color:#1a4231; }
+  .kicker { font-family:"Segoe UI",sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#2D8C5A; font-weight:700; margin-top:8px; }
+  h1 { font-size:20px; color:#123227; margin:2px 0 12px; }
+  .lede { font-size:11px; color:#2f4438; margin:0 0 16px; }
+  .warn { background:#fbf3ee; border:1px solid #e6c9b6; border-radius:8px; padding:12px 14px; margin:14px 0; font-size:10.5px; color:#7a4a2f; }
+  .warn b { color:#8a3d1a; }
+  h2 { font-size:12px; color:#1a4231; margin:18px 0 6px; padding-left:9px; border-left:3px solid #2D8C5A; text-transform:uppercase; letter-spacing:.03em; }
+  table { width:100%; border-collapse:collapse; margin-top:4px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid #e3ded0; vertical-align:top; }
+  th { background:#f2f7f3; color:#1a4231; font-size:9.6px; text-transform:uppercase; letter-spacing:.03em; }
+  td.pj { font-weight:700; color:#123227; width:20%; }
+  td.desc { width:56%; }
+  td.cas { width:24%; }
+  .badge { display:inline-block; border-radius:999px; padding:1px 9px; font-size:9.5px; font-weight:700; }
+  .b-risk { background:#fbe9e7; color:#922b21; } .b-ok { background:#eaf6ee; color:#1a6b3a; } .b-loc { background:#eef3fb; color:#274b7a; }
+  .note { margin-top:18px; font-size:10px; color:#5c6b62; line-height:1.5; }
+  .foot { margin-top:26px; border-top:1px solid #d9d2c2; padding-top:8px; font-size:9px; color:#7a887f; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+
+  <div class="bar">
+    <div class="brand">AgriVision&nbsp;Pro<small>IKAFFANAN LTD — plateforme cacao</small></div>
+    <div class="tag"><b>Annexe au courrier ICI</b><br>07/2026 · confidentiel</div>
+  </div>
+
+  <div class="kicker">Annexe</div>
+  <h1>Spécimens de fiches SSRTE (A / B / C)</h1>
+  <p class="lede">
+    Cette annexe présente des <b>spécimens de fiches SSRTE</b> intégralement renseignées, générés par la plateforme
+    AgriVision Pro, afin d'illustrer la <b>couverture des trois questionnaires</b> du dispositif SSRTE — localité (A),
+    ménage (B) et visite de plantation (C) — et leur cohérence avec les principes méthodologiques du CLMRS.
+  </p>
+
+  <div class="warn">
+    <b>⚠️ Données fictives.</b> Toutes les informations figurant sur ces fiches sont <b>entièrement fictives</b> et
+    ne concernent <b>aucune personne réelle</b>. Elles sont fournies à seule fin de démonstration de la structure et de
+    la complétude des fiches. Aucune donnée personnelle réelle — en particulier relative à des enfants — n'est ni jointe,
+    ni transmise. La mention « SPÉCIMEN — données fictives » figure sur chaque fiche.
+  </div>
+
+  <h2>Pièces jointes</h2>
+  <table>
+    <thead><tr><th>Pièce</th><th>Contenu illustré</th><th>Cas</th></tr></thead>
+    <tbody>
+      <tr><td class="pj">Fiche A</td><td class="desc">Profil de la <b>localité</b> : services (école, eau, santé), écoles primaire et secondaire, comité de protection de l'enfant, risques identifiés.</td><td class="cas"><span class="badge b-loc">Localité</span></td></tr>
+      <tr><td class="pj">Fiche B — n°1</td><td class="desc">Profil du <b>ménage</b> : composition, scolarisation, <b>travail d'enfant déclaré</b>, vulnérabilités, exploitation, consentement et signature.</td><td class="cas"><span class="badge b-risk">Cas à risque</span></td></tr>
+      <tr><td class="pj">Fiche B — n°2</td><td class="desc">Profil d'un <b>ménage stable</b> : enfants scolarisés, aucun travail d'enfant — illustre le cas conforme.</td><td class="cas"><span class="badge b-ok">Cas sain</span></td></tr>
+      <tr><td class="pj">Fiche C — n°1</td><td class="desc">Visite de <b>plantation</b> : enfants/adultes/travailleurs observés, tâches dangereuses, <b>suspicion de travail d'enfant</b>, checklist, géo-horodatage, signatures.</td><td class="cas"><span class="badge b-risk">Suspicion</span></td></tr>
+      <tr><td class="pj">Fiche C — n°2</td><td class="desc">Visite de plantation <b>conforme</b> : aucun enfant présent, équipements de protection en place.</td><td class="cas"><span class="badge b-ok">Conforme</span></td></tr>
+    </tbody>
+  </table>
+
+  <p class="note">
+    <b>Lecture suggérée.</b> Le cas <span class="badge b-risk">à risque</span> (Fiche A + Fiche B n°1 + Fiche C n°1) illustre la
+    chaîne complète : identification de la localité, profilage du ménage, observation en plantation et suspicion — déclenchant
+    plan de remédiation et blocage de traçabilité. Les cas <span class="badge b-ok">conformes</span> montrent que la plateforme
+    <b>distingue</b> une situation à risque d'une situation saine.
+  </p>
+
+  <div class="foot">
+    <div>AgriVision Pro — IKAFFANAN LTD · Annexe : spécimens de fiches SSRTE (données fictives)</div>
+    <div>v1 · 07/2026</div>
+  </div>
+
+</body>
+</html>
