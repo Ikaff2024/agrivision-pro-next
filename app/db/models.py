@@ -975,3 +975,47 @@ class FieldGeostamp(Base):
     geo_status          = Column(String(20), nullable=False, default="no_fix", index=True)
     override_reason     = Column(Text, nullable=True)                      # motif si GPS indisponible (tracé)
     recorded_by         = Column(String(200), nullable=True)
+
+
+class AyaMemory(Base):
+    """Faits ENSEIGNÉS par l'équipe d'une coopérative à Aya (l'assistante IA).
+
+    Ils sont réinjectés dans le contexte d'Aya à chaque question → elle s'adapte
+    progressivement à la réalité de CETTE coopérative (prix plancher, zones
+    sensibles, logistique de collecte…), sans jamais ré-entraîner de modèle.
+
+    CLOISONNEMENT : chaque fait est rattaché à une `cooperative_id` et n'est
+    JAMAIS visible d'une autre coopérative. Ne doit contenir AUCUNE donnée
+    personnelle d'enfant (garde-fou éthique).
+    """
+    __tablename__ = "aya_memory"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    content        = Column(Text, nullable=False)                       # le fait, en clair
+    category       = Column(String, default="general", nullable=False)  # prix | zones | logistique | general…
+    source         = Column(String, default="manual", nullable=False)   # manual | correction
+    is_active      = Column(Boolean, default=True, nullable=False)       # suppression douce
+    created_by     = Column(String, nullable=True)                       # email de l'auteur (traçabilité)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at     = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AyaFeedback(Base):
+    """Retour 👍/👎 (et correction éventuelle) sur une réponse d'Aya.
+
+    Boucle d'amélioration HUMAIN-DANS-LA-BOUCLE : les mauvaises réponses sont
+    tracées puis revues ; une correction saisie par un rôle habilité peut devenir
+    un fait de `AyaMemory` (source='correction'). Cloisonné par coopérative.
+    """
+    __tablename__ = "aya_feedback"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    cooperative_id = Column(Integer, ForeignKey("cooperatives.id"), nullable=True, index=True)
+    user_id        = Column(Integer, ForeignKey("users.id"), nullable=True)
+    question       = Column(Text, nullable=False)
+    answer         = Column(Text, nullable=True)
+    rating         = Column(Integer, default=0, nullable=False)          # +1 (👍) / -1 (👎)
+    correction     = Column(Text, nullable=True)                          # « la bonne réponse aurait été… »
+    reviewed       = Column(Boolean, default=False, nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now(), index=True)

@@ -15,6 +15,18 @@
 2. Tapez votre question (ou cliquez une **suggestion**), puis **Entrée**.
 3. La réponse s'affiche progressivement, mise en forme. L'historique de la session reste affiché.
 
+## Apprendre à Aya (mémoire de la coopérative)
+Aya peut **s'adapter à la réalité de VOTRE coopérative** — sans ré-entraîner de modèle.
+
+- **🧠 Mémoire d'Aya** (bouton en haut de la page) : la **direction** (admin / agronome / gestionnaire)
+  y **enseigne des faits** propres à la coop — prix plancher, zones sensibles, jours de collecte,
+  pratiques locales… Aya les **réutilise** ensuite pour personnaliser ses réponses. Chaque fait est
+  **cloisonné** à votre coopérative et peut être **oublié** (🗑️) à tout moment.
+  > ⚠️ N'y mettez **aucune donnée personnelle d'enfant**.
+- **👍 / 👎 sous chaque réponse** : indiquez si la réponse était utile. Sur **👎**, la direction peut
+  saisir **la bonne réponse** — Aya **l'apprend** (elle devient un fait de mémoire). C'est une boucle
+  d'amélioration **supervisée** : rien n'est « appris » sans validation humaine.
+
 ## Ce qu'il faut savoir
 - **Ancré sur vos données** : pour les questions chiffrées, l'assistant s'appuie **uniquement** sur un
   instantané **cloisonné à votre coopérative** (jamais les données d'une autre coop). S'il ne sait pas,

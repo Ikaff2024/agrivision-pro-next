@@ -22,7 +22,11 @@ router = APIRouter(tags=["Assistant IA"])
 # Les RÉPONSES DONNÉES (instantané) restent réservées à la direction (admin/agronome,
 # qui alimente l'instantané). L'AIDE À L'UTILISATION est ouverte à tous les rôles.
 _DATA_ROLES = {"admin", "agronomist"}
+# Rôles habilités à ENSEIGNER des faits à Aya et à corriger ses réponses.
+_TEACH_ROLES = {"admin", "agronomist", "gestionnaire"}
 _CAP = 60  # bornage des listes d'entités dans l'instantané
+_MEM_CAP = 40          # nb max de faits mémoire injectés dans le contexte
+_MEM_CHARS_CAP = 4000  # bornage caractères (maîtrise du coût tokens)
 
 # Guide d'utilisation COMPACT (où trouver / comment faire) — sert l'aide à la prise
 # en main. Mis à jour avec les fonctions : tenir synchronisé avec frontend/guide.
@@ -79,6 +83,10 @@ PLATFORM_GUIDE = (
     "A localité / B ménage / C visite, auditables, cycle brouillon→clôture) — elles COLLECTENT. La Protection "
     "de l'enfant (CacaoGuard) est le SUIVI vivant : registre des enfants + calcul du risque + remédiation + "
     "blocage — elle AGIT. SSRTE alimente → Protection de l'enfant agit (l'un mesure, l'autre traite).\n"
+    "• MÉMOIRE D'AYA : la direction (admin/agronome/gestionnaire) peut m'ENSEIGNER des faits propres à "
+    "la coopérative (bouton « 🧠 Mémoire d'Aya » sur ma page) — prix plancher, zones sensibles, jours de "
+    "collecte… Je m'en sers pour répondre selon la réalité de VOTRE coopérative, et un 👍/👎 sous chaque "
+    "réponse m'aide à m'améliorer.\n"
     "• MODE HORS-LIGNE (tournée sans réseau) : avant de partir, cliquer « ☁️⤓ Préparer le hors-ligne » "
     "(menu latéral) télécharge les écrans essentiels sur l'appareil. Sur le terrain on peut SAISIR sans "
     "réseau — achats, protection enfant, signalements, récoltes, monitoring, fiches SSRTE, diagnostics — "
@@ -90,6 +98,30 @@ PLATFORM_GUIDE = (
 
 class AssistantQuestion(BaseModel):
     question: str = Field(..., min_length=3, max_length=500)
+
+
+def _load_memory(db: Session, coop_id, limit: int = _MEM_CAP):
+    """Faits enseignés ACTIFS de la coopérative (cloisonné). Ordre : récents d'abord."""
+    from app.db.models import AyaMemory
+    q = db.query(AyaMemory).filter(AyaMemory.is_active.is_(True))
+    if coop_id is not None:
+        q = q.filter(AyaMemory.cooperative_id == coop_id)
+    else:
+        q = q.filter(AyaMemory.cooperative_id.is_(None))
+    return q.order_by(AyaMemory.created_at.desc()).limit(limit).all()
+
+
+def _format_memory(rows) -> str:
+    if not rows:
+        return "aucun fait enseigné pour l'instant."
+    out, total = [], 0
+    for r in rows:
+        line = f"- [{r.category}] {r.content}"
+        total += len(line)
+        if total > _MEM_CHARS_CAP:
+            break
+        out.append(line)
+    return "\n".join(out)
 
 
 def _build_snapshot(db: Session, current_user: User) -> dict:
@@ -165,17 +197,22 @@ def assistant_ask(
     else:
         snapshot_json = ("non disponible pour votre rôle (les réponses chiffrées sur les données "
                          "sont réservées à la direction) — répondre uniquement aux questions d'utilisation.")
+    memory_txt = _format_memory(_load_memory(db, current_user.cooperative_id))
     prompt = (
         "Tu es Aya, l'assistante IA de la plateforme AgriVision Pro (cacao, Côte d'Ivoire). "
-        "Si on te demande ton nom, tu es Aya. Tu as DEUX rôles :\n"
+        "Si on te demande ton nom, tu es Aya. Tu as TROIS sources :\n"
         "1) AIDE À L'UTILISATION : explique où trouver une fonction et comment réaliser une action, "
         "en t'appuyant sur le GUIDE.\n"
         "2) DONNÉES : réponds aux questions chiffrées EXCLUSIVEMENT à partir de l'INSTANTANÉ "
         "(déjà cloisonné à cette coopérative) ; si l'info n'y figure pas (ou instantané non disponible), "
         "dis-le et n'invente aucun chiffre ; précise quand une liste est plafonnée.\n"
+        "3) MÉMOIRE COOPÉRATIVE : des faits enseignés par l'équipe de CETTE coopérative. Considère-les "
+        "comme vrais pour elle (prix, zones, pratiques…) et utilise-les pour personnaliser tes réponses. "
+        "En cas de conflit sur un CHIFFRE, l'INSTANTANÉ prime ; sinon la MÉMOIRE fait foi.\n"
         "Réponds en français, de façon concise et structurée.\n\n"
         f"QUESTION : {data.question.strip()}\n\n"
         f"GUIDE :\n{PLATFORM_GUIDE}\n\n"
+        f"MÉMOIRE COOPÉRATIVE (faits enseignés par l'équipe) :\n{memory_txt}\n\n"
         f"INSTANTANÉ (données) :\n{snapshot_json}"
     )
     try:
@@ -204,3 +241,108 @@ def assistant_ask(
         db.rollback()
 
     return {"answer": (out.get("text") or "").strip(), "model": out.get("model")}
+
+
+# ── Mémoire d'Aya (faits enseignés) & feedback ────────────────────────────────
+
+class MemoryIn(BaseModel):
+    content: str = Field(..., min_length=3, max_length=500)
+    category: str = Field("general", max_length=40)
+
+
+class FeedbackIn(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000)
+    answer: str = Field("", max_length=8000)
+    rating: int = Field(..., ge=-1, le=1)          # +1 (👍) / -1 (👎) / 0
+    correction: str | None = Field(None, max_length=1000)
+
+
+@router.get("/assistant/memory")
+def list_memory(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Faits enseignés (actifs) de la coopérative de l'utilisateur — cloisonné."""
+    rows = _load_memory(db, current_user.cooperative_id, limit=200)
+    return [
+        {
+            "id": r.id, "content": r.content, "category": r.category,
+            "source": r.source, "created_by": r.created_by,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "can_edit": current_user.role in _TEACH_ROLES,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/assistant/memory", status_code=201)
+def add_memory(
+    data: MemoryIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enseigner un fait à Aya (réservé à la direction). Cloisonné à la coopérative."""
+    if current_user.role not in _TEACH_ROLES:
+        raise HTTPException(status_code=403, detail="Réservé à la direction (admin/agronome/gestionnaire).")
+    from app.db.models import AyaMemory
+    row = AyaMemory(
+        cooperative_id=current_user.cooperative_id,
+        content=data.content.strip(),
+        category=(data.category or "general").strip() or "general",
+        source="manual",
+        created_by=getattr(current_user, "email", None),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id}
+
+
+@router.delete("/assistant/memory/{mem_id}")
+def delete_memory(
+    mem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Oublier un fait (suppression douce). Cloisonné : on ne touche que sa coopérative."""
+    if current_user.role not in _TEACH_ROLES:
+        raise HTTPException(status_code=403, detail="Réservé à la direction (admin/agronome/gestionnaire).")
+    from app.db.models import AyaMemory
+    row = db.query(AyaMemory).filter(AyaMemory.id == mem_id).first()
+    if not row or row.cooperative_id != current_user.cooperative_id:
+        raise HTTPException(status_code=404, detail="Fait introuvable.")
+    row.is_active = False
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/assistant/feedback", status_code=201)
+def add_feedback(
+    data: FeedbackIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retour 👍/👎 sur une réponse d'Aya. Une correction saisie par un rôle habilité
+    devient AUSSI un fait de mémoire (source='correction') — humain-dans-la-boucle."""
+    from app.db.models import AyaFeedback, AyaMemory
+    fb = AyaFeedback(
+        cooperative_id=current_user.cooperative_id,
+        user_id=current_user.id,
+        question=data.question.strip(),
+        answer=(data.answer or "").strip() or None,
+        rating=data.rating,
+        correction=(data.correction.strip() if data.correction else None),
+    )
+    db.add(fb)
+    learned = False
+    if data.correction and data.correction.strip() and current_user.role in _TEACH_ROLES:
+        db.add(AyaMemory(
+            cooperative_id=current_user.cooperative_id,
+            content=data.correction.strip(),
+            category="correction",
+            source="correction",
+            created_by=getattr(current_user, "email", None),
+        ))
+        learned = True
+    db.commit()
+    return {"ok": True, "learned": learned}

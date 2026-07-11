@@ -55,9 +55,14 @@
         <div class="page-title">Aya <span style="font-size:13px;font-weight:500;color:var(--muted)">· assistante IA</span></div>
         <div class="page-sub">Posez une question sur les données de votre coopérative — réponse ancrée sur vos chiffres.</div>
       </div>
-      <button class="btn btn-outline" onclick="newChat()" title="Nouvelle conversation">
-        <span class="material-symbols-outlined" style="font-size:18px">add</span> Nouvelle
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="openMemory()" title="Mémoire d'Aya (faits propres à votre coopérative)">
+          <span class="material-symbols-outlined" style="font-size:18px">psychology</span> Mémoire
+        </button>
+        <button class="btn btn-outline" onclick="newChat()" title="Nouvelle conversation">
+          <span class="material-symbols-outlined" style="font-size:18px">add</span> Nouvelle
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -137,7 +142,7 @@ function addMsg(role, html){
 
 // Apparition progressive (effet streaming) : on tape le texte mot à mot puis on
 // applique le rendu Markdown final.
-function typeReveal(bubbleMsg, text, model){
+function typeReveal(bubbleMsg, text, model, onDone){
   const body = bubbleMsg.querySelector('.md');
   const meta = bubbleMsg.querySelector('.bmeta');
   const tokens = String(text).split(/(\s+)/);
@@ -151,9 +156,67 @@ function typeReveal(bubbleMsg, text, model){
       body.innerHTML = mdToHtml(text);
       if (model && meta) { meta.textContent = 'Moteur : ' + model; meta.style.display = 'block'; }
       scrollEnd();
+      if (typeof onDone === 'function') onDone();
     }
   };
   tick();
+}
+
+function canTeach(){ try { const u = getCurrentUser(); return !!(u && ['admin','agronomist','gestionnaire'].includes(u.role)); } catch(e){ return false; } }
+
+// Barre 👍/👎 sous une réponse d'Aya. Le 👎 propose une correction ; saisie par un
+// rôle habilité, elle est APPRISE (devient un fait de la mémoire coopérative).
+function addFeedbackBar(aiMsg, question, answer){
+  const bubble = aiMsg.querySelector('.bubble');
+  if (!bubble || bubble.querySelector('.aya-fb')) return;
+  const bar = document.createElement('div');
+  bar.className = 'aya-fb';
+  bar.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)';
+  bar.innerHTML = '<span>Utile&nbsp;?</span>'
+    + '<button class="aya-fb-btn" data-r="1" title="Utile" style="border:none;background:transparent;cursor:pointer;font-size:15px">👍</button>'
+    + '<button class="aya-fb-btn" data-r="-1" title="À améliorer" style="border:none;background:transparent;cursor:pointer;font-size:15px">👎</button>'
+    + '<span class="aya-fb-msg" style="color:var(--accent,#2D8C5A);font-weight:600"></span>';
+  bubble.appendChild(bar);
+  const msgEl = bar.querySelector('.aya-fb-msg');
+  bar.querySelectorAll('.aya-fb-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const rating = parseInt(btn.dataset.r, 10);
+      if (rating === 1) {
+        await sendFeedback(question, answer, 1, null);
+        bar.querySelectorAll('.aya-fb-btn').forEach(b => b.disabled = true);
+        msgEl.textContent = 'Merci !';
+      } else {
+        openCorrection(bar, msgEl, question, answer);
+      }
+    };
+  });
+}
+
+function openCorrection(bar, msgEl, question, answer){
+  if (bar.querySelector('.aya-corr')) return;
+  const teach = canTeach();
+  const box = document.createElement('div');
+  box.className = 'aya-corr';
+  box.style.cssText = 'margin-top:8px;width:100%';
+  box.innerHTML =
+    `<textarea class="aya-corr-in" rows="2" placeholder="${teach ? 'La bonne réponse aurait été… (Aya l’apprendra pour votre coopérative)' : 'Dites-nous ce qui n’allait pas (facultatif)'}" `
+    + 'style="width:100%;padding:8px 10px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font:13px inherit"></textarea>'
+    + '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-outline btn-sm aya-corr-send">Envoyer</button></div>';
+  bar.appendChild(box);
+  box.querySelector('.aya-corr-send').onclick = async () => {
+    const corr = box.querySelector('.aya-corr-in').value.trim();
+    const res = await sendFeedback(question, answer, -1, corr || null);
+    bar.querySelectorAll('.aya-fb-btn').forEach(b => b.disabled = true);
+    box.remove();
+    msgEl.textContent = (res && res.learned) ? 'Appris ✔ — merci !' : 'Merci pour le retour.';
+  };
+}
+
+async function sendFeedback(question, answer, rating, correction){
+  try {
+    const r = await authFetch('/assistant/feedback', { method:'POST', body: JSON.stringify({ question, answer, rating, correction }) });
+    return await r.json().catch(() => ({}));
+  } catch(e){ return {}; }
 }
 
 async function askAssistant(){
@@ -177,7 +240,8 @@ async function askAssistant(){
       aiMsg.querySelector('.md').innerHTML = `<p>${esc(txt)}</p>`;
       return;
     }
-    typeReveal(aiMsg, d.answer || 'Aucune réponse.', d.model);
+    const answerText = d.answer || 'Aucune réponse.';
+    typeReveal(aiMsg, answerText, d.model, () => addFeedbackBar(aiMsg, q, answerText));
   } catch(e){
     aiMsg.querySelector('.md').innerHTML = '<p>Serveur injoignable. Réessayez.</p>';
   } finally {
@@ -185,6 +249,80 @@ async function askAssistant(){
     document.getElementById('ask-btn').disabled = false;
     input.focus();
   }
+}
+
+// ── Mémoire d'Aya (faits enseignés par la coopérative) ──────────────────────
+function openMemory(){
+  let ov = document.getElementById('mem-overlay');
+  if (!ov) { ov = buildMemoryModal(); document.body.appendChild(ov); }
+  ov.style.display = 'flex';
+  loadMemory();
+}
+function closeMemory(){ const ov = document.getElementById('mem-overlay'); if (ov) ov.style.display = 'none'; }
+
+function buildMemoryModal(){
+  const ov = document.createElement('div');
+  ov.id = 'mem-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(12,32,24,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.onclick = (e) => { if (e.target === ov) closeMemory(); };
+  const teach = canTeach();
+  const addBlock = teach
+    ? '<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<select id="mem-cat" style="padding:9px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font:13px inherit">'
+      +   '<option value="general">Général</option><option value="prix">Prix</option><option value="zones">Zones</option><option value="logistique">Logistique</option><option value="pratiques">Pratiques</option>'
+      + '</select>'
+      + '<input id="mem-content" placeholder="Ex : notre prix plancher 2026 est 1 000 FCFA/kg" style="flex:1;min-width:200px;padding:9px 11px;border:1px solid var(--border,#e6ddd0);border-radius:8px;font:13px inherit">'
+      + '<button onclick="addMemoryFact()" style="border:none;background:var(--primary,#1a4231);color:#fff;border-radius:8px;padding:9px 14px;cursor:pointer;font:600 13px inherit">Apprendre</button>'
+      + '</div><div id="mem-add-err" style="color:#922b21;font-size:12px;min-height:16px;margin-bottom:8px"></div>'
+    : '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Consultation seule — l’ajout est réservé à la direction (admin/agronome/gestionnaire).</div>';
+  ov.innerHTML =
+    '<div style="background:var(--surface,#fff);max-width:560px;width:100%;max-height:85vh;overflow:auto;border-radius:14px;padding:20px 22px;box-shadow:0 12px 48px rgba(0,0,0,.3)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +   '<div style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--primary,#1a4231)">🧠 Mémoire d’Aya</div>'
+    +   '<button onclick="closeMemory()" style="border:none;background:transparent;cursor:pointer;font-size:22px;color:var(--muted)">×</button>'
+    + '</div>'
+    + '<p style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Faits propres à votre coopérative qu’Aya utilise pour personnaliser ses réponses. Cloisonné à votre coopérative. <b>N’y mettez aucune donnée personnelle d’enfant.</b></p>'
+    + addBlock
+    + '<div id="mem-list" style="display:flex;flex-direction:column;gap:8px">Chargement…</div>'
+    + '</div>';
+  return ov;
+}
+
+async function loadMemory(){
+  const list = document.getElementById('mem-list'); if (!list) return;
+  list.textContent = 'Chargement…';
+  try {
+    const r = await authFetch('/assistant/memory');
+    const rows = r && r.ok ? await r.json() : [];
+    list.innerHTML = rows.length
+      ? rows.map(memRow).join('')
+      : '<div style="font-size:13px;color:var(--muted);padding:8px 0">Aucun fait enseigné pour l’instant.</div>';
+  } catch(e){ list.textContent = 'Erreur de chargement.'; }
+}
+function memRow(m){
+  const del = m.can_edit ? `<button onclick="deleteMemoryFact(${m.id})" title="Oublier" style="border:none;background:transparent;cursor:pointer;color:#922b21;font-size:15px">🗑️</button>` : '';
+  const badge = `<span style="font-size:10px;background:var(--surface-warm,#f2f7f3);color:var(--primary,#1a4231);border-radius:99px;padding:1px 8px">${esc(m.category)}</span>`;
+  const src = m.source === 'correction' ? ' · correction' : '';
+  return '<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border,#e6ddd0);border-radius:10px;padding:9px 11px">'
+    + `<div style="flex:1"><div style="font-size:13px">${esc(m.content)}</div>`
+    + `<div style="font-size:10.5px;color:var(--muted);margin-top:3px">${badge}${src}${m.created_by ? (' · ' + esc(m.created_by)) : ''}</div></div>${del}</div>`;
+}
+async function addMemoryFact(){
+  const err = document.getElementById('mem-add-err');
+  const content = document.getElementById('mem-content');
+  const cat = document.getElementById('mem-cat');
+  err.textContent = '';
+  const v = content.value.trim();
+  if (v.length < 3){ err.textContent = 'Écrivez un fait (au moins 3 caractères).'; return; }
+  try {
+    const r = await authFetch('/assistant/memory', { method:'POST', body: JSON.stringify({ content: v, category: cat.value }) });
+    if (!r.ok){ const e = await r.json().catch(()=>({})); err.textContent = e.detail || 'Ajout impossible.'; return; }
+    content.value = ''; loadMemory();
+  } catch(e){ err.textContent = 'Serveur injoignable.'; }
+}
+async function deleteMemoryFact(id){
+  if (!(await avpConfirm('Faire oublier ce fait à Aya ?', { okText:'Oublier', danger:true }))) return;
+  try { const r = await authFetch('/assistant/memory/' + id, { method:'DELETE' }); if (r.ok) loadMemory(); } catch(e){}
 }
 </script>
 </body>
