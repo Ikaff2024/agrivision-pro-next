@@ -1,0 +1,9 @@
+{
+  "name": "agrivision-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AgriVision Pro — frontend (PWA vanilla JS). Tests de non-regression du mode hors-ligne.",
+  "scripts": {
+    "test": "node tests/run.js"
+  }
+}
