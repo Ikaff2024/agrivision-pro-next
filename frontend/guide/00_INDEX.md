@@ -32,7 +32,7 @@
    — 🎓 [Scénario guidé « Protection de l'enfant »](16_protection_enfant.md) (du terrain à la due diligence)
 7. [EUDR & Conformité](07_eudr_conformite.md)
 8. [Revenu vital](08_farmforce_revenu_vital.md)
-9. [Monitoring, Remédiation, Signalements, Formation](09_suivi_terrain.md) — l'exécution terrain de la protection
+9. [Monitoring, Remédiation, Signalements, Formation](09_suivi_terrain.md) — l'exécution terrain de la protection (+ **travailler sans réseau**, §9.F)
 
 ### 📊 Piloter — décider et prouver
 11. [Dashboard, Direction & Rapports](11_dashboard_direction_rapports.md)

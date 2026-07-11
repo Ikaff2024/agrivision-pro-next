@@ -78,7 +78,13 @@ PLATFORM_GUIDE = (
     "• PROTECTION ENFANT vs FICHES SSRTE : les fiches SSRTE sont la MÉTHODE d'enquête (formulaires officiels "
     "A localité / B ménage / C visite, auditables, cycle brouillon→clôture) — elles COLLECTENT. La Protection "
     "de l'enfant (CacaoGuard) est le SUIVI vivant : registre des enfants + calcul du risque + remédiation + "
-    "blocage — elle AGIT. SSRTE alimente → Protection de l'enfant agit (l'un mesure, l'autre traite)."
+    "blocage — elle AGIT. SSRTE alimente → Protection de l'enfant agit (l'un mesure, l'autre traite).\n"
+    "• MODE HORS-LIGNE (tournée sans réseau) : avant de partir, cliquer « ☁️⤓ Préparer le hors-ligne » "
+    "(menu latéral) télécharge les écrans essentiels sur l'appareil. Sur le terrain on peut SAISIR sans "
+    "réseau — achats, protection enfant, signalements, récoltes, monitoring, fiches SSRTE, diagnostics — "
+    "chaque saisie est mise en file locale (pastille ☁️ « X à envoyer ») puis envoyée AUTOMATIQUEMENT au "
+    "retour du réseau (même app fermée sur Chrome/Android). Les saisies restent rattachées à leur auteur : "
+    "jamais envoyées sous un autre compte sur un appareil partagé. Voir guide §9.F."
 )
 
 
