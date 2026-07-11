@@ -55,6 +55,10 @@
           <span class="material-symbols-outlined" style="font-size:18px">download</span>
           Export CSV
         </button>
+        <button class="btn btn-outline" onclick="openPriorities()" title="Ménages à enquêter en priorité (risque précoce — aide à la décision)">
+          <span class="material-symbols-outlined" style="font-size:18px">emergency_home</span>
+          Priorités d'enquête
+        </button>
         <button class="btn btn-outline" onclick="location.href='risk_assessment.html'">
           <span class="material-symbols-outlined" style="font-size:18px">fact_check</span>
           Évaluer un enfant
@@ -520,6 +524,76 @@ async function createChild() {
     btn.disabled = false;
     btn.textContent = 'Creer';
   }
+}
+
+// ── Priorités d'enquête (Jumeau Palier 2 — risque précoce, aide à la décision) ──
+const _LVL = {
+  eleve: { label: 'Élevé', bg: '#fbe9e7', fg: '#922b21' },
+  moyen: { label: 'Moyen', bg: '#fdf3e3', fg: '#7a4a00' },
+  faible: { label: 'Faible', bg: '#eaf6ee', fg: '#1a6b3a' },
+};
+function openPriorities(){
+  let ov = document.getElementById('prio-overlay');
+  if (!ov) { ov = buildPrioritiesModal(); document.body.appendChild(ov); }
+  ov.style.display = 'flex';
+  loadPriorities();
+}
+function closePriorities(){ const ov = document.getElementById('prio-overlay'); if (ov) ov.style.display = 'none'; }
+function buildPrioritiesModal(){
+  const ov = document.createElement('div');
+  ov.id = 'prio-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(12,32,24,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.onclick = (e) => { if (e.target === ov) closePriorities(); };
+  ov.innerHTML =
+    '<div style="background:var(--surface,#fff);max-width:680px;width:100%;max-height:88vh;overflow:auto;border-radius:14px;padding:20px 22px;box-shadow:0 12px 48px rgba(0,0,0,.3)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+    +   '<div style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--primary,#1a4231)">🔮 Priorités d’enquête</div>'
+    +   '<button onclick="closePriorities()" style="border:none;background:transparent;cursor:pointer;font-size:22px;color:var(--muted)">×</button>'
+    + '</div>'
+    + '<div id="prio-disclaimer" style="font-size:12px;color:#7a4a2f;background:#fbf3ee;border:1px solid #e6c9b6;border-radius:8px;padding:9px 11px;margin:8px 0 12px"></div>'
+    + '<div id="prio-summary" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>'
+    + '<div id="prio-list" style="display:flex;flex-direction:column;gap:10px">Chargement…</div>'
+    + '</div>';
+  return ov;
+}
+async function loadPriorities(){
+  const list = document.getElementById('prio-list'); if (!list) return;
+  list.textContent = 'Chargement…';
+  try {
+    const r = await authFetch('/twin/child-risk/at-risk?limit=50');
+    if (r && r.status === 403){ list.innerHTML = '<div style="color:#922b21">Réservé aux rôles de protection.</div>'; return; }
+    const d = r && r.ok ? await r.json() : null;
+    if (!d){ list.textContent = 'Erreur de chargement.'; return; }
+    const disc = document.getElementById('prio-disclaimer');
+    if (disc) disc.textContent = '⚠️ ' + (d.disclaimer || '');
+    const sum = document.getElementById('prio-summary');
+    if (sum) sum.innerHTML = `<b>${d.flagged_count}</b> ménage(s) à surveiller sur ${d.total_producers} — `
+      + `<span style="color:#922b21">${d.by_level.eleve} élevé</span> · `
+      + `<span style="color:#7a4a00">${d.by_level.moyen} moyen</span>.`;
+    if (!d.households.length){ list.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">Aucun ménage à prioriser. 👍</div>'; return; }
+    list.innerHTML = d.households.map(prioRow).join('');
+  } catch(e){ list.textContent = 'Serveur injoignable.'; }
+}
+function _pesc(s){ const d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+function prioRow(h){
+  const lv = _LVL[h.level] || _LVL.moyen;
+  const chips = (h.factors || []).map(f => {
+    const c = f.severity === 'high' ? '#922b21' : '#7a4a00';
+    return `<span style="display:inline-block;font-size:11px;border:1px solid ${c}33;color:${c};background:${c}0d;border-radius:99px;padding:1px 8px;margin:2px 3px 0 0">${_pesc(f.label)}${f.detail ? ' · ' + _pesc(f.detail) : ''}</span>`;
+  }).join('');
+  const followed = h.already_followed
+    ? '<span style="font-size:11px;color:#1a6b3a;background:#eaf6ee;border-radius:99px;padding:1px 8px;margin-left:6px">déjà suivi</span>' : '';
+  const compl = Math.round((h.data_completeness || 0) * 100);
+  return '<div style="border:1px solid var(--border,#e6ddd0);border-radius:10px;padding:11px 13px">'
+    + '<div style="display:flex;align-items:center;gap:8px;justify-content:space-between">'
+    +   `<div style="font-weight:700;color:var(--text)">${_pesc(h.producer_name || 'Producteur #' + h.producer_id)}${followed}</div>`
+    +   `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;background:${lv.bg};color:${lv.fg};border-radius:99px;padding:2px 10px">${lv.label} · ${h.score}</span></div>`
+    + '</div>'
+    + `<div style="font-size:11px;color:var(--muted);margin-top:2px">${h.children_count} enfant(s) recensé(s) · données ${compl}%</div>`
+    + `<div style="margin-top:6px">${chips}</div>`
+    + `<div style="font-size:12px;color:var(--primary,#1a4231);margin-top:7px">→ ${_pesc(h.recommendation || '')}</div>`
+    + `<div style="margin-top:7px"><button class="btn btn-sm btn-outline" style="padding:3px 9px" onclick="openProducerProfile(${h.producer_id})">Ouvrir la fiche</button></div>`
+    + '</div>';
 }
 
 loadData();

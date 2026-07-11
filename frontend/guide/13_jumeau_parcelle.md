@@ -17,6 +17,10 @@ elle **classe les parcelles de la plus à risque à la moins à risque**, pour s
 - **Sévérité** d'une alerte : **🔴 élevé** (à traiter en priorité), **🟠 moyen**, **⚪ faible**.
 - **Plus vous remplissez les autres modules** (diagnostic, EUDR, récoltes, Revenu vital, certification…),
   **plus le jumeau est riche et juste**. Une parcelle « vide » remonte surtout des alertes « à compléter ».
+- **Jumeau du ménage (Palier 2, prédictif *léger et explicable*)** : une première brique existe pour la
+  **protection de l'enfant** — l'indicateur **« 🔮 Priorités d'enquête »** (page **Protection enfant**)
+  classe les ménages par **risque précoce** de travail d'enfant, **en affichant les facteurs**. C'est une
+  **aide à l'enquête** (priorise les visites), **jamais un verdict**. Voir [Protection de l'enfant](16_protection_enfant.md).
 
 ### Où le trouver
 1. **Sur une parcelle** : ouvrez une plantation (menu **Plantations** → une parcelle). Tout en bas,

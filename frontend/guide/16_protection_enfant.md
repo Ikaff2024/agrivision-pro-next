@@ -9,6 +9,19 @@
 - **Former** un agent terrain / gestionnaire à la chaîne complète de protection de l'enfant.
 - Comprendre le **blocage de traçabilité automatique** (l'argument fort vis-à-vis des acheteurs).
 
+## Par où commencer — « 🔮 Priorités d'enquête » *(nouveau)*
+Avant même d'enquêter, la plateforme vous dit **quels ménages regarder en premier**.
+
+- Bouton **« Priorités d'enquête »** (en haut de **Protection enfant**) → liste les ménages
+  **classés par risque précoce** (élevé / moyen), avec, pour chacun, **les facteurs qui l'expliquent**
+  (tâche dangereuse déclarée, enfant déscolarisé, enfant qui travaille, ménage sous le seuil de
+  revenu vital, signalement…) et une **recommandation** (planifier une visite, compléter le recensement…).
+- L'indicateur **s'appuie uniquement sur des données déjà saisies** et **affiche pourquoi** — aucune boîte noire.
+- Les ménages **déjà suivis** (plan de remédiation en cours) sont marqués « déjà suivi ».
+
+> ⚠️ **Aide à la décision, pas un verdict.** Ce score **priorise les visites** ; il ne prouve rien et ne
+> bloque rien. La confirmation passe **toujours** par une enquête de terrain (visite / fiche SSRTE) — la suite de ce chapitre.
+
 ## Prérequis
 - Un compte **administrateur**, **agronome** ou **technicien**.
 - Le **producteur parent** doit exister dans la coopérative (voir [Import d'un registre](10_import_registre.md) ou créez-le).
