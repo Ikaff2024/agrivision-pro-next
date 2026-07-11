@@ -35,6 +35,12 @@ RECENT_DIAG_DAYS = 365      # diagnostic considéré récent < 12 mois
 OLD_ORCHARD_YEARS = 25      # verger vieillissant
 LOW_YIELD_KG_HA = 300.0     # rendement cacao faible (réf. ~400-600 kg/ha)
 
+# Tendance de rendement (Palier 2, prédictif LÉGER & EXPLICABLE) : on compare le
+# rendement kg/ha de la dernière campagne à la précédente. Aucune extrapolation ;
+# on n'affiche une tendance que si ≥ 2 campagnes de données (sinon « insuffisant »).
+YIELD_TREND_MIN_YEARS = 2
+YIELD_TREND_DELTA_PCT = 15.0   # seuil de variation jugée significative (hausse/baisse)
+
 
 def _latest_diagnostic(db: Session, pid: int):
     return (
@@ -137,6 +143,45 @@ def _active_remediation_count(db: Session, producer_id: Optional[int]) -> int:
     )
 
 
+def compute_yield_trend(harvests, hectares) -> dict:
+    """Trajectoire de rendement (kg/ha) par campagne (année), + direction explicable.
+
+    Groupe les récoltes par ANNÉE (robuste, indépendant du paramétrage des campagnes),
+    divise par la surface, puis compare la dernière campagne à la précédente. Renvoie
+    `available=False` tant qu'on n'a pas au moins 2 campagnes (pas de fausse précision).
+    """
+    if not hectares or hectares <= 0:
+        return {"available": False, "reason": "surface (ha) inconnue"}
+    by_year: dict = {}
+    for h in harvests:
+        d = h.harvest_date
+        if not d:
+            continue
+        by_year[d.year] = by_year.get(d.year, 0.0) + float(h.quantity_kg or 0)
+    years = sorted(by_year)
+    if len(years) < YIELD_TREND_MIN_YEARS:
+        return {"available": False, "reason": "données insuffisantes (< 2 campagnes)",
+                "n_years": len(years)}
+    series = [{"year": y, "kg": round(by_year[y], 1),
+               "yield_kg_ha": round(by_year[y] / hectares, 1)} for y in years]
+    latest, previous = series[-1]["yield_kg_ha"], series[-2]["yield_kg_ha"]
+    pct = round((latest - previous) / previous * 100, 1) if previous and previous > 0 else None
+    if pct is None:
+        direction = "indetermine"
+    elif pct <= -YIELD_TREND_DELTA_PCT:
+        direction = "baisse"
+    elif pct >= YIELD_TREND_DELTA_PCT:
+        direction = "hausse"
+    else:
+        direction = "stable"
+    return {
+        "available": True, "n_years": len(years), "series": series,
+        "latest_year": years[-1], "previous_year": years[-2],
+        "latest_yield_kg_ha": latest, "previous_yield_kg_ha": previous,
+        "pct_change": pct, "direction": direction,
+    }
+
+
 def build_twin(db: Session, plantation: Plantation) -> dict:
     """Vue unifiée (jumeau) d'une parcelle à partir des données existantes."""
     pid = plantation.id
@@ -212,6 +257,7 @@ def build_twin(db: Session, plantation: Plantation) -> dict:
             "last_date": last_harvest.isoformat() if last_harvest else None,
             "yield_kg_ha": yield_kg_ha,
         },
+        "yield_trend": compute_yield_trend(harvests, ha),
         "cacaoguard": {
             "blocked": block is not None,
             "reason": (block.block_reason.value if block and getattr(block, "block_reason", None) else None),
@@ -268,6 +314,15 @@ def compute_alerts(twin: dict) -> list[dict]:
     elif hv["yield_kg_ha"] is not None and hv["yield_kg_ha"] < LOW_YIELD_KG_HA:
         add("medium", "low_yield", f"Rendement faible ({hv['yield_kg_ha']} kg/ha)",
             "Diagnostiquer les causes (sol, ombrage, âge des plants).")
+
+    # Tendance de rendement (Palier 2) — signalée seulement en BAISSE significative.
+    # (Absente de la vue coop batchée : `yield_trend` n'y est pas calculé → pas d'alerte.)
+    yt = twin.get("yield_trend") or {}
+    if yt.get("available") and yt.get("direction") == "baisse":
+        pct = yt.get("pct_change")
+        label = "Rendement en baisse" + (f" ({pct:.0f}%)" if isinstance(pct, (int, float)) else "")
+        add("medium", "yield_declining", label,
+            "Diagnostiquer la cause (âge des plants, sol, maladies) et planifier une action.")
 
     # Dimensions sociale / économique / certification — signaux ACTIONNABLES seulement
     # (on ne signale PAS la simple absence de donnée, pour ne pas noyer la vue « à risque »).

@@ -37,6 +37,7 @@ Les **puces** résument chaque dimension (vert = bon, rouge = à traiter) :
 | **Délimitation** | La parcelle a-t-elle un **polygone** tracé sur la carte (requis EUDR). |
 | **Diagnostic** | Dernier diagnostic agronomique et son niveau de risque. |
 | **Récoltes** | Total récolté et **rendement** (kg/ha). |
+| **Tendance rendement** | **▲ Hausse / ▬ Stable / ▼ Baisse** de la dernière campagne vs la précédente, avec le **% de variation**. N'apparaît qu'à partir de **2 campagnes** (sinon rien — pas de fausse précision). Une **baisse** significative génère une alerte. |
 | **Déforestation** | Résultat du dernier contrôle satellite. |
 | **Météo** | Conditions actuelles (température, humidité, pluie sur 30 j). |
 | **Revenu vital** | Revenu net du ménage vs seuil : **Atteint** ou **Écart**. |

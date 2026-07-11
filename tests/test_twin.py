@@ -294,3 +294,65 @@ def test_coop_at_risk_includes_living_income_gap(client):
     assert body["flagged_count"] == 1
     codes = {a["code"] for a in body["parcels"][0]["alerts"]}
     assert "living_income_gap" in codes
+
+
+# ── Palier 2 : tendance de rendement (kg/ha par campagne) ─────────────────────
+
+def _yt_harvests(pairs):
+    """Fabrique une liste d'objets « récolte » légers (année → kg) pour le calcul."""
+    from types import SimpleNamespace
+    return [SimpleNamespace(harvest_date=datetime(y, 6, 1), quantity_kg=kg) for y, kg in pairs]
+
+
+def test_yield_trend_detects_decline():
+    from app.services.twin import compute_yield_trend
+    yt = compute_yield_trend(_yt_harvests([(2024, 500), (2025, 300)]), hectares=1.0)
+    assert yt["available"] is True
+    assert yt["latest_yield_kg_ha"] == 300 and yt["previous_yield_kg_ha"] == 500
+    assert yt["pct_change"] == -40.0 and yt["direction"] == "baisse"
+    assert yt["n_years"] == 2 and len(yt["series"]) == 2
+
+
+def test_yield_trend_stable_within_threshold():
+    from app.services.twin import compute_yield_trend
+    yt = compute_yield_trend(_yt_harvests([(2024, 500), (2025, 480)]), hectares=1.0)
+    assert yt["direction"] == "stable"
+
+
+def test_yield_trend_rise():
+    from app.services.twin import compute_yield_trend
+    yt = compute_yield_trend(_yt_harvests([(2024, 400), (2025, 600)]), hectares=1.0)
+    assert yt["direction"] == "hausse" and yt["pct_change"] == 50.0
+
+
+def test_yield_trend_insufficient_data():
+    from app.services.twin import compute_yield_trend
+    yt = compute_yield_trend(_yt_harvests([(2025, 500)]), hectares=1.0)
+    assert yt["available"] is False and yt["n_years"] == 1
+    # Sans surface non plus : indisponible (pas de fausse précision).
+    assert compute_yield_trend(_yt_harvests([(2024, 500), (2025, 300)]), hectares=None)["available"] is False
+
+
+def test_twin_yield_trend_decline_alert(client):
+    """Une parcelle dont le rendement chute d'une campagne à l'autre remonte une
+    alerte 'yield_declining' explicable, et expose la tendance dans le jumeau."""
+    db = TestingSessionLocal()
+    try:
+        c = Cooperative(name="Coop Yield", country="CI"); db.add(c); db.flush()
+        user = User(email="twin.yield@test.ci", password_hash="x", role="admin", cooperative_id=c.id)
+        prod = Producer(cooperative_id=c.id, nom_complet="Kouassi", is_active=True)
+        db.add_all([user, prod]); db.flush()
+        p = Plantation(name="Parcelle Rendement", owner_name="Kouassi", country="CI",
+                       region="Soubre", latitude=5.78, longitude=-6.58, hectares=1.0,
+                       cooperative_id=c.id, producer_id=prod.id)
+        db.add(p); db.flush()
+        db.add(Harvest(plantation_id=p.id, harvest_date=datetime(2024, 6, 1), quantity_kg=500, quality="Bonne"))
+        db.add(Harvest(plantation_id=p.id, harvest_date=datetime(2025, 6, 1), quantity_kg=300, quality="Bonne"))
+        db.commit()
+        pid, auth = p.id, _auth(user)
+    finally:
+        db.close()
+    body = client.get(f"/plantations/{pid}/twin", headers=auth).json()
+    yt = body["twin"]["yield_trend"]
+    assert yt["available"] is True and yt["direction"] == "baisse"
+    assert "yield_declining" in _codes(body)

@@ -1194,6 +1194,15 @@ function renderTwin(data, el) {
     chip('Déforestation', frDefo(t.deforestation.verdict),
       t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
   ];
+  // Tendance de rendement (Palier 2) — affichée seulement si ≥ 2 campagnes.
+  const yt = t.yield_trend || {};
+  if (yt.available) {
+    const DIR = { baisse: { t: '▼ Baisse', c: '#922b21' }, hausse: { t: '▲ Hausse', c: '#1a6b3a' },
+                  stable: { t: '▬ Stable', c: '#6a7d64' }, indetermine: { t: '—', c: '' } };
+    const dm = DIR[yt.direction] || DIR.indetermine;
+    const pctTxt = (yt.pct_change != null) ? ` · ${yt.pct_change > 0 ? '+' : ''}${yt.pct_change}%` : '';
+    chipList.push(chip('Tendance rendement', `${dm.t}${pctTxt} · ${yt.n_years} camp.`, dm.c));
+  }
   const li = t.living_income || {}, cert = t.certification || {}, cg = t.cacaoguard || {};
   chipList.push(chip('Revenu vital',
     li.available ? ((li.status === 'atteint' ? 'Atteint' : 'Écart') + (li.pct != null ? ` · ${Math.round(li.pct)}%` : '')) : 'Non évalué',
