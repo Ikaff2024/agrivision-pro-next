@@ -91,6 +91,10 @@ tr:hover .action-btns{opacity:1}
         <div class="page-sub" id="count-sub">Chargement…</div>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="openGeoExport()" title="Exporter les parcelles au format SIG (GeoJSON, KML, Shapefile)">
+          <span class="material-symbols-outlined" style="font-size:18px">public</span>
+          Export SIG
+        </button>
         <button class="btn btn-outline" onclick="openOverlaps()" title="Détecter les parcelles dont les polygones se chevauchent (double-mapping)">
           <span class="material-symbols-outlined" style="font-size:18px">layers</span>
           Conflits de délimitation
@@ -510,6 +514,44 @@ function grabGPS() {
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
+}
+
+// ── Export SIG (GeoJSON / KML / Shapefile) ──────────────────────────────────
+function openGeoExport(){
+  let ov=document.getElementById('gex-overlay');
+  if(!ov){ ov=buildGeoExportModal(); document.body.appendChild(ov); }
+  ov.style.display='flex';
+}
+function closeGeoExport(){ const ov=document.getElementById('gex-overlay'); if(ov) ov.style.display='none'; }
+function buildGeoExportModal(){
+  const ov=document.createElement('div');
+  ov.id='gex-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(12,32,24,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.onclick=(e)=>{ if(e.target===ov) closeGeoExport(); };
+  const opt=(fmt,icon,title,sub)=>
+    `<button onclick="doGeoExport('${fmt}')" style="display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid var(--border,#e6ddd0);background:var(--surface,#fff);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:8px">`
+    + `<span class="material-symbols-outlined" style="font-size:24px;color:var(--primary,#1a4231)">${icon}</span>`
+    + `<span><span style="display:block;font-weight:700;color:var(--text)">${title}</span>`
+    + `<span style="display:block;font-size:12px;color:var(--muted)">${sub}</span></span></button>`;
+  ov.innerHTML=
+    '<div style="background:var(--surface,#fff);max-width:460px;width:100%;border-radius:14px;padding:20px 22px;box-shadow:0 12px 48px rgba(0,0,0,.3)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +   '<div style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--primary,#1a4231)">🌍 Export SIG des parcelles</div>'
+    +   '<button onclick="closeGeoExport()" style="border:none;background:transparent;cursor:pointer;font-size:22px;color:var(--muted)">×</button>'
+    + '</div>'
+    + '<p style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Télécharge les parcelles délimitées de votre coopérative (polygone si tracé, sinon point GPS).</p>'
+    + opt('geojson','data_object','GeoJSON','Format standard EUDR — pour dépôt de géolocalisation.')
+    + opt('kml','travel_explore','KML','Pour visualiser dans Google Earth.')
+    + opt('shp','folder_zip','Shapefile (.zip)','Pour les certificateurs et les outils SIG (QGIS…).')
+    + '</div>';
+  return ov;
+}
+async function doGeoExport(fmt){
+  const path = fmt==='geojson' ? '/geo/export.geojson' : fmt==='kml' ? '/geo/export.kml' : '/geo/export.shp.zip';
+  const name = fmt==='geojson' ? 'parcelles.geojson' : fmt==='kml' ? 'parcelles.kml' : 'parcelles.shp.zip';
+  if (typeof toast==='function') toast('Préparation de l’export…');
+  const ok = await downloadAuthedFile(path, name);
+  if (ok) closeGeoExport();
 }
 
 // ── Conflits de délimitation (chevauchement de polygones / double-mapping) ──

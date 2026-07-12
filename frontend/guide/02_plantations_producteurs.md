@@ -34,6 +34,14 @@ direct aux deux fiches pour corriger. Un **polygone invalide** (tracé qui se cr
 car il **fait rejeter** un dossier EUDR. Ces deux contrôles apparaissent également en **alertes** dans le
 [Jumeau de la parcelle](13_jumeau_parcelle.md).
 
+### Export SIG *(GeoJSON / KML / Shapefile)*
+Bouton **« Export SIG »** (en haut de **Plantations**) : télécharge les parcelles de votre coopérative
+(polygone si tracé, sinon point GPS) dans trois formats standard :
+- **GeoJSON** — format attendu pour le **dépôt de géolocalisation EUDR** ;
+- **KML** — pour visualiser dans **Google Earth** ;
+- **Shapefile (.zip)** — pour les **certificateurs** et les outils SIG (QGIS…).
+L'export est **cloisonné** à votre coopérative et porte des attributs utiles (nom, producteur, région, surface, statut EUDR).
+
 ---
 
 ## 2.B — Producteurs (annuaire)

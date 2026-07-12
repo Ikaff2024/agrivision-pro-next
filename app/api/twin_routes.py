@@ -4,9 +4,11 @@ GET /plantations/{id}/twin : vue agrégée (diagnostic, EUDR, déforestation,
 agroforesterie, récoltes, CacaoGuard, délimitation) + alertes par règles.
 Lecture seule, scope coopérative.
 """
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
@@ -133,3 +135,50 @@ async def get_plantation_geo_check(
     validity = (validate_geometry(boundary.geojson) if boundary
                 else {"available": True, "valid": False, "reason": "Parcelle non délimitée."})
     return {"validity": validity, **find_overlaps(db, plantation)}
+
+
+# ── Export SIG (GeoJSON / KML / Shapefile) ────────────────────────────────────
+
+def _attachment(content, media_type: str, filename: str) -> Response:
+    return Response(
+        content=content, media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/geo/export.geojson")
+async def export_geojson_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export GeoJSON des parcelles de la coopérative (format EUDR). Cloisonné."""
+    from app.services.geo_export import coop_slug, export_geojson
+    fc = export_geojson(db, current_user.cooperative_id)
+    return _attachment(json.dumps(fc, ensure_ascii=False), "application/geo+json",
+                       f"parcelles_{coop_slug(db, current_user.cooperative_id)}.geojson")
+
+
+@router.get("/geo/export.kml")
+async def export_kml_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export KML des parcelles (Google Earth). Cloisonné."""
+    from app.services.geo_export import coop_slug, export_kml
+    kml = export_kml(db, current_user.cooperative_id)
+    return _attachment(kml, "application/vnd.google-earth.kml+xml",
+                       f"parcelles_{coop_slug(db, current_user.cooperative_id)}.kml")
+
+
+@router.get("/geo/export.shp.zip")
+async def export_shapefile_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export Shapefile (zip) des parcelles — certificateurs / outils SIG. Cloisonné."""
+    from app.services.geo_export import coop_slug, export_shapefile_zip
+    data = export_shapefile_zip(db, current_user.cooperative_id)
+    if data is None:
+        raise HTTPException(status_code=503, detail="Module Shapefile indisponible côté serveur.")
+    return _attachment(data, "application/zip",
+                       f"parcelles_{coop_slug(db, current_user.cooperative_id)}.shp.zip")
