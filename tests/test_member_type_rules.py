@@ -81,3 +81,30 @@ def test_precheck_returns_verdict(client):
 
 def test_precheck_requires_auth(client):
     assert client.post("/satellite/precheck", json={"latitude": 5.0, "longitude": -6.0}).status_code == 401
+
+
+def test_precheck_flags_implausible_land_cover(client, monkeypatch):
+    """Position urbaine/sol nu SANS déforestation → on prévient que ce n'est pas une parcelle
+    (au lieu d'un « Feu vert » trompeur). Cas Bingerville."""
+    import app.api.satellite_routes as sr
+    monkeypatch.setattr(sr, "get_deforestation_signal", lambda lat, lng: {
+        "loss_detected": False, "alerts_count": 0, "since": "2020-12-31", "source": "global-forest-watch"})
+    monkeypatch.setattr(sr, "get_indices", lambda lat, lng: {
+        "ndvi": 0.24, "ndvi_status": "INDETERMINE", "source": "sentinel-2"})
+    h = _admin(client, "rule.pc.urb@test.ci", coop="Coop RulePCU")
+    d = client.post("/satellite/precheck", json={"latitude": 5.355, "longitude": -3.883}, headers=h).json()
+    assert d["land_cover"]["implausible"] is True
+    assert d["level"] == "medium"
+    assert "ressemble pas" in d["message"].lower()
+
+
+def test_precheck_healthy_cover_stays_eligible(client, monkeypatch):
+    """Couvert végétal sain + aucune déforestation → reste ÉLIGIBLE (pas de fausse alerte)."""
+    import app.api.satellite_routes as sr
+    monkeypatch.setattr(sr, "get_deforestation_signal", lambda lat, lng: {
+        "loss_detected": False, "alerts_count": 0, "since": "2020-12-31", "source": "global-forest-watch"})
+    monkeypatch.setattr(sr, "get_indices", lambda lat, lng: {
+        "ndvi": 0.72, "ndvi_status": "HEALTHY", "source": "sentinel-2"})
+    h = _admin(client, "rule.pc.ok2@test.ci", coop="Coop RulePCOK")
+    d = client.post("/satellite/precheck", json={"latitude": 5.78, "longitude": -6.59}, headers=h).json()
+    assert d["verdict"] == "ELIGIBLE" and d["land_cover"]["implausible"] is False

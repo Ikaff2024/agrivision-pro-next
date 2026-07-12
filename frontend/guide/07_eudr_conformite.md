@@ -39,6 +39,19 @@ L'EUDR est **strictement environnemental / géolocalisation**. Le score repose s
 > La **déforestation** peut être confirmée par **constat terrain** (saisie manuelle) ou
 > **automatiquement** par satellite (Global Forest Watch) si les clés sont configurées.
 
+### Bien comprendre le contrôle satellite *(éviter les faux « bugs »)*
+Le contrôle détecte une **perte de couvert forestier survenue APRÈS le 31/12/2020** à l'endroit indiqué
+(données Global Forest Watch : GLAD-L / GLAD-S2 / RADD).
+- ✅ **0 alerte** = aucune déforestation *récente* détectée à cet endroit — **ce n'est pas** un jugement
+  sur la qualité de la parcelle, ni « c'est une bonne parcelle ».
+- ❗ **Ce n'est pas** un détecteur de « zone cacaoyère » : une position **urbaine** (ex. Bingerville) renvoie
+  logiquement **0 alerte** — il n'y avait plus de forêt à perdre. Ce n'est **pas un bug**.
+- 🧪 **Pour une démo qui montre une détection**, utilisez un vrai front de déforestation, ex. **Cavally
+  (6.45, -7.72)**, **Scio (6.60, -7.40)** ou **Goin-Débé (6.35, -7.55)** → alertes > 0.
+- 🛡️ Depuis peu, si une position **n'a pas de déforestation** mais un **couvert végétal très faible**
+  (urbain / sol nu / eau), le **pré-contrôle** prévient : *« ne ressemble pas à une parcelle — vérifiez les
+  coordonnées »* au lieu d'un simple « Feu vert ».
+
 ---
 
 ## 7.B — Conformité (vue transversale)

@@ -144,6 +144,35 @@ def _precheck_verdict(defo: dict) -> dict:
     }
 
 
+def _land_cover_note(lat, lng) -> dict | None:
+    """NDVI au point : signale si la zone NE RESSEMBLE PAS à une parcelle cultivée.
+
+    Garde-fou anti-« faux feu vert » : à Bingerville (urbain) la déforestation est
+    à juste titre nulle, mais ce n'est pas une plantation. On le dit clairement.
+    Uniquement sur données RÉELLES (pas en simulation, qui n'est pas fiable au lieu).
+    """
+    if lat is None or lng is None:
+        return None
+    try:
+        idx = get_indices(lat, lng)
+    except Exception:  # noqa: BLE001
+        return None
+    if idx.get("source") == "simulation":
+        return None
+    ndvi = idx.get("ndvi")
+    if idx.get("ndvi_status") == "INDETERMINE":
+        return {
+            "implausible": True,
+            "ndvi": ndvi,
+            "message": (
+                f"Couvert végétal très faible ici (NDVI {ndvi}) : zone urbaine, sol nu ou "
+                "plan d'eau — cela ne ressemble pas à une parcelle cultivée. Vérifiez que "
+                "les coordonnées correspondent bien à la plantation."
+            ),
+        }
+    return {"implausible": False, "ndvi": ndvi}
+
+
 @router.post("/precheck")
 def deforestation_precheck(
     req: PrecheckRequest,
@@ -159,15 +188,34 @@ def deforestation_precheck(
     geom = req.geometry if isinstance(req.geometry, dict) else None
     if geom and geom.get("type") == "Feature":
         geom = geom.get("geometry")
+    lat, lng = req.latitude, req.longitude
     if geom and geom.get("type") in ("Polygon", "MultiPolygon"):
         defo = get_deforestation_for_geometry(geom)
+        cen = _geometry_centroid(geom)
+        if cen:
+            lat, lng = cen
     else:
         defo = get_deforestation_signal(req.latitude, req.longitude)
+
+    verdict = _precheck_verdict(defo)
+    # Plausibilité du couvert : un "Feu vert" sur une zone urbaine/sol nu est trompeur.
+    land = _land_cover_note(lat, lng)
+    if land and land.get("implausible") and verdict.get("eligible") is True:
+        verdict = {
+            **verdict,
+            "level": "medium",
+            "title": "Zone à vérifier — ne ressemble pas à une parcelle",
+            "message": (
+                land["message"] + " (Aucune alerte de déforestation depuis "
+                f"{defo.get('since', '2020-12-31')}, mais le couvert ne correspond pas à une culture.)"
+            ),
+        }
     return {
         "latitude": req.latitude,
         "longitude": req.longitude,
         "deforestation": defo,
-        **_precheck_verdict(defo),
+        "land_cover": land,
+        **verdict,
     }
 
 
