@@ -1,0 +1,70 @@
+# Audit d'ambiguïté des sorties — module par module
+
+> **But** : repérer les affichages qui pourraient être **mal lus** par un utilisateur ou un visiteur
+> (comme le « Feu vert » de la déforestation à Bingerville) et les clarifier de façon proactive.
+> Phase pilote : les retours terrain compléteront cette liste. **Date** : juillet 2026.
+>
+> Légende priorité : 🔴 à corriger · 🟠 à trancher (choix produit) · 🟢 déjà clair (RAS).
+
+---
+
+## Vue d'ensemble
+Bonne nouvelle : l'app est **déjà très majoritairement légendée**. Les scores de risque portent la mention
+« ↑ élevé = moins bon », le carbone est marqué « estimation », l'EUDR en simulation refuse le mot « conforme »
+et bloque le DDS, le revenu vital est chiffré (atteint/écart + montant). Peu de vrais pièges subsistent.
+
+---
+
+## Corrigé dans cette passe
+- 🔴→🟢 **Pré-contrôle EUDR / position urbaine** *(satellite)* : un « Feu vert » sur une zone sans forêt
+  (Bingerville) était trompeur. Désormais, si aucune déforestation **mais** couvert végétal très faible
+  (urbain/sol nu/eau), le verdict devient **« Zone à vérifier — ne ressemble pas à une parcelle »**. *(Déployé, vérifié.)*
+- 🔴→🟢 **Satellite avancé, mode simulation** : affichait « ✓ Aucune perte » (vert) sans contrôle réel.
+  Corrigé en **« ❔ Non vérifié »** quand la clé GFW est absente.
+
+---
+
+## À trancher ensemble (choix produit) 🟠
+
+### A. Le mot « Conforme EUDR » à partir de 4/5
+- **Où** : `eudr.html`, `plantation_detail.html` — statut vert « **Conforme** » dès **score ≥ 4/5**.
+- **Ambiguïté** : « Conforme » (vert) peut se lire « **100 % conforme EUDR** » alors qu'**un critère sur cinq
+  peut manquer**. Un acheteur/auditeur pointilleux pourrait tiquer.
+- **Options** :
+  1. Garder « Conforme » mais **afficher toujours le score** à côté (`Conforme · 4/5`) + info-bulle « ≥ 4/5 ».
+  2. Renommer le palier 4/5 en **« Prêt (sous réserve) »** et réserver « Conforme » au **5/5**.
+- **Reco** : option 1 (moins disruptif, transparent). *(À valider.)*
+
+### B. « ✓ Conforme » sur la fiche producteur (volet social)
+- **Où** : `producer_profile.html` — bandeau vert « **✓ Conforme — aucun blocage, pas d'intervention requise** ».
+- **Ambiguïté** : « Conforme » ici signifie **« pas de blocage de traçabilité actif »**, pas « aucun risque de
+  travail d'enfant ». Avec le nouvel **indicateur de risque précoce**, un ménage **non bloqué** peut être
+  **« à surveiller »**. Le mot rassure trop.
+- **Reco** : remplacer par **« Aucun blocage actif »** (neutre) et, si pertinent, afficher le **niveau de
+  risque précoce** du ménage. *(À valider.)*
+
+### C. Déforestation « Aucune (RAS) » dans le Jumeau
+- **Où** : `plantation_detail.html` — puce « Déforestation : **Aucune (RAS)** ».
+- **Ambiguïté** : léger — « RAS » peut se lire « tout va bien » alors que ça ne concerne **que** la perte
+  post-2020. Le pré-contrôle est déjà clarifié ; ici l'info-bulle suffirait.
+- **Reco** : info-bulle « Aucune perte de forêt détectée depuis déc. 2020 (ne juge pas les autres critères) ».
+  *(Faible priorité.)*
+
+---
+
+## Déjà clair (contrôlé) 🟢
+- **Tableau de bord / Direction** : « Score = risque (↑ élevé = moins bon) », « Santé globale = 100 − risque »,
+  palmarès « risque le plus élevé d'abord ». ✔
+- **Agroforesterie** : carbone « (estimation) », score carbone « Plus élevé = mieux ». ✔
+- **EUDR (simulation)** : bannière « GFW non configuré → verdict “à vérifier”, jamais “conforme” ; DDS bloqué ». ✔
+- **Diagnostic photo** : si modèle indisponible → « ⏳ Modèle indisponible » (pas de faux résultat). ✔
+- **Revenu vital** : « ✓ atteint / ⚠ écart » + % + montant ; seuil éditable expliqué. ✔
+- **Lots / Conformité** : « déforestation NON vérifiée — contrôle requis avant export ». ✔
+- **Protection enfant** : niveaux faible/moyen/élevé, « déjà suivi », disclaimer « aide à l'enquête ». ✔
+
+---
+
+## À vérifier au fil des retours pilote (backlog)
+- Formulations « Faible / Moyen / Élevé » : toujours accompagner d'un sens (bon vs mauvais selon le contexte).
+- Sources satellite « simulation » vs réelle : rendre le badge de source visible partout où un chiffre satellite s'affiche.
+- Unités et périodes (kg/ha « par campagne », CFA/an) : garder explicites.

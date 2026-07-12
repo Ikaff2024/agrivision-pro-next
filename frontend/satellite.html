@@ -380,8 +380,11 @@ function renderAdvanced(payload) {
   document.getElementById('adv-ndmi-status').textContent = idx.interpretation || idx.moisture_status || '';
   const def = payload.deforestation || {};
   const defEl = document.getElementById('adv-defor');
-  defEl.textContent = def.loss_detected ? '⚠ Perte détectée' : '✓ Aucune perte';
-  defEl.style.color = def.loss_detected ? '#922b21' : '#1a6b3a';
+  const defSim = def.source === 'simulation';
+  // En simulation (clé GFW absente), NE PAS afficher un « Aucune perte » rassurant :
+  // il n'y a pas eu de contrôle réel → « Non vérifié ».
+  defEl.textContent = defSim ? '❔ Non vérifié' : (def.loss_detected ? '⚠ Perte détectée' : '✓ Aucune perte');
+  defEl.style.color = defSim ? '#9a6200' : (def.loss_detected ? '#922b21' : '#1a6b3a');
   document.getElementById('adv-defor-note').textContent =
     def.source === 'simulation'
       ? 'Simulation (clé GFW non configurée)'
