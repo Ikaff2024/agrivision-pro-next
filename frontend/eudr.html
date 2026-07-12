@@ -451,7 +451,7 @@ function renderTable() {
         <td onclick="location.href='plantation_detail.html?id=${p.id}'" style="cursor:pointer;color:var(--muted)">${escapeHtml(p.region || '—')}</td>
         <td>${p.has_polygon ? '<span style="color:#1a6b3a"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">check_circle</span> Tracé</span>' : '<span style="color:var(--faint)">Non tracé</span>'}</td>
         <td class="score-cell" style="color:${p.eudr_color === 'green' ? '#1a6b3a' : p.eudr_color === 'orange' ? '#9a6200' : '#922b21'}">${p.eudr_score}/${p.eudr_max}</td>
-        <td><span class="badge ${cls}">${lbl}</span></td>
+        <td><span class="badge ${cls}" title="Conforme = 4–5/5 · À vérifier = 2–3/5 · Non conforme = 0–1/5">${lbl} · ${p.eudr_score}/${p.eudr_max}</span></td>
         <td>
           <div class="fail-tags">${failedTags || '<span style="color:var(--faint);font-size:11.5px">—</span>'}</div>
           <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); downloadDds(${p.id}, '${escapeHtml(p.name || '')}')" style="margin-top:6px;font-size:11px;padding:4px 8px">

@@ -1058,12 +1058,12 @@ async function renderEudrCard(p) {
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-top:18px">' +
         '<div style="background:' + bg + ';border-left:4px solid ' + bd + ';padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">' +
           '<div>' +
-            '<div style="font-family:Fraunces,serif;font-size:16px;font-weight:700;color:' + fg + '">' +
+            '<div style="font-family:Fraunces,serif;font-size:16px;font-weight:700;color:' + fg + '" title="Conforme = 4 ou 5 critères sur 5 respectés">' +
               '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px">eco</span> ' +
-              'Conformite EUDR : ' + (STATUS_LBL[data.status] || data.status) +
+              'Conformite EUDR : ' + (STATUS_LBL[data.status] || data.status) + ' · ' + data.score + '/' + data.max_score +
             '</div>' +
             '<div style="font-size:12px;color:' + fg + ';margin-top:3px">' +
-              'Score ' + data.score + '/' + data.max_score +
+              'Conforme = 4–5/5 · À vérifier = 2–3/5 · Non conforme = 0–1/5' +
             '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap">' +

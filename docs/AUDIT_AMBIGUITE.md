@@ -24,24 +24,18 @@ et bloque le DDS, le revenu vital est chiffré (atteint/écart + montant). Peu d
 
 ---
 
-## À trancher ensemble (choix produit) 🟠
+## Tranché & implémenté (décision propriétaire) ✅
 
-### A. Le mot « Conforme EUDR » à partir de 4/5
-- **Où** : `eudr.html`, `plantation_detail.html` — statut vert « **Conforme** » dès **score ≥ 4/5**.
-- **Ambiguïté** : « Conforme » (vert) peut se lire « **100 % conforme EUDR** » alors qu'**un critère sur cinq
-  peut manquer**. Un acheteur/auditeur pointilleux pourrait tiquer.
-- **Options** :
-  1. Garder « Conforme » mais **afficher toujours le score** à côté (`Conforme · 4/5`) + info-bulle « ≥ 4/5 ».
-  2. Renommer le palier 4/5 en **« Prêt (sous réserve) »** et réserver « Conforme » au **5/5**.
-- **Reco** : option 1 (moins disruptif, transparent). *(À valider.)*
+### A. Le mot « Conforme EUDR » à partir de 4/5 — *fait*
+- **Décision** : garder « Conforme » mais **toujours afficher le score**. Le badge montre désormais
+  **« Conforme · 4/5 »** (liste EUDR + fiche parcelle), avec une **mini-légende** du seuil
+  (Conforme = 4–5/5 · À vérifier = 2–3/5 · Non conforme = 0–1/5) et une info-bulle.
 
-### B. « ✓ Conforme » sur la fiche producteur (volet social)
-- **Où** : `producer_profile.html` — bandeau vert « **✓ Conforme — aucun blocage, pas d'intervention requise** ».
-- **Ambiguïté** : « Conforme » ici signifie **« pas de blocage de traçabilité actif »**, pas « aucun risque de
-  travail d'enfant ». Avec le nouvel **indicateur de risque précoce**, un ménage **non bloqué** peut être
-  **« à surveiller »**. Le mot rassure trop.
-- **Reco** : remplacer par **« Aucun blocage actif »** (neutre) et, si pertinent, afficher le **niveau de
-  risque précoce** du ménage. *(À valider.)*
+### B. « ✓ Conforme » sur la fiche producteur (volet social) — *fait*
+- **Décision** : remplacé par **« Aucun blocage actif »** (neutre) + rappel *« un ménage sans blocage peut
+  rester à surveiller »*, avec le **niveau de risque** affiché quand il n'est pas nul.
+
+## À trancher / faible priorité 🟠
 
 ### C. Déforestation « Aucune (RAS) » dans le Jumeau
 - **Où** : `plantation_detail.html` — puce « Déforestation : **Aucune (RAS)** ».

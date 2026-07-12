@@ -122,7 +122,7 @@ function renderCacaoGuardPanel(riskAgg, traceability, plans, complaints, produce
     ? `<div style="background:#fdedec;border:1px solid #f1948a;color:#922b21;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>⛔ Production bloquee</strong> — ${traceability.active_blocks_count} blocage(s) actif(s)</div>`
     : intervention
       ? `<div style="background:#fef8ec;border:1px solid #f0c97a;color:#9a6200;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>⚠ Intervention recommandee</strong> — voir details ci-dessous</div>`
-      : `<div style="background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>✓ Conforme</strong> — aucun blocage, pas d'intervention requise</div>`;
+      : `<div style="background:#eafaf1;border:1px solid #a8d8bb;color:#1a6b3a;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><strong>Aucun blocage actif</strong> — pas d'intervention requise actuellement${(aggLevel && aggLevel !== 'none') ? ` · <span style="color:#9a6200">risque ${RISK_LBL[aggLevel] || aggLevel} à surveiller</span>` : ''}. Un ménage sans blocage peut rester « à surveiller » (voir Protection enfant).</div>`;
   const activePlans = (plans || []).filter(p => !['completed','closed'].includes(p.status));
   const openComplaints = (complaints || []).filter(c => !['closed','unsubstantiated'].includes(c.status));
   return `
