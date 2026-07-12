@@ -90,10 +90,16 @@ tr:hover .action-btns{opacity:1}
         <div class="page-title">Plantations</div>
         <div class="page-sub" id="count-sub">Chargement…</div>
       </div>
-      <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
-        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-        Nouvelle plantation
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="openOverlaps()" title="Détecter les parcelles dont les polygones se chevauchent (double-mapping)">
+          <span class="material-symbols-outlined" style="font-size:18px">layers</span>
+          Conflits de délimitation
+        </button>
+        <button class="btn btn-primary" id="add-btn" onclick="openModal()" style="display:none">
+          <span class="material-symbols-outlined" style="font-size:18px">add</span>
+          Nouvelle plantation
+        </button>
+      </div>
     </div>
 
     <div class="avp-content">
@@ -504,6 +510,54 @@ function grabGPS() {
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
+}
+
+// ── Conflits de délimitation (chevauchement de polygones / double-mapping) ──
+function _oesc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+function openOverlaps(){
+  let ov=document.getElementById('ovl-overlay');
+  if(!ov){ ov=buildOverlapsModal(); document.body.appendChild(ov); }
+  ov.style.display='flex'; loadOverlaps();
+}
+function closeOverlaps(){ const ov=document.getElementById('ovl-overlay'); if(ov) ov.style.display='none'; }
+function buildOverlapsModal(){
+  const ov=document.createElement('div');
+  ov.id='ovl-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(12,32,24,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.onclick=(e)=>{ if(e.target===ov) closeOverlaps(); };
+  ov.innerHTML=
+    '<div style="background:var(--surface,#fff);max-width:620px;width:100%;max-height:86vh;overflow:auto;border-radius:14px;padding:20px 22px;box-shadow:0 12px 48px rgba(0,0,0,.3)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +   '<div style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--primary,#1a4231)">🗺️ Conflits de délimitation</div>'
+    +   '<button onclick="closeOverlaps()" style="border:none;background:transparent;cursor:pointer;font-size:22px;color:var(--muted)">×</button>'
+    + '</div>'
+    + '<p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Parcelles dont les <b>polygones se chevauchent</b> — signe possible de <b>double-mapping</b> (même terre déclarée deux fois). À vérifier : risque de fraude et de rejet EUDR.</p>'
+    + '<div id="ovl-list" style="display:flex;flex-direction:column;gap:9px">Chargement…</div>'
+    + '</div>';
+  return ov;
+}
+async function loadOverlaps(){
+  const list=document.getElementById('ovl-list'); if(!list) return;
+  list.textContent='Analyse en cours…';
+  try{
+    const r=await authFetch('/geo/overlaps');
+    const d=r&&r.ok?await r.json():null;
+    if(!d){ list.textContent='Erreur de chargement.'; return; }
+    if(d.available===false){ list.innerHTML='<div style="color:var(--muted);font-size:13px">Module d’analyse géométrique indisponible côté serveur.</div>'; return; }
+    if(!d.pairs.length){ list.innerHTML=`<div style="color:#1a6b3a;font-size:13px;padding:6px 0">✓ Aucun chevauchement détecté sur ${d.total_delimited} parcelle(s) délimitée(s).</div>`; return; }
+    list.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:2px"><b>${d.count}</b> conflit(s) sur ${d.total_delimited} parcelle(s) délimitée(s) :</div>`
+      + d.pairs.map(ovlRow).join('');
+  }catch(e){ list.textContent='Serveur injoignable.'; }
+}
+function ovlRow(p){
+  const pct=(p.overlap_pct!=null)?` · ${p.overlap_pct}%`:'';
+  return '<div style="border:1px solid #e6c9b6;background:#fbf3ee;border-radius:10px;padding:10px 12px">'
+    + `<div style="font-weight:700;color:#8a3d1a">⚠️ ${_oesc(p.a.name)} ⇄ ${_oesc(p.b.name)}</div>`
+    + `<div style="font-size:12px;color:#7a4a2f;margin-top:2px">Recouvrement : <b>${p.overlap_ha} ha</b>${pct} de la plus petite parcelle.</div>`
+    + `<div style="margin-top:7px;display:flex;gap:6px">`
+    +   `<button class="btn btn-sm btn-outline" style="padding:3px 9px" onclick="location.href='plantation_detail.html?id=${p.a.plantation_id}'">Ouvrir ${_oesc(p.a.name)}</button>`
+    +   `<button class="btn btn-sm btn-outline" style="padding:3px 9px" onclick="location.href='plantation_detail.html?id=${p.b.plantation_id}'">Ouvrir ${_oesc(p.b.name)}</button>`
+    + `</div></div>`;
 }
 
 initAssignmentFilter();

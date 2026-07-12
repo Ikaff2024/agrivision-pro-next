@@ -182,6 +182,27 @@ def compute_yield_trend(harvests, hectares) -> dict:
     }
 
 
+def _geometry_block(db: Session, plantation: Plantation, boundary) -> dict:
+    """Validité du polygone + chevauchements avec les autres parcelles de la coop.
+
+    Best-effort : si le module géo (shapely) est indisponible, renvoie available=False.
+    """
+    from app.services.geo import find_overlaps, geo_available, validate_geometry
+    if not geo_available():
+        return {"available": False, "reason": "module géo non disponible"}
+    val = (validate_geometry(boundary.geojson) if boundary
+           else {"available": True, "valid": False, "reason": "Parcelle non délimitée."})
+    ovl = find_overlaps(db, plantation)
+    return {
+        "available": True,
+        "valid": val.get("valid"),
+        "reason": val.get("reason"),
+        "repairable": val.get("repairable"),
+        "overlaps": ovl.get("overlaps", []),
+        "overlap_count": ovl.get("count", 0),
+    }
+
+
 def build_twin(db: Session, plantation: Plantation) -> dict:
     """Vue unifiée (jumeau) d'une parcelle à partir des données existantes."""
     pid = plantation.id
@@ -258,6 +279,7 @@ def build_twin(db: Session, plantation: Plantation) -> dict:
             "yield_kg_ha": yield_kg_ha,
         },
         "yield_trend": compute_yield_trend(harvests, ha),
+        "geometry": _geometry_block(db, plantation, boundary),
         "cacaoguard": {
             "blocked": block is not None,
             "reason": (block.block_reason.value if block and getattr(block, "block_reason", None) else None),
@@ -314,6 +336,17 @@ def compute_alerts(twin: dict) -> list[dict]:
     elif hv["yield_kg_ha"] is not None and hv["yield_kg_ha"] < LOW_YIELD_KG_HA:
         add("medium", "low_yield", f"Rendement faible ({hv['yield_kg_ha']} kg/ha)",
             "Diagnostiquer les causes (sol, ombrage, âge des plants).")
+
+    # Géométrie : polygone invalide (rejet EUDR) et chevauchement de parcelles
+    # (double-mapping). Absents de la vue coop batchée (`geometry` non calculé).
+    geo = twin.get("geometry") or {}
+    if geo.get("available"):
+        if geo.get("valid") is False and geo.get("reason") != "Parcelle non délimitée.":
+            add("high", "geometry_invalid", "Polygone invalide",
+                "Corriger le tracé (auto-intersection) — un polygone invalide fait rejeter le dossier EUDR.")
+        if geo.get("overlap_count"):
+            add("high", "plot_overlap", f"Chevauchement avec {geo['overlap_count']} parcelle(s)",
+                "Vérifier la délimitation : double-mapping possible (risque de fraude / rejet EUDR).")
 
     # Tendance de rendement (Palier 2) — signalée seulement en BAISSE significative.
     # (Absente de la vue coop batchée : `yield_trend` n'y est pas calculé → pas d'alerte.)

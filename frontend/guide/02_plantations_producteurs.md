@@ -26,6 +26,14 @@ Création/modification : **Admin** (et selon réglages, agronome). Consultation 
 - Renseignez **toujours la superficie et le GPS** : ça débloque la carte, le satellite et l'EUDR.
 - Le **propriétaire** saisi crée/relie un **producteur** : pas besoin de le créer deux fois.
 
+### Conflits de délimitation *(contrôle anti-fraude / EUDR)*
+Bouton **« Conflits de délimitation »** (en haut de **Plantations**) : la plateforme compare les **polygones**
+de toutes les parcelles et liste celles qui **se chevauchent** — signe possible de **double-mapping**
+(la même terre déclarée deux fois). Pour chaque conflit : la **surface** et le **% de recouvrement**, et un accès
+direct aux deux fiches pour corriger. Un **polygone invalide** (tracé qui se croise) est aussi signalé — à corriger
+car il **fait rejeter** un dossier EUDR. Ces deux contrôles apparaissent également en **alertes** dans le
+[Jumeau de la parcelle](13_jumeau_parcelle.md).
+
 ---
 
 ## 2.B — Producteurs (annuaire)

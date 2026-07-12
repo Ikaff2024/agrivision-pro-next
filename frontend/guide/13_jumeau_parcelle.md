@@ -66,6 +66,9 @@ On ne signale que des situations **actionnables** (on n'inonde pas la liste pour
 | Revenu vital non atteint | 🔴 | Renforcer les revenus (diversification, productivité, primes). |
 | Risque agronomique élevé | 🔴 | Intervention agronomique prioritaire. |
 | Certification expirée | 🟠 | Planifier le **renouvellement**. |
+| **Polygone invalide** | 🔴 | Corriger le tracé (auto-intersection) — un polygone invalide **fait rejeter** le dossier EUDR. |
+| **Chevauchement avec N parcelle(s)** | 🔴 | Vérifier la délimitation : **double-mapping** possible (même terre déclarée deux fois). Voir *Conflits de délimitation* (page **Plantations**). |
+| Rendement en baisse | 🟠 | Diagnostiquer la cause (âge des plants, sol, maladies). |
 | Diagnostic absent / de +12 mois | 🟠 | Réaliser / refaire un **diagnostic** terrain. |
 | Verger âgé / rendement faible | 🟠 | Diagnostiquer les causes ; envisager une **replantation**. |
 | Aucune récolte enregistrée | ⚪ | Saisir les **récoltes** pour suivre la production. |

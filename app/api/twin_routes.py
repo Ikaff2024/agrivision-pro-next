@@ -13,6 +13,7 @@ from app.auth.auth_service import get_current_user
 from app.db.database import get_db
 from app.db.models import Plantation, Producer, User
 from app.services.child_risk import assess_producer_child_risk, build_coop_child_risk
+from app.services.geo import build_coop_overlaps, find_overlaps, validate_geometry
 from app.services.twin import build_coop_risk, build_twin, compute_alerts
 from app.services.weather import get_weather
 
@@ -99,3 +100,36 @@ async def get_producer_child_risk(
     if current_user.cooperative_id is not None and producer.cooperative_id != current_user.cooperative_id:
         raise HTTPException(status_code=403, detail="Producteur d'une autre coopérative.")
     return assess_producer_child_risk(db, producer)
+
+
+# ── Analyse géométrique (validité + chevauchement / double-mapping) ───────────
+
+@router.get("/geo/overlaps")
+async def get_coop_overlaps(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Paires de parcelles qui se CHEVAUCHENT dans la coopérative (double-mapping).
+
+    Scopé à la coopérative. Renvoie `available=False` si le module géo (shapely)
+    n'est pas disponible côté serveur.
+    """
+    return build_coop_overlaps(db, current_user.cooperative_id)
+
+
+@router.get("/plantations/{plantation_id}/geo-check")
+async def get_plantation_geo_check(
+    plantation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Contrôle géométrique d'une parcelle : validité du polygone + chevauchements."""
+    plantation = db.query(Plantation).filter(Plantation.id == plantation_id).first()
+    if not plantation:
+        raise HTTPException(status_code=404, detail="Plantation introuvable.")
+    if current_user.cooperative_id is not None and plantation.cooperative_id != current_user.cooperative_id:
+        raise HTTPException(status_code=403, detail="Plantation d'une autre coopérative.")
+    boundary = plantation.boundary
+    validity = (validate_geometry(boundary.geojson) if boundary
+                else {"available": True, "valid": False, "reason": "Parcelle non délimitée."})
+    return {"validity": validity, **find_overlaps(db, plantation)}
