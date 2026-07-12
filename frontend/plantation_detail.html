@@ -1180,9 +1180,9 @@ function renderTwin(data, el) {
   const frDefo = v => v ? (DEFO_FR[String(v).toLowerCase()] || v) : 'Non contrôlée';
   const frEudr = v => EUDR_FR[String(v).toLowerCase()] || v || '—';
 
-  const chip = (label, val, color) =>
-    `<div style="flex:1;min-width:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-      <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">${esc(label)}</div>
+  const chip = (label, val, color, tip) =>
+    `<div style="flex:1;min-width:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px"${tip ? ` title="${esc(tip)}"` : ''}>
+      <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">${esc(label)}${tip ? ' <span style="text-transform:none;font-size:11px">ⓘ</span>' : ''}</div>
       <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:${color || 'inherit'}">${esc(val)}</div>
     </div>`;
 
@@ -1192,7 +1192,8 @@ function renderTwin(data, el) {
     chip('Diagnostic', t.diagnostic.available ? frRisk(t.diagnostic.risk_level) : 'Aucun', ''),
     chip('Récoltes', t.harvests.total_kg ? (t.harvests.total_kg + ' kg' + (t.harvests.yield_kg_ha ? ` · ${t.harvests.yield_kg_ha} kg/ha` : '')) : 'Aucune', ''),
     chip('Déforestation', frDefo(t.deforestation.verdict),
-      t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : '')),
+      t.deforestation.verdict === 'clear' ? '#1a6b3a' : (t.deforestation.verdict === 'deforestation_detected' ? '#922b21' : ''),
+      'Concerne uniquement une perte de forêt survenue après le 31/12/2020 (satellite). « Aucune » ne juge pas les autres critères EUDR.'),
   ];
   // Tendance de rendement (Palier 2) — affichée seulement si ≥ 2 campagnes.
   const yt = t.yield_trend || {};

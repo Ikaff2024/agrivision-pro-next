@@ -35,14 +35,10 @@ et bloque le DDS, le revenu vital est chiffré (atteint/écart + montant). Peu d
 - **Décision** : remplacé par **« Aucun blocage actif »** (neutre) + rappel *« un ménage sans blocage peut
   rester à surveiller »*, avec le **niveau de risque** affiché quand il n'est pas nul.
 
-## À trancher / faible priorité 🟠
-
-### C. Déforestation « Aucune (RAS) » dans le Jumeau
-- **Où** : `plantation_detail.html` — puce « Déforestation : **Aucune (RAS)** ».
-- **Ambiguïté** : léger — « RAS » peut se lire « tout va bien » alors que ça ne concerne **que** la perte
-  post-2020. Le pré-contrôle est déjà clarifié ; ici l'info-bulle suffirait.
-- **Reco** : info-bulle « Aucune perte de forêt détectée depuis déc. 2020 (ne juge pas les autres critères) ».
-  *(Faible priorité.)*
+### C. Déforestation « Aucune (RAS) » dans le Jumeau — *fait*
+- **Où** : `plantation_detail.html` — puce « Déforestation » de la carte Jumeau.
+- **Fait** : info-bulle (ⓘ) ajoutée — « Concerne uniquement une perte de forêt après le 31/12/2020 ;
+  “Aucune” ne juge pas les autres critères EUDR. »
 
 ---
 
