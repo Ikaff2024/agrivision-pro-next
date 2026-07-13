@@ -168,3 +168,71 @@ def test_auto_unknown_plantation_404(client, monkeypatch):
     _mock_signal(monkeypatch)
     r = client.post("/plantations/999999/deforestation-check/auto", headers=auth)
     assert r.status_code == 404
+
+
+# ── Contrôle EN LOT (auto-batch) ──────────────────────────────────────────────
+
+def _seed_batch(n_poly=3, n_nopoly=1, role="admin", email="batch.admin@test.ci"):
+    db = TestingSessionLocal()
+    try:
+        coop = Cooperative(name=f"Coop defo-batch {email}", country="CI"); db.add(coop); db.flush()
+        user = User(email=email, password_hash="x", role=role, cooperative_id=coop.id)
+        prod = Producer(cooperative_id=coop.id, nom_complet="P", is_active=True)
+        db.add_all([user, prod]); db.flush()
+        pids = []
+        for i in range(n_poly):
+            p = Plantation(name=f"P{i}", owner_name="O", country="CI", region="Soubre",
+                           latitude=5.78, longitude=-6.58, hectares=1.0,
+                           cooperative_id=coop.id, producer_id=prod.id)
+            db.add(p); db.flush()
+            db.add(PlantationBoundary(plantation_id=p.id, geojson=VALID_POLYGON,
+                                      area_hectares=1.0, points_count=5, method="manual"))
+            pids.append(p.id)
+        for i in range(n_nopoly):
+            db.add(Plantation(name=f"NP{i}", owner_name="O", country="CI", region="Soubre",
+                              latitude=5.78, longitude=-6.58, hectares=1.0,
+                              cooperative_id=coop.id, producer_id=prod.id))
+        db.commit()
+        return _auth(user), pids
+    finally:
+        db.close()
+
+
+def test_batch_processes_all_delimited(client, monkeypatch):
+    auth, _ = _seed_batch(n_poly=3, n_nopoly=1, email="batch.all@test.ci")
+    _mock_signal(monkeypatch, loss_detected=False, source="global-forest-watch")
+    b = client.post("/eudr/deforestation-check/auto-batch?limit=10", headers=auth).json()
+    assert b["total_delimited"] == 3 and b["no_polygon"] == 1
+    assert b["processed"] == 3 and b["clear"] == 3 and b["detected"] == 0
+    assert b["remaining"] == 0
+
+
+def test_batch_detects_deforestation(client, monkeypatch):
+    auth, _ = _seed_batch(n_poly=2, n_nopoly=0, email="batch.det@test.ci")
+    _mock_signal(monkeypatch, loss_detected=True, alerts_count=5, source="global-forest-watch")
+    b = client.post("/eudr/deforestation-check/auto-batch?limit=10", headers=auth).json()
+    assert b["processed"] == 2 and b["detected"] == 2 and b["clear"] == 0
+
+
+def test_batch_pagination_and_skip_recent(client, monkeypatch):
+    auth, _ = _seed_batch(n_poly=3, n_nopoly=0, email="batch.pag@test.ci")
+    _mock_signal(monkeypatch, loss_detected=False, source="global-forest-watch")
+    b1 = client.post("/eudr/deforestation-check/auto-batch?limit=2", headers=auth).json()
+    assert b1["processed"] == 2 and b1["remaining"] == 1
+    b2 = client.post("/eudr/deforestation-check/auto-batch?limit=2", headers=auth).json()
+    assert b2["processed"] == 1 and b2["remaining"] == 0
+    # Tout est frais → un nouvel appel non-forcé ne retraite rien.
+    b3 = client.post("/eudr/deforestation-check/auto-batch?limit=10", headers=auth).json()
+    assert b3["processed"] == 0 and b3["remaining"] == 0
+    # force=true revérifie tout.
+    b4 = client.post("/eudr/deforestation-check/auto-batch?limit=10&force=true", headers=auth).json()
+    assert b4["processed"] == 3
+
+
+def test_batch_reserved_to_direction(client, monkeypatch):
+    auth, _ = _seed_batch(n_poly=1, n_nopoly=0, role="technician", email="batch.tech@test.ci")
+    assert client.post("/eudr/deforestation-check/auto-batch", headers=auth).status_code == 403
+
+
+def test_batch_requires_auth(client):
+    assert client.post("/eudr/deforestation-check/auto-batch").status_code == 401

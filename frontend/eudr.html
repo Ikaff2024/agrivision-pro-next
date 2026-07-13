@@ -72,6 +72,11 @@
           <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
           Actualiser
         </button>
+        <button id="btn-defo-batch" class="btn btn-outline" style="display:none" onclick="runDefoBatch(false)"
+                title="Lancer le contrôle satellite de déforestation (Global Forest Watch) sur toutes les parcelles délimitées">
+          <span class="material-symbols-outlined" style="font-size:18px">forest</span>
+          Vérifier la déforestation (toutes)
+        </button>
         <button id="btn-recompute" class="btn btn-outline" style="display:none" onclick="recomputeEudr()"
                 title="Recalculer le score EUDR de toutes les parcelles (utile après un import massif)">
           <span class="material-symbols-outlined" style="font-size:18px">calculate</span>
@@ -214,6 +219,7 @@ const IS_ADMIN = (typeof getCurrentUser === 'function' && (getCurrentUser() || {
 const CAN_DELIMIT = (typeof getCurrentUser === 'function' && ['admin', 'agronomist'].includes((getCurrentUser() || {}).role));
 // Recompute en masse réservé admin/agronome (même gating que POST /eudr/recompute).
 if (CAN_DELIMIT) { const _rb = document.getElementById('btn-recompute'); if (_rb) _rb.style.display = ''; }
+if (CAN_DELIMIT) { const _db2 = document.getElementById('btn-defo-batch'); if (_db2) _db2.style.display = ''; }
 const STATUS_LBL = { conforme: 'Conforme', a_verifier: 'À vérifier', non_conforme: 'Non conforme' };
 const STATUS_CLS = { conforme: 'badge-low', a_verifier: 'badge-med', non_conforme: 'badge-high' };
 const RULE_LBL = {
@@ -365,6 +371,62 @@ async function recomputeEudr() {
     await loadAll();
   } catch (e) {
     toast((e && e.message) || 'Échec du recalcul.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Contrôle déforestation EN LOT (Global Forest Watch) sur toutes les parcelles délimitées.
+// Traité par lots de 10 côté serveur → on boucle avec une barre de progression.
+async function runDefoBatch(force) {
+  const ok = await avpConfirm(
+    'Lancer le contrôle satellite de déforestation (Global Forest Watch) sur toutes les parcelles délimitées ? '
+    + 'Le traitement se fait par lots et peut prendre un moment.'
+    + (force ? '' : ' Les parcelles déjà vérifiées récemment (< 30 j) sont ignorées.'),
+    { okText: 'Vérifier' });
+  if (!ok) return;
+  const btn = document.getElementById('btn-defo-batch');
+  if (btn) btn.disabled = true;
+  const ov = document.createElement('div');
+  ov.id = 'defo-batch-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(10,20,15,.55);display:flex;align-items:center;justify-content:center;font-family:"DM Sans",sans-serif';
+  ov.innerHTML = '<div style="background:#fff;border-radius:14px;padding:22px 26px;max-width:390px;width:88%;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center">'
+    + '<div style="font-size:15px;font-weight:700;color:#1a4231;margin-bottom:6px">🛰️ Vérification déforestation</div>'
+    + '<div id="db-lbl" style="font-size:12.5px;color:#5c6b62;margin-bottom:12px">Interrogation de Global Forest Watch…</div>'
+    + '<div style="height:8px;background:#e6ede8;border-radius:99px;overflow:hidden"><div id="db-bar" style="height:100%;width:0;background:#2D8C5A;transition:width .3s"></div></div>'
+    + '<div id="db-cnt" style="font-size:11px;color:#7a887f;margin-top:8px">…</div></div>';
+  document.body.appendChild(ov);
+  const bar = ov.querySelector('#db-bar'), lbl = ov.querySelector('#db-lbl'), cnt = ov.querySelector('#db-cnt');
+  let done = 0, total = null, detected = 0, clear = 0, inconc = 0, noPoly = 0, guard = 0;
+  try {
+    while (true) {
+      if (++guard > 500) break;   // filet anti-boucle infinie
+      const r = await cgFetch('/eudr/deforestation-check/auto-batch?limit=10' + (force ? '&force=true' : ''), { method: 'POST' });
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Échec du contrôle.'); }
+      const b = await r.json();
+      if (total === null) total = (b.processed || 0) + (b.remaining || 0);
+      noPoly = b.no_polygon || 0;
+      done += b.processed || 0; detected += b.detected || 0; clear += b.clear || 0; inconc += b.inconclusive || 0;
+      if (bar) bar.style.width = (total ? Math.round(done / total * 100) : 100) + '%';
+      if (cnt) cnt.textContent = `${done} / ${total} parcelle(s) vérifiée(s)`;
+      if (lbl) lbl.textContent = detected ? `⚠️ ${detected} déforestation détectée(s) jusqu'ici…` : 'Interrogation de Global Forest Watch…';
+      if ((b.remaining || 0) <= 0 || (b.processed || 0) === 0) break;
+    }
+    ov.remove();
+    if (done === 0) {
+      toast('Toutes les parcelles délimitées ont déjà un contrôle récent.' + (noPoly ? ` (${noPoly} sans polygone, ignorée(s).)` : ''), 'success');
+    } else {
+      const parts = [];
+      if (detected) parts.push(`🔴 ${detected} déforestation détectée(s)`);
+      parts.push(`✓ ${clear} sans alerte`);
+      if (inconc) parts.push(`${inconc} à confirmer`);
+      if (noPoly) parts.push(`${noPoly} sans polygone`);
+      toast(`${done} parcelle(s) vérifiée(s) — ` + parts.join(' · '), detected ? 'error' : 'success');
+    }
+    await loadAll();
+  } catch (e) {
+    const o = document.getElementById('defo-batch-ov'); if (o) o.remove();
+    toast((e && e.message) || 'Échec du contrôle déforestation.', 'error');
   } finally {
     if (btn) btn.disabled = false;
   }

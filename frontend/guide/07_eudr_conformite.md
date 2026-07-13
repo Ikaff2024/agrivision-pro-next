@@ -33,6 +33,11 @@ L'EUDR est **strictement environnemental / géolocalisation**. Le score repose s
    - Renseignez/contrôlez la **déforestation** (constat terrain ou satellite GFW) → critère 5.
 4. Téléchargez le **DDS PDF** pour l'acheteur.
 
+> ⚡ **Vérifier la déforestation de TOUTES les parcelles d'un coup** : bouton **« Vérifier la déforestation
+> (toutes) »** (haut de la page EUDR, admin/agronome). La plateforme interroge Global Forest Watch pour
+> chaque parcelle délimitée, avec une **barre de progression**, et termine par un récap (X vérifiées : N
+> déforestation, … clean). Par défaut, les parcelles **déjà vérifiées récemment (< 30 j) sont ignorées**.
+
 > 💡 Le contrôle déforestation (manuel ou satellite) **met à jour le score immédiatement** ; clôturer
 > une visite terrain rafraîchit aussi le critère « inspection ».
 

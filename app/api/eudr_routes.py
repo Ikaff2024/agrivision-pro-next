@@ -509,6 +509,106 @@ def auto_deforestation_check(
     }
 
 
+_DEFO_FRESH_DAYS = 30  # un contrôle de moins de 30 j est considéré à jour
+
+
+@router.post("/eudr/deforestation-check/auto-batch")
+def auto_deforestation_check_batch(
+    limit: int = Query(10, ge=1, le=50),
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Contrôle déforestation GFW EN LOT sur les parcelles délimitées de la coopérative.
+
+    Traité PAR LOTS (`limit`) pour éviter les délais serveur : chaque appel GFW dure
+    quelques secondes, donc le frontend rappelle cet endpoint jusqu'à `remaining=0`.
+    Par défaut, ne (re)vérifie que les parcelles SANS contrôle récent (< 30 j), en
+    simulation ou « inconclusive » ; `force=true` revérifie tout. Réservé admin/agronome.
+    """
+    if current_user.role not in ("admin", "agronomist"):
+        raise HTTPException(status_code=403, detail="Contrôle déforestation réservé aux admin/agronome.")
+    from sqlalchemy import func
+    from app.db.models import PlantationBoundary
+
+    coop_id = current_user.cooperative_id
+    empty = {"processed": 0, "detected": 0, "clear": 0, "inconclusive": 0,
+             "remaining": 0, "total_delimited": 0, "no_polygon": 0}
+    if coop_id is None:
+        return empty
+
+    delimited = (
+        db.query(Plantation)
+        .join(PlantationBoundary, PlantationBoundary.plantation_id == Plantation.id)
+        .filter(Plantation.cooperative_id == coop_id)
+        .all()
+    )
+    total_plantations = db.query(func.count(Plantation.id)).filter(
+        Plantation.cooperative_id == coop_id).scalar() or 0
+    total_delimited = len(delimited)
+    no_polygon = total_plantations - total_delimited
+
+    pids = [p.id for p in delimited]
+    latest: dict = {}
+    if pids:
+        for c in (
+            db.query(DeforestationCheck)
+            .filter(DeforestationCheck.plantation_id.in_(pids))
+            .order_by(DeforestationCheck.plantation_id,
+                      DeforestationCheck.check_date.desc().nullslast(),
+                      DeforestationCheck.id.desc())
+            .all()
+        ):
+            latest.setdefault(c.plantation_id, c)
+
+    now = datetime.datetime.utcnow()
+
+    def _needs(p) -> bool:
+        if force:
+            return True
+        c = latest.get(p.id)
+        if c is None or c.check_date is None:
+            return True
+        if (c.source or "") in ("simulation", "gfw_simulation") or c.verdict == "inconclusive":
+            return True
+        return (now - c.check_date).days > _DEFO_FRESH_DAYS
+
+    todo = [p for p in delimited if _needs(p)]
+    remaining_before = len(todo)
+    batch = todo[:limit]
+
+    from app.satellite.provider import get_deforestation_for_geometry
+    processed = detected = clear = inconclusive = 0
+    for p in batch:
+        try:
+            geometry = json.loads(p.boundary.geojson)
+            if isinstance(geometry, dict) and geometry.get("type") == "Feature":
+                geometry = geometry.get("geometry") or {}
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            continue
+        signal = get_deforestation_for_geometry(geometry)
+        verdict, source = _verdict_from_deforestation_signal(signal)
+        db.add(DeforestationCheck(
+            plantation_id=p.id, verdict=verdict, source=source,
+            forest_loss_year=None, notes=signal.get("note"), check_date=now,
+        ))
+        refresh_plantation_eudr(p, db)
+        processed += 1
+        if verdict == "deforestation_detected":
+            detected += 1
+        elif verdict == "clear":
+            clear += 1
+        else:
+            inconclusive += 1
+    db.commit()
+
+    return {
+        "processed": processed, "detected": detected, "clear": clear,
+        "inconclusive": inconclusive, "remaining": max(0, remaining_before - processed),
+        "total_delimited": total_delimited, "no_polygon": no_polygon,
+    }
+
+
 # ----------------------------------------------------------------------------
 # Sprint EUDR-01c : export DDS (Due Diligence Statement) PDF
 # ----------------------------------------------------------------------------
