@@ -118,19 +118,33 @@ window.API_BASE = API_BASE;
        net") : sidebar en placeholder + contenu masque. Une fois le DOM construit
        ET les polices pretes, la vraie UI apparait en fondu. Filet : <= 1,2 s. */
     @keyframes avp-pulse{0%,100%{opacity:.45}50%{opacity:.85}}
-    /* Contenu principal : masque puis fondu */
-    html:not(.avp-ready) .avp-main{opacity:0}
+    /* ── Transition de navigation (View Transitions API — Chromium) ──────────
+       Fondu enchaîné NATIF entre les pages : lisse le "flash" résiduel au
+       changement de menu (l'ancienne page se fond dans la nouvelle au lieu d'un
+       blanc sec). Là où l'API est supportée, on N'active PAS le cloak "maison"
+       ci-dessous : le contenu doit être VISIBLE au moment où le navigateur capture
+       la nouvelle page, sinon le fondu se ferait vers du vide. Navigateurs sans
+       support (Safari/Firefox anciens) → aucun fondu, le cloak prend le relais. */
+    @view-transition{navigation:auto}
+    ::view-transition-old(root),::view-transition-new(root){animation-duration:.24s;animation-timing-function:ease}
+    @media (prefers-reduced-motion: reduce){
+      ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none !important}
+    }
+    /* Fondu d'apparition du contenu (repli hors View Transitions + 1er chargement) */
     html.avp-ready .avp-main{opacity:1;transition:opacity .22s ease}
-    /* Sidebar : on masque les vrais elements et on affiche des barres shimmer */
-    html:not(.avp-ready) #sidebar > *{opacity:0}
     html.avp-ready #sidebar > *{opacity:1;transition:opacity .22s ease}
-    html:not(.avp-ready) #sidebar::after{
-      content:'';position:absolute;left:16px;right:16px;top:70px;height:320px;
-      border-radius:8px;
-      background:repeating-linear-gradient(to bottom,
-        rgba(255,255,255,.08) 0,rgba(255,255,255,.08) 13px,
-        transparent 13px,transparent 40px);
-      animation:avp-pulse 1.2s ease-in-out infinite;
+    /* Cloak "maison" : UNIQUEMENT si View Transitions n'est pas supporté. */
+    @supports not (view-transition-name: none){
+      html:not(.avp-ready) .avp-main{opacity:0}
+      html:not(.avp-ready) #sidebar > *{opacity:0}
+      html:not(.avp-ready) #sidebar::after{
+        content:'';position:absolute;left:16px;right:16px;top:70px;height:320px;
+        border-radius:8px;
+        background:repeating-linear-gradient(to bottom,
+          rgba(255,255,255,.08) 0,rgba(255,255,255,.08) 13px,
+          transparent 13px,transparent 40px);
+        animation:avp-pulse 1.2s ease-in-out infinite;
+      }
     }
     @media (prefers-reduced-motion: reduce){
       html.avp-ready .avp-main,html.avp-ready #sidebar > *{transition:none}
