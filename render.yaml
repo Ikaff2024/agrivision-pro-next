@@ -1,29 +1,40 @@
+# =============================================================================
+# Blueprint Render — SERVEUR DE TEST (staging) d'AgriVision Pro
+# =============================================================================
+# ⛔ ISOLÉ DE LA PROD (règle absolue du projet) :
+#   - La prod tourne sur Railway (agrivision-api-production.up.railway.app).
+#   - Ce blueprint crée un service + une base de données DISTINCTS, pour tester
+#     le frontend v2 sans jamais toucher la prod ni ses données.
+#   - Cette config vit sur la branche `render-staging` uniquement ; la branche de
+#     prod n'est pas modifiée.
+# =============================================================================
 services:
-  # ── API FastAPI ──────────────────────────────────────────────────────────────
+  # ── API FastAPI (test) ───────────────────────────────────────────────────────
   - type: web
-    name: agrivision-api
+    name: agrivision-api-staging
     runtime: docker
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    plan: free
+    branch: render-staging
     envVars:
       - key: SECRET_KEY
-        generateValue: true          # Render génère automatiquement une valeur sécurisée
+        generateValue: true            # clé de sécurité de TEST, générée par Render
       - key: DATABASE_URL
         fromDatabase:
-          name: agrivision-db
+          name: agrivision-db-staging
           property: connectionString
       - key: ALLOWED_ORIGINS
-        value: https://agrivision-pro.netlify.app
+        value: https://snazzy-dieffenbachia-e6809b.netlify.app
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "120"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "30"
-    buildCommand: ""
     startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
 
 databases:
-  # ── PostgreSQL managé ────────────────────────────────────────────────────────
-  - name: agrivision-db
-    databaseName: agrivision
-    user: agrivision_user
-    plan: free                       # Gratuit 90 jours, puis ~7$/mois
+  # ── PostgreSQL managé (base de TEST, jamais la prod) ─────────────────────────
+  - name: agrivision-db-staging
+    databaseName: agrivision_staging
+    user: agrivision_staging_user
+    plan: free                         # gratuit 90 jours
