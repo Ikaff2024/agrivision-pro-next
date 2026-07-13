@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.94-geo-export';
+const CACHE_VERSION = 'avp-v4.95-swr-nav';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -195,7 +195,13 @@ self.addEventListener('fetch', event => {
       || (request.headers.get('accept') || '').includes('text/html');
     const isAppAsset = NETWORK_FIRST_PATTERNS.some(p => p.test(url.pathname));
     if (isDocument || isAppAsset) {
-      event.respondWith(networkFirstStatic(request));
+      // Stale-While-Revalidate : on sert IMMÉDIATEMENT la page précachée (zéro
+      // page blanche à la navigation entre menus), puis on rafraîchit le cache en
+      // arrière-plan pour la visite suivante. Avant, on faisait Network First
+      // (await fetch avant tout rendu) → ~1 s de blanc à chaque changement de menu.
+      // La fraîcheur après déploiement reste garantie par le bump de CACHE_VERSION
+      // (nouveau SW → réinstall → précache neuf → ancien cache supprimé).
+      event.respondWith(staleWhileRevalidate(request, event));
       return;
     }
     // Autres assets locaux (images, manifest, icons) → Cache First
@@ -241,6 +247,39 @@ async function networkFirstStatic(request) {
     }
     return new Response('Hors ligne', { status: 503 });
   }
+}
+
+// ── Stale-While-Revalidate (pages HTML + JS applicatif) ──────────────────
+// Sert la version en cache IMMÉDIATEMENT (aucune page blanche à la navigation),
+// puis rafraîchit le cache en arrière-plan pour la visite suivante. La fraîcheur
+// après déploiement est assurée par le bump de CACHE_VERSION (réinstall → précache
+// neuf, ancien cache purgé à l'activation) ET par cette revalidation à chaque visite.
+// Hors ligne : on garde le cache ; à défaut, la page offline.
+async function staleWhileRevalidate(request, event) {
+  const cached = await matchCache(request);
+  const networkPromise = fetch(request)
+    .then((response) => {
+      if (response && response.ok) {
+        safeCachePut(STATIC_CACHE, request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    // On maintient le SW en vie le temps de la revalidation, sans bloquer le rendu.
+    if (event && event.waitUntil) event.waitUntil(networkPromise);
+    return cached;
+  }
+
+  // Pas en cache (1re visite / page non précachée) → réseau, avec repli hors ligne.
+  const network = await networkPromise;
+  if (network) return network;
+  if (request.headers.get('accept')?.includes('text/html')) {
+    const offlinePage = await caches.match('/offline.html');
+    if (offlinePage) return offlinePage;
+  }
+  return new Response('Hors ligne', { status: 503 });
 }
 
 // ── Cache First (CDN + assets immuables) ─────────────────────────────────

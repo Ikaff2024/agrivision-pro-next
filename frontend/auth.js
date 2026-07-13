@@ -77,10 +77,11 @@ window.API_BASE = API_BASE;
       ? document.fonts.ready : Promise.resolve();
     whenDom(() => {
       // Les polices sont en `display:swap` → le texte s'affiche tout de suite en
-      // police de repli puis se met à jour. Inutile d'attendre longtemps : on révèle
-      // dès que les polices sont prêtes OU après 150 ms (navigations = polices déjà
-      // en cache → révélation quasi instantanée, plus de blanc d'une seconde).
-      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 150))])
+      // police de repli puis se met à jour. On révèle dès que les polices sont prêtes
+      // OU après 50 ms : en navigation les polices sont déjà en cache (ready en
+      // quelques ms → aucun swap visible) ; au 1er chargement, 50 ms suffit pour
+      // révéler la coquille sans blanc, la vraie police arrivant ensuite (swap discret).
+      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 50))])
         .then(() => requestAnimationFrame(reveal))
         .catch(reveal);
     });
