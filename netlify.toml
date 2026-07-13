@@ -8,7 +8,12 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  PYTHON_VERSION = ""
+  # Netlify détecte requirements.txt (à la racine, pour le backend Railway) et lance
+  # un `pip install`. Sans version épinglée, il prenait Python 3.14 → shapely n'a pas
+  # de wheel pour 3.14 → compilation depuis les sources → échec (geos_c.h introuvable).
+  # On épingle 3.12 (wheels shapely/pyshp disponibles → aucune compilation, aucun GEOS).
+  # N'affecte QUE Netlify : Railway build via Dockerfile, la CI fixe Python en 3.11.
+  PYTHON_VERSION = "3.12"
 
 [[headers]]
   for = "/*"
