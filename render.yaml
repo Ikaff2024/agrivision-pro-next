@@ -30,7 +30,9 @@ services:
         value: "120"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "30"
-    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Docker : Render interdit `startCommand` pour un service Docker.
+    # Le conteneur démarre via le CMD du Dockerfile (python start.py) ; le schéma
+    # de la base est créé automatiquement au démarrage (Base.metadata.create_all).
 
 databases:
   # ── PostgreSQL managé (base de TEST, jamais la prod) ─────────────────────────
