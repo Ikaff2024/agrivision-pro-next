@@ -67,14 +67,20 @@ window.API_BASE = API_BASE;
       done = true;
       document.documentElement.classList.add('avp-ready');
     };
-    setTimeout(reveal, 1200); // garde-fou absolu
+    // Garde-fou absolu RÉDUIT : on ne masque jamais la page plus de ~0,4 s (avant :
+    // 1,2 s → « page blanche » perçue à chaque navigation entre menus).
+    setTimeout(reveal, 400);
     const whenDom = (cb) => (document.readyState === 'loading'
       ? document.addEventListener('DOMContentLoaded', cb, { once: true })
       : cb());
     const fontsReady = (document.fonts && document.fonts.ready)
       ? document.fonts.ready : Promise.resolve();
     whenDom(() => {
-      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 800))])
+      // Les polices sont en `display:swap` → le texte s'affiche tout de suite en
+      // police de repli puis se met à jour. Inutile d'attendre longtemps : on révèle
+      // dès que les polices sont prêtes OU après 150 ms (navigations = polices déjà
+      // en cache → révélation quasi instantanée, plus de blanc d'une seconde).
+      Promise.race([fontsReady, new Promise((r) => setTimeout(r, 150))])
         .then(() => requestAnimationFrame(reveal))
         .catch(reveal);
     });
