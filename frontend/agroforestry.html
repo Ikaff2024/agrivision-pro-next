@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <!-- Anti-flash navigation : fond crème dès l'analyse (remplit le gap inter-pages)
-       + opt-in View Transitions render-blocking (fondu natif Chromium). Voir auth.js. -->
-  <style id="avp-anti-flash">html{background:#f8f4ee}@view-transition{navigation:auto}</style>
+  <!-- Coquille CRITIQUE render-blocking : peint un shell STYLÉ (barre latérale
+       sombre + fond crème + layout) dès l'analyse du HTML, SANS attendre auth.js.
+       Sans ça, toute la page "disparaît" le temps qu'auth.js injecte ses styles à
+       chaque navigation. auth.js réinjecte ensuite le jeu complet (valeurs alignées). -->
+  <style id="avp-anti-flash">
+    html{background:#f8f4ee}
+    @view-transition{navigation:auto}
+    .avp-layout{display:flex;min-height:100vh}
+    #sidebar{width:240px;background:#0c2018;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+    .avp-main{flex:1;min-width:0;height:100vh;overflow-y:auto;background:#f8f4ee}
+    @media(max-width:768px){.avp-layout{display:block}#sidebar{width:100%;height:auto;position:static}.avp-main{height:auto}}
+  </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriVision Pro — Agroforesterie</title>
