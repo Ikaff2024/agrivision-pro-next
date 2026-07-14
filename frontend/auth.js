@@ -22,18 +22,12 @@ window.API_BASE = API_BASE;
     return l;
   };
 
-  // Preconnect aux serveurs Google Fonts → les polices arrivent plus vite (moins de "flash").
-  if (!head.querySelector('link[rel="preconnect"][href*="fonts.gstatic"]')) {
-    addLink({ rel: 'preconnect', href: 'https://fonts.googleapis.com' });
-    addLink({ rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' });
-  }
-  // Polices de texte — sautées si déjà déclarées en statique dans le <head> de la page.
-  if (!head.querySelector('link[href*="fonts.googleapis.com/css2"][href*="Fraunces"]')) {
-    addLink({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=DM+Sans:wght@400;500;600&display=swap' });
-  }
-  // Icônes (Material Symbols) en display=block → plus de nom d'icône qui clignote en texte.
-  if (!head.querySelector('link[href*="Material+Symbols+Outlined"]')) {
-    addLink({ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block' });
+  // Polices AUTO-HÉBERGÉES (même origine, précachées par le SW) : chargement instantané
+  // + hors ligne, plus de "texte d'icônes" ni de saut de police à la navigation. Les pages
+  // déclarent déjà /fonts/avp-fonts.css en statique dans le <head> ; on ne l'injecte que
+  // s'il manque (filet de sécurité). Plus aucune dépendance à Google Fonts.
+  if (!head.querySelector('link[href*="/fonts/avp-fonts.css"]')) {
+    addLink({ rel: 'stylesheet', href: '/fonts/avp-fonts.css' });
   }
 
   // Anti-flash des ligatures d'icônes : tant que la police Material Symbols n'est

@@ -20,7 +20,7 @@
  *        immédiatement, sans que l'utilisateur ait à vider son cache.
  */
 
-const CACHE_VERSION = 'avp-v4.98-critical-shell';
+const CACHE_VERSION = 'avp-v4.99-selfhost-fonts';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
 
@@ -61,6 +61,14 @@ const STATIC_ASSETS = [
   '/auth.js',
   '/avp-offline.js',
   '/offline.html',
+  // Polices auto-hébergées (précachées → icônes/texte instantanés + hors ligne)
+  '/fonts/avp-fonts.css',
+  '/fonts/material-symbols-outlined.woff2',
+  '/fonts/dmsans-0.woff2',
+  '/fonts/dmsans-1.woff2',
+  '/fonts/fraunces-2.woff2',
+  '/fonts/fraunces-3.woff2',
+  '/fonts/fraunces-4.woff2',
 ];
 
 // Pages HTML et JS applicatif → Network First obligatoire
