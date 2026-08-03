@@ -1,5 +1,5 @@
 ﻿from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, Boolean
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from sqlalchemy import JSON
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -341,6 +341,13 @@ class Producer(Base):
     # Metadonnees
     is_active               = Column(Boolean, default=True, nullable=False)
     created_at              = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Photo du producteur (identification / carte producteur) — data-URI base64
+    # stockee en TEXT, meme mecanisme que le logo cooperative. `deferred` : la
+    # colonne n'est PAS chargee dans les listes (on ne tire jamais le blob en masse).
+    # `photo_consent` : consentement explicite du producteur (donnee personnelle).
+    photo_data              = deferred(Column(Text, nullable=True))
+    photo_consent           = Column(Boolean, default=False, nullable=False)
 
     cooperative = relationship("Cooperative")
     plantations = relationship("Plantation", back_populates="producer")

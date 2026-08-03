@@ -252,6 +252,16 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 logger.info("Migration FarmForce : OK (household_expense_items, net_income_cfa)")
 
+                # Photo du producteur (identification / carte) — data-URI base64 en
+                # TEXT (meme stockage que le logo cooperative) + consentement explicite.
+                for col_ddl in [
+                    "ALTER TABLE producers ADD COLUMN IF NOT EXISTS photo_data TEXT",
+                    "ALTER TABLE producers ADD COLUMN IF NOT EXISTS photo_consent BOOLEAN DEFAULT FALSE NOT NULL",
+                ]:
+                    conn.execute(text(col_ddl))
+                conn.commit()
+                logger.info("Migration Producer photo : OK (photo_data, photo_consent)")
+
                 # SSRTE P1 : blocs detailles des fiches A/B/C
                 for col_ddl in [
                     "ALTER TABLE ssrte_community_profiles ADD COLUMN IF NOT EXISTS schools JSON",

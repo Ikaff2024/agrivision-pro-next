@@ -113,6 +113,25 @@
 <div class="modal-overlay" id="modal-prod">
   <div class="modal">
     <div class="modal-title" id="p-modal-title">Nouveau producteur</div>
+    <!-- Photo du producteur (édition uniquement : nécessite un producteur existant) -->
+    <div id="p-photo-block" style="display:none;margin:2px 0 14px;padding:12px;border:1px solid var(--border);border-radius:12px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div id="p-photo-preview" style="width:72px;height:72px;flex:none;border:1px solid var(--border);border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--muted);font-size:26px">👤</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13.5px">Photo du producteur <span style="font-weight:400;color:var(--muted)">— facultative</span></div>
+          <label style="display:flex;gap:7px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.45;margin-top:6px;cursor:pointer">
+            <input type="checkbox" id="p-photo-consent" style="margin-top:2px" onchange="onPhotoConsentChange()">
+            <span>Le producteur <b>consent</b> à l'enregistrement de sa photo (finalité : identification / carte producteur). Il peut la retirer à tout moment.</span>
+          </label>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button type="button" class="btn btn-outline" id="p-photo-btn" onclick="document.getElementById('p-photo-file').click()" style="font-size:12.5px;padding:5px 10px" disabled>Ajouter une photo</button>
+            <button type="button" class="btn btn-outline" id="p-photo-del" onclick="removeProducerPhoto()" style="font-size:12.5px;padding:5px 10px;display:none">Retirer</button>
+          </div>
+          <input type="file" id="p-photo-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onProducerPhotoPicked(this)">
+          <div id="p-photo-msg" style="font-size:11.5px;color:var(--muted);margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">Nom et prénoms *</label><input class="form-input" id="p-nom" placeholder="Kouassi Konan"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group"><label class="form-label">Code interne (coopérative)</label><input class="form-input" id="p-code" placeholder="COOP-1234"></div>
@@ -433,6 +452,8 @@ function openNewProducer() {
   _fillProducerModal(null);
   document.getElementById('p-modal-title').textContent = 'Nouveau producteur';
   document.getElementById('p-btn').textContent = 'Créer';
+  // La photo ne peut être ajoutée qu'après création (elle a besoin de l'id producteur).
+  document.getElementById('p-photo-block').style.display = 'none';
   document.getElementById('modal-prod').style.display = 'flex';
 }
 
@@ -444,11 +465,114 @@ function openEditProducer(id) {
   _fillProducerModal(p);
   document.getElementById('p-modal-title').textContent = 'Modifier le producteur';
   document.getElementById('p-btn').textContent = 'Enregistrer';
+  document.getElementById('p-photo-block').style.display = '';
+  loadProducerPhoto(id);
   document.getElementById('modal-prod').style.display = 'flex';
 }
 
 function closeNewProducer() { document.getElementById('modal-prod').style.display = 'none'; }
 document.getElementById('modal-prod').addEventListener('click', e => { if (e.target === e.currentTarget) closeNewProducer(); });
+
+/* ── Photo du producteur (identification / carte) ─────────────────────────────
+   Donnée personnelle : consentement requis avant tout envoi. L'image est
+   redimensionnée côté client (≤512 px, JPEG) pour rester légère, puis stockée
+   en base (data-URI). Servie à la demande par GET /producers/{id}/photo. */
+let _photoPresent = false;
+
+function _resetPhotoUI() {
+  _photoPresent = false;
+  const box = document.getElementById('p-photo-preview'); if (box) box.innerHTML = '👤';
+  const del = document.getElementById('p-photo-del'); if (del) del.style.display = 'none';
+  const btn = document.getElementById('p-photo-btn'); if (btn) { btn.disabled = true; btn.textContent = 'Ajouter une photo'; }
+  const c = document.getElementById('p-photo-consent'); if (c) c.checked = false;
+  const m = document.getElementById('p-photo-msg'); if (m) m.textContent = '';
+}
+
+async function loadProducerPhoto(id) {
+  _resetPhotoUI();
+  try {
+    const r = await authFetch(`/producers/${id}/photo`);
+    if (!r || !r.ok) return;
+    const d = await r.json();
+    const consent = document.getElementById('p-photo-consent');
+    const addBtn = document.getElementById('p-photo-btn');
+    const del = document.getElementById('p-photo-del');
+    const box = document.getElementById('p-photo-preview');
+    consent.checked = !!d.consent;
+    addBtn.disabled = !d.consent;
+    if (d.photo) {
+      box.innerHTML = '<img src="' + d.photo + '" alt="" style="width:100%;height:100%;object-fit:cover">';
+      _photoPresent = true;
+      del.style.display = '';
+      addBtn.textContent = 'Changer la photo';
+    }
+  } catch (e) {}
+}
+
+function onPhotoConsentChange() {
+  const consent = document.getElementById('p-photo-consent').checked;
+  document.getElementById('p-photo-btn').disabled = !consent;
+  // Retirer le consentement d'une photo existante = la supprimer (vie privée).
+  if (!consent && _photoPresent) removeProducerPhoto(true);
+}
+
+// Redimensionne une image (max maxDim px sur le plus grand côté) → Blob JPEG.
+function _downscaleImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Encodage de l’image échoué.')), 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible.')); };
+    img.src = url;
+  });
+}
+
+async function onProducerPhotoPicked(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  const msg = document.getElementById('p-photo-msg');
+  if (!f || !_editId) return;
+  if (!document.getElementById('p-photo-consent').checked) {
+    msg.textContent = 'Cochez d’abord le consentement du producteur.'; return;
+  }
+  const btn = document.getElementById('p-photo-btn');
+  msg.textContent = 'Traitement de l’image…'; btn.disabled = true;
+  try {
+    const blob = await _downscaleImage(f, 512, 0.82);
+    const fd = new FormData();
+    fd.append('file', blob, 'photo.jpg');
+    fd.append('consent', 'true');
+    const r = await authFetch(`/producers/${_editId}/photo`, { method: 'POST', body: fd });
+    const body = await r.json().catch(() => ({}));
+    if (!r || !r.ok) throw new Error(body.detail || 'Envoi impossible.');
+    msg.textContent = 'Photo enregistrée.';
+    toast('Photo du producteur enregistrée.');
+    loadProducerPhoto(_editId);
+  } catch (e) {
+    msg.textContent = e.message || 'Erreur lors de l’envoi.';
+    btn.disabled = !document.getElementById('p-photo-consent').checked;
+  }
+}
+
+async function removeProducerPhoto(silent) {
+  if (!_editId) return;
+  if (!silent && !confirm('Retirer la photo de ce producteur ?')) return;
+  try {
+    const r = await authFetch(`/producers/${_editId}/photo`, { method: 'DELETE' });
+    if (r && r.ok) { if (!silent) toast('Photo retirée.'); loadProducerPhoto(_editId); }
+  } catch (e) {}
+}
 
 async function submitProducer() {
   const err = document.getElementById('p-err'); err.style.display = 'none';

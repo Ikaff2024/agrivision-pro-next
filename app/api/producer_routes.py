@@ -5,10 +5,11 @@ Etend les routes producer historiques (list/get) avec les endpoints
 acceder a ses enfants, evaluations, visites, plans, plaintes, statut
 tracabilite et score de risque agrege.
 """
+import base64
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -62,6 +63,10 @@ class ProducerResponse(BaseModel):
     type_producteur: str = "membre"
     # Code exportateur (agnostique) — alias lecture de code_saco
     code_exportateur: Optional[str] = None
+    # Consentement à l'enregistrement de la photo (donnée personnelle). La photo
+    # elle-même (data-URI) est servie séparément par GET /producers/{id}/photo,
+    # jamais dans la liste (colonne `deferred`, blob non chargé en masse).
+    photo_consent: bool = False
 
     class Config:
         from_attributes = True
@@ -285,6 +290,93 @@ def update_producer(
     db.commit()
     db.refresh(producer)
     return producer
+
+
+# ── Photo du producteur (identification / carte producteur) ───────────────────
+# Stockée en data-URI base64 (colonne `deferred` producers.photo_data), même
+# mécanisme que le logo coopérative. Donnée personnelle : consentement requis.
+_ALLOWED_PHOTO_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
+_MAX_PHOTO_BYTES = 512 * 1024  # 512 Ko ; l'app redimensionne l'image avant l'envoi
+_PHOTO_ROLES = {"admin", "agronomist", "technician", "gestionnaire"}
+
+
+def _owned_producer_or_404(db: Session, current_user: User | None, producer_id: int) -> Producer:
+    """Producteur actif rattaché à la coopérative de l'utilisateur, sinon 404."""
+    producer = db.query(Producer).filter(
+        Producer.id == producer_id, Producer.is_active == True
+    ).first()
+    if (producer and current_user is not None and current_user.cooperative_id is not None
+            and producer.cooperative_id != current_user.cooperative_id):
+        producer = None
+    if not producer:
+        raise HTTPException(status_code=404, detail="Producteur introuvable.")
+    return producer
+
+
+@router.get("/producers/{producer_id:int}/photo")
+def get_producer_photo(
+    producer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Photo courante du producteur (data-URI ou None) + état du consentement."""
+    require_role(current_user, _PHOTO_ROLES)
+    producer = _owned_producer_or_404(db, current_user, producer_id)
+    return {
+        "producer_id": producer.id,
+        "photo": producer.photo_data,
+        "consent": bool(producer.photo_consent),
+    }
+
+
+@router.post("/producers/{producer_id:int}/photo")
+async def set_producer_photo(
+    producer_id: int,
+    file: UploadFile = File(...),
+    consent: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Téléverse la photo du producteur (PNG/JPEG/WebP, ≤512 Ko) en data-URI base64.
+
+    Le consentement explicite du producteur est REQUIS (donnée personnelle,
+    finalité : identification / carte producteur). Sans consentement : refus.
+    """
+    require_role(current_user, _PHOTO_ROLES)
+    if not consent:
+        raise HTTPException(
+            status_code=400,
+            detail="Consentement du producteur requis pour enregistrer sa photo.",
+        )
+    ctype = (file.content_type or "").lower()
+    if ctype not in _ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail="Format non supporté (PNG, JPEG ou WebP).")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    if len(raw) > _MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=400, detail="Photo trop volumineuse (max 512 Ko).")
+    producer = _owned_producer_or_404(db, current_user, producer_id)
+    norm_type = "image/jpeg" if ctype == "image/jpg" else ctype
+    producer.photo_data = f"data:{norm_type};base64,{base64.b64encode(raw).decode('ascii')}"
+    producer.photo_consent = True
+    db.commit()
+    return {"producer_id": producer.id, "size_bytes": len(raw), "ok": True}
+
+
+@router.delete("/producers/{producer_id:int}/photo")
+def delete_producer_photo(
+    producer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Retire la photo du producteur — retrait du consentement = suppression."""
+    require_role(current_user, _PHOTO_ROLES)
+    producer = _owned_producer_or_404(db, current_user, producer_id)
+    producer.photo_data = None
+    producer.photo_consent = False
+    db.commit()
+    return {"producer_id": producer.id, "ok": True}
 
 
 class ProducerTypeUpdate(BaseModel):

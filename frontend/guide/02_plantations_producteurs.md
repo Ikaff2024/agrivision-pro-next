@@ -62,6 +62,12 @@ section, téléphone — avec un accès direct à leur **fiche détaillée** (pr
 - Conséquence : un **membre** ne peut pas être en **achat**, un **non-membre** pas en **récolte** (la plateforme bloque l'erreur). Cela alimente aussi le **seuil OHADA** (≤ 20 % d'achats).
 - **Reclassement en masse** : bouton **« Classer en masse »** (admin/gestionnaire) pour basculer d'un coup tous les producteurs d'un filtre (ex. après un import où tout est « membre » par défaut).
 
+### Photo du producteur (facultative)
+- Depuis la fiche d'un producteur (**Producteurs ▸ Éditer**), vous pouvez ajouter une **photo** (identification / **carte producteur**). Disponible **après** la création (elle a besoin de la fiche du producteur).
+- **Consentement obligatoire** : cochez d'abord la case « le producteur consent… ». La photo est une **donnée personnelle** — retirable à tout moment (bouton **Retirer**). Retirer le consentement supprime la photo.
+- L'image est **redimensionnée automatiquement** (allégée) avant enregistrement. Formats acceptés : **JPEG, PNG, WebP**.
+- Réservé aux rôles **admin / agronome / technicien / gestionnaire**.
+
 ### D'où viennent les producteurs ?
 - De la **création de plantations** (le propriétaire devient producteur — sa catégorie est demandée), ou
 - De l'**import d'un registre Excel** (voir fiche *Import d'un registre*).
