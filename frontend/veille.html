@@ -126,6 +126,19 @@
       <!-- Actualités -->
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
         <div class="section-title" style="margin:0">Actualités récentes</div>
+        <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#6a7d64)">
+          Âge de l'info
+          <select id="vm-age-sel" onchange="setAge(this.value ? Number(this.value) : null)"
+                  title="Ne garder que les actualités publiées dans cette période"
+                  style="padding:6px 10px;border:1px solid var(--border,#e6ddd0);border-radius:8px;background:var(--surface,#fff);font-size:12.5px;font-weight:600;color:var(--text,#1a2218)">
+            <option value="">Toutes</option>
+            <option value="7">7 derniers jours</option>
+            <option value="30">30 derniers jours</option>
+            <option value="90">3 derniers mois</option>
+            <option value="180">6 derniers mois</option>
+            <option value="365">12 derniers mois</option>
+          </select>
+        </label>
       </div>
       <div class="vm-chips" id="vm-chips">
         <span class="vm-chip active" onclick="setFilter('tous',this)">Tous</span>
@@ -171,8 +184,12 @@ initApp('veille');
 
 let _allNews = [];
 let _filter = 'tous';
+let _maxAgeDays = null;          // âge max de l'info (jours) ; null = toutes
 let _veilleItems = [];          // items veille open-source chargés
 let _vrFilter = 'tous';          // catégorie active (topic) du moteur open-source
+
+// Restreint l'ancienneté des actualités marché (rechargement serveur).
+function setAge(days) { _maxAgeDays = days || null; loadMarket(false); }
 
 document.addEventListener('DOMContentLoaded', () => {
   computeEudrDays();
@@ -212,7 +229,11 @@ async function loadMarket(force) {
   document.getElementById('vm-status').textContent = 'Chargement…';
 
   try {
-    const r = await authFetch('/market/intelligence' + (force ? '?refresh=true' : ''));
+    const params = new URLSearchParams();
+    if (force) params.set('refresh', 'true');
+    if (_maxAgeDays) params.set('max_age_days', String(_maxAgeDays));
+    const qs = params.toString();
+    const r = await authFetch('/market/intelligence' + (qs ? '?' + qs : ''));
     if (!r || !r.ok) {
       if (r && r.status === 403) throw new Error('Module Veille réservé au plan premium.');
       throw new Error('Service indisponible');
@@ -340,7 +361,9 @@ function renderNews() {
   if (!items.length) {
     list.style.display = 'none';
     empty.style.display = 'block';
-    empty.textContent = _allNews.length ? 'Aucune actualité dans cette catégorie.' : 'Aucune actualité disponible pour le moment.';
+    empty.textContent = _allNews.length
+      ? 'Aucune actualité dans cette catégorie.'
+      : (_maxAgeDays ? 'Aucune actualité sur cette période — élargissez « Âge de l’info ».' : 'Aucune actualité disponible pour le moment.');
     return;
   }
   empty.style.display = 'none';

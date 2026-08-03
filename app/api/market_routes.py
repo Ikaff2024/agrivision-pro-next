@@ -97,10 +97,29 @@ def _market_cat(topics) -> str:
     return "Autre"
 
 
-def _news_from_veille(db: Session, limit: int = 12) -> list:
-    """Mappe les items de veille récents (marché/cacao) au format des actualités marché."""
+def _item_date(it):
+    """Date de référence d'un item pour l'ancienneté : publication sinon récupération."""
+    from datetime import timezone as _tz
+    dt = getattr(it, "published_at", None) or getattr(it, "fetched_at", None)
+    if dt is not None and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_tz.utc)
+    return dt
+
+
+def _news_from_veille(db: Session, limit: int = 12, max_age_days: Optional[int] = None) -> list:
+    """Mappe les items de veille récents (marché/cacao) au format des actualités marché.
+
+    `max_age_days` (facultatif) borne l'ancienneté sur la date de PUBLICATION
+    (à défaut, date de récupération) : ne conserve que les infos plus récentes.
+    """
+    from datetime import timedelta
     from app.services import veille_engine
-    items = veille_engine.retrieve(db, topics=_MARKET_TOPICS, limit=limit)
+    # On récupère large puis on filtre par âge, pour rester au niveau de `limit`.
+    items = veille_engine.retrieve(db, topics=_MARKET_TOPICS, limit=200 if max_age_days else limit)
+    if max_age_days and max_age_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        items = [it for it in items if (_item_date(it) or cutoff) >= cutoff]
+    items = items[: max(1, limit)]
     out = []
     for it in items:
         d = ""
@@ -147,6 +166,10 @@ def _save_summary_cache(db: Session, summary: str, model: Optional[str]) -> None
 @router.get("/intelligence")
 async def market_intelligence(
     refresh: bool = Query(False, description="Forcer une actualisation (admin/agronome)"),
+    max_age_days: Optional[int] = Query(
+        None, ge=1, le=1825,
+        description="Ne garder que les actualités publiées dans les N derniers jours (facultatif).",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -169,7 +192,7 @@ async def market_intelligence(
 
     # 1) Prix (réel, sans IA) + 2) actualités (moteur de veille open-source).
     prices = await get_market_prices()
-    news = _news_from_veille(db)
+    news = _news_from_veille(db, max_age_days=max_age_days)
 
     # 3) Synthèse par le FOURNISSEUR sélectionné (cache pour borner le coût :
     #    régénérée seulement sur refresh forcé ou si aucune synthèse en cache).
@@ -235,6 +258,7 @@ async def market_intelligence(
         "news": news,
         "ai_summary": ai_summary or None,
         "note": note,
+        "max_age_days": max_age_days,
         "coop_price": _coop_recent_price(db, current_user.cooperative_id),
     }
     if current_user.role == "admin":
