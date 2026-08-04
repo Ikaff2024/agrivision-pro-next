@@ -21,6 +21,7 @@ enfants suivis, niveaux de risque, scolarisation, visites, plans de remédiation
 1. Menu **CacaoGuard**.
 2. Lisez les compteurs (enfants suivis, à risque élevé, taux de scolarisation, alertes, blocages…).
 3. Tous les chiffres sont **limités à votre coopérative**.
+4. **Chaque compteur est cliquable** et ouvre son **détail** : Producteurs, Enfants, *Risque élevé* (liste filtrée élevé/critique), *Visites* (monitoring), *Plans* (remédiation), *Blocages* (conformité), *F1 / Fiche C / Suspicions* (fiches SSRTE, sur le bon onglet), *Revenu vital / Marge négative* (comptes). *Alertes ouvertes* fait défiler jusqu'à la **liste des alertes** en bas de la page.
 
 ---
 
