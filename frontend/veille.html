@@ -123,58 +123,37 @@
         <p id="vm-ai-text"></p>
       </div>
 
-      <!-- Actualités -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
-        <div class="section-title" style="margin:0">Actualités récentes</div>
-        <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#6a7d64)">
-          Âge de l'info
-          <select id="vm-age-sel" onchange="setAge(this.value ? Number(this.value) : null)"
-                  title="Ne garder que les actualités publiées dans cette période"
-                  style="padding:6px 10px;border:1px solid var(--border,#e6ddd0);border-radius:8px;background:var(--surface,#fff);font-size:12.5px;font-weight:600;color:var(--text,#1a2218)">
-            <option value="">Toutes</option>
-            <option value="90">3 derniers mois</option>
-            <option value="180">6 derniers mois</option>
-            <option value="270">9 derniers mois</option>
-            <option value="365">12 derniers mois</option>
-            <option value="540">18 derniers mois</option>
-            <option value="730">24 derniers mois</option>
-          </select>
-        </label>
-      </div>
-      <div class="vm-chips" id="vm-chips">
-        <span class="vm-chip active" onclick="setFilter('tous',this)">Tous</span>
-        <span class="vm-chip" onclick="setFilter('EUDR',this)">EUDR</span>
-        <span class="vm-chip" onclick="setFilter('Marché',this)">Marchés</span>
-        <span class="vm-chip" onclick="setFilter('Santé',this)">Maladies</span>
-        <span class="vm-chip" onclick="setFilter('Politique',this)">Politique</span>
-        <span class="vm-chip" onclick="setFilter('Événement',this)">Événements</span>
-      </div>
-
-      <div class="vm-news" id="vm-skeleton">
-        <div class="vm-skel"></div><div class="vm-skel"></div><div class="vm-skel"></div>
-      </div>
-      <div class="vm-news" id="vm-news" style="display:none"></div>
-      <div id="vm-empty" style="display:none;text-align:center;padding:36px;color:var(--muted,#6a7d64)">Aucune actualité dans cette catégorie.</div>
-
-      <p style="font-size:11.5px;color:var(--muted,#6a7d64);text-align:center;margin-top:18px">
-        Actualités via recherche web IA · cours New York en <strong>temps différé</strong>, Londres estimé — vérifiez le prix officiel CCC avant décision commerciale.
-      </p>
-
-      <!-- ───────── Veille réglementaire (moteur open-source) ───────── -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:30px 0 6px;border-top:1px solid var(--border,#e6ddd0);padding-top:22px">
-        <div class="section-title" style="margin:0">Veille réglementaire — EUDR &amp; durabilité
-          <span style="font-size:11px;font-weight:600;color:var(--muted,#6a7d64)">· moteur open-source (prix &amp; marché ci-dessus)</span></div>
-        <div id="vr-actions" style="display:none;gap:8px"></div>
-      </div>
-      <div class="vm-ai" id="vr-digest" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd">
-        <div class="h" style="color:#1e40af"><span class="material-symbols-outlined" style="font-size:18px">summarize</span>
-          Synthèse <span id="vr-digest-meta" style="font-weight:600;font-size:11px;opacity:.75"></span></div>
-        <p id="vr-digest-text" style="color:#1e3a8a;white-space:pre-wrap"></p>
+      <!-- Actualités — flux UNIQUE (marché + réglementaire), moteur de veille open-source -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:22px 0 6px">
+        <div class="section-title" style="margin:0">Actualités de la filière</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div id="vr-actions" style="display:none;gap:8px"></div>
+          <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#6a7d64)">
+            Âge de l'info
+            <select id="vm-age-sel" onchange="setAge(this.value ? Number(this.value) : null)"
+                    title="Ne garder que les actualités publiées dans cette période"
+                    style="padding:6px 10px;border:1px solid var(--border,#e6ddd0);border-radius:8px;background:var(--surface,#fff);font-size:12.5px;font-weight:600;color:var(--text,#1a2218)">
+              <option value="">Toutes</option>
+              <option value="90">3 derniers mois</option>
+              <option value="180">6 derniers mois</option>
+              <option value="270">9 derniers mois</option>
+              <option value="365">12 derniers mois</option>
+              <option value="540">18 derniers mois</option>
+              <option value="730">24 derniers mois</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="vm-chips" id="vr-chips" style="display:none"></div>
-      <div class="vm-news" id="vr-items"></div>
-      <div id="vr-empty" style="display:none;text-align:center;padding:24px;color:var(--muted,#6a7d64)">
-        Aucune source de veille pour l'instant. <span id="vr-empty-admin"></span></div>
+      <div class="vm-news" id="vr-items">
+        <div class="vm-skel"></div><div class="vm-skel"></div><div class="vm-skel"></div>
+      </div>
+      <div id="vr-empty" style="display:none;text-align:center;padding:36px;color:var(--muted,#6a7d64)">
+        Aucune actualité pour l'instant. <span id="vr-empty-admin"></span></div>
+
+      <p style="font-size:11.5px;color:var(--muted,#6a7d64);text-align:center;margin-top:18px">
+        Actualités via le moteur de veille open-source (RSS filière cacao monde + Côte d'Ivoire) · cours New York en <strong>temps différé</strong>, Londres estimé — vérifiez le prix officiel CCC avant décision commerciale.
+      </p>
 
     </div>
   </div>
@@ -183,14 +162,12 @@
 <script>
 initApp('veille');
 
-let _allNews = [];
-let _filter = 'tous';
+let _allNews = [];              // actualités marché (backend) — sert au diagnostic IA (admin)
 let _maxAgeDays = null;          // âge max de l'info (jours) ; null = toutes
 let _veilleItems = [];          // items veille open-source chargés
 let _vrFilter = 'tous';          // catégorie active (topic) du moteur open-source
 
-// Restreint l'ancienneté des actualités — marché ET veille réglementaire open-source
-// (rechargement serveur des DEUX sections).
+// Restreint l'ancienneté du flux d'actualités (et de la synthèse). Rechargement serveur.
 function setAge(days) { _maxAgeDays = days || null; loadMarket(false); loadVeille(); }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -219,15 +196,12 @@ function stripHtml(s) {
   return (d.textContent || d.innerText || '').replace(/\s+/g, ' ').trim();
 }
 
-function refreshMarket() { loadMarket(true); }
+function refreshMarket() { loadMarket(true); loadVeille(); }
 
 async function loadMarket(force) {
   const btn = document.getElementById('vm-refresh');
   const icon = btn ? btn.querySelector('.material-symbols-outlined') : null;
   if (icon) icon.style.animation = 'spin 0.8s linear infinite';
-  document.getElementById('vm-skeleton').style.display = 'flex';
-  document.getElementById('vm-news').style.display = 'none';
-  document.getElementById('vm-empty').style.display = 'none';
   document.getElementById('vm-status').textContent = 'Chargement…';
 
   try {
@@ -243,7 +217,6 @@ async function loadMarket(force) {
     applyMarket(await r.json());
   } catch (e) {
     document.getElementById('vm-status').textContent = 'Erreur de chargement';
-    document.getElementById('vm-skeleton').style.display = 'none';
     const info = document.getElementById('vm-info');
     info.style.display = 'block';
     info.textContent = e.message || 'Impossible de charger la veille marché.';
@@ -292,9 +265,8 @@ function applyMarket(d) {
   document.getElementById('vm-status').textContent =
     (d.live ? (d.cached ? 'Cache · ' : 'Données en direct · ') : 'Données indisponibles · ') + (when ? 'maj ' + when : '');
 
-  // Actualités
+  // Diagnostic IA (admin) : basé sur la présence d'actualités marché côté backend.
   _allNews = Array.isArray(d.news) ? d.news : [];
-  renderNews();
   renderDiag(d.diag, _allNews.length > 0);
 }
 
@@ -310,7 +282,7 @@ function renderDiag(diag, hasNews) {
     el.style.cssText = 'margin:10px 0;padding:10px 14px;border-radius:10px;font-size:13px;border:1px solid';
     const info = document.getElementById('vm-info');
     if (info && info.parentNode) info.parentNode.insertBefore(el, info.nextSibling);
-    else document.getElementById('vm-news').before(el);
+    else document.getElementById('vr-items').before(el);
   }
   const ok = diag.ok === true;
   el.style.display = 'block';
@@ -346,77 +318,16 @@ function setPrice(valId, chgId, srcId, obj) {
 const BADGE = { 'eudr': 'b-eudr', 'marché': 'b-marche', 'marche': 'b-marche', 'santé': 'b-sante', 'sante': 'b-sante', 'politique': 'b-politique', 'événement': 'b-evenement', 'evenement': 'b-evenement' };
 function badgeClass(cat) { return BADGE[(cat || '').toLowerCase()] || 'b-autre'; }
 
-function setFilter(cat, el) {
-  _filter = cat;
-  document.querySelectorAll('.vm-chip').forEach(c => c.classList.remove('active'));
-  if (el) el.classList.add('active');
-  renderNews();
-}
-
-function renderNews() {
-  document.getElementById('vm-skeleton').style.display = 'none';
-  const list = document.getElementById('vm-news');
-  const empty = document.getElementById('vm-empty');
-  const items = _filter === 'tous'
-    ? _allNews
-    : _allNews.filter(n => (n.cat || '').toLowerCase() === _filter.toLowerCase());
-  if (!items.length) {
-    list.style.display = 'none';
-    empty.style.display = 'block';
-    empty.textContent = _allNews.length
-      ? 'Aucune actualité dans cette catégorie.'
-      : (_maxAgeDays ? 'Aucune actualité sur cette période — élargissez « Âge de l’info ».' : 'Aucune actualité disponible pour le moment.');
-    return;
-  }
-  empty.style.display = 'none';
-  list.style.display = 'flex';
-  list.innerHTML = items.map(n => {
-    // Nettoyage HTML (flux Google News) + résumé masqué s'il répète le titre.
-    const title = stripHtml(n.title || '');
-    let sum = stripHtml(n.summary || '');
-    if (sum && title && sum.toLowerCase().startsWith(title.slice(0, 40).toLowerCase())) sum = '';
-    return `
-    <div class="vm-news-card">
-      <span class="badge ${badgeClass(n.cat)}">${esc(n.cat || 'Autre')}</span>
-      <div style="flex:1;min-width:0">
-        <div class="t">${esc(title)}</div>
-        ${sum ? `<div class="s">${esc(sum)}</div>` : ''}
-        <div class="src"><strong>${esc(n.source || '')}</strong>${n.date ? ' · ' + esc(n.date) : ''}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ───────── Veille réglementaire (moteur open-source) — digest + items ─────────
+// ───────── Actualités de la filière (flux unique, moteur open-source) ─────────
 async function loadVeille() {
   try {
-    // L'âge de l'info (sélecteur commun) s'applique aussi au moteur open-source.
-    const itemsUrl = '/veille/items?limit=50' + (_maxAgeDays ? '&max_age_days=' + _maxAgeDays : '');
-    const [dr, ir] = await Promise.all([
-      authFetch('/veille/digest'),
-      authFetch(itemsUrl),
-    ]);
-    const digest = dr && dr.ok ? (await dr.json()).digest : null;
-    let items = ir && ir.ok ? ((await ir.json()).items || []) : [];
-    // Différenciation des deux blocs : le bloc « Veille Marché » (haut) traite le
-    // prix/marché ; ici on ne garde que la veille RÉGLEMENTAIRE (EUDR, durabilité,
-    // certification…) → on exclut les actualités purement marché. Plus de doublon.
-    items = items.filter(it => !(it.topics || []).map(t => String(t).toLowerCase()).includes('marche'));
-    renderVeilleDigest(digest);
+    // Flux UNIQUE : toutes les actualités (marché + réglementaire), filtrées par âge.
+    const itemsUrl = '/veille/items?limit=60' + (_maxAgeDays ? '&max_age_days=' + _maxAgeDays : '');
+    const ir = await authFetch(itemsUrl);
+    const items = ir && ir.ok ? ((await ir.json()).items || []) : [];
     renderVeilleItems(items);
-  } catch (e) { /* section optionnelle : on n'interrompt pas la veille marché */ }
+  } catch (e) { /* section optionnelle : on n'interrompt pas les prix/synthèse */ }
   renderVeilleActions();
-}
-
-function renderVeilleDigest(d) {
-  const box = document.getElementById('vr-digest');
-  if (!box) return;
-  const txt = d && d.payload ? (d.payload.summary || '') : '';
-  if (!txt) { box.style.display = 'none'; return; }
-  box.style.display = 'block';
-  document.getElementById('vr-digest-text').textContent = txt;
-  const when = d.generated_at ? new Date(d.generated_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  document.getElementById('vr-digest-meta').textContent = [d.model, when].filter(Boolean).join(' · ');
 }
 
 // Libellés lisibles pour les catégories (topics) du moteur open-source.
@@ -513,8 +424,7 @@ function renderVeilleActions() {
   if (!isAdmin) { box.style.display = 'none'; return; }
   box.style.display = 'flex';
   box.innerHTML = `
-    <button class="btn btn-outline btn-sm" onclick="ingestVeille()"><span class="material-symbols-outlined" style="font-size:15px">cloud_download</span> Rafraîchir les sources</button>
-    <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none" onclick="digestVeille()"><span class="material-symbols-outlined" style="font-size:15px">summarize</span> Générer la synthèse</button>`;
+    <button class="btn btn-outline btn-sm" onclick="ingestVeille()"><span class="material-symbols-outlined" style="font-size:15px">cloud_download</span> Rafraîchir les sources</button>`;
   const hint = document.getElementById('vr-empty-admin');
   if (hint) hint.textContent = 'Cliquez « Rafraîchir les sources » pour démarrer.';
 }
@@ -528,15 +438,6 @@ async function ingestVeille() {
   loadVeille();
 }
 
-async function digestVeille() {
-  if (typeof toast === 'function') toast('Génération de la synthèse (modèle open-source)…');
-  const r = await authFetch('/veille/digest', { method: 'POST' });
-  const d = await r.json().catch(() => ({}));
-  if (r.status === 502) return toast('Modèle open non configuré (cf. variables Railway).', 'error');
-  if (!r.ok) return toast('Échec : ' + (d.detail || ''), 'error');
-  toast('Synthèse générée.');
-  loadVeille();
-}
 </script>
 </body>
 </html>
