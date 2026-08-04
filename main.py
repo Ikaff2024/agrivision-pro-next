@@ -212,10 +212,12 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS household_assets JSON",
                     "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS allow_worker_interview BOOLEAN",
                     "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS head_photo_ref VARCHAR(255)",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS head_photo_data TEXT",
+                    "ALTER TABLE ssrte_household_profiles ADD COLUMN IF NOT EXISTS head_photo_consent BOOLEAN DEFAULT FALSE NOT NULL",
                 ]:
                     conn.execute(text(col_ddl))
                 conn.commit()
-                logger.info("Migrations Fiche B eco : OK (housing_type, household_assets, allow_worker_interview, head_photo_ref)")
+                logger.info("Migrations Fiche B eco : OK (housing_type, household_assets, allow_worker_interview, head_photo_ref/data/consent)")
 
                 # Cache du score EUDR par parcelle (P1 — passage à l'échelle 7000+ parcelles)
                 for col_ddl in [

@@ -144,7 +144,7 @@
     <div class="card"><div class="card-label">Type de logement (B.25)</div><div class="card-value">{{ housing_type }}</div></div>
     <div class="card"><div class="card-label">Possessions (B.26)</div><div class="card-value">{{ household_assets|length }}</div></div>
     <div class="card"><div class="card-label">Entretien travailleurs autorise (B.18e)</div><div class="card-value">{% if allow_worker_interview is none %}—{% elif allow_worker_interview %}Oui{% else %}Non{% endif %}</div></div>
-    <div class="card"><div class="card-label">Photo chef de menage (B.29)</div><div class="card-value">{% if head_photo_ref and head_photo_ref != "—" %}Oui{% else %}Non{% endif %}</div></div>
+    <div class="card"><div class="card-label">Photo chef de menage (B.29)</div><div class="card-value">{% if head_photo_data %}<img src="{{ head_photo_data }}" style="max-height:84px;max-width:100%;border-radius:6px"/>{% elif head_photo_ref and head_photo_ref != "—" %}Oui{% else %}Non{% endif %}</div></div>
   </div>
   {% if household_assets %}<div style="margin-top:6px;font-size:11px">Biens : {{ household_assets|join(", ") }}</div>{% endif %}
 </div>

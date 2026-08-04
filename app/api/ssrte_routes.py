@@ -1,8 +1,9 @@
+import base64
 from datetime import date, datetime, timedelta
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -358,6 +359,7 @@ def household_to_dict(row: SsrteHouseholdProfile) -> dict:
         "household_assets": row.household_assets or [],
         "allow_worker_interview": row.allow_worker_interview,
         "head_photo_ref": row.head_photo_ref,
+        "head_photo_consent": bool(row.head_photo_consent),
         "risk_score": float(row.risk_score or 0),
         "risk_level": row.risk_level.value,
         "consent_given": bool(row.consent_given),
@@ -793,6 +795,71 @@ def delete_household_profile(
     db.delete(row)
     db.commit()
     return {"deleted": True, "id": household_id}
+
+
+# ----- Fiche B / B.29 : photo réelle du chef de ménage ------------------------
+# Donnée personnelle (adulte, enquête travail des enfants) : consentement explicite
+# requis, accès cloisonné coop, modifiable seulement tant que la fiche est brouillon
+# (intégrité de l'audit). Stockée en data-URI base64 (colonne `deferred`).
+_ALLOWED_HEAD_PHOTO_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
+_MAX_HEAD_PHOTO_BYTES = 512 * 1024  # 512 Ko ; l'app redimensionne avant l'envoi
+
+
+@router.get("/households/{household_id}/head-photo")
+def get_household_head_photo(
+    household_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Photo du chef de ménage (data-URI ou None) + consentement. Lecture (coop)."""
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=False)
+    return {"household_id": row.id, "photo": row.head_photo_data, "consent": bool(row.head_photo_consent)}
+
+
+@router.post("/households/{household_id}/head-photo")
+async def set_household_head_photo(
+    household_id: int,
+    file: UploadFile = File(...),
+    consent: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Téléverse la photo du chef de ménage (PNG/JPEG/WebP, ≤512 Ko) en data-URI base64.
+
+    Consentement explicite REQUIS. Fiche brouillon uniquement (intégrité de l'audit).
+    """
+    _require_ssrte_write(current_user)
+    if not consent:
+        raise HTTPException(status_code=400, detail="Consentement du chef de ménage requis pour enregistrer sa photo.")
+    ctype = (file.content_type or "").lower()
+    if ctype not in _ALLOWED_HEAD_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail="Format non supporté (PNG, JPEG ou WebP).")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    if len(raw) > _MAX_HEAD_PHOTO_BYTES:
+        raise HTTPException(status_code=400, detail="Photo trop volumineuse (max 512 Ko).")
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=True)
+    norm_type = "image/jpeg" if ctype == "image/jpg" else ctype
+    row.head_photo_data = f"data:{norm_type};base64,{base64.b64encode(raw).decode('ascii')}"
+    row.head_photo_consent = True
+    db.commit()
+    return {"household_id": row.id, "size_bytes": len(raw), "ok": True}
+
+
+@router.delete("/households/{household_id}/head-photo")
+def delete_household_head_photo(
+    household_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retire la photo du chef de ménage (retrait du consentement = suppression). Brouillon."""
+    _require_ssrte_write(current_user)
+    row = _load_ssrte_writable(db, SsrteHouseholdProfile, household_id, current_user, require_draft=True)
+    row.head_photo_data = None
+    row.head_photo_consent = False
+    db.commit()
+    return {"household_id": row.id, "ok": True}
 
 
 # ----- Fiche C : visite de plantation -----------------------------------------

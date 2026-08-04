@@ -58,6 +58,7 @@ Remplir les **3 questionnaires officiels** du dispositif SSRTE, exportables en *
      (ex. l'origine de l'électricité n'apparaît que si « électricité = oui »).
    - Capturez le **GPS** au doigt avec l'icône 📍.
    - Une zone **Remarques / actions** existe par grande section.
+   - **Photo du chef de ménage (B.29, Fiche B)** : disponible **après** l'enregistrement — rouvrez la fiche (brouillon) via **Éditer**, cochez le **consentement**, puis **Ajouter**. L'image est **redimensionnée** automatiquement et apparaît sur le **PDF**. Retirable à tout moment (le retrait supprime la photo). Donnée personnelle : réservé aux rôles terrain (admin / agronome / technicien).
 4. Cliquez **Enregistrer** la fiche.
 5. Dans **Saisies récentes**, cliquez **Fiche A/B/C PDF** pour télécharger le document à la charte.
 

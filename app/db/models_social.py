@@ -5,7 +5,7 @@ Version: v1.0.0
 """
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Date, Time, Enum as SQLEnum, JSON, Numeric, UniqueConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from sqlalchemy.sql import func
 from app.db.database import Base
 import enum
@@ -807,7 +807,11 @@ class SsrteHouseholdProfile(Base):
     housing_type = Column(String(40), nullable=True)            # B.25 : moderne | traditionnel
     household_assets = Column(JSON, nullable=True)              # B.26 : possessions du ménage
     allow_worker_interview = Column(Boolean, nullable=True)     # B.18e : autorise l'entretien des travailleurs
-    head_photo_ref = Column(String(255), nullable=True)        # B.29 : référence photo du chef de ménage
+    head_photo_ref = Column(String(255), nullable=True)        # B.29 : référence photo (texte, historique)
+    # B.29 : photo RÉELLE du chef de ménage — data-URI base64 en TEXT (même mécanisme
+    # que le logo coop / la photo producteur). `deferred` : blob jamais chargé en liste.
+    head_photo_data = deferred(Column(Text, nullable=True))
+    head_photo_consent = Column(Boolean, default=False, nullable=False)  # consentement (donnée personnelle)
     risk_score = Column(Numeric(5, 2), default=0, nullable=False)
     risk_level = Column(SQLEnum(RiskLevel), default=RiskLevel.NONE, nullable=False, index=True)
     consent_given = Column(Boolean, default=False, nullable=False)

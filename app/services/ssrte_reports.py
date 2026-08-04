@@ -82,6 +82,7 @@ def build_ficheb_context(profile: SsrteHouseholdProfile) -> dict:
         "household_assets": profile.household_assets or [],
         "allow_worker_interview": profile.allow_worker_interview,
         "head_photo_ref": profile.head_photo_ref or "—",
+        "head_photo_data": profile.head_photo_data,
         "risk_score": float(profile.risk_score or 0),
         "risk_level": risk_level,
         "consent_given": bool(profile.consent_given),
