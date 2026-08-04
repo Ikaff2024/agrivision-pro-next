@@ -167,7 +167,11 @@ window.API_BASE = API_BASE;
     .sb-logo-name{font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px;line-height:1.15}
     .sb-logo-sub{font-size:10.5px;color:var(--sb-text);margin-top:2px}
     .sb-nav{flex:1;padding:12px 10px}
-    .sb-sec{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;padding:10px 10px 4px;margin-top:4px}
+    .sb-sec{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;background:none;border:none;text-align:left;font-family:inherit;font-size:9.5px;font-weight:600;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:.1em;padding:10px 10px 4px;margin-top:4px;cursor:pointer}
+    .sb-sec:hover{color:rgba(255,255,255,.55)}
+    .sb-sec-chev{font-size:16px;line-height:1;opacity:.6;transition:transform .18s ease}
+    .sb-sec.collapsed .sb-sec-chev{transform:rotate(-90deg)}
+    .sb-grp[hidden]{display:none}
     .nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--sb-text);font-size:13.5px;font-weight:500;transition:.15s;margin-bottom:2px;cursor:pointer}
     .nav-link:hover{background:var(--sb-hover);color:var(--sb-text-on)}
     .nav-link.active{background:var(--sb-active);color:var(--sb-text-active)}
@@ -1035,15 +1039,34 @@ function renderSidebar(activePage) {
     </div>
     <nav class="sb-nav">
       ${(() => {
-        let _grp = null;
-        return links.map(l => {
-          const _locked = _cachedMods && !_cachedMods.has(l.id) ? ' locked' : '';
-          let _hdr = '';
-          if (l.group && l.group !== _grp) { _hdr = `<div class="sb-sec">${l.group}</div>`; _grp = l.group; }
-          return _hdr + `
+        // Regroupe les liens par pilier (ordre d'apparition préservé) → chaque
+        // groupe devient repliable (en-tête cliquable + chevron, état mémorisé).
+        const _groups = [];
+        links.forEach(l => {
+          let g = _groups.find(x => x.name === l.group);
+          if (!g) { g = { name: l.group || '', items: [] }; _groups.push(g); }
+          g.items.push(l);
+        });
+        const _saved = _navCollapsedGroups();                       // Set, ou null à la 1re visite
+        const _activeGrp = (links.find(l => l.id === activePage) || {}).group;
+        return _groups.map(g => {
+          let _collapsed = _saved === null
+            ? (_activeGrp ? g.name !== _activeGrp : false)          // 1re visite : n'ouvrir que le pilier actif
+            : _saved.has(g.name);
+          if (g.name && g.name === _activeGrp) _collapsed = false;  // le pilier de la page active reste ouvert
+          const _items = g.items.map(l => {
+            const _locked = _cachedMods && !_cachedMods.has(l.id) ? ' locked' : '';
+            return `
         <a href="${l.href}" data-mod="${l.id}" class="nav-link ${activePage === l.id ? 'active' : ''}${_locked}" onclick="return navClick(event, this)">
           <span class="material-symbols-outlined ms">${l.icon}</span>${l.label}
         </a>`;
+          }).join('');
+          if (!g.name) return _items;                               // liens sans pilier : rendus à plat
+          return `
+        <button type="button" class="sb-sec${_collapsed ? ' collapsed' : ''}" data-grp="${g.name}" aria-expanded="${_collapsed ? 'false' : 'true'}" onclick="toggleNavGroup(this)">
+          <span>${g.name}</span><span class="material-symbols-outlined sb-sec-chev">expand_more</span>
+        </button>
+        <div class="sb-grp" data-grp-items="${g.name}"${_collapsed ? ' hidden' : ''}>${_items}</div>`;
         }).join('');
       })()}
     </nav>
@@ -1068,6 +1091,27 @@ function renderSidebar(activePage) {
 // Non-bloquant : si l'appel echoue ou plan inconnu, on n'enleve rien.
 // Cache local des modules autorisés → le menu est gaté DÈS le rendu (plus de flash
 // des modules Entreprise à chaque navigation). Rafraîchi en arrière-plan par /me/features.
+// Groupes de nav repliables : lecture de l'état sauvegardé (localStorage).
+function _navCollapsedGroups() {
+  try { const r = localStorage.getItem('avp_nav_collapsed'); return r ? new Set(JSON.parse(r)) : null; }
+  catch (e) { return null; }
+}
+
+// Replie/déplie un pilier de la barre latérale et mémorise l'état (par nom de groupe).
+function toggleNavGroup(btn) {
+  const items = btn.nextElementSibling;   // le conteneur .sb-grp suit toujours l'en-tête
+  const collapsed = !btn.classList.contains('collapsed');
+  btn.classList.toggle('collapsed', collapsed);
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  if (items) items.hidden = collapsed;
+  try {
+    const name = btn.getAttribute('data-grp');
+    const set = new Set(JSON.parse(localStorage.getItem('avp_nav_collapsed') || '[]'));
+    if (collapsed) set.add(name); else set.delete(name);
+    localStorage.setItem('avp_nav_collapsed', JSON.stringify([...set]));
+  } catch (e) {}
+}
+
 function getCachedModules() {
   try {
     const r = localStorage.getItem('avp_features');
