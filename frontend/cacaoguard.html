@@ -35,6 +35,12 @@
     .cg-kpi-value{font-family:'Fraunces',serif;font-size:34px;font-weight:700;line-height:1}
     .cg-kpi-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:7px}
     .cg-kpi-note{font-size:12px;color:var(--faint);margin-top:8px}
+    /* KPI cliquables : drill-down vers la page/section de détail */
+    .cg-kpi[data-href],.cg-kpi[data-scroll]{cursor:pointer;position:relative;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+    .cg-kpi[data-href]:hover,.cg-kpi[data-scroll]:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.10);border-color:var(--primary)}
+    .cg-kpi[data-href]:focus-visible,.cg-kpi[data-scroll]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+    .cg-kpi-go{position:absolute;top:12px;right:12px;font-size:16px;color:var(--faint);transition:color .12s ease,transform .12s ease}
+    .cg-kpi[data-href]:hover .cg-kpi-go,.cg-kpi[data-scroll]:hover .cg-kpi-go{color:var(--primary);transform:translate(2px,-2px)}
     .cg-grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
     .cg-risk-row{display:grid;grid-template-columns:90px 1fr 36px;align-items:center;gap:10px;margin:13px 0}
     .cg-bar{height:9px;background:var(--border-l);border-radius:99px;overflow:hidden}
@@ -106,65 +112,77 @@
       </div>
 
       <div class="cg-kpis">
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="producers.html" title="Voir les producteurs">
           <div class="cg-kpi-value" id="k-producers">-</div>
           <div class="cg-kpi-label">Producteurs</div>
           <div class="cg-kpi-note">base cooperative</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="children.html" title="Voir les enfants suivis">
           <div class="cg-kpi-value" id="k-children">-</div>
           <div class="cg-kpi-label">Enfants suivis</div>
           <div class="cg-kpi-note">familles productrices</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="children.html?risque=eleve" title="Voir les enfants à risque élevé/critique">
           <div class="cg-kpi-value" id="k-risk" style="color:var(--high)">-</div>
           <div class="cg-kpi-label">Risque eleve</div>
           <div class="cg-kpi-note">eleve + critique</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-scroll="#alerts-panel" title="Voir la liste des alertes">
           <div class="cg-kpi-value" id="k-alerts" style="color:var(--med)">-</div>
           <div class="cg-kpi-label">Alertes ouvertes</div>
           <div class="cg-kpi-note">a traiter</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_downward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="monitoring.html" title="Voir le monitoring terrain">
           <div class="cg-kpi-value" id="k-visits">-</div>
           <div class="cg-kpi-label">Visites planifiees</div>
           <div class="cg-kpi-note">monitoring terrain</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="remediation.html" title="Voir les plans de remédiation">
           <div class="cg-kpi-value" id="k-remediation" style="color:var(--primary)">-</div>
           <div class="cg-kpi-label">Plans actifs</div>
           <div class="cg-kpi-note">remediation</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="compliance.html" title="Voir les blocages de traçabilité">
           <div class="cg-kpi-value" id="k-blocks" style="color:var(--high)">-</div>
           <div class="cg-kpi-label">Blocages</div>
           <div class="cg-kpi-note">tracabilite</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="ssrte.html?tab=household" title="Voir les fiches ménage (F1)">
           <div class="cg-kpi-value" id="k-ssrte-households">-</div>
           <div class="cg-kpi-label">F1 menage</div>
           <div class="cg-kpi-note">profilage SSRTE</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="ssrte.html?tab=visit" title="Voir les fiches C (visites)">
           <div class="cg-kpi-value" id="k-ssrte-visits">-</div>
           <div class="cg-kpi-label">Fiche C</div>
           <div class="cg-kpi-note">visites plantation</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="ssrte.html?tab=visit" title="Voir les suspicions (Fiche C)">
           <div class="cg-kpi-value" id="k-ssrte-suspicions" style="color:var(--high)">-</div>
           <div class="cg-kpi-label">Suspicions SSRTE</div>
           <div class="cg-kpi-note">a verifier</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="farmforce.html" title="Voir le revenu vital">
           <div class="cg-kpi-value" id="k-farmforce">-</div>
           <div class="cg-kpi-label">Revenu vital</div>
           <div class="cg-kpi-note">comptes producteurs</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
-        <div class="cg-kpi">
+        <div class="cg-kpi" data-href="farmforce.html" title="Voir les marges négatives">
           <div class="cg-kpi-value" id="k-farmforce-alerts" style="color:var(--med)">-</div>
           <div class="cg-kpi-label">Marge negative</div>
           <div class="cg-kpi-note">vulnerabilite economique</div>
+          <span class="cg-kpi-go material-symbols-outlined">arrow_outward</span>
         </div>
       </div>
 
@@ -258,6 +276,23 @@
 
 <script>
 initApp('cacaoguard');
+
+// Drill-down : chaque carte KPI renvoie à sa page (ou section) de détail.
+function wireKpiDrilldown(){
+  document.querySelectorAll('.cg-kpi[data-href],.cg-kpi[data-scroll]').forEach(card => {
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    const go = () => {
+      const href = card.getAttribute('data-href');
+      const sel = card.getAttribute('data-scroll');
+      if (href) location.href = href;
+      else if (sel) { const el = document.querySelector(sel); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    };
+    card.addEventListener('click', go);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+wireKpiDrilldown();
 
 const riskLabels = {
   none: 'Aucun',
