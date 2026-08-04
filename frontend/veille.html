@@ -189,8 +189,9 @@ let _maxAgeDays = null;          // âge max de l'info (jours) ; null = toutes
 let _veilleItems = [];          // items veille open-source chargés
 let _vrFilter = 'tous';          // catégorie active (topic) du moteur open-source
 
-// Restreint l'ancienneté des actualités marché (rechargement serveur).
-function setAge(days) { _maxAgeDays = days || null; loadMarket(false); }
+// Restreint l'ancienneté des actualités — marché ET veille réglementaire open-source
+// (rechargement serveur des DEUX sections).
+function setAge(days) { _maxAgeDays = days || null; loadMarket(false); loadVeille(); }
 
 document.addEventListener('DOMContentLoaded', () => {
   computeEudrDays();
@@ -389,9 +390,11 @@ function renderNews() {
 // ───────── Veille réglementaire (moteur open-source) — digest + items ─────────
 async function loadVeille() {
   try {
+    // L'âge de l'info (sélecteur commun) s'applique aussi au moteur open-source.
+    const itemsUrl = '/veille/items?limit=50' + (_maxAgeDays ? '&max_age_days=' + _maxAgeDays : '');
     const [dr, ir] = await Promise.all([
       authFetch('/veille/digest'),
-      authFetch('/veille/items?limit=50'),
+      authFetch(itemsUrl),
     ]);
     const digest = dr && dr.ok ? (await dr.json()).digest : null;
     let items = ir && ir.ok ? ((await ir.json()).items || []) : [];
@@ -472,7 +475,11 @@ function _renderVeilleList() {
       list.innerHTML = '<div style="text-align:center;padding:18px;color:var(--muted,#6a7d64)">Aucune actualité dans cette catégorie.</div>';
     } else {
       list.style.display = 'none';
-      if (empty) empty.style.display = 'block';
+      if (empty) {
+        // Période active mais aucun item : message adapté (sinon on garde le libellé + indice admin d'origine).
+        if (_maxAgeDays) empty.textContent = 'Aucune actualité réglementaire sur cette période — élargissez « Âge de l’info ».';
+        empty.style.display = 'block';
+      }
     }
     return;
   }

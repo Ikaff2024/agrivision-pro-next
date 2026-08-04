@@ -58,10 +58,26 @@ def veille_ingest(db: Session = Depends(get_db), current_user: User = Depends(ge
 def veille_items(
     topic: Optional[str] = Query(None),
     limit: int = Query(40, ge=1, le=200),
+    max_age_days: Optional[int] = Query(
+        None, ge=1, le=1825,
+        description="Ne garder que les items publiés (à défaut récupérés) dans les N derniers jours.",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    items = veille_engine.retrieve(db, topics=[topic] if topic else None, limit=limit)
+    # Filtre d'âge : on récupère large puis on borne, pour rester au niveau `limit`.
+    items = veille_engine.retrieve(db, topics=[topic] if topic else None, limit=200 if max_age_days else limit)
+    if max_age_days and max_age_days > 0:
+        from datetime import datetime, timezone, timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+
+        def _item_dt(it):
+            dt = it.published_at or it.fetched_at
+            if dt is not None and dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+
+        items = [it for it in items if (_item_dt(it) or cutoff) >= cutoff][:limit]
     return {"count": len(items), "items": [_item_dict(it) for it in items]}
 
 
