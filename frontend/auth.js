@@ -30,6 +30,14 @@ window.API_BASE = API_BASE;
     addLink({ rel: 'stylesheet', href: '/fonts/avp-fonts.css' });
   }
 
+  // Favicon (logo AgriVision) : les pages HTML n'en déclarent pas → sinon le
+  // navigateur affiche l'icône « globe » par défaut dans l'onglet. On réutilise
+  // l'icône PWA (même origine, précachée par le SW). Injecté ici = tout le site.
+  if (!head.querySelector('link[rel="icon"]')) {
+    addLink({ rel: 'icon', type: 'image/png', href: '/icons/icon-192.png' });
+    addLink({ rel: 'apple-touch-icon', href: '/icons/icon-192.png' });
+  }
+
   // Anti-flash des ligatures d'icônes : tant que la police Material Symbols n'est
   // pas chargée (et sa classe appliquée), le navigateur afficherait le TEXTE de
   // la ligature ("person_add", "dashboard"…). On masque les icônes jusqu'à ce que
