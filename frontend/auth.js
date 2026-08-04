@@ -1073,7 +1073,8 @@ function renderSidebar(activePage) {
     ${user ? `
     <button id="avp-prep-offline" class="sb-prep-offline" onclick="avpPrepareOffline()" title="Télécharge les données pour travailler sans réseau (tournée terrain)">
       <span class="material-symbols-outlined ms">cloud_download</span>Préparer le hors-ligne
-    </button>` : ''}
+    </button>
+    <div class="sb-prep-hint">À faire avant de partir, avec réseau · voir Aide §9.F</div>` : ''}
     ${userBlock}`;
 
   if (user && !document.getElementById('avp-prep-offline-style')) {
@@ -1083,7 +1084,8 @@ function renderSidebar(activePage) {
       + 'border:1px solid rgba(82,183,136,.4);background:rgba(82,183,136,.10);color:#a7e0c0;border-radius:10px;cursor:pointer;'
       + 'font-family:"DM Sans",sans-serif;font-size:13px;font-weight:600;transition:background .15s}'
       + '.sb-prep-offline:hover{background:rgba(82,183,136,.20)}.sb-prep-offline .ms{font-size:19px}'
-      + '.sb-prep-offline:disabled{opacity:.6;cursor:progress}';
+      + '.sb-prep-offline:disabled{opacity:.6;cursor:progress}'
+      + '.sb-prep-hint{font-size:10px;line-height:1.3;color:rgba(255,255,255,.38);text-align:center;margin:-2px 12px 8px;padding:0 4px}';
     document.head.appendChild(st);
   }
 }

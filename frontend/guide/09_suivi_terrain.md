@@ -119,6 +119,8 @@ Au bureau ou au village, tant que vous avez du réseau (wifi/4G), ouvrez le **me
 La plateforme **télécharge sur l'appareil** les écrans essentiels — producteurs, plantations, enfants, achats, signalements, monitoring, etc.
 Une barre de progression s'affiche, puis **« X écrans prêts »**. Vous pouvez maintenant consulter ces données **même sans réseau**.
 
+> 💡 C'est un **instantané** des données à cet instant : **relancez-le avant chaque tournée** pour partir avec les informations à jour. Le cache est propre à **cet appareil/navigateur**.
+
 ### 2. Sur le terrain : **saisir normalement**
 Vous pouvez **enregistrer** hors-ligne : **achats**, **recensement d'enfants**, **signalements**, **récoltes**, **visites de monitoring**, **fiches SSRTE**, **diagnostics**…
 Le message *« enregistré hors-ligne — envoi au serveur dès le retour du réseau »* confirme la mise en file locale.
