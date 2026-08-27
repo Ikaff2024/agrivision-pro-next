@@ -156,9 +156,16 @@ alembic downgrade -1
 | Variable | Obligatoire | Description |
 |---|---|---|
 | `SECRET_KEY` | Oui | Clé de signature JWT (min. 32 chars aléatoires) |
+| `ENVIRONMENT` | Non | `development` \| `test` \| `production`. **Défaut : `production`** — toute valeur absente, vide ou inconnue est traitée comme la production (fail-closed) |
 | `DATABASE_URL` | Non | URL PostgreSQL — SQLite local si absent |
 | `ALLOWED_ORIGINS` | Non | Origines CORS autorisées (virgule-séparées) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Non | Durée du token JWT (défaut : 120) |
+
+> **`ENVIRONMENT` est une variable de sécurité.** Seules les valeurs
+> `development` et `test` desserrent une protection : c'est le seul cas où
+> `POST /auth/forgot-password` renvoie le lien de réinitialisation dans sa
+> réponse HTTP (dépannage d'un admin unique verrouillé). Ne jamais poser
+> `development` ou `test` sur un serveur accessible depuis Internet.
 
 ---
 

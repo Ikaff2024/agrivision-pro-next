@@ -1,5 +1,7 @@
 """Tests d'intégration — authentification."""
 
+import pytest
+
 
 def test_register_success(client):
     res = client.post("/auth/register", json={
@@ -153,6 +155,21 @@ def test_protected_route_with_invalid_token(client):
 
 # ─── Mot de passe oublié (self-service) ──────────────────────────────────────
 
+@pytest.fixture
+def dev_environment(monkeypatch):
+    """Déclare explicitement un environnement de développement.
+
+    Le lien de réinitialisation n'est renvoyé dans la réponse HTTP que sur un
+    environnement nommé (`development` / `test`) — jamais parce que SMTP est
+    absent (cf. app/services/environment.py). Les tests du flux de reset ont
+    donc besoin de cette déclaration explicite ; c'est la précondition, pas un
+    contournement.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+
+
+
 def test_forgot_password_unknown_email_is_generic(client):
     """Email inconnu => message générique 200 (anti-énumération), pas de lien."""
     res = client.post("/auth/forgot-password", json={"email": "inconnu@test.ci"})
@@ -161,13 +178,13 @@ def test_forgot_password_unknown_email_is_generic(client):
     assert "reset_link" not in res.json()
 
 
-def test_forgot_then_reset_password_flow(client):
-    """Sans SMTP configuré, le lien est renvoyé ; le token réinitialise le mot de passe."""
+def test_forgot_then_reset_password_flow(client, dev_environment):
+    """En environnement de dev déclaré, le lien est renvoyé ; le token réinitialise."""
     _register_login(client, "forgot@test.ci", "oldpass1")
     res = client.post("/auth/forgot-password", json={"email": "forgot@test.ci"})
     assert res.status_code == 200
     body = res.json()
-    # SMTP non configuré en test => lien exposé pour récupération
+    # ENVIRONMENT=test => filet de secours dev, lien exposé pour récupération
     assert "reset_link" in body and "token=" in body["reset_link"]
     token = body["reset_link"].split("token=", 1)[1]
 
@@ -179,7 +196,7 @@ def test_forgot_then_reset_password_flow(client):
     assert client.post("/auth/login", json={"email": "forgot@test.ci", "password": "newpass2"}).status_code == 200
 
 
-def test_reset_token_is_single_use(client):
+def test_reset_token_is_single_use(client, dev_environment):
     """Le token de reset devient invalide après usage (empreinte du hash)."""
     _register_login(client, "single@test.ci", "oldpass1")
     body = client.post("/auth/forgot-password", json={"email": "single@test.ci"}).json()
@@ -195,7 +212,7 @@ def test_reset_password_invalid_token(client):
     assert res.status_code == 401
 
 
-def test_reset_password_too_short(client):
+def test_reset_password_too_short(client, dev_environment):
     _register_login(client, "short@test.ci", "oldpass1")
     body = client.post("/auth/forgot-password", json={"email": "short@test.ci"}).json()
     token = body["reset_link"].split("token=", 1)[1]

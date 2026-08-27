@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -20,6 +22,9 @@ from app.services.email_service import (
     send_password_reset_email,
     smtp_is_configured,
 )
+from app.services.environment import current_environment, is_development
+
+logger = logging.getLogger("agrivision.auth")
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -170,10 +175,14 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
     Renvoie TOUJOURS le meme message generique (anti-enumeration d'emails).
     Si l'email correspond a un compte actif, un lien de reinitialisation
-    (valable 1 h, usage unique) est envoye par email. En l'absence de SMTP
-    configure, le lien est journalise cote serveur (le champ `reset_link`
-    n'est expose que sur les environnements non-production, cf. SMTP non
-    configure, pour permettre la recuperation d'un admin unique en lockout).
+    (valable 1 h, usage unique) est envoye par email.
+
+    Le lien n'est JAMAIS renvoye dans la reponse HTTP, sauf si le serveur
+    declare explicitement `ENVIRONMENT=development` ou `test` — filet de secours
+    pour recuperer un admin unique verrouille sur un poste de developpement.
+    En production (valeur par defaut, y compris variable absente), l'absence ou
+    la panne de SMTP ne change rien : le lien part par email ou nulle part, et
+    reste consultable dans les journaux serveur.
     """
     generic = {
         "status": "ok",
@@ -191,10 +200,17 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     reset_link = f"{app_base_url()}/reset_password.html?token={token}"
     sent = send_password_reset_email(user.email, reset_link)
 
-    # Filet de securite pour l'admin unique en lockout : si aucun SMTP n'est
-    # configure, on expose le lien dans la reponse (sinon impossible a recuperer).
-    if not sent and not smtp_is_configured():
-        return {**generic, "reset_link": reset_link, "smtp_configured": False}
+    # Filet de securite pour l'admin unique en lockout, RESERVE aux postes de
+    # developpement declares. La condition porte sur l'environnement, jamais sur
+    # l'etat de SMTP : une variable SMTP_HOST perdue en production ne doit pas
+    # transformer cet endpoint en distributeur de prises de controle de compte.
+    if not sent and is_development():
+        logger.warning(
+            "ENVIRONMENT=%s : lien de reinitialisation renvoye dans la reponse HTTP "
+            "(filet de secours de developpement). Interdit en production.",
+            current_environment(),
+        )
+        return {**generic, "reset_link": reset_link, "smtp_configured": smtp_is_configured()}
     return generic
 
 
