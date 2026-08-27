@@ -72,3 +72,41 @@ agrivision-frontend-*.zip
 
 # EUDR-01a frontend deploy zips (regenerated on demand)
 agrivision-frontend-*.zip
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DONNÉES CLIENTS — politique restrictive avec exceptions explicites
+# ═══════════════════════════════════════════════════════════════════════════
+# Le dépôt est PUBLIC. Aucun registre coopérative, export SSRTE/FarmForce,
+# fichier producteurs ou dump de base ne doit y entrer.
+#
+# ⚠ .gitignore ne « dé-suit » PAS un fichier déjà versionné : il ne protège
+#   que le futur. Le contrôle en CI (tests/test_no_client_data.py) est le
+#   filet qui attrape ce que celui-ci laisserait passer.
+#
+# Principe : on refuse par défaut les formats de données, puis on ré-autorise
+# nommément les fixtures et spécimens légitimes. Un nouveau fichier autorisé
+# doit être ajouté ICI explicitement — c'est le point de décision.
+
+# --- Formats de données refusés par défaut -------------------------------
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.tsv
+*.dump
+*.sql
+*.sqlite3
+*.parquet
+
+# --- Exceptions : fixtures de test et générateurs ------------------------
+!e2e/fixtures/*.xlsx
+!tests/fixtures/*.xlsx
+
+# --- Exceptions : spécimens et gabarits vierges publiables ----------------
+!docs/SPECIMEN_*.pdf
+!docs/ANNEXE_SPECIMENS_*.pdf
+
+# --- Exports et sauvegardes locales --------------------------------------
+exports/
+backups/
+*.dump.enc
