@@ -179,9 +179,110 @@ UNTRUSTED_ACCESSORS = [
 ]
 
 
-def _template_expressions(source: str) -> list[str]:
-    """Toutes les expressions `${...}` d'un fichier (litteraux de gabarit JS)."""
-    return re.findall(r"\$\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}", source)
+# Wrappers qui neutralisent le HTML. `nl2br` echappe AVANT de convertir les
+# retours a la ligne (cf. complaints.html) : son resultat est sur.
+SAFE_WRAPPERS = ("avpEsc", "nl2br")
+
+
+def _strip_safe_wrappers(expr: str) -> str:
+    """Retire les appels `avpEsc(...)` / `nl2br(...)` avec leurs arguments.
+
+    Suppression a parentheses equilibrees : ce qui reste apres coup est ce qui
+    est reellement emis SANS echappement.
+    """
+    pattern = re.compile(r"\b(?:%s)\s*\(" % "|".join(SAFE_WRAPPERS))
+    while True:
+        m = pattern.search(expr)
+        if not m:
+            return expr
+        depth, i = 0, m.end() - 1
+        while i < len(expr):
+            if expr[i] == "(":
+                depth += 1
+            elif expr[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        expr = expr[: m.start()] + " SAFE " + expr[i + 1 :]
+
+
+def _strip_ternary_test(expr: str) -> str:
+    """Retire la CONDITION d'un ternaire `TEST ? A : B`.
+
+    La condition n'est jamais emise : dans `${c.findings ? '<h4>..' : ''}`, le
+    HTML recoit une constante. Seules les branches comptent. On coupe au premier
+    `?` de profondeur 0 (hors `?.` et hors sous-gabarit imbrique).
+    """
+    depth = 0
+    for i, ch in enumerate(expr):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "`":
+            return expr  # gabarit imbrique : on ne coupe pas, on reste prudent
+        elif ch == "?" and depth == 0 and expr[i + 1 : i + 2] != ".":
+            return expr[i + 1 :]
+    return expr
+
+
+def _strip_non_emitting_uses(expr: str, accessor: str) -> str:
+    """Retire les usages qui ne PRODUISENT pas la valeur (donc inoffensifs).
+
+    Cas couverts : la longueur (`(c.description || '').length`) et la condition
+    d'un ternaire. Ce qui reste ensuite est bien emis dans le HTML.
+    """
+    esc = re.escape(accessor)
+    expr = re.sub(r"\(?\s*%s\s*(?:\|\|\s*'[^']*')?\s*\)?\s*\.length" % esc, " LEN ", expr)
+    return _strip_ternary_test(expr)
+
+
+def _html_template_expressions(source: str) -> list[str]:
+    """Emplacements d'interpolation ATOMIQUES `${...}` susceptibles d'etre du HTML.
+
+    On ne retient que les emplacements sans accolade interne, c'est-a-dire les
+    plus internes. C'est volontaire : un bloc englobant du type
+    `${c.findings ? `...${x}...` : ''}` n'emet que ses BRANCHES, jamais sa
+    condition — et ces branches sont elles-memes captees comme emplacements
+    atomiques. Analyser les blocs englobants ne ferait que produire des faux
+    positifs sur les conditions.
+
+    Les lignes affectant `textContent` sont ecartees : le navigateur n'y
+    interprete jamais de balise.
+    """
+    html_only = "\n".join(
+        line for line in source.splitlines() if ".textContent" not in line
+    )
+    return re.findall(r"\$\{([^{}]*)\}", html_only)
+
+
+def _unescaped_untrusted_fields(source: str) -> list[str]:
+    """Champs non fiables emis dans du HTML sans passer par un echappement."""
+    faulty = []
+    for expr in _html_template_expressions(source):
+        for accessor in UNTRUSTED_ACCESSORS:
+            if accessor not in expr:
+                continue
+            residue = _strip_non_emitting_uses(_strip_safe_wrappers(expr), accessor)
+            if accessor in residue:
+                faulty.append(f"{accessor} -> ${{{expr.strip()}}}")
+    return sorted(set(faulty))
+
+
+def test_untrusted_field_detector_flags_a_vulnerable_snippet():
+    """Le detecteur doit lui-meme etre capable de voir la faille d'origine.
+
+    Sans ce test, un detecteur casse passerait pour un code sain.
+    """
+    vulnerable = "el.innerHTML = `<td>${(c.description || '').slice(0, 130)}</td>`;"
+    assert _unescaped_untrusted_fields(vulnerable), (
+        "Le detecteur ne voit plus l'injection d'origine : il ne protege plus rien."
+    )
+    patched = "el.innerHTML = `<td>${avpEsc((c.description || '').slice(0, 130))}</td>`;"
+    assert not _unescaped_untrusted_fields(patched), (
+        "Le detecteur signale a tort une interpolation correctement echappee."
+    )
 
 
 def test_complaints_page_escapes_all_untrusted_fields():
@@ -196,11 +297,7 @@ def test_complaints_page_escapes_all_untrusted_fields():
           -> vol de avp_token / avp_refresh_token (localStorage)
     """
     source = (FRONTEND / "complaints.html").read_text(encoding="utf-8")
-    faulty = []
-    for expr in _template_expressions(source):
-        for accessor in UNTRUSTED_ACCESSORS:
-            if accessor in expr and "avpEsc(" not in expr:
-                faulty.append(f"{accessor} -> ${{{expr.strip()}}}")
+    faulty = _unescaped_untrusted_fields(source)
     assert not faulty, (
         "Champ(s) non fiable(s) injecte(s) sans echappement dans complaints.html :\n  - "
         + "\n  - ".join(sorted(set(faulty)))

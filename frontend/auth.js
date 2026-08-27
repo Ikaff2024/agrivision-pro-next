@@ -332,6 +332,26 @@ window.API_BASE = API_BASE;
   }
 })();
 
+/* ── Échappement HTML (sécurité) ─────────────────────────────
+   Neutralise toute donnée non fiable AVANT de l'insérer dans une chaîne HTML
+   (innerHTML, littéral de gabarit…). À utiliser systématiquement pour tout ce
+   qui vient de l'API : signalements (saisis SANS COMPTE via le formulaire
+   public villageois), noms de producteurs (issus d'imports de registre),
+   saisies d'enquêteurs terrain.
+
+   Les cinq caractères encodés couvrent la sortie de texte ET la sortie
+   d'attribut (`"` et `'`), ce qui permet aussi `<input value="${avpEsc(x)}">`.
+   Quand aucun HTML n'est nécessaire, préférer `el.textContent = x`. */
+function avpEsc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.avpEsc = avpEsc;
+
 /* ── Toast ──────────────────────────────────────────────────── */
 function toast(msg, type) {
   // Auto-détection du type quand non précisé : un message d'erreur s'affiche en rouge.

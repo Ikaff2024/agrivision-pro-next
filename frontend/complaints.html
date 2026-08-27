@@ -335,7 +335,7 @@ async function loadProducers() {
       allProducers = await res.json();
       const sel = document.getElementById('n-producer');
       sel.innerHTML = '<option value="">— Aucun lien direct —</option>' +
-        allProducers.map(p => `<option value="${p.id}">${p.nom_complet}${p.localite ? ' - ' + p.localite : ''}</option>`).join('');
+        allProducers.map(p => `<option value="${Number(p.id)}">${avpEsc(p.nom_complet)}${p.localite ? ' - ' + avpEsc(p.localite) : ''}</option>`).join('');
     }
   } catch (e) { /* prod list optionnelle */ }
 }
@@ -353,7 +353,7 @@ async function loadComplaints() {
     updateKPIs();
   } catch (e) {
     document.getElementById('rows').innerHTML =
-      `<tr><td colspan="7" style="text-align:center;color:var(--high);padding:36px">Erreur de chargement : ${e.message}</td></tr>`;
+      `<tr><td colspan="7" style="text-align:center;color:var(--high);padding:36px">Erreur de chargement : ${avpEsc(e.message)}</td></tr>`;
   }
 }
 
@@ -382,15 +382,15 @@ function renderTable() {
         : 'badge-med';
       return `
         <tr>
-          <td class="ref-cell">${c.reference}</td>
+          <td class="ref-cell">${avpEsc(c.reference)}</td>
           <td>${fmtDate(c.received_date)}</td>
-          <td>${TYPE_LBL[c.complaint_type] || c.complaint_type}</td>
-          <td><span class="severity-bar"><span class="severity-dot ${sevCls}"></span>${SEV_LBL[c.severity] || c.severity}</span></td>
-          <td><span class="badge ${statusCls}">${STATUS_LBL[c.status] || c.status}</span></td>
-          <td class="desc-cell">${(c.description || '').slice(0, 130)}${(c.description || '').length > 130 ? '…' : ''}</td>
+          <td>${avpEsc(TYPE_LBL[c.complaint_type] || c.complaint_type)}</td>
+          <td><span class="severity-bar"><span class="severity-dot ${avpEsc(sevCls)}"></span>${avpEsc(SEV_LBL[c.severity] || c.severity)}</span></td>
+          <td><span class="badge ${statusCls}">${avpEsc(STATUS_LBL[c.status] || c.status)}</span></td>
+          <td class="desc-cell">${avpEsc((c.description || '').slice(0, 130))}${(c.description || '').length > 130 ? '…' : ''}</td>
           <td class="actions-cell">
-            <button class="action-btn" onclick="openDetail(${c.id})"><span class="material-symbols-outlined" style="font-size:14px">visibility</span>Voir</button>
-            ${c.status !== 'escalated' && c.status !== 'closed' ? `<button class="action-btn danger" onclick="quickEscalate(${c.id})"><span class="material-symbols-outlined" style="font-size:14px">priority_high</span>Escalader</button>` : ''}
+            <button class="action-btn" onclick="openDetail(${Number(c.id)})"><span class="material-symbols-outlined" style="font-size:14px">visibility</span>Voir</button>
+            ${c.status !== 'escalated' && c.status !== 'closed' ? `<button class="action-btn danger" onclick="quickEscalate(${Number(c.id)})"><span class="material-symbols-outlined" style="font-size:14px">priority_high</span>Escalader</button>` : ''}
           </td>
         </tr>`;
     }).join('');
@@ -421,17 +421,17 @@ async function openPublicLink() {
     }
     if (!token) throw new Error('Impossible de générer le lien (rôle admin requis).');
     renderPublicLink(token);
-  } catch (e) { body.innerHTML = '<span style="color:var(--high)">' + (e.message || 'Erreur') + '</span>'; }
+  } catch (e) { body.innerHTML = '<span style="color:var(--high)">' + avpEsc(e.message || 'Erreur') + '</span>'; }
 }
 function renderPublicLink(token) {
   const url = location.origin + '/signalement.html?c=' + token;
   const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=' + encodeURIComponent(url);
   document.getElementById('pub-body').innerHTML =
     '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">' +
-      '<img src="' + qr + '" alt="QR de signalement" width="150" height="150" style="border:1px solid var(--border);border-radius:10px;background:#fff" onerror="this.style.display=\'none\'">' +
+      '<img src="' + avpEsc(qr) + '" alt="QR de signalement" width="150" height="150" style="border:1px solid var(--border);border-radius:10px;background:#fff" onerror="this.style.display=\'none\'">' +
       '<div style="flex:1;min-width:210px">' +
         '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Lien public (à afficher / imprimer) :</div>' +
-        '<input id="pub-url" value="' + url + '" readonly onclick="this.select()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--text);background:var(--surface)">' +
+        '<input id="pub-url" value="' + avpEsc(url) + '" readonly onclick="this.select()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--text);background:var(--surface)">' +
         '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
           '<button class="btn btn-sm btn-primary" onclick="copyPublicLink()">Copier le lien</button>' +
           '<button class="btn btn-sm btn-outline" onclick="regeneratePublicLink()">Régénérer</button>' +
@@ -519,42 +519,48 @@ async function openDetail(id) {
     const c = await res.json();
     document.getElementById('d-title').textContent = `Signalement ${c.reference}`;
     const producer = allProducers.find(p => p.id === c.producer_id);
+    // SÉCURITÉ : tout ce qui vient de l'API passe par avpEsc(). La description,
+    // le lieu et le déclarant sont saisis SANS COMPTE depuis le formulaire public
+    // villageois : sans échappement, un signalement peut exécuter du JavaScript
+    // dans la session de l'administrateur qui l'ouvre. Pour les champs multilignes,
+    // on échappe D'ABORD, puis on convertit les retours à la ligne en <br>.
+    const nl2br = (s) => avpEsc(s).replace(/\n/g, '<br>');
     document.getElementById('d-body').innerHTML = `
       <div class="detail-section">
         <h4>Identification</h4>
-        Type : <strong>${TYPE_LBL[c.complaint_type] || c.complaint_type}</strong>
-        — Sévérité : <strong>${SEV_LBL[c.severity] || c.severity}</strong>
-        — Statut : <strong>${STATUS_LBL[c.status] || c.status}</strong><br>
-        Reçu le ${fmtDate(c.received_date)} via <em>${c.source || 'inconnu'}</em>
+        Type : <strong>${avpEsc(TYPE_LBL[c.complaint_type] || c.complaint_type)}</strong>
+        — Sévérité : <strong>${avpEsc(SEV_LBL[c.severity] || c.severity)}</strong>
+        — Statut : <strong>${avpEsc(STATUS_LBL[c.status] || c.status)}</strong><br>
+        Reçu le ${fmtDate(c.received_date)} via <em>${avpEsc(c.source || 'inconnu')}</em>
       </div>
       <div class="detail-section">
         <h4>Description</h4>
-        ${(c.description || '').replace(/\n/g, '<br>') || '<em>Vide</em>'}
+        ${nl2br(c.description || '') || '<em>Vide</em>'}
       </div>
       ${c.location_description || c.location_gps ? `
       <div class="detail-section">
         <h4>Lieu</h4>
-        ${c.location_description || ''} ${c.location_gps ? `<br>GPS : ${c.location_gps}` : ''}
+        ${avpEsc(c.location_description || '')} ${c.location_gps ? `<br>GPS : ${avpEsc(c.location_gps)}` : ''}
       </div>` : ''}
       ${producer ? `
       <div class="detail-section">
         <h4>Producteur lié</h4>
-        ${producer.nom_complet} ${producer.localite ? '(' + producer.localite + ')' : ''}
+        ${avpEsc(producer.nom_complet)} ${producer.localite ? '(' + avpEsc(producer.localite) + ')' : ''}
       </div>` : ''}
       ${c.reporter_name || c.reporter_contact ? `
       <div class="detail-section">
         <h4>Déclarant</h4>
-        ${c.reporter_name || '[anonyme]'} ${c.reporter_contact ? ' — ' + c.reporter_contact : ''}
+        ${avpEsc(c.reporter_name || '[anonyme]')} ${c.reporter_contact ? ' — ' + avpEsc(c.reporter_contact) : ''}
       </div>` : ''}
       ${c.findings ? `
       <div class="detail-section">
         <h4>Conclusions d'enquête</h4>
-        ${c.findings.replace(/\n/g, '<br>')}
+        ${nl2br(c.findings)}
       </div>` : ''}
       ${c.referral_made ? `
       <div class="detail-section">
         <h4>Renvoi externe</h4>
-        Renvoyé à : <strong>${c.referred_to || '—'}</strong>
+        Renvoyé à : <strong>${avpEsc(c.referred_to || '—')}</strong>
       </div>` : ''}
       <div class="detail-section">
         <h4>Investigation</h4>
@@ -565,7 +571,7 @@ async function openDetail(id) {
     escBtn.style.display = (c.status === 'escalated' || c.status === 'closed') ? 'none' : '';
   } catch (e) {
     document.getElementById('d-body').innerHTML =
-      `<div style="color:var(--high)">${e.message}</div>`;
+      `<div style="color:var(--high)">${avpEsc(e.message)}</div>`;
   }
 }
 function closeDetailModal() { document.getElementById('modal-detail').classList.remove('active'); currentDetailId = null; }
