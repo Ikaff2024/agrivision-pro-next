@@ -1,7 +1,20 @@
+import pytest
+
 from app.db.models import Cooperative, Producer, User
 from app.auth.auth_service import create_access_token
 from app.importers.farmforce_excel import parse_farmforce_excel
 from tests.conftest import TestingSessionLocal
+from tests.fixtures.generate_farmforce_workbook import (
+    COOPERATIVE_NAME,
+    LOCALITE,
+    PRODUCER_CODE,
+    PRODUCER_NAME,
+    PR_CODE,
+    TOTAL_COST,
+    TOTAL_HOUSEHOLD_EXPENSES,
+    TOTAL_REVENUE,
+    build_farmforce_workbook,
+)
 
 
 def _admin_headers(email="farmforce.admin@test.ci"):
@@ -43,7 +56,7 @@ def _seed_producer():
             cooperative=coop,
             nom_complet="Yao FarmForce",
             code_yeyasso="PR-001",
-            localite="Yeyasso",
+            localite="Zone-Test",
             is_active=True,
         )
         db.add(producer)
@@ -284,22 +297,75 @@ def test_farmforce_summary_and_list(client):
     assert len(listing.json()) == 1
 
 
-def test_parse_client_farmforce_excel_template():
-    parsed = parse_farmforce_excel(
-        "docs/digital data capturing tool cocoa.FR_locked_Yeyasso.xlsx",
-        filename="digital data capturing tool cocoa.FR_locked_Yeyasso.xlsx",
-    )
+@pytest.fixture(scope="module")
+def farmforce_workbook(tmp_path_factory):
+    """Classeur FarmForce synthetique, genere hors du depot.
+
+    Remplace le classeur client qui etait versionne. Contrairement a lui — un
+    gabarit vide — cette fixture est RENSEIGNEE, ce qui permet de verifier que
+    le parseur extrait reellement chaque feuille.
+    """
+    target = tmp_path_factory.mktemp("farmforce")
+    return build_farmforce_workbook(target)
+
+
+def test_parse_farmforce_excel_reads_every_sheet(farmforce_workbook):
+    """Compatibilite du parseur avec la structure FarmForce Fairtrade.
+
+    Verifie les SEPT feuilles du format, pas seulement l'ouverture du fichier.
+    """
+    parsed = parse_farmforce_excel(str(farmforce_workbook), filename=farmforce_workbook.name)
 
     assert parsed.errors == []
-    assert parsed.cooperative_name == "YEYASSO"
-    assert parsed.summary["total_revenue_cfa"] == 0
-    assert "producer_id" in parsed.as_payload()
+    assert parsed.warnings == []
+
+    # 1.profil — identification et parcelles
+    assert parsed.cooperative_name == COOPERATIVE_NAME
+    assert parsed.producer_name == PRODUCER_NAME
+    assert parsed.producer_code == PRODUCER_CODE
+    assert parsed.localite == LOCALITE
+    assert parsed.campaign_label == "2025-2026"
+    assert len(parsed.parcels) == 2
+    assert parsed.parcels[0]["crop"] == "Cacao"
+    assert parsed.parcels[0]["surface_ha"] == 2.5
+
+    # 1.profil — composition du menage (travaillants + non travaillants)
+    assert len(parsed.household_members) == 3
+    assert sum(1 for m in parsed.household_members if m["works_on_farm"]) == 2
+
+    # 2.entrees — revenus mensuels cacao + cafe + autres
+    products = {item["product"] for item in parsed.revenue_items}
+    assert {"Cacao", "Cafe"} <= products
+    assert len(parsed.revenue_items) == 5
+
+    # 3.couts / 4.main d'oeuvre / 5.depenses
+    assert len(parsed.cost_items) == 3
+    assert len(parsed.family_labor_items) == 2
+    assert len(parsed.hired_labor_items) == 2
+    assert {e["category"] for e in parsed.household_expenses} == {
+        "alimentation", "education", "sante", "autres"
+    }
+
+    # consent signatures — tracabilite du consentement
+    assert len(parsed.consent_records) == 1
+    assert parsed.consent_records[0]["fairtrade_international"] is True
+    assert parsed.consent_records[0]["spo"] is False
+
+    # 6.resultats — agregats
+    assert parsed.summary["total_revenue_cfa"] == TOTAL_REVENUE
+    assert parsed.summary["total_cost_cfa"] == TOTAL_COST
+    assert parsed.summary["household_expenses_cfa"] == TOTAL_HOUSEHOLD_EXPENSES
+
+    # payload d'import
+    payload = parsed.as_payload()
+    assert "producer_id" in payload
+    assert payload["pr_code"] == PR_CODE
 
 
-def test_import_farmforce_excel_endpoint_creates_assessment(client):
+def test_import_farmforce_excel_endpoint_creates_assessment(client, farmforce_workbook):
     producer_id = _seed_producer()
 
-    with open("docs/digital data capturing tool cocoa.FR_locked_Yeyasso.xlsx", "rb") as fh:
+    with open(farmforce_workbook, "rb") as fh:
         response = client.post(
             f"/farmforce/import/excel?producer_id={producer_id}",
             files={"file": ("farmforce.xlsx", fh, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
@@ -310,6 +376,8 @@ def test_import_farmforce_excel_endpoint_creates_assessment(client):
     data = response.json()
     assert data["status"] == "success"
     assert data["assessment"]["producer_id"] == producer_id
+    # L'import doit remonter le contenu, pas seulement creer une coquille vide.
+    assert data["assessment"]["total_revenue_cfa"] > 0
 
 
 def _ff_auth(client, email, coop):
