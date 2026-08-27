@@ -421,13 +421,28 @@ def training_to_dict(session: TrainingSession) -> dict:
     }
 
 
-def detect_cacaoguard_inconsistencies(db: Session, cooperative_id: int | None = None) -> list[dict]:
+def detect_cacaoguard_inconsistencies(db: Session, cooperative_id: int | None) -> list[dict]:
+    """Incoherences CacaoGuard d'UNE cooperative. Argument obligatoire, fail-closed.
+
+    Les constats produits citent des noms de producteurs et d'enfants : la
+    fonction ne doit jamais pouvoir tourner « toutes coops confondues » par
+    omission d'argument. `cooperative_id` n'a donc plus de valeur par defaut, et
+    `None` signifie AUCUNE donnee (liste vide) — jamais « toutes ». On s'appuie
+    sur `coop_producer_ids` (app/services/social_scope.py), deja fail-closed,
+    plutot que sur `_coop_producer_subq` dont le `None` desactive le filtre.
+    """
+    if cooperative_id is None:
+        return []
+
+    producer_ids = list(coop_producer_ids(db, cooperative_id))
+    if not producer_ids:
+        return []
+
     findings: list[dict] = []
-    child_q = db.query(Child).filter(Child.is_active == True)
-    psub = _coop_producer_subq(db, cooperative_id)
-    if psub is not None:
-        child_q = child_q.filter(Child.producer_id.in_(psub))
-    children = child_q.all()
+    children = db.query(Child).filter(
+        Child.is_active == True,
+        Child.producer_id.in_(producer_ids),
+    ).all()
     for child in children:
         latest_visit = db.query(MonitoringVisit).filter(
             MonitoringVisit.producer_id == child.producer_id,
@@ -464,7 +479,11 @@ def detect_cacaoguard_inconsistencies(db: Session, cooperative_id: int | None = 
                 "message": f"Enfants observes chez {_producer_name(child.producer)} alors que le risque declare reste faible.",
             })
 
-    visits = db.query(MonitoringVisit).all()
+    # Cloisonnement : cette boucle balayait TOUTES les visites, toutes coops
+    # confondues, alors que ses constats citent le nom du producteur.
+    visits = db.query(MonitoringVisit).filter(
+        MonitoringVisit.producer_id.in_(producer_ids)
+    ).all()
     for visit in visits:
         photos = visit.photos or []
         consent = bool((visit.checklist_data or {}).get("consent_given"))
@@ -811,9 +830,19 @@ def _alert_cause_cleared(db: Session, alert: Alert) -> bool:
     return False
 
 
-def _auto_resolve_stale_alerts(db: Session) -> int:
-    """Referme les alertes ouvertes dont la cause sous-jacente est reglee."""
-    open_alerts = db.query(Alert).filter(Alert.status != AlertStatus.RESOLVED).all()
+def _auto_resolve_stale_alerts(db: Session, cooperative_id: int) -> int:
+    """Referme les alertes ouvertes de LA COOPERATIVE dont la cause est reglee.
+
+    Cloisonne : sans filtre, un admin declenchant un controle refermait aussi
+    les alertes des autres cooperatives (ecriture inter-tenant).
+    """
+    allowed = coop_alert_ids(db, cooperative_id)
+    if not allowed:
+        return 0
+    open_alerts = db.query(Alert).filter(
+        Alert.status != AlertStatus.RESOLVED,
+        Alert.id.in_(list(allowed)),
+    ).all()
     resolved = 0
     for alert in open_alerts:
         if _alert_cause_cleared(db, alert):
@@ -825,19 +854,41 @@ def _auto_resolve_stale_alerts(db: Session) -> int:
     return resolved
 
 
-def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> dict:
+def run_cacaoguard_alert_checks(
+    db: Session, cooperative_id: int | None, escalation_after_days: int = 7
+) -> dict:
+    """Controle des retards CacaoGuard d'UNE cooperative. Fail-closed sur None.
+
+    Cette fonction LIT, ECRIT (escalade de plans, d'actions, de blocages) et
+    RENVOIE des alertes dont les messages citent producteurs et enfants. Elle ne
+    prenait aucun `cooperative_id` : chaque appel operait sur toutes les
+    cooperatives a la fois. L'argument est desormais obligatoire et `None`
+    signifie « aucune donnee », jamais « toutes ».
+    """
     today = date.today()
     created = 0
     escalated = 0
     reviewed = 0
     generated_alerts = []
 
+    producer_ids = list(coop_producer_ids(db, cooperative_id)) if cooperative_id else []
+    if not producer_ids:
+        return {
+            "checked_at": datetime.utcnow().isoformat(),
+            "reviewed_items": 0,
+            "created_alerts": 0,
+            "escalated_alerts": 0,
+            "auto_resolved_alerts": 0,
+            "alerts": [],
+        }
+
     # Referme d'abord les alertes devenues obsoletes depuis le dernier controle.
-    auto_resolved = _auto_resolve_stale_alerts(db)
+    auto_resolved = _auto_resolve_stale_alerts(db, cooperative_id)
 
     overdue_visits = db.query(MonitoringVisit).filter(
         MonitoringVisit.status.in_([VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS]),
         MonitoringVisit.scheduled_date < today,
+        MonitoringVisit.producer_id.in_(producer_ids),
     ).all()
     for visit in overdue_visits:
         overdue_days = (today - visit.scheduled_date).days
@@ -869,6 +920,7 @@ def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> 
         RemediationPlan.status.in_(active_plan_statuses),
         RemediationPlan.expected_completion_date.isnot(None),
         RemediationPlan.expected_completion_date < today,
+        RemediationPlan.producer_id.in_(producer_ids),
     ).all()
     for plan in overdue_plans:
         overdue_days = (today - plan.expected_completion_date).days
@@ -894,6 +946,7 @@ def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> 
     overdue_actions = db.query(RemediationAction).join(RemediationPlan).filter(
         RemediationAction.status.in_([ActionStatus.PENDING, ActionStatus.IN_PROGRESS, ActionStatus.OVERDUE]),
         RemediationAction.planned_date < today,
+        RemediationPlan.producer_id.in_(producer_ids),
     ).all()
     for action in overdue_actions:
         overdue_days = (today - action.planned_date).days
@@ -920,6 +973,7 @@ def run_cacaoguard_alert_checks(db: Session, escalation_after_days: int = 7) -> 
         TraceabilityBlock.status == BlockStatus.ACTIVE,
         TraceabilityBlock.expected_resolution_date.isnot(None),
         TraceabilityBlock.expected_resolution_date < today,
+        TraceabilityBlock.producer_id.in_(producer_ids),
     ).all()
     for block in overdue_blocks:
         overdue_days = (today - block.expected_resolution_date).days
@@ -1056,7 +1110,9 @@ def run_alert_checks_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     require_role(current_user, {"admin", "agronomist"})
-    return run_cacaoguard_alert_checks(db, escalation_after_days=escalation_after_days)
+    return run_cacaoguard_alert_checks(
+        db, _coop_id_of(current_user), escalation_after_days=escalation_after_days
+    )
 
 
 @router.post("/monitoring/visits", status_code=201)
@@ -1594,8 +1650,21 @@ def build_due_diligence_report(db: Session, cooperative_id: int | None = None) -
         _allowed_alerts = coop_alert_ids(db, cooperative_id)
         alerts_open_q = alerts_open_q.filter(Alert.id.in_(_allowed_alerts if _allowed_alerts else [-1]))
     alerts_open = alerts_open_q.scalar() or 0
-    privacy_logs_total = db.query(func.count(PrivacyAccessLog.id)).scalar() or 0
-    inconsistencies = detect_cacaoguard_inconsistencies(db)
+    # Journaux d'acces : comptes ceux des utilisateurs de la coop uniquement
+    # (le total global revelait le volume d'activite des autres cooperatives).
+    privacy_logs_q = db.query(func.count(PrivacyAccessLog.id))
+    if cooperative_id is not None:
+        coop_user_ids = [
+            uid for (uid,) in db.query(User.id).filter(User.cooperative_id == cooperative_id).all()
+        ]
+        privacy_logs_q = privacy_logs_q.filter(
+            PrivacyAccessLog.user_id.in_(coop_user_ids) if coop_user_ids else False
+        )
+    privacy_logs_total = privacy_logs_q.scalar() or 0
+    # Ce rapport est exporte en PDF vers les acheteurs europeens : il embarque
+    # `inconsistencies[:20]`, donc des noms de producteurs. Le scope est
+    # obligatoire (il etait tout simplement absent ici).
+    inconsistencies = detect_cacaoguard_inconsistencies(db, cooperative_id)
     critical_inconsistencies = len([item for item in inconsistencies if item["severity"] == "critical"])
     trainings_total = db.query(func.count(TrainingSession.id)).filter(*train_f).scalar() or 0
     trainings_completed = db.query(func.count(TrainingSession.id)).filter(
