@@ -520,3 +520,56 @@ def test_inconsistencies_engine_is_fail_closed_without_cooperative():
         )
     finally:
         db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Balayage systematique d'isolation tenant
+# ════════════════════════════════════════════════════════════════════════════
+
+# Endpoints de LECTURE cloisonnes par cooperative. Le principe : on seme dans la
+# coop B un producteur et un enfant portant un marqueur unique, on interroge
+# chaque endpoint avec le jeton de la coop A, et le marqueur ne doit apparaitre
+# nulle part. C'est exactement la classe de test qui manquait : elle aurait
+# attrape les trois fuites P0-3 d'un coup, sans qu'on ait a les soupconner.
+TENANT_SCOPED_READ_ENDPOINTS = [
+    "/ai/inconsistencies",
+    "/alerts",
+    "/compliance/report",
+    "/compliance/traceability",
+    "/monitoring/visits",
+    "/privacy/access-logs",
+    "/producers",
+    "/remediation/plans",
+    "/training/sessions",
+    "/children",
+    "/children/alerts",
+    "/children/stats/summary",
+    "/complaints",
+]
+
+
+@pytest.mark.parametrize("endpoint", TENANT_SCOPED_READ_ENDPOINTS)
+def test_no_endpoint_leaks_other_cooperative_marker(client, two_coops, endpoint):
+    """Aucun endpoint de lecture ne doit renvoyer une donnee de la coop B a A."""
+    _seed_coop_b_social_case(two_coops["coop_b_id"], overdue=True)
+
+    r = client.get(endpoint, headers=two_coops["a"])
+    assert r.status_code in (200, 403, 404), f"{endpoint} -> {r.status_code} : {r.text[:200]}"
+    if r.status_code == 200:
+        assert COOP_B_MARKER not in r.text, (
+            f"FUITE INTER-COOPERATIVES sur {endpoint} : une donnee de la coop B "
+            f"est visible par un administrateur de la coop A."
+        )
+
+
+@pytest.mark.parametrize("endpoint", TENANT_SCOPED_READ_ENDPOINTS)
+def test_owning_cooperative_still_reaches_its_endpoints(client, two_coops, endpoint):
+    """Non-regression metier : les memes endpoints repondent bien pour la coop B.
+
+    Sans ce pendant, un cloisonnement casse (qui renverrait systematiquement
+    vide ou 500) passerait pour une correction reussie.
+    """
+    _seed_coop_b_social_case(two_coops["coop_b_id"], overdue=True)
+
+    r = client.get(endpoint, headers=two_coops["b"])
+    assert r.status_code in (200, 403, 404), f"{endpoint} -> {r.status_code} : {r.text[:200]}"
