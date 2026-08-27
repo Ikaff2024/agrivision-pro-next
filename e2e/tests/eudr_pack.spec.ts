@@ -33,7 +33,7 @@ test('Pack de diligence raisonnée EUDR par lot (ZIP)', async ({ page, request }
     headers,
     data: {
       name: 'Parcelle Pack', owner_name: 'Producteur Pack',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0, latitude: 6.1, longitude: -6.7,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0, latitude: 6.1, longitude: -6.7,
     },
   });
   expect([200, 201]).toContain(plantRes.status());

@@ -33,7 +33,7 @@ def _seed_producer_and_plantation():
             cooperative=coop,
             nom_complet="Kouadio SSRTE",
             code_yeyasso="SSRTE-001",
-            localite="Yeyasso",
+            localite="Zone-Test",
             section="Section A",
             is_active=True,
         )
@@ -41,7 +41,7 @@ def _seed_producer_and_plantation():
             name="Parcelle SSRTE",
             owner_name="Kouadio SSRTE",
             country="Cote d'Ivoire",
-            region="Yeyasso",
+            region="Zone-Test",
             hectares=3.2,
             cooperative=coop,
             producer=producer,
@@ -62,7 +62,7 @@ def _seed_producer_and_plantation():
 
 def test_ssrte_community_profile_can_be_created(client):
     response = client.post("/ssrte/communities", headers=_admin_headers(), json={
-        "locality": "Yeyasso",
+        "locality": "Zone-Test",
         "section": "Section A",
         "interview_date": "2026-05-26",
         "respondent_name": "Chef village",
@@ -75,7 +75,7 @@ def test_ssrte_community_profile_can_be_created(client):
 
     assert response.status_code == 201, response.text
     data = response.json()
-    assert data["locality"] == "Yeyasso"
+    assert data["locality"] == "Zone-Test"
     assert data["school_available"] is True
 
 
@@ -292,18 +292,18 @@ def test_ssrte_plantation_visit_creates_alert_on_suspicion(client):
 def test_ssrte_fichea_schools_table_persists(client):
     """Le tableau detaille des ecoles (A.22-A.29) est stocke, relu et exporte."""
     schools = [
-        {"name": "EPP Yeyasso", "type": "Publique", "built_by": "Etat",
+        {"name": "EPP Zone-Test", "type": "Publique", "built_by": "Etat",
          "classrooms": 6, "teachers_total": 5, "teachers_certified": 4,
          "students_boys": 80, "students_girls": 70,
          "canteen": True, "canteen_meals_per_week": 5, "canteen_cost_per_ration": 100,
          "latrines": True, "latrines_separated": True, "gps": "7.4N,7.5W"},
     ]
     created = client.post("/ssrte/communities", headers=_admin_headers(), json={
-        "locality": "Yeyasso",
+        "locality": "Zone-Test",
         "schools": schools,
     }).json()
     assert len(created["schools"]) == 1
-    assert created["schools"][0]["name"] == "EPP Yeyasso"
+    assert created["schools"][0]["name"] == "EPP Zone-Test"
     assert created["schools"][0]["classrooms"] == 6
 
     r = client.get(f"/ssrte/communities/{created['id']}/fichea.pdf", headers=_admin_headers())
@@ -314,7 +314,7 @@ def test_ssrte_fichea_schools_table_persists(client):
 def test_ssrte_fichea_full_questionnaire_coverage(client):
     """La Fiche A capture l'identification admin, GPS/heures, details indicateurs et remarques."""
     created = client.post("/ssrte/communities", headers=_admin_headers(), json={
-        "locality": "Yeyasso",
+        "locality": "Zone-Test",
         "section": "Man",
         "supplier": "Fournisseur X",
         "sub_prefecture": "Sous-pref Y",
@@ -332,7 +332,7 @@ def test_ssrte_fichea_full_questionnaire_coverage(client):
             "secondary_classes_count": "0", "secondary_school_distance_km": 4.5,
         },
         "schools": [{
-            "name": "EPP Yeyasso", "type": "Formelle", "built_by": "ICI",
+            "name": "EPP Zone-Test", "type": "Formelle", "built_by": "ICI",
             "classrooms": 6, "teachers_titulaires": 4, "teachers_benevoles": 1,
             "students_boys": 80, "students_girls": 70,
             "canteen": True, "canteen_service_per_week": "2-3", "canteen_cost": "Gratuit",
@@ -405,7 +405,7 @@ def test_ssrte_ficheb_full_questionnaire_coverage(client):
         "producer_id": producer_id,
         "supplier": "Fournisseur X",
         "sub_prefecture": "Sous-pref Y",
-        "locality": "Yeyasso",
+        "locality": "Zone-Test",
         "collection_agent_code": "AG-05",
         "producer_ssrte_code": "SSRTE-PR-001",
         "gps_start": "7.4, -7.5",
@@ -461,7 +461,7 @@ def test_ssrte_fichec_full_questionnaire_coverage(client):
         "section": "Man",
         "supplier": "Fournisseur X",
         "sub_prefecture": "Sous-pref Y",
-        "locality": "Yeyasso",
+        "locality": "Zone-Test",
         "collection_agent_code": "AG-09",
         "producer_ssrte_code": "SSRTE-PR-001",
         "time_start": "08:00",
@@ -609,7 +609,7 @@ def test_ssrte_summary_is_cooperative_scoped(client):
 
 def test_ssrte_summary_counts_forms(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
-    client.post("/ssrte/communities", json={"locality": "Yeyasso"})
+    client.post("/ssrte/communities", json={"locality": "Zone-Test"})
     client.post("/ssrte/households", json={"producer_id": producer_id})
     client.post("/ssrte/plantation-visits", json={"plantation_id": plantation_id})
 
@@ -623,7 +623,7 @@ def test_ssrte_summary_counts_forms(client):
 
 def test_ssrte_forms_are_in_due_diligence_report(client):
     producer_id, plantation_id = _seed_producer_and_plantation()
-    client.post("/ssrte/communities", json={"locality": "Yeyasso"}, headers=_admin_headers())
+    client.post("/ssrte/communities", json={"locality": "Zone-Test"}, headers=_admin_headers())
     client.post("/ssrte/households", json={
         "producer_id": producer_id,
         "school_age_children_count": 2,

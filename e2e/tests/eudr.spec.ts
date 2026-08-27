@@ -33,7 +33,7 @@ test('EUDR : génération et téléchargement du DDS PDF', async ({ page, reques
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle DDS', owner_name: 'Producteur DDS',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.5,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.5,
       latitude: 6.1, longitude: -6.8,
     },
   });

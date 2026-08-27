@@ -85,7 +85,7 @@ def test_satellite_plantation_advanced(client):
     h = _register_login(client, "sat2@test.ci", "pass1234", coop="Coop Sat 2")
     created = client.post("/plantations", json={
         "name": "Parcelle Sat", "owner_name": "Yao Sat",
-        "country": "Côte d'Ivoire", "region": "Yeyasso", "hectares": 3.0,
+        "country": "Côte d'Ivoire", "region": "Zone-Test", "hectares": 3.0,
         "latitude": 7.41, "longitude": -7.55,
     }, headers=h).json()
     pid = created["id"]

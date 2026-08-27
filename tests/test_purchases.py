@@ -13,7 +13,7 @@ def _login(client, email, password="pass1234", role="admin", coop="Coop Buy"):
 def _plantation(client, h, name="P1", owner="Kouassi"):
     p = client.post("/plantations", json={
         "name": name, "owner_name": owner, "country": "Côte d'Ivoire",
-        "region": "Yeyasso", "hectares": 3.0,
+        "region": "Zone-Test", "hectares": 3.0,
     }, headers=h).json()
     # Regle metier : on n'ACHETE qu'aux NON-MEMBRES -> le producteur d'un test d'achat l'est.
     if p.get("producer_id"):

@@ -33,7 +33,7 @@ test('Paiements producteurs : solde dû puis règlement groupé', async ({ page,
     headers,
     data: {
       name: 'Parcelle Pay', owner_name: 'Producteur Pay',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0,
     },
   });
   const producers = await (await request.get(`${API}/producers?limit=50`, { headers })).json();

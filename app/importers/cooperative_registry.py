@@ -1,7 +1,7 @@
 """
 cooperative_registry.py
 =========================
-Parser du fichier Excel "Registre coopérative" (type YEYASSO).
+Parser du fichier Excel "Registre coopérative" (format Fairtrade coopérative).
 
 Lit les 3 feuilles (Producteurs, Plantations, Formations) et retourne
 des dataclasses Python. Ne touche PAS la base de donnees : l'insertion
@@ -9,7 +9,7 @@ est faite par la couche d'import (Phase 0.1.b-2).
 
 Usage :
     from app.importers.cooperative_registry import parse_registry
-    result = parse_registry("/chemin/Registre_FT_YEYASSO.xlsx")
+    result = parse_registry("/chemin/Registre_FT_cooperative.xlsx")
     print(result.summary())
     for prod in result.producers:
         ...
@@ -446,7 +446,7 @@ def _parse_formations_sheet(ws, result: RegistryParseResult):
     """
     Parse la matrice Formation/Sensibilisation.
 
-    Le registre YEYASSO 2025-2026 met les codes producteurs en colonne A et
+    Le registre cooperative 2025-2026 met les codes producteurs en colonne A et
     les thematiques en ligne 5. Les cellules de participation peuvent etre
     vides, cochees ou porter une valeur. Les lignes vides sont ignorees.
     """

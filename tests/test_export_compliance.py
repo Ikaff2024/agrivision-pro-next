@@ -118,8 +118,8 @@ def test_gestionnaire_role_operations(client):
     assert wv.status_code == 403
 
 
-def test_lot_composition_xlsx_format_yeyasso(client):
-    """L'export Excel de composition reprend les colonnes du fichier exportateur YEYASSO."""
+def test_lot_composition_xlsx_format_exporter(client):
+    """L'export Excel de composition reprend les colonnes du fichier exportateur."""
     h = _login(client, "exp.xlsx@test.ci", coop="Coop Xlsx")
     p = _plantation(client, h, name="P-X", owner="Brou X")
     hv = _harvest(client, h, p["id"], qty=220.0)

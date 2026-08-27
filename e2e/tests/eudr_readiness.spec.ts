@@ -32,7 +32,7 @@ test("EUDR : panneau « Prêt pour l'EUDR » et filtre par blocage", async ({ pa
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle Readiness', owner_name: 'Producteur Readiness',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0, latitude: 6.0, longitude: -6.6,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0, latitude: 6.0, longitude: -6.6,
     },
   });
   expect([200, 201]).toContain(plantRes.status());

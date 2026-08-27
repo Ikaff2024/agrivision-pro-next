@@ -50,7 +50,7 @@ test('Déforestation satellite (GFW → EUDR R6) depuis la page EUDR', async ({ 
     headers,
     data: {
       name: 'Parcelle Defo', owner_name: 'Producteur Defo',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: HA, latitude: LAT, longitude: LNG,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: HA, latitude: LAT, longitude: LNG,
     },
   });
   expect([200, 201]).toContain(plantRes.status());

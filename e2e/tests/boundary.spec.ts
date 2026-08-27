@@ -61,7 +61,7 @@ test('Délimitation de parcelle → conformité EUDR → DDS PDF', async ({ page
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle Tracé', owner_name: 'Producteur Tracé',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: HA,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: HA,
       latitude: LAT, longitude: LNG,
     },
   });

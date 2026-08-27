@@ -29,11 +29,11 @@
 ## Bascule vers la coop démo « Coopérative Démo Cacao 2026 » (à faire une fois)
 
 > ⚠️ **Prérequis avant toute démo** : le frontend doit être **publié** (Netlify). Vérifier qu'il n'y a
-> plus « Yeyasso » à l'écran (ex. **Producteurs** → champ « Code interne (coopérative) ») et que le guide
+> plus « nom de la coopérative cliente » à l'écran (ex. **Producteurs** → champ « Code interne (coopérative) ») et que le guide
 > chapitre 12 ne contient plus l'espace propriétaire. Sinon : Netlify → **Deploys** → *Clear cache and deploy*.
 
 1. **Compte de démo** : `demo3@agrivision-pro.com` / `DemoAgriVision2026!` — coop **« Coopérative Démo Cacao 2026 »** (seedée).
-2. **Ancienne coop** « …Yeyasso 2026 » (`demo2@`) : depuis l'**espace propriétaire** (`owner.html`, clé propriétaire), la repasser en **suspendu/inactif** si l'option existe ; sinon, **ne pas s'y connecter**. L'essentiel : ne présenter **que** la coop « Cacao 2026 ».
+2. **Ancienne coop** « …coopérative cliente 2026 » (`demo2@`) : depuis l'**espace propriétaire** (`owner.html`, clé propriétaire), la repasser en **suspendu/inactif** si l'option existe ; sinon, **ne pas s'y connecter**. L'essentiel : ne présenter **que** la coop « Cacao 2026 ».
 3. **Logo** : Administration → charger le logo de la coop (les PDF sortent à son image).
 4. **Onglets pré-ouverts** : Dashboard, Carte, une fiche Plantation, EUDR, CacaoGuard, Direction, Parcelles à risque.
 5. **IA (optionnel)** : crédit Anthropic approvisionné si tu montres le Conseil IA / Veille en live (sinon, parade par capture — cf. §0).

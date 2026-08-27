@@ -40,7 +40,7 @@ def test_direction_dashboard_reflects_plantation(client):
     # Création d'une plantation via l'API (producteur auto-créé + lien coop)
     created = client.post("/plantations", json={
         "name": "Parcelle Dir", "owner_name": "Kouassi Dir",
-        "country": "Côte d'Ivoire", "region": "Yeyasso", "hectares": 4.0,
+        "country": "Côte d'Ivoire", "region": "Zone-Test", "hectares": 4.0,
     }, headers=h)
     assert created.status_code in (200, 201), created.text
 
@@ -56,7 +56,7 @@ def test_direction_dashboard_untracked_volume(client):
     h = _register_login(client, "dir.vol@test.ci", "pass1234", coop="Coop Vol")
     created = client.post("/plantations", json={
         "name": "Parcelle Vol", "owner_name": "Yao Vol",
-        "country": "Côte d'Ivoire", "region": "Yeyasso", "hectares": 3.0,
+        "country": "Côte d'Ivoire", "region": "Zone-Test", "hectares": 3.0,
     }, headers=h)
     assert created.status_code in (200, 201), created.text
     pid = created.json()["id"]

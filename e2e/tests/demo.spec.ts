@@ -38,7 +38,7 @@ test('Parcours démo : connexion → producteur → satellite → EUDR', async (
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle Démo', owner_name: 'Producteur Démo',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 3.0,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 3.0,
       latitude: 5.85, longitude: -7.35,
     },
   });

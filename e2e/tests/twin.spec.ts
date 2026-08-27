@@ -30,7 +30,7 @@ test('Jumeau de parcelle : synthèse + alertes sur la fiche plantation', async (
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle Twin', owner_name: 'Producteur Twin',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0, latitude: 6.0, longitude: -6.6,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0, latitude: 6.0, longitude: -6.6,
     },
   });
   expect([200, 201]).toContain(plantRes.status());

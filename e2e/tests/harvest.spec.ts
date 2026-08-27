@@ -33,7 +33,7 @@ test("Récolte : saisie avec n° de reçu d'achat (Point #4)", async ({ page, re
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: 'Parcelle Récolte', owner_name: 'Producteur Récolte',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 3.0,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 3.0,
       latitude: 6.2, longitude: -6.5,
     },
   });

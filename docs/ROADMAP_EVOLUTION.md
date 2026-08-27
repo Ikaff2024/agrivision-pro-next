@@ -111,7 +111,7 @@ puis activer `require_module` sur les routes des modules payants pour une vraie 
 
 ## Passage à l'échelle — grandes coopératives (7000+ parcelles)
 
-> Identifié 2026-06-14 sur le cas réel **YEYASSO (~7000 parcelles)**. **Non bloquant pour la démo**
+> Identifié 2026-06-14 sur un cas client réel (~7000 parcelles). **Non bloquant pour la démo**
 > (coop démo = 8 parcelles), mais **prérequis avant l'onboarding en prod d'une grosse coop.**
 
 **Constat (vérifié dans le code) :**

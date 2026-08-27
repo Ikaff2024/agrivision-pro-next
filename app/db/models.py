@@ -492,7 +492,7 @@ class FormationSession(Base):
     """
     Session de formation / sensibilisation organisee par la cooperative.
     Correspond a la feuille "Registre Formation et Sensibilisation"
-    du registre YEYASSO.
+    du registre cooperative.
     """
     __tablename__ = "formation_sessions"
 

@@ -573,7 +573,7 @@ def lot_composition_xlsx(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Composition du lot au format Excel exportateur (modele YEYASSO -> OCEAN-SA).
+    """Composition du lot au format Excel exportateur (modele cooperative -> negociant).
 
     Une ligne par recolte composante : Cooperative Name | Export lot N°/Connaissement |
     Date of purchase from cooperative | Certification | Farmer_ID | Farm_ID |
@@ -600,7 +600,7 @@ def lot_composition_xlsx(
     } if prod_ids else {}
 
     # Farm_ID stable : rang de la parcelle parmi TOUTES les parcelles du producteur
-    # (convention YEYASSO : <code producteur>-P<n>).
+    # (convention cooperative : <code producteur>-P<n>).
     rank: dict[int, int] = {}
     if prod_ids:
         counter: dict[int, int] = {}

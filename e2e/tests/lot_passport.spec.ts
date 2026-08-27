@@ -34,7 +34,7 @@ test('Traçabilité : passeport de lot PDF', async ({ page, request }) => {
     headers,
     data: {
       name: 'Parcelle Lot', owner_name: 'Producteur Lot',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0,
       latitude: 6.2, longitude: -6.7,
     },
   });

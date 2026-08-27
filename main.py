@@ -152,7 +152,7 @@ async def lifespan(app: FastAPI):
                 )
 
                 # Sprint #0 - Phase 0.1.a-2 : seed des certifications de base
-                # FT et RA sont seedees d'office (cooperative YEYASSO les utilise).
+                # FT et RA sont seedees d'office (les cooperatives clientes les utilisent).
                 conn.execute(text("""
                     INSERT INTO certifications (code, nom_complet, organisme, actif)
                     VALUES

@@ -18,7 +18,7 @@ def _lot_with_parcel(client, headers):
     """Crée parcelle → récolte → lot ; retourne le lot_id."""
     p = client.post("/plantations", json={
         "name": "Parcelle Pack", "owner_name": "Producteur Pack",
-        "country": "CI", "region": "Yeyasso", "hectares": 2.0,
+        "country": "CI", "region": "Zone-Test", "hectares": 2.0,
         "latitude": 6.1, "longitude": -6.7,
     }, headers=headers)
     assert p.status_code in (200, 201), p.text

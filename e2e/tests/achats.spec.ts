@@ -33,7 +33,7 @@ test('Achats : enregistrer un achat producteur', async ({ page, request }) => {
     headers,
     data: {
       name: 'Parcelle Achat', owner_name: 'Producteur Achat',
-      country: "Côte d'Ivoire", region: 'Yeyasso', hectares: 2.0,
+      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0,
     },
   });
   expect([200, 201]).toContain(plantRes.status());
