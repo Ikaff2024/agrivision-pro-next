@@ -74,39 +74,74 @@ agrivision-frontend-*.zip
 agrivision-frontend-*.zip
 
 # ═══════════════════════════════════════════════════════════════════════════
-# DONNÉES CLIENTS — politique restrictive avec exceptions explicites
+# DOCUMENTS ET DONNÉES — interdits par défaut, publiables sur allowlist
 # ═══════════════════════════════════════════════════════════════════════════
 # Le dépôt est PUBLIC. Aucun registre coopérative, export SSRTE/FarmForce,
-# fichier producteurs ou dump de base ne doit y entrer.
+# document client ou dump de base ne doit y entrer.
 #
 # ⚠ .gitignore ne « dé-suit » PAS un fichier déjà versionné : il ne protège
 #   que le futur. Le contrôle en CI (tests/test_no_client_data.py) est le
 #   filet qui attrape ce que celui-ci laisserait passer.
 #
-# Principe : on refuse par défaut les formats de données, puis on ré-autorise
-# nommément les fixtures et spécimens légitimes. Un nouveau fichier autorisé
-# doit être ajouté ICI explicitement — c'est le point de décision.
+# ⚠ Cette liste d'exceptions doit correspondre EXACTEMENT à ALLOWED_DOCUMENTS
+#   dans tests/test_no_client_data.py. Un test vérifie la correspondance :
+#   autoriser un document demande les DEUX gestes, c'est voulu.
 
-# --- Formats de données refusés par défaut -------------------------------
+# --- Formats refusés par défaut : tableurs et données tabulaires ---
 *.xlsx
 *.xlsm
 *.xls
 *.csv
 *.tsv
+
+# --- Formats refusés par défaut : bases et exports ---
 *.dump
 *.sql
 *.sqlite3
 *.parquet
 
-# --- Exceptions : fixtures de test et générateurs ------------------------
+# --- Formats refusés par défaut : documents bureautiques et imprimables ---
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.odt
+*.ods
+
+# --- Exception : fixtures générées par les tests (motif) ---
 !e2e/fixtures/*.xlsx
 !tests/fixtures/*.xlsx
 
-# --- Exceptions : spécimens et gabarits vierges publiables ----------------
-!docs/SPECIMEN_*.pdf
-!docs/ANNEXE_SPECIMENS_*.pdf
+# --- Exception : spécimens officiels et formulaires vierges ---
+!docs/ANNEXE_SPECIMENS_SSRTE.pdf
+!docs/F1 PROFILLAGE DE MENAGE.pdf
+!docs/SPECIMEN_SSRTE_FicheA.pdf
+!docs/SPECIMEN_SSRTE_FicheB.pdf
+!docs/SPECIMEN_SSRTE_FicheB_cas_sain.pdf
+!docs/SPECIMEN_SSRTE_FicheC.pdf
+!docs/SPECIMEN_SSRTE_FicheC_cas_conforme.pdf
+!docs/SSRTE FICHE A - FO.pdf
+!docs/SSRTE FICHE C - VISITE DES PLANTATIONS-1.pdf
 
-# --- Exports et sauvegardes locales --------------------------------------
+# --- Exception : documentation produit publique ---
+!docs/CHECKLIST_DEMO_ICI.pdf
+!docs/CHECKLIST_MISE_EN_REGLE.pdf
+!docs/COURRIER_ICI.pdf
+!docs/Manuel_Formation_AgriVision_Pro.docx
+!docs/Manuel_Utilisateur_AgriVision_Pro_CacaoGuard_FarmForce.docx
+!docs/OBJECTIONS_ICI.pdf
+!docs/ONEPAGER_ICI_AgriVision.pdf
+!docs/PRESENTATION_CACAOGUARD.pdf
+!docs/PRESENTATION_MODULES.pdf
+!docs/REFERENTIEL_CONFORMITE_DONNEES.pdf
+!docs/VISION_JUMEAU_NUMERIQUE.pdf
+!frontend/AgriVision_Pro_Guide_Utilisateur_v1_5_0.docx
+
+# --- Exception : fixtures synthétiques versionnées ---
+!e2e/fixtures/registre_demo_e2e.xlsx
+
+# --- Exports et sauvegardes locales ---
 exports/
 backups/
 *.dump.enc
