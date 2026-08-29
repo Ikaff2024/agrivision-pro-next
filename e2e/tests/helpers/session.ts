@@ -99,6 +99,35 @@ export async function loginViaUI(page: Page, session: Session): Promise<void> {
 }
 
 /**
+ * Choisit une valeur dans une liste cherchable `AVPCombo` (auth.js).
+ *
+ * Les `<select>` des grandes listes (producteurs, parcelles) ont été remplacés
+ * par ce composant le 05/07/2026 : il n'y a plus d'`<option>` à sélectionner,
+ * mais un champ de recherche qui ouvre un panneau au focus. On reproduit le
+ * geste réel — focus, filtre, clic sur l'entrée — et on vérifie que la
+ * sélection a bien été prise en compte.
+ *
+ * @param host    sélecteur du conteneur (ex. `#b-producer-combo`)
+ * @param value   valeur attendue dans `data-v` (l'identifiant renvoyé par l'API)
+ * @param search  texte de filtre, utile quand la liste dépasse le plafond d'affichage
+ */
+export async function pickInCombo(
+  page: Page,
+  host: string,
+  value: string | number,
+  search?: string,
+): Promise<void> {
+  const combo = page.locator(host);
+  const input = combo.locator('.avp-combo-input');
+  await input.click();                       // le focus ouvre le panneau
+  if (search) await input.fill(search);
+  const option = combo.locator(`.avp-combo-opt[data-v="${value}"]`);
+  await expect(option, `entrée ${value} dans ${host}`).toBeVisible({ timeout: 20_000 });
+  await option.click();
+  await expect(combo, `sélection prise en compte dans ${host}`).toHaveClass(/has-val/);
+}
+
+/**
  * Ouvre un module depuis la barre latérale, comme un utilisateur.
  *
  * Depuis 49f73bb0, les piliers du menu (Piloter / Produire / Tracer / Protéger)

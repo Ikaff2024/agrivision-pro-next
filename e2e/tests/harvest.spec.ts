@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, pickInCombo } from './helpers/session';
 
 /**
  * Récolte avec n° de reçu d'achat (Point #4 du backlog).
@@ -34,8 +34,7 @@ test("Récolte : saisie avec n° de reçu d'achat (Point #4)", async ({ page, re
 
   // ── Page Récoltes : choisir la parcelle (révèle le bouton de saisie) ──
   await page.goto('/harvests.html');
-  await page.waitForSelector(`#plantation-select option[value="${plantId}"]`, { state: 'attached', timeout: 20_000 });
-  await page.selectOption('#plantation-select', plantId);
+  await pickInCombo(page, '#plantation-combo', plantId);
 
   // ── Modale de saisie : quantité + N° de reçu (Point #4) + nb de sacs ──
   await page.click('#add-btn'); // apparaît après sélection de la parcelle

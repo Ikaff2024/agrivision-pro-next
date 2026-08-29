@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession, openModule } from './helpers/session';
+import { API, loginViaUI, openSession, openModule, pickInCombo } from './helpers/session';
 
 /**
  * Parcours de démonstration / non-régression « bout en bout ».
@@ -48,9 +48,9 @@ test('Parcours démo : connexion → producteur → satellite → EUDR', async (
   // ── 4. SATELLITE : sélection → coords auto-remplies → Analyser → NDVI réel ──
   await openModule(page, 'satellite');
   await page.waitForURL('**/satellite.html');
-  // Les <option> d'un <select> fermé sont "hidden" → attendre 'attached', pas 'visible'.
-  await page.waitForSelector('#p-select option[value="' + plantId + '"]', { state: 'attached', timeout: 20_000 });
-  await page.selectOption('#p-select', plantId);
+  // Le <select> porte `data-searchable` : auth.js le masque et le remplace par
+  // une liste cherchable insérée juste après lui. On pilote ce composant.
+  await pickInCombo(page, '#p-select + .avp-combo', plantId);
   await expect(page.locator('#lat')).not.toHaveValue(''); // autofill GPS
   await page.click('#p-btn');
   // Le NDVI affiche '—' au repos ; on attend une vraie valeur (Sentinel-2 / Copernicus)

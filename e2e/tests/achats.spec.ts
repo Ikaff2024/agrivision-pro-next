@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, pickInCombo } from './helpers/session';
 
 /**
  * Achats producteurs : enregistrement d'un achat depuis l'UI.
@@ -33,8 +33,7 @@ test('Achats : enregistrer un achat producteur', async ({ page, request }) => {
   await loginViaUI(page, session);
 
   await page.goto('/achats.html');
-  await page.waitForSelector(`#b-producer option[value="${producerId}"]`, { state: 'attached', timeout: 20_000 });
-  await page.selectOption('#b-producer', producerId);
+  await pickInCombo(page, '#b-producer-combo', producerId);
   await page.fill('#b-gross', '100');
   await page.fill('#b-net', '100');
   await page.fill('#b-price', '1000');
