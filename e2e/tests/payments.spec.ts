@@ -14,17 +14,16 @@ test('Paiements producteurs : solde dû puis règlement groupé', async ({ page,
   const session = await openSession(request, 'pay');
   const { token, headers } = session;
 
-  // Parcelle (auto-crée un producteur) → récupérer le producteur.
-  await request.post(`${API}/plantations`, {
-    headers,
-    data: {
-      name: 'Parcelle Pay', owner_name: 'Producteur Pay',
-      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0,
-    },
+  // Un achat ne concerne QUE les producteurs NON-MEMBRES : depuis le verrou
+  // métier 59eab40, la production d'un membre se saisit en récolte et l'API
+  // refuse l'achat (409). Le producteur créé automatiquement avec une parcelle
+  // est un « membre » — on crée donc explicitement le non-membre concerné.
+  const prodRes = await request.post(`${API}/producers`, {
+    headers, data: { nom_complet: 'Producteur Pay', type_producteur: 'non_membre' },
   });
-  const producers = await (await request.get(`${API}/producers?limit=50`, { headers })).json();
-  expect(producers.length).toBeGreaterThan(0);
-  const producerId = producers[0].id;
+  expect([200, 201], `producteur (${prodRes.status()}): ${await prodRes.text()}`)
+    .toContain(prodRes.status());
+  const producerId = (await prodRes.json()).id;
 
   // Deux achats en attente (100 000 + 50 000 = 150 000 FCFA dûs).
   for (const net of [100, 50]) {

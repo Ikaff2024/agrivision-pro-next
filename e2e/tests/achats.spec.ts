@@ -16,18 +16,15 @@ test('Achats : enregistrer un achat producteur', async ({ page, request }) => {
   const session = await openSession(request, 'achat');
   const { token, headers } = session;
 
-  // Une parcelle crée automatiquement un producteur.
-  const plantRes = await request.post(`${API}/plantations`, {
-    headers,
-    data: {
-      name: 'Parcelle Achat', owner_name: 'Producteur Achat',
-      country: "Côte d'Ivoire", region: 'Zone-Test', hectares: 2.0,
-    },
+  // L'achat vise les NON-MEMBRES (verrou métier 59eab40 : pour un membre, la
+  // coop saisit une récolte). Le producteur auto-créé avec une parcelle est un
+  // membre : on crée donc explicitement le non-membre auquel on achète.
+  const prodRes = await request.post(`${API}/producers`, {
+    headers, data: { nom_complet: 'Producteur Achat', type_producteur: 'non_membre' },
   });
-  expect([200, 201]).toContain(plantRes.status());
-  const producers = await (await request.get(`${API}/producers?limit=50`, { headers })).json();
-  expect(producers.length, 'producteur auto-créé').toBeGreaterThan(0);
-  const producerId = String(producers[0].id);
+  expect([200, 201], `producteur (${prodRes.status()}): ${await prodRes.text()}`)
+    .toContain(prodRes.status());
+  const producerId = String((await prodRes.json()).id);
 
   // ── UI : connexion puis saisie de l'achat ──
   await loginViaUI(page, session);
