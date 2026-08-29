@@ -2,7 +2,9 @@ name: AgriVision Pro — CI/CD
 
 on:
   push:
-    branches: [main, develop, codex/cacaoguard-fusion]
+    # Les branches de travail sont incluses : sans signal CI avant l'intégration,
+    # une régression n'est vue qu'une fois poussée sur la branche de production.
+    branches: [main, develop, codex/cacaoguard-fusion, 'claude/**']
   pull_request:
     branches: [main, codex/cacaoguard-fusion]
   workflow_dispatch:
