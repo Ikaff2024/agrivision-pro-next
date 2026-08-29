@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, openModule } from './helpers/session';
 
 /**
  * Parcours de démonstration / non-régression « bout en bout ».
@@ -36,17 +36,17 @@ test('Parcours démo : connexion → producteur → satellite → EUDR', async (
   // L'atterrissage post-connexion dépend du rôle : on rejoint la page voulue
   // par le menu, comme un utilisateur, au lieu de la supposer.
   await loginViaUI(page, session);
-  await page.click('a.nav-link[data-mod="plantations"]');
+  await openModule(page, 'plantations');
   await page.waitForURL('**/plantations.html');
   await expect(page.getByText('Parcelle Démo').first()).toBeVisible({ timeout: 20_000 });
 
   // ── 3. PRODUCTEURS (le producteur a été auto-créé avec la parcelle) ──
-  await page.click('a.nav-link[data-mod="producers"]');
+  await openModule(page, 'producers');
   await page.waitForURL('**/producers.html');
   await expect(page.getByText('Producteur Démo').first()).toBeVisible({ timeout: 20_000 });
 
   // ── 4. SATELLITE : sélection → coords auto-remplies → Analyser → NDVI réel ──
-  await page.click('a.nav-link[data-mod="satellite"]');
+  await openModule(page, 'satellite');
   await page.waitForURL('**/satellite.html');
   // Les <option> d'un <select> fermé sont "hidden" → attendre 'attached', pas 'visible'.
   await page.waitForSelector('#p-select option[value="' + plantId + '"]', { state: 'attached', timeout: 20_000 });
@@ -57,7 +57,7 @@ test('Parcours démo : connexion → producteur → satellite → EUDR', async (
   await expect(page.locator('#ndvi-num')).not.toHaveText('—', { timeout: 90_000 });
 
   // ── 5. EUDR : la page de conformité s'ouvre ──
-  await page.click('a.nav-link[data-mod="eudr"]');
+  await openModule(page, 'eudr');
   await page.waitForURL('**/eudr.html');
   await expect(page.locator('#sidebar')).toBeVisible();
 });

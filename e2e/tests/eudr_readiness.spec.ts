@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, openModule } from './helpers/session';
 
 /**
  * Tableau « Prêt pour l'EUDR » : le panneau de blocages s'affiche et filtre la table.
@@ -27,7 +27,7 @@ test("EUDR : panneau « Prêt pour l'EUDR » et filtre par blocage", async ({ pa
   // ── UI ──
   await loginViaUI(page, session);
 
-  await page.click('a.nav-link[data-mod="eudr"]');
+  await openModule(page, 'eudr');
   await page.waitForURL('**/eudr.html');
 
   // Panneau readiness : 0 conforme sur 1, carte « Parcelles à délimiter ».

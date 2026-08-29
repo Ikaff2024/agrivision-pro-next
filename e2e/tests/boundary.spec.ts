@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, openModule } from './helpers/session';
 import fs from 'fs';
 
 /**
@@ -71,7 +71,7 @@ test('Délimitation de parcelle → conformité EUDR → DDS PDF', async ({ page
   // ── UI : connexion puis téléchargement du DDS PDF de la parcelle délimitée ──
   await loginViaUI(page, session);
 
-  await page.click('a.nav-link[data-mod="eudr"]');
+  await openModule(page, 'eudr');
   await page.waitForURL('**/eudr.html');
   await expect(page.getByText('Parcelle Tracé').first()).toBeVisible({ timeout: 20_000 });
 

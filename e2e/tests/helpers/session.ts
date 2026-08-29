@@ -97,3 +97,26 @@ export async function loginViaUI(page: Page, session: Session): Promise<void> {
     .poll(() => page.evaluate(() => localStorage.getItem('avp_token')), { timeout: 10_000 })
     .toBeTruthy();
 }
+
+/**
+ * Ouvre un module depuis la barre latérale, comme un utilisateur.
+ *
+ * Depuis 49f73bb0, les piliers du menu (Piloter / Produire / Tracer / Protéger)
+ * sont REPLIABLES et, à la première visite, seul celui de la page courante est
+ * ouvert : le lien existe dans le DOM mais reste invisible tant que son pilier
+ * est replié. Un `page.click` direct échoue donc selon la page de départ. On
+ * déplie le pilier concerné avant de cliquer — c'est le geste réel, et la
+ * navigation par le menu reste couverte.
+ */
+export async function openModule(page: Page, mod: string): Promise<void> {
+  const link = page.locator(`a.nav-link[data-mod="${mod}"]`);
+  await expect(link, `lien de menu « ${mod} »`).toHaveCount(1, { timeout: 20_000 });
+
+  const group = page.locator(`div.sb-grp:has(a.nav-link[data-mod="${mod}"])`);
+  if ((await group.count()) === 1 && (await group.isHidden())) {
+    // L'en-tête repliable précède immédiatement le conteneur du pilier.
+    await group.locator('xpath=preceding-sibling::button[contains(@class,"sb-sec")][1]').click();
+    await expect(group, `pilier de « ${mod} » déplié`).toBeVisible();
+  }
+  await link.click();
+}

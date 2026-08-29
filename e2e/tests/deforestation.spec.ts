@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, loginViaUI, openSession } from './helpers/session';
+import { API, loginViaUI, openSession, openModule } from './helpers/session';
 
 /**
  * Contrôle de déforestation automatique (satellite GFW → EUDR R6) depuis l'UI.
@@ -56,7 +56,7 @@ test('Déforestation satellite (GFW → EUDR R6) depuis la page EUDR', async ({ 
   // ── UI : page EUDR → bouton Déforestation ──
   await loginViaUI(page, session);
 
-  await page.click('a.nav-link[data-mod="eudr"]');
+  await openModule(page, 'eudr');
   await page.waitForURL('**/eudr.html');
   await expect(page.getByText('Parcelle Defo').first()).toBeVisible({ timeout: 20_000 });
 

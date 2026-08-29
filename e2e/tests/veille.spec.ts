@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginViaUI, openSession } from './helpers/session';
+import { loginViaUI, openSession, openModule } from './helpers/session';
 
 /**
  * Veille Marché Cacao : la page se charge via notre stack (initApp + authFetch),
@@ -15,7 +15,7 @@ test('Veille Marché : chargement + dégradation gracieuse', async ({ page, requ
   await loginViaUI(page, session);
 
   // Le lien Veille Marché est visible (plan enterprise par défaut → premium inclus).
-  await page.click('a.nav-link[data-mod="veille"]');
+  await openModule(page, 'veille');
   await page.waitForURL('**/veille.html');
 
   // Compteur EUDR (calcul client) : un nombre, pas le tiret initial.
