@@ -37,7 +37,7 @@ test('EUDR : génération et téléchargement du DDS PDF', async ({ page, reques
   // ── Téléchargement du DDS PDF (cgFetch → blob → ancre <a download>) ──
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),
-    page.click('button:has-text("DDS")'),
+    page.locator('#rows button', { hasText: 'DDS' }).first().click(),
   ]);
   expect(download.suggestedFilename(), 'nom de fichier').toMatch(/\.pdf$/i);
 

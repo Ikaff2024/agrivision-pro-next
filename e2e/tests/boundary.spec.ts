@@ -77,7 +77,7 @@ test('Délimitation de parcelle → conformité EUDR → DDS PDF', async ({ page
 
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),
-    page.click('button:has-text("DDS")'),
+    page.locator('#rows button', { hasText: 'DDS' }).first().click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
   const path = await download.path();

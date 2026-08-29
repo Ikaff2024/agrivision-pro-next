@@ -65,7 +65,9 @@ test('Déforestation satellite (GFW → EUDR R6) depuis la page EUDR', async ({ 
       r.request().method() === 'POST' &&
       new URL(r.url()).pathname.endsWith(`/plantations/${plantId}/deforestation-check/auto`),
     ),
-    page.click('button:has-text("Déforestation")'),
+    // Le bouton de la LIGNE, pas le contrôle par lot « Vérifier la déforestation
+    // (toutes) » du bandeau : les deux libellés contiennent « Déforestation ».
+    page.locator('#rows button', { hasText: 'Déforestation' }).first().click(),
   ]);
   expect(resp.status(), 'auto-check 201').toBe(201);
 
