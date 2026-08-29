@@ -412,7 +412,18 @@ function renderContent(stats) {
     '<div id="filter-summary" style="margin-bottom:12px;padding:10px 16px;background:var(--surface-warm);border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--muted);align-items:center;justify-content:space-between;display:none"></div>' +
     '<div class="h-table-wrap" id="table-wrap"></div>';
 
-  if (stats.count_total > 0) renderChart(stats);
+  // Le graphique s'appuie sur une bibliotheque servie par CDN. Hors ligne (usage
+  // terrain, coeur du produit) ou CDN indisponible, `new Chart` leve -- et le
+  // TABLEAU des recoltes, rendu juste apres, ne s'affichait plus du tout : la
+  // page perdait sa donnee metier a cause de son illustration. On isole donc
+  // l'echec du graphique ; le tableau reste rendu dans tous les cas.
+  if (stats.count_total > 0) {
+    try {
+      renderChart(stats);
+    } catch (e) {
+      console.warn("[harvests] Graphique indisponible (bibliotheque non chargee) :", e);
+    }
+  }
   renderTable();
 }
 
