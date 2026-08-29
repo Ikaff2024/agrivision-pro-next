@@ -1,29 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Jumeau de parcelle (FEATURE-PARCEL-360) : la fiche plantation affiche la
  * synthèse « Jumeau » + les alertes par règles (vue agrégée sur l'existant).
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Twin ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.twin.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
-
 test('Jumeau de parcelle : synthèse + alertes sur la fiche plantation', async ({ page, request }) => {
   test.slow();
 
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok()).toBeTruthy();
-  const token = (await login.json()).access_token as string;
+  const session = await openSession(request, 'twin');
+  const { token } = session;
 
   // Parcelle nue (sans délimitation) → doit générer des alertes.
   const plantRes = await request.post(`${API}/plantations`, {
@@ -37,15 +24,7 @@ test('Jumeau de parcelle : synthèse + alertes sur la fiche plantation', async (
   const plantId = (await plantRes.json()).id;
 
   // ── UI : fiche plantation ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   await page.goto(`/plantation_detail.html?id=${plantId}`);
 

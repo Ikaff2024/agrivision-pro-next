@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUI, openSession } from './helpers/session';
 
 /**
  * Veille Marché Cacao : la page se charge via notre stack (initApp + authFetch),
@@ -6,32 +7,12 @@ import { test, expect } from '@playwright/test';
  * quand le service IA n'est pas configuré (cas CI : pas de clé → fallback).
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Veille ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.veille.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
-
 test('Veille Marché : chargement + dégradation gracieuse', async ({ page, request }) => {
   test.slow();
 
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
+  const session = await openSession(request, 'veille');
 
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   // Le lien Veille Marché est visible (plan enterprise par défaut → premium inclus).
   await page.click('a.nav-link[data-mod="veille"]');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Contrôle de déforestation automatique (satellite GFW → EUDR R6) depuis l'UI.
@@ -11,12 +12,6 @@ import { test, expect } from '@playwright/test';
  * agnostique : il vérifie qu'un contrôle est créé via une source satellite.
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Defo ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.defo.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
 const LAT = 6.05, LNG = -6.95, HA = 3.0;
 
 function squareGeometry() {
@@ -35,16 +30,8 @@ function squareGeometry() {
 test('Déforestation satellite (GFW → EUDR R6) depuis la page EUDR', async ({ page, request }) => {
   test.slow();
 
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok()).toBeTruthy();
-  const token = (await login.json()).access_token as string;
-  const headers = { Authorization: `Bearer ${token}` };
+  const session = await openSession(request, 'defo');
+  const { token, headers } = session;
 
   const plantRes = await request.post(`${API}/plantations`, {
     headers,
@@ -67,15 +54,7 @@ test('Déforestation satellite (GFW → EUDR R6) depuis la page EUDR', async ({ 
   expect(before.count).toBe(0);
 
   // ── UI : page EUDR → bouton Déforestation ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   await page.click('a.nav-link[data-mod="eudr"]');
   await page.waitForURL('**/eudr.html');

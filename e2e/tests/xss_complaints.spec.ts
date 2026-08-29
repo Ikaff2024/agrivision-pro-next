@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Non-régression SÉCURITÉ — XSS stocké via le formulaire public de signalement.
@@ -18,8 +19,6 @@ import { test, expect } from '@playwright/test';
  * Backend éphémère attendu sur AVP_API_URL (défaut : instance locale 8010).
  */
 
-const API = process.env.AVP_API_URL || 'http://127.0.0.1:8010';
-
 // Balise directe, attribut d'événement, sortie d'attribut, sortie de <option>.
 const PAYLOADS = [
   '<script>window.__xss=1</script>',
@@ -28,24 +27,10 @@ const PAYLOADS = [
   '</option><script>window.__xss=1</script>',
 ];
 
-const STAMP = Date.now();
-const EMAIL = `xss-${STAMP}@e2e.ci`;
-const PASSWORD = 'testpass123';
-const COOP = `Coop XSS ${STAMP}`;
-
 test('Un signalement public piégé ne s\'exécute pas dans la console admin', async ({ page }) => {
   // ── 1. Coopérative + admin jetables, via l'API ────────────────────────────
-  const reg = await page.request.post(`${API}/auth/register`, {
-    data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-  });
-  expect(reg.ok(), await reg.text()).toBeTruthy();
-
-  const login = await page.request.post(`${API}/auth/login`, {
-    data: { email: EMAIL, password: PASSWORD },
-  });
-  expect(login.ok(), await login.text()).toBeTruthy();
-  const token = (await login.json()).access_token;
-  const auth = { Authorization: `Bearer ${token}` };
+  const session = await openSession(page.request, 'xss');
+  const auth = session.headers;
 
   const me = await page.request.get(`${API}/me`, { headers: auth });
   const coopId = (await me.json()).cooperative_id;
@@ -67,24 +52,12 @@ test('Un signalement public piégé ne s\'exécute pas dans la console admin', a
   }
 
   // ── 3. L'administrateur ouvre sa console ──────────────────────────────────
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-
   // Un dialog natif déclenché par une charge utile ferait passer le test sans
   // ce garde-fou : on considère toute boîte de dialogue comme un échec.
   let dialogSeen = false;
   page.on('dialog', async (d) => { dialogSeen = true; await d.dismiss(); });
 
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  // La page d'atterrissage dépend du plan/rôle : on attend simplement d'avoir
-  // quitté l'écran de connexion, puis on navigue explicitement.
-  await page.waitForURL((url) => !url.pathname.endsWith('/login.html'), { timeout: 30_000 });
-
+  await loginViaUI(page, session);
   await page.goto('/complaints.html');
   await expect(page.locator('#rows tr').first()).toBeVisible({ timeout: 20_000 });
 

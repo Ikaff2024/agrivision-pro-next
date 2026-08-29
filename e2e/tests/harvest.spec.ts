@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Récolte avec n° de reçu d'achat (Point #4 du backlog).
@@ -8,27 +9,15 @@ import { test, expect } from '@playwright/test';
  * récolte et on confirme que le n° de reçu apparaît dans le tableau.
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
 const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Recolte ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.recolte.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
 const RECEIPT = `REC-E2E-${STAMP}`;
 
 test("Récolte : saisie avec n° de reçu d'achat (Point #4)", async ({ page, request }) => {
   test.slow();
 
   // ── Setup API : compte admin + parcelle ──
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok(), `login API (${login.status()})`).toBeTruthy();
-  const token = (await login.json()).access_token as string;
+  const session = await openSession(request, 'recolte');
+  const { token } = session;
   const plantRes = await request.post(`${API}/plantations`, {
     headers: { Authorization: `Bearer ${token}` },
     data: {
@@ -41,15 +30,7 @@ test("Récolte : saisie avec n° de reçu d'achat (Point #4)", async ({ page, re
   const plantId = String((await plantRes.json()).id);
 
   // ── Connexion UI ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   // ── Page Récoltes : choisir la parcelle (révèle le bouton de saisie) ──
   await page.goto('/harvests.html');

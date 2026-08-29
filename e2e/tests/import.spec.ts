@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginViaUI, openSession } from './helpers/session';
 import path from 'path';
 
 /**
@@ -11,34 +12,15 @@ import path from 'path';
  * Vérifie de bout en bout la fonctionnalité d'annulation d'import (6d47701).
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Import ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.import.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
 const FIXTURE = path.join(__dirname, '..', 'fixtures', 'registre_demo_e2e.xlsx');
 
 test("Import de registre + annulation du lot (Point #3)", async ({ page, request }) => {
   test.slow();
 
   // ── Setup API : compte admin (coop vierge) ──
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
+  const session = await openSession(request, 'import');
 
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   // ── Page Import : téléverser le fichier, prévisualiser, lancer l'import ──
   await page.goto('/import.html');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Suivi des paiements producteurs : soldes dûs + règlement groupé depuis l'UI.
@@ -7,26 +8,11 @@ import { test, expect } from '@playwright/test';
  * « Soldes à payer par producteur » affiche le dû, on règle, le solde tombe à 0.
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Pay ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.pay.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
-
 test('Paiements producteurs : solde dû puis règlement groupé', async ({ page, request }) => {
   test.slow();
 
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok()).toBeTruthy();
-  const token = (await login.json()).access_token as string;
-  const headers = { Authorization: `Bearer ${token}` };
+  const session = await openSession(request, 'pay');
+  const { token, headers } = session;
 
   // Parcelle (auto-crée un producteur) → récupérer le producteur.
   await request.post(`${API}/plantations`, {
@@ -49,15 +35,7 @@ test('Paiements producteurs : solde dû puis règlement groupé', async ({ page,
   }
 
   // ── UI : page Achats ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   await page.goto('/achats.html');
   const balances = page.locator('#bal-tbody');

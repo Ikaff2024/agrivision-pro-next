@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Achats producteurs : enregistrement d'un achat depuis l'UI.
@@ -7,26 +8,13 @@ import { test, expect } from '@playwright/test';
  * vérification que le compteur d'achats passe à 1.
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
 const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Achat ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.achat.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
 
 test('Achats : enregistrer un achat producteur', async ({ page, request }) => {
   test.slow();
 
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok()).toBeTruthy();
-  const token = (await login.json()).access_token as string;
-  const headers = { Authorization: `Bearer ${token}` };
+  const session = await openSession(request, 'achat');
+  const { token, headers } = session;
 
   // Une parcelle crée automatiquement un producteur.
   const plantRes = await request.post(`${API}/plantations`, {
@@ -42,15 +30,7 @@ test('Achats : enregistrer un achat producteur', async ({ page, request }) => {
   const producerId = String(producers[0].id);
 
   // ── UI : connexion puis saisie de l'achat ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  await loginViaUI(page, session);
 
   await page.goto('/achats.html');
   await page.waitForSelector(`#b-producer option[value="${producerId}"]`, { state: 'attached', timeout: 20_000 });

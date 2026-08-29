@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API, loginViaUI, openSession } from './helpers/session';
 
 /**
  * Parcours de démonstration / non-régression « bout en bout ».
@@ -13,26 +14,12 @@ import { test, expect } from '@playwright/test';
  * sur un compte existant (démo « riche »), définir AVP_TEST_EMAIL / AVP_TEST_PASSWORD.
  */
 
-const API = process.env.AVP_API_URL || 'https://agrivision-api-production.up.railway.app';
-const STAMP = Date.now();
-const COOP = process.env.AVP_TEST_COOP || `E2E Demo ${STAMP}`;
-const EMAIL = process.env.AVP_TEST_EMAIL || `e2e.${STAMP}@agrivision.test`;
-const PASSWORD = process.env.AVP_TEST_PASSWORD || 'E2eDemo!234';
-const REUSE = !!process.env.AVP_TEST_EMAIL;
-
 test('Parcours démo : connexion → producteur → satellite → EUDR', async ({ page, request }) => {
   test.slow(); // analyse satellite réelle = peut être longue
 
   // ── 1. SETUP via API : compte (coop fondatrice = admin) + 1 parcelle GPS ──
-  if (!REUSE) {
-    const reg = await request.post(`${API}/auth/register`, {
-      data: { email: EMAIL, password: PASSWORD, role: 'admin', cooperative_name: COOP, country: 'CI' },
-    });
-    expect(reg.ok(), `register a échoué (${reg.status()}): ${await reg.text()}`).toBeTruthy();
-  }
-  const login = await request.post(`${API}/auth/login`, { data: { email: EMAIL, password: PASSWORD } });
-  expect(login.ok(), `login API a échoué (${login.status()})`).toBeTruthy();
-  const token = (await login.json()).access_token as string;
+  const session = await openSession(request, 'demo');
+  const { token } = session;
 
   const plantRes = await request.post(`${API}/plantations`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -45,17 +32,12 @@ test('Parcours démo : connexion → producteur → satellite → EUDR', async (
   expect([200, 201], `création plantation (${plantRes.status()})`).toContain(plantRes.status());
   const plantId = String((await plantRes.json()).id);
 
-  // ── 2. Injecter l'API réelle même servi en local, puis CONNEXION via l'UI ──
-  await page.addInitScript((api) => {
-    (window as any).AGRIVISION_API_BASE = api;
-    (window as any).CG_API_BASE = api;
-  }, API);
-
-  await page.goto('/login.html');
-  await page.fill('#email', EMAIL);
-  await page.fill('#pass', PASSWORD);
-  await page.click('#btn');
-  await page.waitForURL('**/plantations.html', { timeout: 30_000 });
+  // ── 2. CONNEXION via l'UI, puis navigation vers les PARCELLES ──
+  // L'atterrissage post-connexion dépend du rôle : on rejoint la page voulue
+  // par le menu, comme un utilisateur, au lieu de la supposer.
+  await loginViaUI(page, session);
+  await page.click('a.nav-link[data-mod="plantations"]');
+  await page.waitForURL('**/plantations.html');
   await expect(page.getByText('Parcelle Démo').first()).toBeVisible({ timeout: 20_000 });
 
   // ── 3. PRODUCTEURS (le producteur a été auto-créé avec la parcelle) ──
