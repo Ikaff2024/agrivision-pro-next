@@ -5,15 +5,18 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Deux modes :
  *  1) LOCAL (défaut) : on sert `../frontend` via un petit serveur statique Python
- *     et on injecte l'API Railway réelle dans la page (voir demo.spec.ts).
- *     → teste exactement les fichiers de la branche, contre le vrai backend.
+ *     et on vise un backend éphémère sur 127.0.0.1:8010 (celui que lance la CI).
+ *     → teste exactement les fichiers de la branche, sur une base vierge.
  *  2) DISTANT : si AVP_BASE_URL est défini (ex. l'URL Netlify de staging),
  *     on tape directement dessus et on ne lance pas de serveur local.
  *
+ * Les tests créent TOUTES leurs données (coopérative jetable par test) : aucune
+ * donnée pré-existante n'est supposée, et rien ne dépend de la production.
+ *
  * Variables d'environnement utiles :
- *   AVP_BASE_URL   URL du frontend (défaut http://127.0.0.1:8080, servi localement)
- *   AVP_API_URL    URL du backend  (défaut https://agrivision-api-production.up.railway.app)
- *   AVP_PORT       port du serveur statique local (défaut 8080)
+ *   AVP_BASE_URL   URL du frontend (défaut http://127.0.0.1:5510, servi localement)
+ *   AVP_API_URL    URL du backend  (défaut http://127.0.0.1:8010, instance éphémère)
+ *   AVP_PORT       port du serveur statique local (défaut 5510)
  *   AVP_TEST_EMAIL / AVP_TEST_PASSWORD  réutiliser un compte existant (sinon coop jetable)
  */
 
